@@ -1,0 +1,13 @@
+<Application x:Class="Reqnroll.VisualStudio.Wizards.UI.Tester.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="WizardUiTesterWindow.xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Wizard theme/resource dictionary — same one used inside VS -->
+                <ResourceDictionary Source="pack://application:,,,/Reqnroll.VisualStudio.Wizards.UI;component/WizardResources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

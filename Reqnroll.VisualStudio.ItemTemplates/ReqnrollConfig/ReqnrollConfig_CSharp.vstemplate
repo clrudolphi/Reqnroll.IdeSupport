@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VSTemplate Version="3.0.0" Type="Item" xmlns="http://schemas.microsoft.com/developer/vstemplate/2005">
+  <TemplateData>
+    <DefaultName>reqnroll.json</DefaultName>
+    <Name>Reqnroll configuration file</Name>
+    <Description>A json file containing Reqnroll configuration settings. Place it in the project root.</Description>
+    <ProjectType>CSharp</ProjectType>
+    <Icon>ReqnrollIcon.ico</Icon>
+  </TemplateData>
+  <TemplateContent>
+    <ProjectItem SubType="" TargetFileName="reqnroll.json" ReplaceParameters="true">reqnroll.json</ProjectItem>
+  </TemplateContent>
+<!-- The wizard extension is required to add the .json file icon to the newly created item. -->
+
+  <WizardExtension>
+    <Assembly>Reqnroll.VisualStudio.Wizards,Version=1.0.0.0,Culture=neutral,PublicKeyToken=611ce36403091019</Assembly>
+    <FullClassName>Reqnroll.VisualStudio.Wizards.VsIntegration.VsReqnrollConfigFileWizard</FullClassName>
+  </WizardExtension>
+</VSTemplate>

@@ -1,0 +1,18 @@
+<Window x:Class="Reqnroll.VisualStudio.Wizards.UI.Tester.WizardUiTesterWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Reqnroll Wizard UI Tester" Height="260" Width="360"
+        WindowStartupLocation="CenterScreen">
+    <StackPanel Margin="20" VerticalAlignment="Center">
+        <TextBlock Text="Wizard Dialog Harness" FontSize="16" FontWeight="Bold" Margin="0,0,0,16"/>
+
+        <Button Content="Welcome Dialog"
+                Click="ShowWelcomeDialog_Click" Margin="0,4"/>
+
+        <Button Content="Upgrade Dialog"
+                Click="ShowUpgradeDialog_Click" Margin="0,4"/>
+
+        <Button Content="Add New Reqnroll Project Dialog"
+                Click="ShowAddNewProjectDialog_Click" Margin="0,4"/>
+    </StackPanel>
+</Window>
