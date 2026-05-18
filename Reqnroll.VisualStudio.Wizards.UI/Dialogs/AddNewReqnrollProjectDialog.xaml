@@ -5,6 +5,7 @@
                     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                     xmlns:dialogs="clr-namespace:Reqnroll.VisualStudio.Wizards.UI.Dialogs"
                     xmlns:vm="clr-namespace:Reqnroll.VisualStudio.Wizards.UI.ViewModels"
+                    xmlns:localui="clr-namespace:Reqnroll.VisualStudio.Wizards.UI"
                     mc:Ignorable="d"
                     d:DataContext="{Binding Source={x:Static vm:AddNewReqnrollProjectViewModel.DesignData}}"
                     DataContext="{Binding ViewModel, RelativeSource={RelativeSource Self}}"
@@ -24,7 +25,7 @@
     <dialogs:WizardWindow.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="..\WizardResources.xaml" />
+                <localui:WizardResources />
             </ResourceDictionary.MergedDictionaries>
             <Style x:Key="TitleBarButtonStyle" TargetType="{x:Type Button}"
                    BasedOn="{StaticResource VsCloseButton}">

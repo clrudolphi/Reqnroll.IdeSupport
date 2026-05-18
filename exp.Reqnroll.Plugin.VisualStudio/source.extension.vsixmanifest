@@ -3,7 +3,7 @@
   <Metadata>
     <Identity Id="exp.Reqnroll.Plugin.VisualStudio.0dfcd8a9-b274-443a-b9bc-dc254ed209b9" Version="1.0" Language="en-US" Publisher="Reqnroll" />
     <DisplayName>Reqnroll.Plugin.VisualStudio</DisplayName>
-    <Description>Visual Studio extension (for VS2022 and VS2026) for Reqnroll</Description>
+    <Description>Experimental Visual Studio extension (for VS2022 and VS2026) for Reqnroll</Description>
     <Preview>true</Preview>
   </Metadata>
   <Installation ExtensionType="VSSDK+VisualStudio.Extensibility">
@@ -13,16 +13,16 @@
     <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.14,)">
       <ProductArchitecture>arm64</ProductArchitecture>
     </InstallationTarget>
-    <InstallationTarget Version="[17.0,18.0)" Id="Microsoft.VisualStudio.Pro">
+    <InstallationTarget Version="[17.14,)" Id="Microsoft.VisualStudio.Pro">
       <ProductArchitecture>amd64</ProductArchitecture>
     </InstallationTarget>
-    <InstallationTarget Version="[17.0,18.0)" Id="Microsoft.VisualStudio.Pro">
+    <InstallationTarget Version="[17.14,)" Id="Microsoft.VisualStudio.Pro">
       <ProductArchitecture>arm64</ProductArchitecture>
     </InstallationTarget>
-    <InstallationTarget Version="[17.0,18.0)" Id="Microsoft.VisualStudio.Enterprise">
+    <InstallationTarget Version="[17.14,)" Id="Microsoft.VisualStudio.Enterprise">
       <ProductArchitecture>amd64</ProductArchitecture>
     </InstallationTarget>
-    <InstallationTarget Version="[17.0,18.0)" Id="Microsoft.VisualStudio.Enterprise">
+    <InstallationTarget Version="[17.14,)" Id="Microsoft.VisualStudio.Enterprise">
       <ProductArchitecture>arm64</ProductArchitecture>
     </InstallationTarget>
   </Installation>

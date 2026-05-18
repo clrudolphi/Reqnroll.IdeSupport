@@ -1,5 +1,10 @@
 <Solution>
-    <Project Path="exp.Reqnroll.Plugin.VisualStudio/exp.Reqnroll.Plugin.VisualStudio.csproj" />
+    <Folder Name="/SolutionItems/">
+        <File Path="README.md" />
+    </Folder>
+    <Project Path="exp.Reqnroll.Plugin.VisualStudio/exp.Reqnroll.Plugin.VisualStudio.csproj">
+        <Deploy Solution="Debug|*" />
+    </Project>
     <Project Path="Reqnroll.IDE.Common/Reqnroll.IDE.Common.csproj" Id="9b9365f9-b9e0-48cf-a611-af594033611e" />
     <Project Path="Reqnroll.VisualStudio.ItemTemplates/Reqnroll.VisualStudio.ItemTemplates.csproj" />
     <Project Path="Reqnroll.VisualStudio.ProjectTemplate/Reqnroll.VisualStudio.ProjectTemplate.csproj" />

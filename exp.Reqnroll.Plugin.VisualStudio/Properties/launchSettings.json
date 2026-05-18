@@ -7,7 +7,8 @@
     "Experimental Instance w ActivityLog": {
       "commandName": "Executable",
       "executablePath": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\devenv.exe",
-      "commandLineArgs": "/rootSuffix Exp /Log"
+      "commandLineArgs": "/rootSuffix Exp /Log",
+      "debugEngines": "managed"
     }
   }
 }
