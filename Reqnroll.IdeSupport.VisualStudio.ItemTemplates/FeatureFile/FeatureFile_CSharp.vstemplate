@@ -1,0 +1,18 @@
+<VSTemplate Version="3.0.0" xmlns="http://schemas.microsoft.com/developer/vstemplate/2005" Type="Item">
+  <TemplateData>
+    <DefaultName>Feature.feature</DefaultName>
+    <Name>Feature File for Reqnroll</Name>
+    <Description>A feature file containing executable specification in a form of BDD Gherkin scenarios.</Description>
+    <ProjectType>CSharp</ProjectType>
+    <NumberOfParentCategoriesToRollUp>1</NumberOfParentCategoriesToRollUp>
+    <Icon>ReqnrollIcon.ico</Icon>
+  </TemplateData>
+  <TemplateContent>
+    <ProjectItem SubType="" TargetFileName="$fileinputname$.feature" ReplaceParameters="true">Feature1.feature</ProjectItem>
+  </TemplateContent>
+  <!-- The wizard extension is required to add the .feature file icon to the newly created item. -->
+  <WizardExtension>
+    <Assembly>Reqnroll.IdeSupport.VisualStudio.Wizards,Version=1.0.0.0,Culture=neutral,PublicKeyToken=611ce36403091019</Assembly>
+    <FullClassName>Reqnroll.IdeSupport.VisualStudio.Wizards.VsIntegration.VsFeatureFileWizard</FullClassName>
+  </WizardExtension>
+</VSTemplate>

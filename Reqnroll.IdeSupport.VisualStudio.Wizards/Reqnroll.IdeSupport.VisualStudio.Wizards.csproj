@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+
+  <PropertyGroup>
+    <TargetFramework>net481</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <LangVersion>10.0</LangVersion>
+    <RootNamespace>Reqnroll.IdeSupport.VisualStudio.Wizards</RootNamespace>
+    <AssemblyName>Reqnroll.IdeSupport.VisualStudio.Wizards</AssemblyName>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>..\reqnroll.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <!--
+    VS SDK references are ONLY needed by the VsIntegration layer.
+    All WPF UI lives in Reqnroll.IdeSupport.VisualStudio.Wizards.UI.
+    All VS-SDK-free logic lives in Reqnroll.IdeSupport.VisualStudio.Wizards.Core.
+
+  -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\Reqnroll.IdeSupport.VisualStudio.VSSDKIntegration\Reqnroll.IdeSupport.VisualStudio.VSSDKIntegration.csproj" />
+    <ProjectReference Include="..\Reqnroll.IdeSupport.VisualStudio.Wizards.Core\Reqnroll.IdeSupport.VisualStudio.Wizards.Core.csproj" />
+    <ProjectReference Include="..\Reqnroll.IdeSupport.VisualStudio.Wizards.UI\Reqnroll.IdeSupport.VisualStudio.Wizards.UI.csproj" />
+  </ItemGroup>
+
+</Project>

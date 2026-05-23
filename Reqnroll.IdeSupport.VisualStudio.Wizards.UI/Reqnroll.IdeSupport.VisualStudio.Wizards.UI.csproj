@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+
+  <PropertyGroup>
+    <TargetFramework>net481</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <LangVersion>11.0</LangVersion>
+    <RootNamespace>Reqnroll.IdeSupport.VisualStudio.Wizards.UI</RootNamespace>
+    <AssemblyName>Reqnroll.IdeSupport.VisualStudio.Wizards.UI</AssemblyName>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>..\reqnroll.snk</AssemblyOriginatorKeyFile>
+      <!--
+      Intentionally NO VS SDK references.
+      This assembly must remain hostable by a plain WPF test harness
+      (e.g. Reqnroll.IdeSupport.VisualStudio.Wizards.UI.Tester) without requiring
+      a live VS process or VS SDK assemblies on disk.
+    -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Reqnroll.IdeSupport.VisualStudio.Wizards.Core\Reqnroll.IdeSupport.VisualStudio.Wizards.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\reqnroll-icon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net481</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <LangVersion>10.0</LangVersion>
+    <RootNamespace>Reqnroll.IdeSupport.VisualStudio.VSSDKIntegration</RootNamespace>
+    <AssemblyName>Reqnroll.IdeSupport.VisualStudio.VSSDKIntegration</AssemblyName>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>..\reqnroll.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.SDK" Version="17.14.40265" />
+    <PackageReference Include="NuGet.VisualStudio" Version="17.14.0" />
+    <PackageReference Include="NuGet.VisualStudio.Contracts" Version="17.14.0" />
+    <PackageReference Include="System.Collections.Immutable" Version="9.0.0" />
+    <PackageReference Include="System.IO.Abstractions" Version="22.1.1" />
+    <PackageReference Include="System.Threading.Channels" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Reqnroll.IdeSupport.Common\Reqnroll.IdeSupport.Common.csproj" />
+  </ItemGroup>
+
+</Project>
