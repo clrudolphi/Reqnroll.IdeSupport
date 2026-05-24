@@ -17,7 +17,6 @@ public interface IGherkinTextSnapshotLine
 {
     int LineNumber { get; }           // 0-based
     int Start { get; }                // char offset from document start
-    int End { get; }                  // exclusive, before line-ending chars
-    int EndIncludingLineBreak { get; }
+    int End { get; }                  // incluise of line break chars   
     string GetText();
 }
