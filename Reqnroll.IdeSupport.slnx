@@ -1,19 +1,29 @@
 <Solution>
     <Folder Name="/SolutionItems/">
         <File Path="README.md" />
+        <File Path="Directory.Build.props" />
+        <File Path="build/Version.props" />
     </Folder>
-    <Project Path="Reqnroll.IdeSupport.Common/Reqnroll.IdeSupport.Common.csproj" Id="9b9365f9-b9e0-48cf-a611-af594033611e" />
-    <Project Path="Reqnroll.IdeSupport.LSPServer.Core/Reqnroll.IdeSupport.LSPServer.Core.csproj" Id="16e03b10-2c4b-49e5-8792-894d8f77e9cd" />
-    <Project Path="Reqnroll.IdeSupport.LSPServer/Reqnroll.IdeSupport.LSPServer.csproj" Id="2d84ec01-09b0-4cf3-8d41-866963c44045" />
-    <Project Path="Reqnroll.IdeSupport.ReqnrollConnector.Models/Reqnroll.IdeSupport.ReqnrollConnector.Models.csproj" />
-    <Project Path="Reqnroll.IdeSupport.VisualStudio.ItemTemplates/Reqnroll.IdeSupport.VisualStudio.ItemTemplates.csproj" />
-    <Project Path="Reqnroll.IdeSupport.VisualStudio.Package/Reqnroll.IdeSupport.VisualStudio.Package.csproj">
-        <Deploy Solution="Debug|*" />
-    </Project>
-    <Project Path="Reqnroll.IdeSupport.VisualStudio.ProjectTemplate/Reqnroll.IdeSupport.VisualStudio.ProjectTemplate.csproj" />
-    <Project Path="Reqnroll.IdeSupport.VisualStudio.VSSDKIntegration/Reqnroll.IdeSupport.VisualStudio.VSSDKIntegration.csproj" Id="2a25a5d5-1e64-49cd-8a01-0a6b98ba17e9" />
-    <Project Path="Reqnroll.IdeSupport.VisualStudio.Wizards.Core/Reqnroll.IdeSupport.VisualStudio.Wizards.Core.csproj" />
-    <Project Path="Reqnroll.IdeSupport.VisualStudio.Wizards.UI/Reqnroll.IdeSupport.VisualStudio.Wizards.UI.csproj" />
-    <Project Path="Reqnroll.IdeSupport.VisualStudio.Wizards/Reqnroll.IdeSupport.VisualStudio.Wizards.csproj" />
-    <Project Path="Tests/Reqnroll.IdeSupport.VisualStudio.Wizards.UI.Tester/Reqnroll.IdeSupport.VisualStudio.Wizards.UI.Tester.csproj" />
+    <Folder Name="/Core/">
+        <Project Path="src/Core/Reqnroll.IdeSupport.Common/Reqnroll.IdeSupport.Common.csproj" Id="9b9365f9-b9e0-48cf-a611-af594033611e" />
+        <Project Path="src/Core/Reqnroll.IdeSupport.ReqnrollConnector.Models/Reqnroll.IdeSupport.ReqnrollConnector.Models.csproj" />
+    </Folder>
+    <Folder Name="/LSP/">
+        <Project Path="src/LSP/Reqnroll.IdeSupport.LSP.Core/Reqnroll.IdeSupport.LSP.Core.csproj" Id="16e03b10-2c4b-49e5-8792-894d8f77e9cd" />
+        <Project Path="src/LSP/Reqnroll.IdeSupport.LSP.Server/Reqnroll.IdeSupport.LSP.Server.csproj" Id="2d84ec01-09b0-4cf3-8d41-866963c44045" />
+    </Folder>
+    <Folder Name="/VisualStudio/">
+        <Project Path="src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Extension/Reqnroll.IdeSupport.VisualStudio.Extension.csproj">
+            <Deploy Solution="Debug|*" />
+        </Project>
+        <Project Path="src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.ItemTemplates/Reqnroll.IdeSupport.VisualStudio.ItemTemplates.csproj" />
+        <Project Path="src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.ProjectTemplate/Reqnroll.IdeSupport.VisualStudio.ProjectTemplate.csproj" />
+        <Project Path="src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.VSSDKIntegration/Reqnroll.IdeSupport.VisualStudio.VSSDKIntegration.csproj" Id="2a25a5d5-1e64-49cd-8a01-0a6b98ba17e9" />
+        <Project Path="src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Wizards/Reqnroll.IdeSupport.VisualStudio.Wizards.csproj" />
+        <Project Path="src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Wizards.Core/Reqnroll.IdeSupport.VisualStudio.Wizards.Core.csproj" />
+        <Project Path="src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Wizards.UI/Reqnroll.IdeSupport.VisualStudio.Wizards.UI.csproj" />
+    </Folder>
+    <Folder Name="/Tests/">
+        <Project Path="tests/Reqnroll.IdeSupport.VisualStudio.Wizards.UI.Tester/Reqnroll.IdeSupport.VisualStudio.Wizards.UI.Tester.csproj" />
+    </Folder>
 </Solution>
