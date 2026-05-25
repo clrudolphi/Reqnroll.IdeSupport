@@ -65,7 +65,7 @@ public class LspTextSnapshot : IGherkinTextSnapshot
         if (lineStart <= _text.Length)
         {
             int length = _text.Length - lineStart;
-            lines.Add(new LspTextSnapshotLine(this, lineNumber, lineStart, _text.Length - 1));
+            lines.Add(new LspTextSnapshotLine(this, lineNumber, lineStart, _text.Length));
         }
 
         return lines;
@@ -87,7 +87,7 @@ public class LspTextSnapshotLine : IGherkinTextSnapshotLine
     }
 
     public int LineNumber { get; }
-    public int Start { get; }
-    public int End { get; }
+    public int Start => _start;
+    public int End => _end;
     public string GetText() => _snapshot.GetText().Substring(_start, _end - _start);
 }

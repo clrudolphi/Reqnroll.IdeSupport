@@ -94,11 +94,21 @@ public sealed class SemanticTokenService : ISemanticTokenService, IDisposable
     }
 
     // ── ISemanticTokenService ─────────────────────────────────────────────────
-    public Task<SemanticTokens?> GetSemanticTokensAsync(
+    public async Task<SemanticTokens?> GetSemanticTokensAsync(
         DocumentUri uri, int version, CancellationToken cancellationToken = default)
     {
-        _cache.TryGetValue((uri, version), out var tokens);
-        return Task.FromResult<SemanticTokens?>(tokens);
+        if (_cache.TryGetValue((uri, version), out var tokens))
+            return tokens;
+
+        // Cache miss – ask the tagger to parse on-demand and encode the result.
+        var tags = await _taggerService.GetTagsAsync(uri, version).ConfigureAwait(false);
+        if (tags.Count == 0)
+            return null;
+
+        var encoded = Encode(tags);
+        tokens = new SemanticTokens { Data = [.. encoded] };
+        _cache[(uri, version)] = tokens;
+        return tokens;
     }
 
     // ── Event handler ─────────────────────────────────────────────────────────
@@ -224,9 +234,9 @@ public sealed class SemanticTokenService : ISemanticTokenService, IDisposable
                 }
             }
 
-            // Recurse into child tags regardless of whether the parent was emitted.
-            if (tag.ChildTags.Count > 0)
-                CollectLeafTokens(tag.ChildTags, entries);
+            // Do NOT recurse into ChildTags – the flat collection passed from
+            // GherkinDocumentTaggerService already contains all descendants
+            // (DeveroomTagParser.GetAllTags flattens the tree before caching).
         }
     }
 
@@ -267,14 +277,6 @@ public sealed class SemanticTokenService : ISemanticTokenService, IDisposable
                 tokenType = TokenType.Comment;
                 return true;
 
-            case DeveroomTagTypes.FeatureBlock:
-            case DeveroomTagTypes.RuleBlock:
-            case DeveroomTagTypes.ScenarioDefinitionBlock:
-            case DeveroomTagTypes.ExamplesBlock:
-                tokenType = TokenType.Class;
-                modifiers = TokenModifier.Declaration;
-                return true;
-
             case DeveroomTagTypes.DefinedStep:
                 tokenType = TokenType.Function;
                 return true;
@@ -289,16 +291,20 @@ public sealed class SemanticTokenService : ISemanticTokenService, IDisposable
                 modifiers = TokenModifier.Deprecated;
                 return true;
 
-            case DeveroomTagTypes.DataTable:
             case DeveroomTagTypes.DataTableHeader:
                 tokenType = TokenType.Struct;
+                modifiers = TokenModifier.Declaration;
                 return true;
 
+            // Block/container tags (FeatureBlock, RuleBlock, ScenarioDefinitionBlock,
+            // ExamplesBlock, StepBlock, DataTable) and parse artifacts are skipped –
+            // their child tags provide the precise, non-overlapping tokens.
+            case DeveroomTagTypes.FeatureBlock:
+            case DeveroomTagTypes.RuleBlock:
+            case DeveroomTagTypes.ScenarioDefinitionBlock:
+            case DeveroomTagTypes.ExamplesBlock:
             case DeveroomTagTypes.StepBlock:
-                tokenType = TokenType.Event;
-                return true;
-
-            // Block containers and parse errors are not emitted as tokens.
+            case DeveroomTagTypes.DataTable:
             case DeveroomTagTypes.Document:
             case DeveroomTagTypes.ScenarioHookReference:
             case DeveroomTagTypes.ParserError:

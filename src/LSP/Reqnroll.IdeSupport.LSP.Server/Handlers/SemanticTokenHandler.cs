@@ -98,7 +98,8 @@ public class SemanticTokensHandler : SemanticTokensHandlerBase
         ClientCapabilities clientCapabilities)
         => new()
         {
-            DocumentSelector = TextDocumentSelector.ForLanguage("gherkin"),
+            DocumentSelector = new TextDocumentSelector(
+                new TextDocumentFilter { Pattern = "**/*.feature" }),
             Legend = _semanticTokenService.Legend,
             Full = new BooleanOr<SemanticTokensCapabilityRequestFull>(
                 new SemanticTokensCapabilityRequestFull { Delta = true }),

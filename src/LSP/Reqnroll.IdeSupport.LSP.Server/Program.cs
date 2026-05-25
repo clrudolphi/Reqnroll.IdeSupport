@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Server;
+using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 using Reqnroll.IdeSupport.LSP.Core.Discovery;
@@ -10,6 +11,7 @@ using Reqnroll.IdeSupport.LSP.Server.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Handlers;
 using Reqnroll.IdeSupport.LSP.Server.Services;
+using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server;
 
@@ -39,20 +41,44 @@ public class Program
         });
 
         options.Services
-               .AddSingleton<IDeveroomLogger,                LspDeveroomLogger>()
-               .AddSingleton<IDeveroomConfigurationProvider, LspDeveroomConfigurationProvider>()
-               .AddSingleton<IBindingRegistryProvider,       NullBindingRegistryProvider>()
-               .AddSingleton<IDeveroomTagParser,             DeveroomTagParser>()
-               .AddSingleton<IDocumentBufferService,         DocumentBufferService>()
-               .AddSingleton<IGherkinDocumentTaggerService,  GherkinDocumentTaggerService>()
-               .AddSingleton<ISemanticTokenService,          SemanticTokenService>();
+               .AddSingleton<IDeveroomLogger,                    LspDeveroomLogger>()
+               .AddSingleton<IIdeScope,                          LspIdeScope>()
+               .AddSingleton<IMonitoringService>(sp => NullMonitoringService.Instance)
+               .AddSingleton<IDeveroomConfigurationProvider,     ProjectSystemDeveroomConfigurationProvider>()
+               .AddSingleton<ILspWorkspaceScopeManager,          LspWorkspaceScopeManager>()
+               .AddSingleton<IBindingRegistryProvider,           NullBindingRegistryProvider>()
+               .AddSingleton<IDeveroomTagParser,                 DeveroomTagParser>()
+               .AddSingleton<IDocumentBufferService,             DocumentBufferService>()
+               .AddSingleton<IGherkinDocumentTaggerService,      GherkinDocumentTaggerService>()
+               .AddSingleton<ISemanticTokenService,              SemanticTokenService>()
+               // Handlers must be pre-registered as singletons so DryIoc can resolve
+               // them without an open scope (TrackingDisposableTransients rule).
+               .AddSingleton<TextDocumentSyncHandler>()
+               .AddSingleton<WorkspaceFoldersHandler>()
+               .AddSingleton<SemanticTokensHandler>();
 
         options.AddHandler<TextDocumentSyncHandler>()
+               .AddHandler<WorkspaceFoldersHandler>()
                .AddHandler<SemanticTokensHandler>();
 
         options.OnStarted((languageServer, ct) =>
         {
+            // Resolve SemanticTokenService eagerly so it wires its event subscription
+            // before the first document arrives.
             _ = languageServer.Services.GetRequiredService<ISemanticTokenService>();
+
+            // Seed workspace scopes from the folders sent during the initialize handshake.
+            var scopeManager = languageServer.Services.GetRequiredService<ILspWorkspaceScopeManager>();
+            if (languageServer.ClientSettings.WorkspaceFolders != null)
+            {
+                foreach (var folder in languageServer.ClientSettings.WorkspaceFolders)
+                {
+                    var path = folder.Uri.GetFileSystemPath();
+                    if (!string.IsNullOrEmpty(path))
+                        scopeManager.OpenWorkspace(path);
+                }
+            }
+
             return Task.CompletedTask;
         });
     }

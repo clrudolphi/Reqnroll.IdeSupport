@@ -1,12 +1,11 @@
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common.Diagnostics;
-using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 using Reqnroll.IdeSupport.LSP.Core.Discovery;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
+using Reqnroll.IdeSupport.LSP.Server.Workspace;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Text;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Services;
 
@@ -26,7 +25,7 @@ public class GherkinDocumentTaggerService : IGherkinDocumentTaggerService
 {
     private readonly IDeveroomTagParser _tagParser;
     private readonly IBindingRegistryProvider _bindingRegistryProvider;
-    private readonly IDeveroomConfigurationProvider _configurationProvider;
+    private readonly ILspWorkspaceScopeManager _scopeManager;
     private readonly IDeveroomLogger _logger;
     private readonly IDocumentBufferService _documentBufferService;
     private ConcurrentDictionary<(DocumentUri, int), IReadOnlyCollection<DeveroomTag>> _documentTagsCache = new();
@@ -35,13 +34,13 @@ public class GherkinDocumentTaggerService : IGherkinDocumentTaggerService
         IDocumentBufferService documentBufferService,
         IDeveroomTagParser tagParser,
         IBindingRegistryProvider bindingRegistryProvider,
-        IDeveroomConfigurationProvider configuration,
+        ILspWorkspaceScopeManager scopeManager,
         IDeveroomLogger logger)
     {
         _documentBufferService = documentBufferService;
         _tagParser = tagParser;
         _bindingRegistryProvider = bindingRegistryProvider;
-        _configurationProvider = configuration;
+        _scopeManager = scopeManager;
         _logger = logger;
     }
 
@@ -61,6 +60,7 @@ public class GherkinDocumentTaggerService : IGherkinDocumentTaggerService
                 _logger.LogWarning($"Version mismatch for document {uri}: expected {version}, got {snapshot.Version}");
                 return;
             }
+            var configuration = _scopeManager.GetConfigurationProviderForUri(uri).GetConfiguration();
             var tags = _tagParser.Parse(snapshot);
             _documentTagsCache[(uri, snapshot.Version)] = tags;
             _logger.LogInfo($"Parsed {tags.Count} tags from document {uri}");
@@ -98,6 +98,16 @@ public class GherkinDocumentTaggerService : IGherkinDocumentTaggerService
         {
             return tags;
         }
+
+        // Cache miss – trigger an on-demand parse if the buffer is available.
+        if (_documentBufferService.TryGet(uri, out var buffer) && buffer != null)
+        {
+            _logger.LogInfo($"Cache miss for {uri} v{version} – parsing on demand");
+            await OnDocumentChangedAsync(uri, version).ConfigureAwait(false);
+            if (_documentTagsCache.TryGetValue((uri, version), out tags))
+                return tags;
+        }
+
         _logger.LogWarning($"No tags found in cache for document {uri} with version {version}");
         return Array.Empty<DeveroomTag>();
     }
