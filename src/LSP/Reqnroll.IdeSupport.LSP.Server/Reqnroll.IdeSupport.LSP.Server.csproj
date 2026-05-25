@@ -15,8 +15,4 @@
     <ProjectReference Include="..\Reqnroll.IdeSupport.LSP.Core\Reqnroll.IdeSupport.LSP.Core.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Handlers\" />
-  </ItemGroup>
-
 </Project>

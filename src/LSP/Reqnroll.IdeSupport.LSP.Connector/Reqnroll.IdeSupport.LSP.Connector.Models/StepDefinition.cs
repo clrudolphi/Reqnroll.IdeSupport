@@ -1,6 +1,6 @@
 #nullable disable
 
-namespace Reqnroll.IdeSupport.ReqnrollConnector.Models;
+namespace Reqnroll.IdeSupport.LSP.Connector.Models;
 
 public class StepDefinition
 {

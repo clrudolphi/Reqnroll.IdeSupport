@@ -22,7 +22,7 @@ public class GherkinDocumentTagsChangedEventArgs : EventArgs
         Tags = tags;
     }
 }
-public class GherkinDocumentTaggerService
+public class GherkinDocumentTaggerService : IGherkinDocumentTaggerService
 {
     private readonly IDeveroomTagParser _tagParser;
     private readonly IBindingRegistryProvider _bindingRegistryProvider;
@@ -89,18 +89,9 @@ public class GherkinDocumentTaggerService
 
     public async Task OnDocumentClosedAsync(DocumentUri uri)
     {
-        var keysToRemove = new List<(DocumentUri, int)>();
-        foreach (var key in _documentTagsCache.Keys)
-        {
-            if (key.Item1 == uri)
-                keysToRemove.Add(key);
-        }
-        foreach (var key in keysToRemove)
-        {
-            _documentTagsCache.TryRemove(key, out _);
-            _logger.LogInfo($"Removed tags cache for document {uri} with version {key.Item2}");
-        }
+        PurgeTagsForVersionsPriorTo(uri, int.MaxValue);
     }
+
     public async Task<IReadOnlyCollection<DeveroomTag>> GetTagsAsync(DocumentUri uri, int version)
     {
         if (_documentTagsCache.TryGetValue((uri, version), out var tags))

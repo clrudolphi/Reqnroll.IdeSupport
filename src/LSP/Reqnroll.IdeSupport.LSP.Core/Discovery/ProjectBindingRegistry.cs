@@ -1,6 +1,5 @@
-
 using Gherkin.Ast;
-using Reqnroll.IdeSupport.ReqnrollConnector.Models;
+using Reqnroll.IdeSupport.LSP.Connector.Models;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Threading;

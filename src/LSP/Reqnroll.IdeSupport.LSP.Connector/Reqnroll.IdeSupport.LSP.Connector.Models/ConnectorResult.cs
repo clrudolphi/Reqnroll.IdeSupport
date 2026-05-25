@@ -1,7 +1,7 @@
 #nullable disable
 using System.Collections.Generic;
 
-namespace Reqnroll.IdeSupport.ReqnrollConnector.Models;
+namespace Reqnroll.IdeSupport.LSP.Connector.Models;
 
 public abstract class ConnectorResult
 {

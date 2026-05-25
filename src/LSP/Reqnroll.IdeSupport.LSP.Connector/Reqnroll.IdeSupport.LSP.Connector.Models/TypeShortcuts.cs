@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Reqnroll.IdeSupport.ReqnrollConnector.Models;
+namespace Reqnroll.IdeSupport.LSP.Connector.Models;
 
 public static class TypeShortcuts
 {

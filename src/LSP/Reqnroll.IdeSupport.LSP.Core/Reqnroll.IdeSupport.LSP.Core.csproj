@@ -16,7 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\Reqnroll.IdeSupport.Common\Reqnroll.IdeSupport.Common.csproj" />
-    <ProjectReference Include="..\..\Core\Reqnroll.IdeSupport.ReqnrollConnector.Models\Reqnroll.IdeSupport.ReqnrollConnector.Models.csproj" />
+    <ProjectReference Include="..\Reqnroll.IdeSupport.LSP.Connector\Reqnroll.IdeSupport.LSP.Connector.Models\Reqnroll.IdeSupport.LSP.Connector.Models.csproj" />
   </ItemGroup>
 
 </Project>

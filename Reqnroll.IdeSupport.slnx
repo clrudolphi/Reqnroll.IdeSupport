@@ -6,9 +6,9 @@
     </Folder>
     <Folder Name="/Core/">
         <Project Path="src/Core/Reqnroll.IdeSupport.Common/Reqnroll.IdeSupport.Common.csproj" Id="9b9365f9-b9e0-48cf-a611-af594033611e" />
-        <Project Path="src/Core/Reqnroll.IdeSupport.ReqnrollConnector.Models/Reqnroll.IdeSupport.ReqnrollConnector.Models.csproj" />
     </Folder>
     <Folder Name="/LSP/">
+        <Project Path="src/LSP/Reqnroll.IdeSupport.LSP.Connector/Reqnroll.IdeSupport.LSP.Connector.Models/Reqnroll.IdeSupport.LSP.Connector.Models.csproj" />
         <Project Path="src/LSP/Reqnroll.IdeSupport.LSP.Core/Reqnroll.IdeSupport.LSP.Core.csproj" Id="16e03b10-2c4b-49e5-8792-894d8f77e9cd" />
         <Project Path="src/LSP/Reqnroll.IdeSupport.LSP.Server/Reqnroll.IdeSupport.LSP.Server.csproj" Id="2d84ec01-09b0-4cf3-8d41-866963c44045" />
     </Folder>

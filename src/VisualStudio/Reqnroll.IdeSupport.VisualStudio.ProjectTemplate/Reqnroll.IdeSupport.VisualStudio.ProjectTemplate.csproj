@@ -26,11 +26,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <VSTemplate Include="Reqnroll.IdeSupport.VisualStudio.ProjectTemplate.vstemplate" />
+    <VSTemplate Include="ProjectTemplate.vstemplate" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="17.4.2119">
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="17.14.2142">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
