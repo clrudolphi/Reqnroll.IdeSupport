@@ -4,6 +4,8 @@ using System;
 
 namespace Reqnroll.IdeSupport.Common.Configuration;
 
+// TODO: mention of SpecFlow has been commented out in preparation for full removal.
+
 public class DeveroomConfiguration
 {
     public DateTimeOffset ConfigurationChangeTime { get; set; } = DateTimeOffset.MinValue;
@@ -11,7 +13,7 @@ public class DeveroomConfiguration
     public string ConfigurationBaseFolder { get; set; }
 
     public ReqnrollConfiguration Reqnroll { get; set; } = new();
-    public SpecFlowConfiguration SpecFlow { get; set; } = new();
+    //public SpecFlowConfiguration SpecFlow { get; set; } = new();
     public TraceabilityConfiguration Traceability { get; set; } = new();
     public EditorConfiguration Editor { get; set; } = new();
     public BindingDiscoveryConfiguration BindingDiscovery { get; set; } = new();
@@ -28,7 +30,7 @@ public class DeveroomConfiguration
     private void FixEmptyContainers()
     {
         Reqnroll ??= new ReqnrollConfiguration();
-        SpecFlow ??= new SpecFlowConfiguration();
+        //SpecFlow ??= new SpecFlowConfiguration();
         Traceability ??= new TraceabilityConfiguration();
         Editor ??= new EditorConfiguration();
         BindingDiscovery ??= new BindingDiscoveryConfiguration();
@@ -39,7 +41,7 @@ public class DeveroomConfiguration
         FixEmptyContainers();
 
         Reqnroll.CheckConfiguration();
-        SpecFlow.CheckConfiguration();
+        //SpecFlow.CheckConfiguration();
         Traceability.CheckConfiguration();
         Editor.CheckConfiguration();
         BindingDiscovery.CheckConfiguration();
@@ -50,7 +52,7 @@ public class DeveroomConfiguration
     protected bool Equals(DeveroomConfiguration other) =>
         string.Equals(ConfigurationBaseFolder, other.ConfigurationBaseFolder) && 
         Equals(Reqnroll, other.Reqnroll) &&
-        Equals(SpecFlow, other.SpecFlow) &&
+        //Equals(SpecFlow, other.SpecFlow) &&
         Equals(Traceability, other.Traceability) && 
         Equals(Editor, other.Editor) &&
         Equals(BindingDiscovery, other.BindingDiscovery) &&
@@ -72,7 +74,7 @@ public class DeveroomConfiguration
         {
             var hashCode = ConfigurationBaseFolder != null ? ConfigurationBaseFolder.GetHashCode() : 0;
             hashCode = (hashCode * 397) ^ (Reqnroll != null ? Reqnroll.GetHashCode() : 0);
-            hashCode = (hashCode * 397) ^ (SpecFlow != null ? SpecFlow.GetHashCode() : 0);
+            //hashCode = (hashCode * 397) ^ (SpecFlow != null ? SpecFlow.GetHashCode() : 0);
             hashCode = (hashCode * 397) ^ (Traceability != null ? Traceability.GetHashCode() : 0);
             hashCode = (hashCode * 397) ^ (Editor != null ? Editor.GetHashCode() : 0);
             hashCode = (hashCode * 397) ^ (BindingDiscovery != null ? BindingDiscovery.GetHashCode() : 0);

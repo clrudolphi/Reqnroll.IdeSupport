@@ -6,11 +6,11 @@
 ## 1. Wizards
 
 ### 1a. Cleanup & Removal
-- Remove `SpecFlowConfiguration.cs` and `SpecFlowPackageDetector.cs` from `Reqnroll.IDE.Common`
-- Remove VB support from `ProjectProgrammingLanguage.cs` and all callers
+- Removed `SpecFlowConfiguration.cs` 
+- Open question: Should we keep the `SpecFlowProjectDetector` to test for unsupported legacy projects. If found, what do we do?
+- Remove `SpecFlowPackageDetector.cs` from `Reqnroll.IDE.Common`
+- Question: We can keep detection of programming language, but what do we do when we find VB or F#?
 - Eliminate FluentAssertions from test projects; replace with `Shouldly` or xUnit assertions
-- Remove SpecFlow-specific test framework entries from `AddNewReqnrollProjectViewModel` and `AddNewProjectWizardResult`
-- Update project template (`Reqnroll.VisualStudio.ProjectTemplate`) to remove SpecFlow/VB artifacts
 
 ### 1b. Update & Port
 - Update test framework version list in `AddNewReqnrollProjectViewModel` to latest (xUnit 2.9+, NUnit 4.x, MSTest 3.x)
@@ -21,8 +21,7 @@
 ## 2. LSP — Gherkin Language Server
 
 ### 2a. Project & Host Setup
-- Create `Reqnroll.Gherkin.LanguageServer` project (.NET 10, using `OmniSharp.Extensions.LanguageServer`)
-- Create `Reqnroll.Gherkin.LanguageServer.Client` project (VS extension client connector, .NET Framework 4.8.1)
+- Create `Reqnroll.IdeSupport.VisualStudioLanguageServer.Client` project (VS extension client connector, .NET Framework 4.8.1)
 - Port out-of-proc connector service POC into `LanguageServer.Client`
 - Register LSP client in `ReqnrollPluginPackage` using VS LSP client APIs; activate on `.feature` file open
 

@@ -31,8 +31,9 @@ public class ReqnrollProjectSettingsProvider
     private ReqnrollSettings UpdateReqnrollSettingsFromConfig(ReqnrollSettings reqnrollSettings)
     {
         var configuration = _projectScope.GetDeveroomConfiguration();
-        if (configuration.Reqnroll.IsReqnrollProject == null &&
-            configuration.SpecFlow.IsSpecFlowProject == null)
+        if (configuration.Reqnroll.IsReqnrollProject == null
+            //&& configuration.SpecFlow.IsSpecFlowProject == null
+            )
             return reqnrollSettings;
 
         reqnrollSettings ??= new ReqnrollSettings();
@@ -51,28 +52,28 @@ public class ReqnrollProjectSettingsProvider
             else if (reqnrollSettings.ConfigFilePath == null)
                 reqnrollSettings.ConfigFilePath = GetReqnrollConfigFilePath(_projectScope);
         }
-        else if (configuration.SpecFlow.IsSpecFlowProject is true)
-        {
-            reqnrollSettings.Traits |= ReqnrollProjectTraits.LegacySpecFlow;
+        //else if (configuration.SpecFlow.IsSpecFlowProject is true)
+        //{
+        //    reqnrollSettings.Traits |= ReqnrollProjectTraits.LegacySpecFlow;
 
-            if (configuration.SpecFlow.Traits.Length > 0)
-                foreach (var reqnrollTrait in configuration.SpecFlow.Traits)
-                    reqnrollSettings.Traits |= reqnrollTrait;
+        //    if (configuration.SpecFlow.Traits.Length > 0)
+        //        foreach (var reqnrollTrait in configuration.SpecFlow.Traits)
+        //            reqnrollSettings.Traits |= reqnrollTrait;
 
-            if (configuration.SpecFlow.Version != null)
-                reqnrollSettings.Version = new NuGetVersion(configuration.SpecFlow.Version, configuration.SpecFlow.Version);
+        //    if (configuration.SpecFlow.Version != null)
+        //        reqnrollSettings.Version = new NuGetVersion(configuration.SpecFlow.Version, configuration.SpecFlow.Version);
 
-            if (configuration.SpecFlow.GeneratorFolder != null)
-            {
-                reqnrollSettings.GeneratorFolder = configuration.SpecFlow.GeneratorFolder;
-                reqnrollSettings.Traits |= ReqnrollProjectTraits.DesignTimeFeatureFileGeneration;
-            }
+        //    if (configuration.SpecFlow.GeneratorFolder != null)
+        //    {
+        //        reqnrollSettings.GeneratorFolder = configuration.SpecFlow.GeneratorFolder;
+        //        reqnrollSettings.Traits |= ReqnrollProjectTraits.DesignTimeFeatureFileGeneration;
+        //    }
 
-            if (configuration.SpecFlow.ConfigFilePath != null)
-                reqnrollSettings.ConfigFilePath = configuration.SpecFlow.ConfigFilePath;
-            else if (reqnrollSettings.ConfigFilePath == null)
-                reqnrollSettings.ConfigFilePath = GetReqnrollConfigFilePath(_projectScope);
-        }
+        //    if (configuration.SpecFlow.ConfigFilePath != null)
+        //        reqnrollSettings.ConfigFilePath = configuration.SpecFlow.ConfigFilePath;
+        //    else if (reqnrollSettings.ConfigFilePath == null)
+        //        reqnrollSettings.ConfigFilePath = GetReqnrollConfigFilePath(_projectScope);
+        //}
         else
         {
             reqnrollSettings = null;
