@@ -24,10 +24,9 @@
 - Register LSP client in `ReqnrollPluginPackage` using VS LSP client APIs; activate on `.feature` file open
 
 ### 2b. Internal Architecture
-- Refactor semantic tag type mapping to match Cucumber/LSP conventions
+- Refactor semantic tag type mapping to match Cucumber/LSP conventions?
 
 ### 2c. Protocol Handlers (LSP ↔ Client)
-- `TextDocumentSync` handler — `textDocument/didOpen`, `didChange`, `didClose` for `.feature` files; triggers Gherkin parse pipeline
 - `TextDocumentSync` handler for `.cs` files — triggers C# parsing and step-definition remapping
 - `References` handler (`textDocument/references`)
 - `DocumentFormatting` handler (`textDocument/formatting`) — driven by `GherkinFormatConfiguration`

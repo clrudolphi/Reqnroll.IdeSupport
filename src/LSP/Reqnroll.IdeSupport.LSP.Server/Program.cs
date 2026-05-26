@@ -55,11 +55,11 @@ public class Program
                .AddSingleton<IDocumentBufferService,             DocumentBufferService>()
                .AddSingleton<IGherkinDocumentTaggerService,      GherkinDocumentTaggerService>()
                .AddSingleton<ISemanticTokenService,              SemanticTokenService>()
-               // GherkinDocumentParsedNotificationHandler is registered both as itself (singleton)
+               // SemanticTokensRefreshHandler is registered both as itself (singleton)
                // and as the MediatR INotificationHandler so the same instance handles all notifications.
-               .AddSingleton<GherkinDocumentParsedNotificationHandler>()
+               .AddSingleton<SemanticTokensRefreshHandler>()
                .AddSingleton<INotificationHandler<GherkinDocumentParsedNotification>>(
-                   sp => sp.GetRequiredService<GherkinDocumentParsedNotificationHandler>())
+                   sp => sp.GetRequiredService<SemanticTokensRefreshHandler>())
                // Handlers must be pre-registered as singletons so DryIoc can resolve
                // them without an open scope (TrackingDisposableTransients rule).
                .AddSingleton<TextDocumentSyncHandler>()

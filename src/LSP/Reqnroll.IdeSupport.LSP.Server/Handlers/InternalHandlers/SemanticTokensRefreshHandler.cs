@@ -11,12 +11,12 @@ namespace Reqnroll.IdeSupport.LSP.Server.Handlers.InternalHandlers;
 /// to refresh its semantic tokens. No tag encoding is performed here; encoding is
 /// deferred until the client sends a <c>textDocument/semanticTokens/full</c> request.
 /// </summary>
-public class GherkinDocumentParsedNotificationHandler : INotificationHandler<GherkinDocumentParsedNotification>
+public class SemanticTokensRefreshHandler : INotificationHandler<GherkinDocumentParsedNotification>
 {
     private readonly ILanguageServerFacade _languageServer;
     private readonly IDeveroomLogger _logger;
 
-    public GherkinDocumentParsedNotificationHandler(ILanguageServerFacade languageServer, IDeveroomLogger logger)
+    public SemanticTokensRefreshHandler(ILanguageServerFacade languageServer, IDeveroomLogger logger)
     {
         _languageServer = languageServer;
         _logger = logger;
