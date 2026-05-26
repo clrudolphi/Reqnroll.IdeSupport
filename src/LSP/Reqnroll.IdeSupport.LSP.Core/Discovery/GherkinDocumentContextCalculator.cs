@@ -71,7 +71,7 @@ internal static class GherkinDocumentContextCalculator
                             int headerIndex = Array.IndexOf(header, match.Name);
                             if (headerIndex < 0)
                                 return match.Value;
-                            return exampleRow.Cells.ElementAtOrDefault(headerIndex)?.Value ?? match.Value;
+                            return exampleRow.Cells.ElementAtOrDefault(headerIndex).Value ?? match.Value;
                         });
 
                     yield return new KeyValuePair<string, IGherkinDocumentContext>(stepText, subContext);

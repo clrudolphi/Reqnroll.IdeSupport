@@ -9,7 +9,7 @@ public class DeveroomGherkinDocument : GherkinDocument
 {
     private readonly List<int> _statesForLines;
 
-    public DeveroomGherkinDocument(Feature feature, Comment[] comments, string sourceFilePath,
+    public DeveroomGherkinDocument(Feature feature, IEnumerable<Comment> comments, string sourceFilePath,
         GherkinDialect gherkinDialect, List<int> statesForLines) : base(feature, comments)
     {
         _statesForLines = statesForLines;

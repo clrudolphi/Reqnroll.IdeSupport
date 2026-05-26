@@ -73,7 +73,7 @@ public class DeveroomGherkinParser
 
     public DeveroomGherkinDocument Parse(TextReader featureFileReader, string sourceFilePath)
     {
-        var tokenScanner = (ITokenScanner) new HotfixTokenScanner(featureFileReader);
+        var tokenScanner = (ITokenScanner) new TokenScanner(featureFileReader);
         var tokenMatcher = new TokenMatcher(DialectProvider);
         _astBuilder = new DeveroomGherkinAstBuilder(sourceFilePath, () => tokenMatcher.CurrentDialect);
 
@@ -266,7 +266,7 @@ public class DeveroomGherkinParser
 
     private class NullTokenScanner : ITokenScanner
     {
-        public Token Read() => new(null, new Location());
+        public Token Read() => new Token(new Location());
     }
 
     public static TokenType[] GetExpectedTokens(int state, IMonitoringService monitoringService)
@@ -278,7 +278,7 @@ public class DeveroomGherkinParser
 
         try
         {
-            parser.NullMatchToken(state, new Token(null, new Location()));
+            parser.NullMatchToken(state, new Token(new Location()));
         }
         catch (UnexpectedEOFException ex)
         {

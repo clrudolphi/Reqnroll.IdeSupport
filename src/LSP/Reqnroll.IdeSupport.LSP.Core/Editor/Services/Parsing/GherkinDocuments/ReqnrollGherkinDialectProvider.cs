@@ -6,7 +6,7 @@ internal class ReqnrollGherkinDialectProvider : GherkinDialectProvider
     {
     }
 
-    protected override bool TryGetDialect(string language, Location location, out GherkinDialect dialect)
+    protected override bool TryGetDialect(string language, Location? location, out GherkinDialect dialect)
     {
         if (language.Contains("-"))
         {

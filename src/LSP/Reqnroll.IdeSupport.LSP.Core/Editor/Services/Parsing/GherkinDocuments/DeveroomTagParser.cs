@@ -341,7 +341,7 @@ public class DeveroomTagParser : IDeveroomTagParser
         return step.Location.Line;
     }
 
-    private GherkinRange GetBlockSpan(IGherkinTextSnapshot snapshot, Location startLocation, int locationEndLine)
+    private GherkinRange GetBlockSpan(IGherkinTextSnapshot snapshot, Location? startLocation, int locationEndLine)
     {
         var startLine = GetSnapshotLine(startLocation, snapshot);
         var endLine = snapshot.GetLineFromLineNumber(GetSnapshotLineNumber(locationEndLine, snapshot));
@@ -357,11 +357,11 @@ public class DeveroomTagParser : IDeveroomTagParser
         return GherkinRange.FromLines(snapshot, startLine, endLine);
     }
 
-    private GherkinRange GetTextSpan(IGherkinTextSnapshot snapshot, Location location, string text, int extraLength = 0,
+    private GherkinRange GetTextSpan(IGherkinTextSnapshot snapshot, Location? location, string text, int extraLength = 0,
         int offset = 0) =>
         GetSpan(snapshot, location, text.Length + extraLength, offset);
 
-    private GherkinRange GetSpan(IGherkinTextSnapshot snapshot, Location location, int length, int offset = 0)
+    private GherkinRange GetSpan(IGherkinTextSnapshot snapshot, Location? location, int length, int offset = 0)
     {
         var line = GetSnapshotLine(location, snapshot);
         var startPoint = GetColumnPoint(line, location);
@@ -369,8 +369,8 @@ public class DeveroomTagParser : IDeveroomTagParser
         return GherkinRange.FromPoint(snapshot, startPoint, length);
     }
 
-    private int GetSnapshotLineNumber(Location location, IGherkinTextSnapshot snapshot) =>
-        GetSnapshotLineNumber(location.Line, snapshot);
+    private int GetSnapshotLineNumber(Location? location, IGherkinTextSnapshot snapshot) =>
+        GetSnapshotLineNumber(location?.Line ?? 0, snapshot);
 
     private int GetSnapshotLineNumber(int locationLine, IGherkinTextSnapshot snapshot) =>
         locationLine == 0
@@ -379,14 +379,14 @@ public class DeveroomTagParser : IDeveroomTagParser
                 ? snapshot.LineCount - 1 // unexpected end of file
                 : locationLine - 1;
 
-    private int GetSnapshotColumn(Location location) =>
-        location.Column == 0
+    private int GetSnapshotColumn(Location? location) =>
+        location?.Column == 0
             ? 0 // whole line error
-            : location.Column - 1;
+            : location?.Column - 1 ?? 0;
 
-    private int GetColumnPoint(IGherkinTextSnapshotLine line, Location location) =>
+    private int GetColumnPoint(IGherkinTextSnapshotLine line, Location? location) =>
         line.Start + (GetSnapshotColumn(location));
 
-    private IGherkinTextSnapshotLine GetSnapshotLine(Location location, IGherkinTextSnapshot snapshot) =>
+    private IGherkinTextSnapshotLine GetSnapshotLine(Location? location, IGherkinTextSnapshot snapshot) =>
         snapshot.GetLineFromLineNumber(GetSnapshotLineNumber(location, snapshot));
 }

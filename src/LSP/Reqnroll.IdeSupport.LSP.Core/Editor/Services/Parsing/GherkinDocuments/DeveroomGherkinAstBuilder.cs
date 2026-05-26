@@ -68,22 +68,22 @@ internal class DeveroomGherkinAstBuilder : AstBuilder<DeveroomGherkinDocument>, 
         _scenarioBlock = ScenarioBlock.Given;
     }
 
-    protected override GherkinDocument CreateGherkinDocument(Feature feature, Comment[] gherkinDocumentComments,
+    protected override GherkinDocument CreateGherkinDocument(Feature feature, IEnumerable<Comment> gherkinDocumentComments,
         AstNode node) =>
         new DeveroomGherkinDocument(feature, gherkinDocumentComments, _sourceFilePath,
             _documentDialectProvider(), _statesForLines);
 
-    protected override Scenario CreateScenario(Tag[] tags, Location location, string keyword, string name,
-        string description, Step[] steps, Examples[] examples, AstNode node)
+    protected override Scenario CreateScenario(IEnumerable<Tag> tags, Location location, string keyword, string name,
+        string description, IEnumerable<Step> steps, IEnumerable<Examples> examples, AstNode node)
     {
         ResetBlock();
-        if (examples == null || examples.Length == 0)
+        if (examples == null || !examples.Any())
             return new SingleScenario(tags, location, keyword, name, description, steps, examples);
         return new ScenarioOutline(tags, location, keyword, name, description, steps, examples);
     }
 
     protected override Background CreateBackground(Location location, string keyword, string name, string description,
-        Step[] steps, AstNode node)
+        IEnumerable<Step> steps, AstNode node)
     {
         ResetBlock();
         return base.CreateBackground(location, keyword, name, description, steps, node);
