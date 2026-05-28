@@ -13,6 +13,14 @@
         <Project Path="src/LSP/Reqnroll.IdeSupport.LSP.Core/Reqnroll.IdeSupport.LSP.Core.csproj" Id="16e03b10-2c4b-49e5-8792-894d8f77e9cd" />
         <Project Path="src/LSP/Reqnroll.IdeSupport.LSP.Server/Reqnroll.IdeSupport.LSP.Server.csproj" Id="2d84ec01-09b0-4cf3-8d41-866963c44045" />
     </Folder>
+    <Folder Name="/Tests/VisualStudio/">
+        <Project Path="tests/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Wizards.UI.Tester/Reqnroll.IdeSupport.VisualStudio.Wizards.UI.Tester.csproj" />
+        <Project Path="tests/VisualStudio/Reqnroll.SampleProjectGenerator.Core/Reqnroll.SampleProjectGenerator.Core.csproj" />
+        <Project Path="tests/VisualStudio/Reqnroll.SampleProjectGenerator/Reqnroll.SampleProjectGenerator.csproj" />
+        <Project Path="tests/VisualStudio/Reqnroll.VisualStudio.Specs/Reqnroll.VisualStudio.Specs.csproj" />
+        <Project Path="tests/VisualStudio/Reqnroll.VisualStudio.Tests/Reqnroll.VisualStudio.Tests.csproj" />
+        <Project Path="tests/VisualStudio/Reqnroll.VisualStudio.VsxStubs/Reqnroll.VisualStudio.VsxStubs.csproj" />
+    </Folder>
     <Folder Name="/VisualStudio/">
         <Project Path="src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Extension/Reqnroll.IdeSupport.VisualStudio.Extension.csproj">
             <Deploy Solution="Debug|*" />
@@ -24,7 +32,5 @@
         <Project Path="src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Wizards.UI/Reqnroll.IdeSupport.VisualStudio.Wizards.UI.csproj" />
         <Project Path="src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Wizards/Reqnroll.IdeSupport.VisualStudio.Wizards.csproj" />
     </Folder>
-    <Folder Name="/Tests/">
-        <Project Path="tests/Reqnroll.IdeSupport.VisualStudio.Wizards.UI.Tester/Reqnroll.IdeSupport.VisualStudio.Wizards.UI.Tester.csproj" />
-    </Folder>
+    <Folder Name="/Tests/" />
 </Solution>

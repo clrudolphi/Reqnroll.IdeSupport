@@ -19,9 +19,11 @@
 ## 2. LSP — Gherkin Language Server
 
 ### 2a. Project & Host Setup
-- Create `Reqnroll.IdeSupport.VisualStudioLanguageServer.Client` project (VS extension client connector, .NET Framework 4.8.1)
+
 - Port out-of-proc connector service POC into `LanguageServer.Client`
-- Register LSP client in `ReqnrollPluginPackage` using VS LSP client APIs; activate on `.feature` file open
+- add interceptor of the pipes
+- add logging of the json lsp messages
+- install the lampepfl/lsp-viewer
 
 ### 2b. Internal Architecture
 - Refactor semantic tag type mapping to match Cucumber/LSP conventions?

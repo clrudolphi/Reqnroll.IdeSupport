@@ -65,6 +65,8 @@ public class ProjectScopeDeveroomConfigurationProvider : IDeveroomConfigurationP
         CheckConfiguration(true);
     }
 
+    public void Reload() => CheckConfiguration(triggerChanged: true);
+
     private void CheckConfiguration(bool triggerChanged)
     {
         Logger.LogVerbose("Checking configuration...");

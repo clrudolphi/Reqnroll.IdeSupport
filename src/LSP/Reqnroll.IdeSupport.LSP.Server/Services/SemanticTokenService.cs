@@ -96,7 +96,7 @@ public sealed class SemanticTokenService : ISemanticTokenService
         }
 
         var encoded = Encode(tags);
-        tokens = new SemanticTokens { Data = [.. encoded] };
+        tokens = new SemanticTokens { Data = [.. encoded], ResultId = $"{uri}@{version}" };
         _cache[(uri, version)] = tokens;
         PurgePriorVersions(uri, version);
         _logger.LogInfo($"SemanticTokenService: encoded {encoded.Count / 5} tokens for {uri} v{version}");

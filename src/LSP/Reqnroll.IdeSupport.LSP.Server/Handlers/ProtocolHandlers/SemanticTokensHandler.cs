@@ -10,7 +10,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Handlers.ProtocolHandlers;
 /// Handles <c>textDocument/semanticTokens/full</c>, <c>textDocument/semanticTokens/full/delta</c>,
 /// and <c>textDocument/semanticTokens/range</c> requests by delegating to <see cref="ISemanticTokenService"/>.
 /// </summary>
-public class SemanticTokensHandler : SemanticTokensHandlerBase
+public class SemanticTokensHandler //: SemanticTokensHandlerBase
 {
     private readonly ISemanticTokenService _semanticTokenService;
     private readonly IDocumentBufferService _documentBufferService;
@@ -28,11 +28,12 @@ public class SemanticTokensHandler : SemanticTokensHandlerBase
 
     // ── Full ──────────────────────────────────────────────────────────────────
 
-    public override async Task<SemanticTokens?> Handle(
+    public async Task<SemanticTokens?> Handle(
         SemanticTokensParams request,
         CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
+        if (!IsFeatureFile(uri)) return null;
         var version = GetCurrentVersion(uri);
 
         _logger.LogVerbose($"SemanticTokens/full requested for {uri} (version {version})");
@@ -44,11 +45,12 @@ public class SemanticTokensHandler : SemanticTokensHandlerBase
     // ── Delta ─────────────────────────────────────────────────────────────────
     // We don't maintain delta state; return the full token set wrapped in SemanticTokensFullOrDelta.
 
-    public override async Task<SemanticTokensFullOrDelta?> Handle(
+    public async Task<SemanticTokensFullOrDelta?> Handle(
         SemanticTokensDeltaParams request,
         CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
+        if (!IsFeatureFile(uri)) return null;
         var version = GetCurrentVersion(uri);
 
         _logger.LogVerbose($"SemanticTokens/full/delta requested for {uri} (version {version}), returning full tokens");
@@ -62,11 +64,12 @@ public class SemanticTokensHandler : SemanticTokensHandlerBase
     // ── Range ─────────────────────────────────────────────────────────────────
     // Return all tokens; the client will filter by range.
 
-    public override async Task<SemanticTokens?> Handle(
+    public async Task<SemanticTokens?> Handle(
         SemanticTokensRangeParams request,
         CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
+        if (!IsFeatureFile(uri)) return null;
         var version = GetCurrentVersion(uri);
 
         _logger.LogVerbose($"SemanticTokens/range requested for {uri} (version {version})");
@@ -79,34 +82,44 @@ public class SemanticTokensHandler : SemanticTokensHandlerBase
     // These are used by the base-class builder pattern; we bypass it by overriding
     // Handle directly, so these overloads are never called in practice.
 
-    protected override Task Tokenize(
-        SemanticTokensBuilder builder,
-        ITextDocumentIdentifierParams identifier,
-        CancellationToken cancellationToken)
-        => Task.CompletedTask; // not used – Handle overrides bypass the builder
+    //protected override Task Tokenize(
+    //    SemanticTokensBuilder builder,
+    //    ITextDocumentIdentifierParams identifier,
+    //    CancellationToken cancellationToken)
+    //    => Task.CompletedTask; // not used – Handle overrides bypass the builder
 
-    protected override Task<SemanticTokensDocument> GetSemanticTokensDocument(
-        ITextDocumentIdentifierParams @params,
-        CancellationToken cancellationToken)
-        => Task.FromResult(new SemanticTokensDocument(_semanticTokenService.Legend));
+    //protected override Task<SemanticTokensDocument> GetSemanticTokensDocument(
+    //    ITextDocumentIdentifierParams @params,
+    //    CancellationToken cancellationToken)
+    //    => Task.FromResult(new SemanticTokensDocument(_semanticTokenService.Legend));
 
-    // ── Registration options ──────────────────────────────────────────────────
+    //// ── Registration options ──────────────────────────────────────────────────
 
-    protected override SemanticTokensRegistrationOptions CreateRegistrationOptions(
-        SemanticTokensCapability capability,
-        ClientCapabilities clientCapabilities)
-        => new()
-        {
-            DocumentSelector = new TextDocumentSelector(
-                new TextDocumentFilter { Pattern = "**/*.feature" }),
-            Legend = _semanticTokenService.Legend,
-            Full = new BooleanOr<SemanticTokensCapabilityRequestFull>(
-                new SemanticTokensCapabilityRequestFull { Delta = true }),
-            Range = new BooleanOr<SemanticTokensCapabilityRequestRange>(
-                new SemanticTokensCapabilityRequestRange())
-        };
+    //protected override SemanticTokensRegistrationOptions CreateRegistrationOptions(
+    //    SemanticTokensCapability capability,
+    //    ClientCapabilities clientCapabilities)
+    //{
+    //    // Return options only if dynamic registration is NOT supported;
+    //    // static path is handled via OnInitialized
+    //    if (clientCapabilities.TextDocument?.SemanticTokens.Value?.DynamicRegistration == true)
+    //        return null!;
+
+    //    return new SemanticTokensRegistrationOptions
+    //    {
+
+    //        Id = "reqnroll-semantic-tokens",
+    //        DocumentSelector = new TextDocumentSelector(
+    //            new TextDocumentFilter { Pattern = "**/*.feature" }),
+    //        Legend = _semanticTokenService.Legend,
+    //        Full = new SemanticTokensCapabilityRequestFull { Delta = false },
+    //        Range = false
+    //    };
+    //}
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static bool IsFeatureFile(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri uri)
+        => uri.Path.EndsWith(".feature", StringComparison.OrdinalIgnoreCase);
 
     private int GetCurrentVersion(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri uri)
     {

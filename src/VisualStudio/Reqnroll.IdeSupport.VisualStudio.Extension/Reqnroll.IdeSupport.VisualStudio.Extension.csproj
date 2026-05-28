@@ -8,6 +8,8 @@
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>..\..\..\reqnroll.snk</AssemblyOriginatorKeyFile>
     <VssdkCompatibleExtension>true</VssdkCompatibleExtension>
+    <!-- Suppress preview LSP API diagnostics -->
+    <NoWarn>$(NoWarn);VSEXTPREVIEW_LSP</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -50,5 +52,31 @@
         <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
         <IncludeOutputGroupsInVSIX>BuiltProjectOutputGroup%3bReferenceCopyLocalPathsOutputGroup%3b</IncludeOutputGroupsInVSIX>
     </ProjectReference>
+    <ProjectReference Include="..\..\LSP\Reqnroll.IdeSupport.LSP.Server\Reqnroll.IdeSupport.LSP.Server.csproj">
+        <Name>Reqnroll.IdeSupport.LSP.Server</Name>
+        <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+        <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
+        <VSIXSubPath>LSPServer</VSIXSubPath>
+        <IncludeOutputGroupsInVSIX>BuiltProjectOutputGroup%3bReferenceCopyLocalPathsOutputGroup%3b</IncludeOutputGroupsInVSIX>
+    </ProjectReference>
   </ItemGroup>
+
+  <!-- ================================================================
+       Publish the LSP server self-contained (win-x64) before packaging
+       the VSIX, then inject every published file as a VSIXSourceItem
+       under the LSPServer\ sub-path inside the VSIX.
+       ================================================================ -->
+  <PropertyGroup>
+    <LspServerBuildDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\LSP\Reqnroll.IdeSupport.LSP.Server\bin\$(Configuration)\net10.0\win-x64\'))</LspServerBuildDir>
+  </PropertyGroup>
+
+  <Target Name="IncludeLspServerInVsix" BeforeTargets="GetVsixSourceItems">
+    <ItemGroup>
+      <_LspServerFiles Include="$(LspServerBuildDir)**\*" />
+      <VSIXSourceItem Include="@(_LspServerFiles)">
+        <VSIXSubPath>LSPServer\%(RecursiveDir)</VSIXSubPath>
+      </VSIXSourceItem>
+    </ItemGroup>
+  </Target>
+
 </Project>
