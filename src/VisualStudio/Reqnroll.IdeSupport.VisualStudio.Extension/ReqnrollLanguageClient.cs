@@ -1,11 +1,15 @@
 using System.Diagnostics;
 using System.IO;
 using System.IO.Pipelines;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.LanguageServer;
 using Microsoft.VisualStudio.RpcContracts.LanguageServerProvider;
+using Microsoft.VisualStudio.Shell;
 using Nerdbank.Streams;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
+using Reqnroll.IdeSupport.VisualStudio.Extension.LspNotifications;
 #pragma warning disable VSEXTPREVIEW_LSP
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension;
@@ -18,6 +22,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
     private LspInspectorLogger? _inspectorLogger;
     private LspInterceptingPipe? _interceptingPipe;
     private ChildProcessJob? _childJob;
+    private VsProjectEventMonitor? _projectMonitor;
 
     public ReqnrollLanguageClient(
         ExtensionCore container,
@@ -64,6 +69,9 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
                 RedirectStandardOutput = true,
                 RedirectStandardError  = true,
                 CreateNoWindow         = true,
+                // Tell the LSP server which IDE is connecting so it selects the correct
+                // semantic token profile (legend + DeveroomTag→token type mapping).
+                Arguments              = "--ide visualstudio",
             };
 
             _serverProcess = Process.Start(psi)
@@ -124,7 +132,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
     }
 
     /// <inheritdoc />
-    public override Task OnServerInitializationResultAsync(
+    public override async Task OnServerInitializationResultAsync(
         ServerInitializationResult serverInitializationResult,
         LanguageServerInitializationFailureInfo? initializationFailureInfo,
         CancellationToken cancellationToken)
@@ -135,13 +143,32 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
                 "ReqnrollLanguageClient: Server initialization failed. Info: {0}",
                 initializationFailureInfo?.StatusMessage ?? initializationFailureInfo?.Exception?.Message ?? "(none)");
             Enabled = false;
-        }
-        else
-        {
-            _traceSource.TraceInformation("ReqnrollLanguageClient: Server initialized successfully ({0}). Note: negotiated server capabilities are not surfaced by the VS.Extensibility LanguageServerProvider API.", serverInitializationResult);
+            return;
         }
 
-        return Task.CompletedTask;
+        _traceSource.TraceInformation(
+            "ReqnrollLanguageClient: Server initialized successfully ({0}).",
+            serverInitializationResult);
+
+        // Start monitoring VS project events and flush the current solution state.
+        if (_interceptingPipe is not null)
+        {
+            try
+            {
+                var serviceProvider = ServiceProvider.GlobalProvider;
+                _projectMonitor = new VsProjectEventMonitor(
+                    _interceptingPipe, _traceSource, serviceProvider);
+
+                await _projectMonitor
+                    .SendInitialProjectsAsync(cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _traceSource.TraceEvent(TraceEventType.Warning, 0,
+                    "ReqnrollLanguageClient: Could not start project monitor: {0}", ex.Message);
+            }
+        }
     }
 
     /// <inheritdoc />
@@ -149,6 +176,9 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
     {
         if (isDisposing)
         {
+            _projectMonitor?.Dispose();
+            _projectMonitor = null;
+
             _interceptingPipe?.Dispose();
             _interceptingPipe = null;
 

@@ -3,10 +3,6 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Notifications;
 using Reqnroll.IdeSupport.LSP.Server.Services;
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Handlers.InternalHandlers;
 
@@ -58,8 +54,8 @@ public class ReqnrollConfigChangedHandler : INotificationHandler<ReqnrollConfigC
 
     private async Task ParseAndNotifyAsync(DocumentUri uri, int? version, CancellationToken cancellationToken)
     {
+        // ParseAsync stores updated tags and invalidates the semantic token cache internally.
         var tags = await _taggerService.ParseAsync(uri, version).ConfigureAwait(false);
-        _documentBufferService.UpdateTags(uri, tags);
         await _mediator.Publish(
             new GherkinDocumentParsedNotification(uri, version ?? 0, tags),
             cancellationToken).ConfigureAwait(false);

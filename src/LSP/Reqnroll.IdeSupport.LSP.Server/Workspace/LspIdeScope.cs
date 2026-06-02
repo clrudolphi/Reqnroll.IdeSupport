@@ -1,6 +1,5 @@
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Diagnostics;
-using System;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Workspace;
 

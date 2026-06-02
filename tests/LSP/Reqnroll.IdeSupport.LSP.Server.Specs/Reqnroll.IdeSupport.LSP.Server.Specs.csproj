@@ -1,0 +1,69 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>../../../reqnroll.snk</AssemblyOriginatorKeyFile>
+    <!-- Match the server's RID so the ProjectReference to the self-contained win-x64
+         server exe resolves cleanly and the connector binaries deploy alongside. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <NoWarn>VSTHRD200</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AwesomeAssertions" Version="9.4.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="Nerdbank.Streams" Version="2.11.79" />
+    <PackageReference Include="NSubstitute" Version="5.3.0" />
+    <PackageReference Include="OmniSharp.Extensions.LanguageClient" Version="0.19.9" />
+    <PackageReference Include="OmniSharp.Extensions.LanguageServer" Version="0.19.9" />
+    <PackageReference Include="Reqnroll.xUnit" Version="3.3.4" />
+    <PackageReference Include="xunit" Version="2.9.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Xunit.SkippableFact" Version="1.5.23" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../src/LSP/Reqnroll.IdeSupport.LSP.Server/Reqnroll.IdeSupport.LSP.Server.csproj" />
+    <ProjectReference Include="../../Reqnroll.SampleProjectGenerator.Core/Reqnroll.SampleProjectGenerator.Core.csproj" />
+    <!-- Build the bindings fixture first, but do NOT load it into the specs host: the
+         out-of-process connector loads it from disk.  ReferenceOutputAssembly=false keeps
+         the fixture (and its Reqnroll dependency) out of the test host's assembly graph. -->
+    <ProjectReference Include="../Reqnroll.IdeSupport.LSP.Server.Specs.BindingsFixture/Reqnroll.IdeSupport.LSP.Server.Specs.BindingsFixture.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false" />
+  </ItemGroup>
+
+  <!-- Deploy the connector binaries (built next to the server) and the bindings fixture output
+       next to the specs test host, so ConnectorDiscoveryService (which resolves connectors from
+       AppContext.BaseDirectory\Connectors) and the discovery specs can run the real connector. -->
+  <Target Name="DeployDiscoveryAssets" AfterTargets="Build">
+    <PropertyGroup>
+      <_ServerConnectors>$(MSBuildThisFileDirectory)..\..\..\src\LSP\Reqnroll.IdeSupport.LSP.Server\bin\$(Configuration)\net10.0\win-x64\Connectors\</_ServerConnectors>
+      <_FixtureOutput>$(MSBuildThisFileDirectory)..\Reqnroll.IdeSupport.LSP.Server.Specs.BindingsFixture\bin\$(Configuration)\net10.0\</_FixtureOutput>
+    </PropertyGroup>
+    <ItemGroup>
+      <_ConnectorFiles Include="$(_ServerConnectors)**\*.*" />
+      <_FixtureFiles Include="$(_FixtureOutput)**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_ConnectorFiles)"
+          DestinationFiles="@(_ConnectorFiles->'$(OutDir)Connectors\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(_ServerConnectors)')" />
+    <Copy SourceFiles="@(_FixtureFiles)"
+          DestinationFiles="@(_FixtureFiles->'$(OutDir)Fixtures\Bindings\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(_FixtureOutput)')" />
+  </Target>
+
+</Project>

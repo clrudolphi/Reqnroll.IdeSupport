@@ -99,8 +99,8 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
     private async Task ParseAndNotifyAsync(DocumentUri uri, int? version, CancellationToken cancellationToken)
     {
+        // ParseAsync stores updated tags and invalidates the semantic token cache internally.
         var tags = await _taggerService.ParseAsync(uri, version).ConfigureAwait(false);
-        _documentBufferService.UpdateTags(uri, tags);
         await _mediator.Publish(
             new GherkinDocumentParsedNotification(uri, version ?? 0, tags),
             cancellationToken).ConfigureAwait(false);

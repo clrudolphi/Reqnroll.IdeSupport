@@ -19,4 +19,12 @@ public interface ISemanticTokenService
     /// or <see langword="null"/> when no data is available yet.
     /// </summary>
     Task<SemanticTokens?> GetSemanticTokensAsync(DocumentUri uri, int version, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Evicts any cached token result for <paramref name="uri"/>, forcing the next
+    /// <see cref="GetSemanticTokensAsync"/> call to re-encode from the current tags.
+    /// Call this whenever the document's tags are updated without a version bump
+    /// (e.g. after binding discovery completes for an already-open file).
+    /// </summary>
+    void InvalidateCache(DocumentUri uri);
 }

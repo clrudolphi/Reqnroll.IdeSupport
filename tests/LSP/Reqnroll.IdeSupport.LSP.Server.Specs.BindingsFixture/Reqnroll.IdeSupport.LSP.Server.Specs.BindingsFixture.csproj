@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- A real Reqnroll bindings assembly used as ground-truth input for the binding-discovery
+       specs.  It is built (with the solution) into a normal class library with its dependencies
+       (Reqnroll.dll + deps.json) so the out-of-process connector can load and reflect it exactly
+       as it would a user's test assembly. It is NOT referenced by the specs host as a dependency;
+       the specs locate its output by path. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+    <!-- Keep the assembly name stable and discoverable. -->
+    <AssemblyName>ReqnrollBindingsFixture</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Reqnroll" Version="3.2.0" />
+  </ItemGroup>
+
+</Project>

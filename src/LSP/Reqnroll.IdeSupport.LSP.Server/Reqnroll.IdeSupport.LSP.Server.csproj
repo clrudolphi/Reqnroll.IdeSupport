@@ -18,4 +18,30 @@
     <ProjectReference Include="..\Reqnroll.IdeSupport.LSP.Core\Reqnroll.IdeSupport.LSP.Core.csproj" />
   </ItemGroup>
 
+  <!-- Expose internal workspace/project mutators (Update, AddOrUpdateProject, RemoveProject)
+       to the unit-test assembly.  The friend assembly is strong-named with reqnroll.snk, so
+       the public key (same key used across the solution) is required here. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Reqnroll.IdeSupport.LSP.Server.Tests, PublicKey=002400000480000094000000060200000024000052534131000400000100010059bb085601a8b65a8a7b00f34e6d85df230f1e4913d3c0eaadcd13c1fd9cd15c3f01567c49d5f41f617dbda6f544ea3e2d5b5a042f307a7c8d21a079254509ba543efaefce96fac977abd0a76206b721abc33f84ee45ae5383cf50eeb8e234595656fd4af916e1dcde644ce20bb9a68bd72bc7957b759560524c63ca294585ca</_Parameter1>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Reqnroll.IdeSupport.LSP.Server.Specs, PublicKey=002400000480000094000000060200000024000052534131000400000100010059bb085601a8b65a8a7b00f34e6d85df230f1e4913d3c0eaadcd13c1fd9cd15c3f01567c49d5f41f617dbda6f544ea3e2d5b5a042f307a7c8d21a079254509ba543efaefce96fac977abd0a76206b721abc33f84ee45ae5383cf50eeb8e234595656fd4af916e1dcde644ce20bb9a68bd72bc7957b759560524c63ca294585ca</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <!-- Build-order dependency on the multi-targeted connector.
+       ProjectReference cannot be used here because multi-targeted projects (.csproj with
+       <TargetFrameworks>) do not expose the "GetTargetPath" MSBuild target at the outer
+       build level, causing MSB4057 when the server (single-targeted) tries to reference them.
+       An explicit MSBuild task call in a BeforeTargets="Build" target is the correct
+       pattern: it triggers the connector's outer build, which dispatches each TFM inner
+       build and runs CustomAfterBuild (which stages the connector outputs into this
+       project's Connectors\ output folder) before this project begins compiling. -->
+  <Target Name="BuildConnector" BeforeTargets="Build">
+    <MSBuild Projects="$(MSBuildThisFileDirectory)..\Reqnroll.IdeSupport.LSP.Connector\Connector\Connector.csproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration)" />
+  </Target>
+
 </Project>

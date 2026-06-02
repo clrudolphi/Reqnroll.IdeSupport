@@ -1,5 +1,4 @@
 ﻿using Reqnroll.IdeSupport.Common.Diagnostics;
-using System.Diagnostics;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Diagnostics;
 

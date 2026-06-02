@@ -7,7 +7,7 @@ using OmniSharp.Extensions.LanguageServer.Server;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
-using Reqnroll.IdeSupport.LSP.Core.Discovery;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
 using Reqnroll.IdeSupport.LSP.Server.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
@@ -16,8 +16,6 @@ using Reqnroll.IdeSupport.LSP.Server.Handlers.ProtocolHandlers;
 using Reqnroll.IdeSupport.LSP.Server.Notifications;
 using Reqnroll.IdeSupport.LSP.Server.Services;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
-using System.Diagnostics;
-using System.Reactive;
 
 namespace Reqnroll.IdeSupport.LSP.Server;
 
@@ -25,16 +23,57 @@ public class Program
 {
     public static async Task Main(string[] args)
     {
-        var server = await LanguageServer.From(ConfigureServer).ConfigureAwait(false);
-        await server.WaitForExit.ConfigureAwait(false);
+        // Resolve the IDE-specific semantic token profile from the --ide argument.
+        // Each IDE's glue component passes --ide <identifier> when spawning the server.
+        // The profile controls the token type legend and the DeveroomTag→token mapping.
+        var ideId = args
+            .SkipWhile(a => !string.Equals(a, "--ide", StringComparison.OrdinalIgnoreCase))
+            .Skip(1)
+            .FirstOrDefault();
+        var tokenProfile = SemanticTokenProfileFactory.Create(ideId);
+
+        // Write any unhandled startup exception to a file next to the LSP inspector logs
+        // so crashes are self-diagnosing without needing to capture stderr.
+        try
+        {
+            var server = await LanguageServer
+                .From(options =>
+                {
+                    // Production transport: the IDE talks to the server over stdio.
+                    options.WithInput(Console.OpenStandardInput())
+                           .WithOutput(Console.OpenStandardOutput());
+                    ConfigureServer(options, tokenProfile);
+                })
+                .ConfigureAwait(false);
+            await server.WaitForExit.ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                var logDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Reqnroll");
+                Directory.CreateDirectory(logDir);
+                var logPath = Path.Combine(logDir,
+                    $"lsp-server-crash-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
+                File.WriteAllText(logPath, ex.ToString());
+            }
+            catch { /* best-effort; never mask the original exception */ }
+            throw;
+        }
     }
 
-    private static void ConfigureServer(LanguageServerOptions options)
+    /// <summary>
+    /// Applies the full server configuration (logging, DI graph, capabilities, custom
+    /// notifications) to <paramref name="options"/>.  The transport (input/output) is
+    /// intentionally NOT set here so that callers can choose it: production uses stdio
+    /// (see <see cref="Main"/>); the in-process protocol specs host the server over an
+    /// in-memory pipe.
+    /// </summary>
+    internal static void ConfigureServer(LanguageServerOptions options, ISemanticTokenProfile tokenProfile)
     {
         IServiceProvider? serverServices = null;
-
-        options.WithInput(Console.OpenStandardInput())
-               .WithOutput(Console.OpenStandardOutput());
 
         options.ConfigureLogging(logging =>
         {
@@ -50,27 +89,38 @@ public class Program
 
         options.Services
                .AddMediatR(typeof(Program))
+               // Register the IDE-specific semantic token profile selected from --ide argument.
+               .AddSingleton<ISemanticTokenProfile>(tokenProfile)
                .AddSingleton<IDeveroomLogger, LspDeveroomLogger>()
                .AddSingleton<IIdeScope, LspIdeScope>()
                .AddSingleton<IMonitoringService>(sp => NullMonitoringService.Instance)
                .AddSingleton<IDeveroomConfigurationProvider, ProjectSystemDeveroomConfigurationProvider>()
                .AddSingleton<ILspWorkspaceScopeManager, LspWorkspaceScopeManager>()
-               .AddSingleton<IBindingRegistryProvider, NullBindingRegistryProvider>()
+               // BindingRegistryProviderRouter creates and owns one ConnectorBindingRegistryProvider
+               // per project and routes binding-registry lookups to the correct per-project instance
+               // via IProjectBindingRegistryLookup.GetRegistryForUri.  Registries are NOT merged —
+               // each feature file is resolved against only its own project's bindings.
+               .AddSingleton<BindingRegistryProviderRouter>()
+               .AddSingleton<IProjectBindingRegistryLookup>(sp => sp.GetRequiredService<BindingRegistryProviderRouter>())
                .AddSingleton<IDeveroomTagParser, DeveroomTagParser>()
                .AddSingleton<IDocumentBufferService, DocumentBufferService>()
                .AddSingleton<IGherkinDocumentTaggerService, GherkinDocumentTaggerService>()
                .AddSingleton<ISemanticTokenService, SemanticTokenService>()
-               // SemanticTokensRefreshHandler is registered both as itself (singleton)
-               // and as the MediatR INotificationHandler so the same instance handles all notifications.
-               .AddSingleton<SemanticTokensRefreshHandler>()
-               .AddSingleton<INotificationHandler<GherkinDocumentParsedNotification>>(
-                   sp => sp.GetRequiredService<SemanticTokensRefreshHandler>())
-               // ReqnrollConfigChangedHandler is registered both as itself and as the MediatR handler.
-               .AddSingleton<ReqnrollConfigChangedHandler>()
-               .AddSingleton<INotificationHandler<ReqnrollConfigChangedNotification>>(
-                   sp => sp.GetRequiredService<ReqnrollConfigChangedHandler>())
-               // Handlers must be pre-registered as singletons so DryIoc can resolve
-               // them without an open scope (TrackingDisposableTransients rule).
+               // MediatR notification handlers — registered solely via AddMediatR(typeof(Program))
+               // above, which scans this assembly and registers each INotificationHandler<T>
+               // implementation exactly once as a transient service.  Do NOT add explicit
+               // AddSingleton<INotificationHandler<T>> registrations here: that would create a
+               // second registration for the same interface, causing MediatR to dispatch every
+               // notification to two handler instances (the transient from the scan and the
+               // singleton from the explicit call).  None of these handlers are IDisposable, so
+               // DryIoc's TrackingDisposableTransients validation does not require them to be
+               // singletons.  Handlers covered: SemanticTokensRefreshHandler,
+               // ReqnrollConfigChangedHandler, BindingRegistryChangedHandler.
+               //
+               // OmniSharp protocol handlers ARE registered as singletons below because OmniSharp
+               // resolves them from the root DryIoc container (not from a per-request scope) and
+               // they hold injected ILanguageServer references that must live for the server's
+               // lifetime.
                .AddSingleton<TextDocumentSyncHandler>()
                .AddSingleton<WorkspaceFoldersHandler>()
                .AddSingleton<WatchedFilesHandler>()
@@ -111,7 +161,22 @@ public class Program
             return Task.CompletedTask;
         });
 
-        // Bypassing registering the SemanticTokensHandler as a regular handler
+        // ── Custom client-to-server notifications ─────────────────────────────
+        // reqnroll/projectLoaded — IDE glue sends project metadata when a project opens or rebuilds.
+        options.OnNotification<ReqnrollProjectLoadedParams>(
+            "reqnroll/projectLoaded",
+            (p, ct) => serverServices!
+                .GetRequiredService<ILspWorkspaceScopeManager>()
+                .HandleProjectLoadedAsync(p, ct));
+
+        // reqnroll/projectUnloaded — IDE glue sends this when a project is removed.
+        options.OnNotification<ReqnrollProjectUnloadedParams>(
+            "reqnroll/projectUnloaded",
+            (p, ct) => serverServices!
+                .GetRequiredService<ILspWorkspaceScopeManager>()
+                .HandleProjectUnloadedAsync(p, ct));
+
+        // ── Bypassing registering the SemanticTokensHandler as a regular handler ──
         // Otherwise, it will register its capabilities dynamically, which VisualStudio doesn't support.
         // Directly wiring the handler to respond to specific request messages.
         options.OnRequest<SemanticTokensParams, SemanticTokens?>(

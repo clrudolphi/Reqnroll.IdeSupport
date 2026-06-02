@@ -1,8 +1,8 @@
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Discovery;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
+using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Services;
-using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Services;
 
@@ -10,14 +10,21 @@ public class GherkinDocumentTaggerServiceTests
 {
     private readonly IDocumentBufferService _bufferService = Substitute.For<IDocumentBufferService>();
     private readonly IDeveroomTagParser _tagParser = Substitute.For<IDeveroomTagParser>();
-    private readonly IBindingRegistryProvider _bindingRegistryProvider = Substitute.For<IBindingRegistryProvider>();
-    private readonly ILspWorkspaceScopeManager _scopeManager = Substitute.For<ILspWorkspaceScopeManager>();
+    private readonly IProjectBindingRegistryLookup _registryLookup = Substitute.For<IProjectBindingRegistryLookup>();
+    private readonly ISemanticTokenService _semanticTokenService = Substitute.For<ISemanticTokenService>();
     private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
 
     private static readonly DocumentUri FeatureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
 
+    public GherkinDocumentTaggerServiceTests()
+    {
+        // Default: no project registered for this URI, so Invalid is returned.
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.Invalid);
+    }
+
     private GherkinDocumentTaggerService CreateSut() =>
-        new(_bufferService, _tagParser, _bindingRegistryProvider, _scopeManager, _logger);
+        new(_bufferService, _tagParser, _registryLookup, _semanticTokenService, _logger);
 
     // ── Buffer-not-found ──────────────────────────────────────────────────────
 
@@ -70,13 +77,17 @@ public class GherkinDocumentTaggerServiceTests
         });
 
         var expectedTags = (IReadOnlyCollection<DeveroomTag>)Array.Empty<DeveroomTag>();
-        _tagParser.Parse(Arg.Any<Reqnroll.IdeSupport.LSP.Core.Document.IGherkinTextSnapshot>())
+        _tagParser.Parse(
+                      Arg.Any<Reqnroll.IdeSupport.LSP.Core.Document.IGherkinTextSnapshot>(),
+                      Arg.Any<ProjectBindingRegistry>())
                   .Returns(expectedTags);
 
         var sut = CreateSut();
         var result = await sut.ParseAsync(FeatureUri, version: 5);
         result.Should().BeSameAs(expectedTags);
-        _tagParser.Received(1).Parse(Arg.Any<Reqnroll.IdeSupport.LSP.Core.Document.IGherkinTextSnapshot>());
+        _tagParser.Received(1).Parse(
+            Arg.Any<Reqnroll.IdeSupport.LSP.Core.Document.IGherkinTextSnapshot>(),
+            Arg.Any<ProjectBindingRegistry>());
     }
 
     [Fact]
@@ -91,7 +102,9 @@ public class GherkinDocumentTaggerServiceTests
         });
 
         var expectedTags = (IReadOnlyCollection<DeveroomTag>)Array.Empty<DeveroomTag>();
-        _tagParser.Parse(Arg.Any<Reqnroll.IdeSupport.LSP.Core.Document.IGherkinTextSnapshot>())
+        _tagParser.Parse(
+                      Arg.Any<Reqnroll.IdeSupport.LSP.Core.Document.IGherkinTextSnapshot>(),
+                      Arg.Any<ProjectBindingRegistry>())
                   .Returns(expectedTags);
 
         var sut = CreateSut();

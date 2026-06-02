@@ -1,7 +1,6 @@
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Analytics;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
-using System.Collections.Generic;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Workspace;
 

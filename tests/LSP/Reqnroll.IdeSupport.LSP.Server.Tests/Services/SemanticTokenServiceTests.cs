@@ -9,11 +9,12 @@ namespace Reqnroll.IdeSupport.LSP.Server.Tests.Services;
 public class SemanticTokenServiceTests
 {
     private readonly IDocumentBufferService _bufferService = Substitute.For<IDocumentBufferService>();
+    private readonly ISemanticTokenProfile _profile = new VisualStudioSemanticTokenProfile();
     private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
 
     private static readonly DocumentUri FeatureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
 
-    private SemanticTokenService CreateSut() => new(_bufferService, _logger);
+    private SemanticTokenService CreateSut() => new(_bufferService, _profile, _logger);
 
     private void SetupBuffer(DocumentBuffer? buf)
     {

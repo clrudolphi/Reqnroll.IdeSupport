@@ -45,6 +45,9 @@ internal sealed class LspInterceptingPipe : IDisposable
     private readonly Pipe _toVsPipe    = new Pipe();   // server → VS direction
     private readonly Pipe _fromVsPipe  = new Pipe();   // VS → server direction
 
+    // Serialises injected writes against the send pump so frames are not interleaved.
+    private readonly SemaphoreSlim _injectLock = new SemaphoreSlim(1, 1);
+
     private readonly CancellationTokenSource _cts = new CancellationTokenSource();
     private CancellationTokenSource? _linkedCts;
     private Task? _sendPump;
@@ -331,6 +334,55 @@ internal sealed class LspInterceptingPipe : IDisposable
         return LspInterceptorResult.PassThrough;
     }
 
+    // ── Notification injection (VS → Server) ───────────────────────────────
+
+    /// <summary>
+    /// Encodes a JSON-RPC notification and writes it directly into the server-bound
+    /// output stream, bypassing the VS-facing pipe.  Safe to call from any thread;
+    /// uses <see cref="_injectLock"/> to serialise against the send pump.
+    /// </summary>
+    /// <param name="method">LSP method name, e.g. <c>reqnroll/projectLoaded</c>.</param>
+    /// <param name="paramsJson">
+    /// Already-serialized JSON string for the <c>params</c> field, or <c>null</c>/empty
+    /// to omit the field.
+    /// </param>
+    public async Task SendNotificationToServerAsync(
+        string method,
+        string? paramsJson,
+        CancellationToken cancellationToken)
+    {
+        if (_disposed) return;
+
+        // Build the JSON-RPC notification frame.
+        var body = string.IsNullOrEmpty(paramsJson)
+            ? $"{{\"jsonrpc\":\"2.0\",\"method\":{JsonEscape(method)}}}"
+            : $"{{\"jsonrpc\":\"2.0\",\"method\":{JsonEscape(method)},\"params\":{paramsJson}}}";
+
+        var bodyBytes  = Utf8NoBom.GetBytes(body);
+        var headerText = $"Content-Length: {bodyBytes.Length}\r\n\r\n";
+        var headerBytes = Utf8NoBom.GetBytes(headerText);
+
+        await _injectLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var memory = _serverPipe.Output.GetMemory(headerBytes.Length + bodyBytes.Length);
+            headerBytes.CopyTo(memory);
+            bodyBytes.CopyTo(memory.Slice(headerBytes.Length));
+            _serverPipe.Output.Advance(headerBytes.Length + bodyBytes.Length);
+            await _serverPipe.Output.FlushAsync(cancellationToken).ConfigureAwait(false);
+
+            _traceSource.TraceInformation(
+                "LspInterceptingPipe: Injected notification '{0}' ({1} bytes)", method, bodyBytes.Length);
+        }
+        finally
+        {
+            _injectLock.Release();
+        }
+    }
+
+    private static string JsonEscape(string value)
+        => Newtonsoft.Json.JsonConvert.ToString(value); // produces "\"value\""
+
     // ── IDisposable ─────────────────────────────────────────────────────────
 
     public void Dispose()
@@ -342,6 +394,7 @@ internal sealed class LspInterceptingPipe : IDisposable
         _linkedCts?.Cancel();
         _linkedCts?.Dispose();
         _cts.Dispose();
+        _injectLock.Dispose();
 
         _toVsPipe.Writer.Complete();
         _fromVsPipe.Writer.Complete();

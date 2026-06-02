@@ -11,7 +11,6 @@ public class DeveroomTagParserTests
     private readonly IDeveroomLogger _logger;
     private readonly IMonitoringService _monitoringService;
     private readonly IDeveroomConfigurationProvider _configProvider;
-    private readonly IBindingRegistryProvider _bindingRegistryProvider;
 
     public DeveroomTagParserTests()
     {
@@ -19,12 +18,10 @@ public class DeveroomTagParserTests
         _monitoringService = Substitute.For<IMonitoringService>();
         _configProvider = Substitute.For<IDeveroomConfigurationProvider>();
         _configProvider.GetConfiguration().Returns(new DeveroomConfiguration());
-        _bindingRegistryProvider = Substitute.For<IBindingRegistryProvider>();
-        _bindingRegistryProvider.Current.Returns(ProjectBindingRegistry.Invalid);
     }
 
     private DeveroomTagParser CreateSut() =>
-        new(_logger, _monitoringService, _configProvider, _bindingRegistryProvider);
+        new(_logger, _monitoringService, _configProvider);
 
     private static IGherkinTextSnapshot Snap(string text) =>
         new StubGherkinTextSnapshot(text);
@@ -40,10 +37,11 @@ public class DeveroomTagParserTests
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private IReadOnlyCollection<DeveroomTag> ParseTags(string text)
+    private IReadOnlyCollection<DeveroomTag> ParseTags(string text,
+        ProjectBindingRegistry? registry = null)
     {
         var sut = CreateSut();
-        return sut.Parse(Snap(text));
+        return sut.Parse(Snap(text), registry ?? ProjectBindingRegistry.Invalid);
     }
 
     private static IEnumerable<DeveroomTag> OfType(IReadOnlyCollection<DeveroomTag> tags, string type) =>
@@ -126,28 +124,28 @@ public class DeveroomTagParserTests
     public void Unmatched_step_produces_UndefinedStep_tag()
     {
         // UndefinedStep is only emitted when the binding registry is NOT Invalid
-        _bindingRegistryProvider.Current.Returns(
-            new ProjectBindingRegistry(Array.Empty<ProjectStepDefinitionBinding>(), Array.Empty<ProjectHookBinding>(), 0));
+        var registry = new ProjectBindingRegistry(
+            Array.Empty<ProjectStepDefinitionBinding>(), Array.Empty<ProjectHookBinding>(), 0);
         var text = "Feature: F\nScenario: S\n  Given an unmatched step\n";
-        var tags = ParseTags(text);
+        var tags = ParseTags(text, registry);
         tags.Any(t => t.Type == DeveroomTagTypes.UndefinedStep).Should().BeTrue();
     }
 
     [Fact]
     public void Matched_step_produces_DefinedStep_tag()
     {
-        _bindingRegistryProvider.Current.Returns(RegistryWith(GivenBinding("a matched step")));
+        var registry = RegistryWith(GivenBinding("a matched step"));
         var text = "Feature: F\nScenario: S\n  Given a matched step\n";
-        var tags = ParseTags(text);
+        var tags = ParseTags(text, registry);
         tags.Any(t => t.Type == DeveroomTagTypes.DefinedStep).Should().BeTrue();
     }
 
     [Fact]
     public void Matched_step_does_not_produce_UndefinedStep_tag()
     {
-        _bindingRegistryProvider.Current.Returns(RegistryWith(GivenBinding("a matched step")));
+        var registry = RegistryWith(GivenBinding("a matched step"));
         var text = "Feature: F\nScenario: S\n  Given a matched step\n";
-        var tags = ParseTags(text);
+        var tags = ParseTags(text, registry);
         tags.Any(t => t.Type == DeveroomTagTypes.UndefinedStep).Should().BeFalse();
     }
 
@@ -162,10 +160,10 @@ public class DeveroomTagParserTests
         var b2 = new ProjectStepDefinitionBinding(ScenarioBlock.Given,
             new Regex("^ambiguous step$"), null,
             new ProjectBindingImplementation("Method2", null, new SourceLocation("B.cs", 1, 1)));
-        _bindingRegistryProvider.Current.Returns(RegistryWith(b1, b2));
+        var registry = RegistryWith(b1, b2);
 
         var text = "Feature: F\nScenario: S\n  Given ambiguous step\n";
-        var tags = ParseTags(text);
+        var tags = ParseTags(text, registry);
         tags.Any(t => t.Type == DeveroomTagTypes.BindingError).Should().BeTrue();
     }
 
@@ -178,10 +176,10 @@ public class DeveroomTagParserTests
             new Regex(@"^I have (\d+) items$"), null,
             new ProjectBindingImplementation("HaveItems", new[] { "System.Int32" },
                 new SourceLocation("Steps.cs", 3, 1)));
-        _bindingRegistryProvider.Current.Returns(RegistryWith(binding));
+        var registry = RegistryWith(binding);
 
         var text = "Feature: F\nScenario: S\n  Given I have 5 items\n";
-        var tags = ParseTags(text);
+        var tags = ParseTags(text, registry);
         tags.Any(t => t.Type == DeveroomTagTypes.StepParameter).Should().BeTrue();
     }
 
@@ -271,11 +269,11 @@ public class DeveroomTagParserTests
             HookType.BeforeScenario,
             null,
             null);
-        _bindingRegistryProvider.Current.Returns(
-            new ProjectBindingRegistry(Array.Empty<ProjectStepDefinitionBinding>(), new[] { hook }, 0));
+        var registry = new ProjectBindingRegistry(
+            Array.Empty<ProjectStepDefinitionBinding>(), new[] { hook }, 0);
 
         var text = "Feature: F\nScenario: S\n  Given a step\n";
-        var tags = ParseTags(text);
+        var tags = ParseTags(text, registry);
         tags.Any(t => t.Type == DeveroomTagTypes.ScenarioHookReference).Should().BeTrue();
     }
 
@@ -322,10 +320,10 @@ public class DeveroomTagParserTests
         var then = new ProjectStepDefinitionBinding(ScenarioBlock.Then,
             new Regex("^third step$"), null,
             new ProjectBindingImplementation("Then1", null, new SourceLocation("S.cs", 3, 1)));
-        _bindingRegistryProvider.Current.Returns(RegistryWith(given, when, then));
+        var registry = RegistryWith(given, when, then);
 
         var text = "Feature: F\nScenario: S\n  Given first step\n  When second step\n  Then third step\n";
-        var tags = ParseTags(text);
+        var tags = ParseTags(text, registry);
         OfType(tags, DeveroomTagTypes.StepBlock).Should().HaveCount(3);
         OfType(tags, DeveroomTagTypes.DefinedStep).Should().HaveCount(3);
     }
@@ -347,7 +345,7 @@ public class DeveroomTagParserTests
         var text = "Feature: F\nScenario: S\n  Given a step\n";
         var snap = Snap(text);
         var sut = CreateSut();
-        var tags = sut.Parse(snap);
+        var tags = sut.Parse(snap, ProjectBindingRegistry.Invalid);
         var featureBlock = tags.First(t => t.Type == DeveroomTagTypes.FeatureBlock);
         featureBlock.Range.Start.Should().Be(0);
         featureBlock.Range.End.Should().Be(snap.Length);

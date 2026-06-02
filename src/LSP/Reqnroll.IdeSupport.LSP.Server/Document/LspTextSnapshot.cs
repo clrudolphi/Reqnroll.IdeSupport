@@ -1,7 +1,4 @@
 using Reqnroll.IdeSupport.LSP.Core.Document;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Document;
 

@@ -8,4 +8,9 @@
       <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Required for ConnectorJsonSerialization on netstandard2.0 targets -->
+    <PackageReference Include="System.Text.Json" Version="9.*" />
+  </ItemGroup>
+
 </Project>

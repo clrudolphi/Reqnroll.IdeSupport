@@ -1,8 +1,17 @@
+using Reqnroll.IdeSupport.LSP.Core.Discovery;
 using Reqnroll.IdeSupport.LSP.Core.Document;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
 
 public interface IDeveroomTagParser
 {
-    IReadOnlyCollection<DeveroomTag> Parse(IGherkinTextSnapshot fileSnapshot);
+    /// <summary>
+    /// Parse <paramref name="fileSnapshot"/> and return Deveroom tags annotated with
+    /// binding matches from <paramref name="bindingRegistry"/>.
+    /// Pass <see cref="ProjectBindingRegistry.Invalid"/> when no registry is available yet;
+    /// step-matching tags will simply be omitted.
+    /// </summary>
+    IReadOnlyCollection<DeveroomTag> Parse(
+        IGherkinTextSnapshot fileSnapshot,
+        ProjectBindingRegistry bindingRegistry);
 }

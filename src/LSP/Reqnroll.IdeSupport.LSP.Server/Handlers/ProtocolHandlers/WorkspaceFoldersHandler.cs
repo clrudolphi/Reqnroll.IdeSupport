@@ -4,8 +4,6 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Handlers.ProtocolHandlers;
 

@@ -66,7 +66,7 @@ public class LspWorkspaceScopeManagerTests : IDisposable
         var uri = DocumentUri.FromFileSystemPath(Path.Combine(nested, "a.feature"));
         var scope = _sut.GetScopeForUri(uri);
         scope.Should().NotBeNull();
-        scope!.ProjectFolder.Should().Be(Path.GetFullPath(nested));
+        scope!.RootFolder.Should().Be(Path.GetFullPath(nested));
     }
 
     // ── CloseWorkspace ────────────────────────────────────────────────────────

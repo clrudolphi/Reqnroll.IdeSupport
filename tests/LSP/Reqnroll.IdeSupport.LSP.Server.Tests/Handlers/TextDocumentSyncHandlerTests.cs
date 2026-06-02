@@ -46,7 +46,8 @@ public class TextDocumentSyncHandlerTests
         buffer.Should().NotBeNull();
         buffer!.Text.Should().Be(request.TextDocument.Text);
         buffer.Version.Should().Be(3);
-        buffer.Tags.Should().BeSameAs(tags);
+        // Tag storage is delegated to IGherkinDocumentTaggerService.ParseAsync (mocked here),
+        // so buffer.Tags is not set by the handler; the notification below carries the tags.
 
         await _mediator.Received(1).Publish(
             Arg.Is<GherkinDocumentParsedNotification>(n =>
@@ -82,7 +83,8 @@ public class TextDocumentSyncHandlerTests
         buffer.Should().NotBeNull();
         buffer!.Text.Should().Be("Feature: New\nScenario: S\n  Given changed\n");
         buffer.Version.Should().Be(2);
-        buffer.Tags.Should().BeSameAs(tags);
+        // Tag storage is delegated to IGherkinDocumentTaggerService.ParseAsync (mocked here),
+        // so buffer.Tags is not set by the handler; the notification below carries the tags.
 
         await _mediator.Received(1).Publish(
             Arg.Is<GherkinDocumentParsedNotification>(n =>

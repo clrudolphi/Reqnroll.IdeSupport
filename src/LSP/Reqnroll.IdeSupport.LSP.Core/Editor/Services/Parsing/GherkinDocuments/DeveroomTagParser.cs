@@ -2,7 +2,6 @@ using Gherkin.Ast;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 using Reqnroll.IdeSupport.LSP.Core.Discovery;
-using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
 using Reqnroll.IdeSupport.LSP.Core.Document;
 using System.Collections.Immutable;
 using System.Diagnostics;
@@ -14,24 +13,24 @@ public class DeveroomTagParser : IDeveroomTagParser
 {
     internal static readonly Regex NewLineRe = new(@"\r\n|\n|\r");
     private readonly IDeveroomConfigurationProvider _deveroomConfigurationProvider;
-    private readonly IBindingRegistryProvider _bindingRegistryProvider;
     private readonly IDeveroomLogger _logger;
     private readonly IMonitoringService _monitoringService;
 
     public DeveroomTagParser(
         IDeveroomLogger logger,
         IMonitoringService monitoringService,
-        IDeveroomConfigurationProvider deveroomConfigurationProvider,
-        IBindingRegistryProvider discoveryService
+        IDeveroomConfigurationProvider deveroomConfigurationProvider
     )
     {
         _logger = logger;
         _monitoringService = monitoringService;
         _deveroomConfigurationProvider = deveroomConfigurationProvider;
-        _bindingRegistryProvider = discoveryService;
     }
 
-    public IReadOnlyCollection<DeveroomTag> Parse(IGherkinTextSnapshot fileSnapshot)
+    /// <inheritdoc/>
+    public IReadOnlyCollection<DeveroomTag> Parse(
+        IGherkinTextSnapshot fileSnapshot,
+        ProjectBindingRegistry bindingRegistry)
     {
         var stopwatch = new Stopwatch();
         stopwatch.Start();
@@ -39,7 +38,6 @@ public class DeveroomTagParser : IDeveroomTagParser
         try
         {
             var configuration = _deveroomConfigurationProvider.GetConfiguration();
-            var bindingRegistry = _bindingRegistryProvider.Current;
             return ParseInternal(fileSnapshot, bindingRegistry, configuration);
         }
         catch (Exception ex)

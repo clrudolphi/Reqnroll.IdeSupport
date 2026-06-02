@@ -9,7 +9,10 @@
         <Project Path="src/Core/Reqnroll.IdeSupport.Common/Reqnroll.IdeSupport.Common.csproj" Id="9b9365f9-b9e0-48cf-a611-af594033611e" />
     </Folder>
     <Folder Name="/LSP/">
+        <Project Path="src/LSP/Reqnroll.IdeSupport.LSP.Connector/Connector.Generic.NetFX.Bridge/Connector.NetFX.Bridge.csproj" />
+        <Project Path="src/LSP/Reqnroll.IdeSupport.LSP.Connector/Connector.Generic.NetFX.Interfaces/Connector.NetFX.Interfaces.csproj" />
         <Project Path="src/LSP/Reqnroll.IdeSupport.LSP.Connector/Reqnroll.IdeSupport.LSP.Connector.Models/Reqnroll.IdeSupport.LSP.Connector.Models.csproj" />
+        <Project Path="src/LSP/Reqnroll.IdeSupport.LSP.Connector/Connector/Connector.csproj" Id="98b8a6cc-4a40-4603-a6dc-8c5edd408e4b" />
         <Project Path="src/LSP/Reqnroll.IdeSupport.LSP.Core/Reqnroll.IdeSupport.LSP.Core.csproj" Id="16e03b10-2c4b-49e5-8792-894d8f77e9cd" />
         <Project Path="src/LSP/Reqnroll.IdeSupport.LSP.Server/Reqnroll.IdeSupport.LSP.Server.csproj" Id="2d84ec01-09b0-4cf3-8d41-866963c44045" />
     </Folder>
@@ -34,6 +37,8 @@
     <Folder Name="/Tests/LSP/">
         <Project Path="tests/LSP/Reqnroll.IdeSupport.LSP.Core.Tests/Reqnroll.IdeSupport.LSP.Core.Tests.csproj" />
         <Project Path="tests/LSP/Reqnroll.IdeSupport.LSP.Server.Tests/Reqnroll.IdeSupport.LSP.Server.Tests.csproj" />
+        <Project Path="tests/LSP/Reqnroll.IdeSupport.LSP.Server.Specs/Reqnroll.IdeSupport.LSP.Server.Specs.csproj" />
+        <Project Path="tests/LSP/Reqnroll.IdeSupport.LSP.Server.Specs.BindingsFixture/Reqnroll.IdeSupport.LSP.Server.Specs.BindingsFixture.csproj" />
     </Folder>
     <Folder Name="/Tests/">
         <Project Path="tests/Reqnroll.SampleProjectGenerator.Core/Reqnroll.SampleProjectGenerator.Core.csproj" />

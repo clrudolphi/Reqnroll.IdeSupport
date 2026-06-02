@@ -1,77 +1,86 @@
 using Reqnroll.IdeSupport.Common;
-using Reqnroll.IdeSupport.Common.ProjectSystem;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.IO;
-using System.Linq;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 /// <summary>
-/// Minimal <see cref="IProjectScope"/> for one LSP workspace root folder.
-/// Configuration is loaded lazily by <c>ConfigurationProjectSystemExtensions.GetDeveroomConfigurationProvider</c>
-/// which stores a <see cref="Reqnroll.IdeSupport.Common.ProjectSystem.Configuration.ProjectScopeDeveroomConfigurationProvider"/>
-/// in <see cref="Properties"/>.
+/// Represents one LSP workspace folder (the root directory sent by the client in
+/// the <c>initialize</c> handshake or via <c>workspace/didChangeWorkspaceFolders</c>).
 /// </summary>
-public sealed class LspProjectScope : IProjectScope
+/// <remarks>
+/// This is a <em>folder container</em>, not a project.  Individual Reqnroll projects
+/// (<c>.csproj</c> files) within this folder are tracked as <see cref="LspReqnrollProject"/>
+/// instances populated by <c>reqnroll/projectLoaded</c> notifications from the IDE glue.
+/// </remarks>
+public sealed class LspProjectScope : IDisposable
 {
+    private readonly IIdeScope _ideScope;
+    private readonly ConcurrentDictionary<string, LspReqnrollProject> _projects
+        = new(StringComparer.OrdinalIgnoreCase);
+
     public LspProjectScope(string rootFolder, IIdeScope ideScope)
     {
-        ProjectFolder = Path.GetFullPath(rootFolder);
-        ProjectName = Path.GetFileName(ProjectFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-        ProjectFullName = ProjectFolder;
-        IdeScope = ideScope;
-        Properties = new ConcurrentDictionary<Type, object>();
+        _ideScope   = ideScope;
+        RootFolder  = Path.GetFullPath(rootFolder);
     }
 
-    public IIdeScope IdeScope { get; }
-    public string ProjectName { get; }
-    public string ProjectFullName { get; }
-    public string ProjectFolder { get; }
-    public ConcurrentDictionary<Type, object> Properties { get; }
+    // ── Identity ──────────────────────────────────────────────────────────────
 
-    public IEnumerable<NuGetPackageReference> PackageReferences => ImmutableArray<NuGetPackageReference>.Empty;
-    public string OutputAssemblyPath => string.Empty;
-    public string TargetFrameworkMoniker => string.Empty;
-    public string TargetFrameworkMonikers => string.Empty;
-    public string PlatformTargetName => string.Empty;
-    public string DefaultNamespace => string.Empty;
+    /// <summary>Normalised absolute path of the workspace folder root.</summary>
+    public string RootFolder { get; }
 
-    public int? GetFeatureFileCount()
+    /// <summary>All Reqnroll projects currently registered within this workspace folder.</summary>
+    public IReadOnlyCollection<LspReqnrollProject> Projects => _projects.Values.ToArray();
+
+    // ── Project lifecycle (called by LspWorkspaceScopeManager) ────────────────
+
+    /// <summary>
+    /// Creates a new <see cref="LspReqnrollProject"/> for the given notification, or
+    /// updates the matching existing one in-place and returns it.
+    /// </summary>
+    /// <returns>
+    /// (<c>project</c>, <c>isNew</c>, <c>discoveryInputChanged</c>).
+    /// <c>discoveryInputChanged</c> is <see langword="true"/> for a newly created project, or
+    /// for an updated project whose output assembly path or target framework moniker changed.
+    /// </returns>
+    internal (LspReqnrollProject Project, bool IsNew, bool DiscoveryInputChanged) AddOrUpdateProject(
+        ReqnrollProjectLoadedParams info)
     {
-        try
+        var key = NormaliseKey(info.ProjectFile);
+
+        if (_projects.TryGetValue(key, out var existing))
         {
-            return IdeScope.FileSystem.Directory
-                .GetFiles(ProjectFolder, "*.feature", SearchOption.AllDirectories)
-                .Length;
+            var changed = existing.Update(info);
+            return (existing, false, changed);
         }
-        catch
-        {
-            return null;
-        }
+
+        var created = new LspReqnrollProject(info, _ideScope);
+        _projects[key] = created;
+        return (created, true, true);
     }
 
-    public string[] GetProjectFiles(string extension)
+    /// <summary>
+    /// Removes the project identified by <paramref name="projectFile"/> and returns it,
+    /// or <c>null</c> if it was not registered.
+    /// </summary>
+    internal LspReqnrollProject? RemoveProject(string projectFile)
     {
-        try
-        {
-            var pattern = $"*{extension}";
-            return IdeScope.FileSystem.Directory
-                .GetFiles(ProjectFolder, pattern, SearchOption.AllDirectories);
-        }
-        catch
-        {
-            return Array.Empty<string>();
-        }
+        var key = NormaliseKey(projectFile);
+        return _projects.TryRemove(key, out var project) ? project : null;
     }
+
+    // ── IDisposable ───────────────────────────────────────────────────────────
 
     public void Dispose()
     {
-        foreach (var disposable in Properties.Values.OfType<IDisposable>())
-            disposable.Dispose();
+        foreach (var project in _projects.Values)
+            project.Dispose();
+        _projects.Clear();
     }
 
-    public override string ToString() => ProjectName;
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static string NormaliseKey(string path) => Path.GetFullPath(path);
+
+    public override string ToString() => RootFolder;
 }
