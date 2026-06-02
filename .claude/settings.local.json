@@ -12,7 +12,14 @@
       "WebFetch(domain:github.com)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\clrud\\\\source\\\\repos\\\\ThomasHeijtink\\\\Reqnroll.LSP.Plugin\\\\Reqnroll.Plugin.VsCode\" -Recurse -File)",
       "Bash(Select-Object -ExpandProperty FullName)",
-      "Bash(ls \"C:\\\\Users\\\\clrud\\\\AppData\\\\Roaming\\\\Claude\\\\ant-did\")"
+      "Bash(ls \"C:\\\\Users\\\\clrud\\\\AppData\\\\Roaming\\\\Claude\\\\ant-did\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\clrud\\\\source\\\\repos\\\\scratch\\\\Reqnroll.IdeSupport\" -Recurse -Filter \"*.csproj\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\clrud\\\\source\\\\repos\\\\Reqnroll.VisualStudio\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\clrud\\\\source\\\\repos\\\\scratch\\\\Reqnroll.IdeSupport\" -Recurse -Directory)",
+      "Bash(Sort-Object)",
+      "PowerShell(head -60)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\clrud\\\\source\\\\repos\\\\Reqnroll.VisualStudio\\\\Connectors\\\\Reqnroll.VisualStudio.ReqnrollConnector.Generic\\\\AssemblyLoading\\\\dotNET\\\\\" -Filter \"*.cs\" | Select-Object Name)"
     ]
   }
 }
