@@ -1,6 +1,7 @@
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Discovery;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
+using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Services;
 
@@ -12,6 +13,7 @@ public class GherkinDocumentTaggerServiceTests
     private readonly IDeveroomTagParser _tagParser = Substitute.For<IDeveroomTagParser>();
     private readonly IProjectBindingRegistryLookup _registryLookup = Substitute.For<IProjectBindingRegistryLookup>();
     private readonly ISemanticTokenService _semanticTokenService = Substitute.For<ISemanticTokenService>();
+    private readonly IBindingMatchService _bindingMatchService = Substitute.For<IBindingMatchService>();
     private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
 
     private static readonly DocumentUri FeatureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
@@ -24,7 +26,7 @@ public class GherkinDocumentTaggerServiceTests
     }
 
     private GherkinDocumentTaggerService CreateSut() =>
-        new(_bufferService, _tagParser, _registryLookup, _semanticTokenService, _logger);
+        new(_bufferService, _tagParser, _registryLookup, _semanticTokenService, _bindingMatchService, _logger);
 
     // ── Buffer-not-found ──────────────────────────────────────────────────────
 
@@ -88,6 +90,11 @@ public class GherkinDocumentTaggerServiceTests
         _tagParser.Received(1).Parse(
             Arg.Any<Reqnroll.IdeSupport.LSP.Core.Document.IGherkinTextSnapshot>(),
             Arg.Any<ProjectBindingRegistry>());
+        // The match set is recomputed and stored against the document URI before the
+        // semantic token cache is evicted.
+        _bindingMatchService.Received(1).Store(
+            Arg.Is<FeatureBindingMatchSet>(s => s.DocumentId == FeatureUri.ToString()));
+        _semanticTokenService.Received(1).InvalidateCache(FeatureUri);
     }
 
     [Fact]

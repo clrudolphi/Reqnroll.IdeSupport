@@ -9,7 +9,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Handlers.InternalHandlers;
 /// <summary>
 /// Handles <see cref="BindingRegistryChangedNotification"/> by re-parsing every open
 /// feature file that belongs to the affected project, then publishing a
-/// <see cref="GherkinDocumentParsedNotification"/> for each so that semantic tokens
+/// <see cref="MatchCacheChangedNotification"/> for each so that semantic tokens
 /// are refreshed against the new binding registry.
 /// </summary>
 /// <remarks>
@@ -75,10 +75,11 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
         int? version,
         CancellationToken cancellationToken)
     {
-        // ParseAsync stores updated tags and invalidates the semantic token cache internally.
-        var tags = await _taggerService.ParseAsync(uri, version).ConfigureAwait(false);
+        // ParseAsync stores updated tags, recomputes/stores the binding match set, and
+        // invalidates the semantic token cache internally before this notification fires.
+        await _taggerService.ParseAsync(uri, version).ConfigureAwait(false);
         await _mediator.Publish(
-            new GherkinDocumentParsedNotification(uri, version ?? 0, tags),
+            new MatchCacheChangedNotification(uri, version ?? 0),
             cancellationToken).ConfigureAwait(false);
     }
 

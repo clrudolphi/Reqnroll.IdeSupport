@@ -9,6 +9,7 @@ using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
+using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Handlers.InternalHandlers;
@@ -104,6 +105,10 @@ public class Program
                .AddSingleton<IProjectBindingRegistryLookup>(sp => sp.GetRequiredService<BindingRegistryProviderRouter>())
                .AddSingleton<IDeveroomTagParser, DeveroomTagParser>()
                .AddSingleton<IDocumentBufferService, DocumentBufferService>()
+               // BindingMatchService holds the per-document match cache; it must be a singleton
+               // so the cache survives across requests and is shared by the tagger (writer) and
+               // the Go to Definition / diagnostics consumers (readers).
+               .AddSingleton<IBindingMatchService, BindingMatchService>()
                .AddSingleton<IGherkinDocumentTaggerService, GherkinDocumentTaggerService>()
                .AddSingleton<ISemanticTokenService, SemanticTokenService>()
                // MediatR notification handlers — registered solely via AddMediatR(typeof(Program))

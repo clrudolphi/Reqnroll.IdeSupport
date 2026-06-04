@@ -5,6 +5,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities;
 using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Notifications;
 using Reqnroll.IdeSupport.LSP.Server.Services;
 
@@ -14,6 +15,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
 {
     private readonly IDocumentBufferService _documentBufferService;
     private readonly IGherkinDocumentTaggerService _taggerService;
+    private readonly IBindingMatchService _bindingMatchService;
     private readonly IMediator _mediator;
     private readonly IDeveroomLogger _logger;
 
@@ -27,11 +29,13 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     public TextDocumentSyncHandler(
         IDocumentBufferService documentBufferService,
         IGherkinDocumentTaggerService taggerService,
+        IBindingMatchService bindingMatchService,
         IMediator mediator,
         IDeveroomLogger logger)
     {
         _documentBufferService = documentBufferService;
         _taggerService = taggerService;
+        _bindingMatchService = bindingMatchService;
         _mediator = mediator;
         _logger = logger;
     }
@@ -91,6 +95,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
         _logger.LogInfo($"Document closed: {uri}");
         _documentBufferService.Remove(uri);
+        _bindingMatchService.Invalidate(uri.ToString());
 
         return Unit.Task;
     }
@@ -99,10 +104,11 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
     private async Task ParseAndNotifyAsync(DocumentUri uri, int? version, CancellationToken cancellationToken)
     {
-        // ParseAsync stores updated tags and invalidates the semantic token cache internally.
-        var tags = await _taggerService.ParseAsync(uri, version).ConfigureAwait(false);
+        // ParseAsync stores updated tags, recomputes/stores the binding match set, and
+        // invalidates the semantic token cache internally before this notification fires.
+        await _taggerService.ParseAsync(uri, version).ConfigureAwait(false);
         await _mediator.Publish(
-            new GherkinDocumentParsedNotification(uri, version ?? 0, tags),
+            new MatchCacheChangedNotification(uri, version ?? 0),
             cancellationToken).ConfigureAwait(false);
     }
 }

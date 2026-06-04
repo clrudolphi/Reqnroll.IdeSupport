@@ -7,18 +7,21 @@ using Reqnroll.IdeSupport.LSP.Server.Notifications;
 namespace Reqnroll.IdeSupport.LSP.Server.Handlers.InternalHandlers;
 
 /// <summary>
-/// Handles <see cref="GherkinDocumentParsedNotification"/> by asking the LSP client
+/// Handles <see cref="MatchCacheChangedNotification"/> by asking the LSP client
 /// to refresh its semantic tokens. No tag encoding is performed here; encoding is
 /// deferred until the client sends a <c>textDocument/semanticTokens/full</c> request.
 /// </summary>
 /// <remarks>
-/// Multiple parse notifications can arrive in quick succession (e.g. when several
-/// files open at once). A debounce window collapses those bursts into a single
-/// <c>workspace/semanticTokens/refresh</c> request so the client is not flooded.
-/// The refresh is also guarded by a client-capability check: if the client did not
-/// advertise <c>workspace.semanticTokens.refreshSupport</c> the request is skipped.
+/// The refresh is driven by the match-cache notification (rather than a raw parse
+/// notification) so that it fires only after binding matches have been recomputed and
+/// the binding-overlay tags are current; refreshing earlier would re-encode pre-binding
+/// tokens. Multiple notifications can arrive in quick succession (e.g. when several files
+/// open at once, or a build replaces the registry). A debounce window collapses those
+/// bursts into a single <c>workspace/semanticTokens/refresh</c> request so the client is
+/// not flooded. The refresh is also guarded by a client-capability check: if the client
+/// did not advertise <c>workspace.semanticTokens.refreshSupport</c> the request is skipped.
 /// </remarks>
-public class SemanticTokensRefreshHandler : INotificationHandler<GherkinDocumentParsedNotification>
+public class SemanticTokensRefreshHandler : INotificationHandler<MatchCacheChangedNotification>
 {
     private static readonly TimeSpan DebounceDelay = TimeSpan.FromMilliseconds(500);
 
@@ -34,7 +37,7 @@ public class SemanticTokensRefreshHandler : INotificationHandler<GherkinDocument
         _logger = logger;
     }
 
-    public Task Handle(GherkinDocumentParsedNotification notification, CancellationToken cancellationToken)
+    public Task Handle(MatchCacheChangedNotification notification, CancellationToken cancellationToken)
     {
         // Guard: only send the refresh if the client advertised support for it.
         var semanticTokensWorkspace = _languageServer.ClientSettings.Capabilities?.Workspace?.SemanticTokens;
@@ -42,7 +45,7 @@ public class SemanticTokensRefreshHandler : INotificationHandler<GherkinDocument
             semanticTokensWorkspace.Value.Value?.RefreshSupport != true)
             return Task.CompletedTask;
 
-        _logger.LogVerbose($"GherkinDocumentParsed: scheduling semantic token refresh for {notification.Uri} v{notification.Version}");
+        _logger.LogVerbose($"MatchCacheChanged: scheduling semantic token refresh for {notification.Uri} v{notification.Version}");
 
         // Debounce: cancel any pending refresh and start a new delayed one.
         CancellationTokenSource newCts;

@@ -2,6 +2,7 @@ using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
+using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Handlers.ProtocolHandlers;
 using Reqnroll.IdeSupport.LSP.Server.Notifications;
 using Reqnroll.IdeSupport.LSP.Server.Services;
@@ -12,16 +13,17 @@ public class TextDocumentSyncHandlerTests
 {
     private readonly IDocumentBufferService _bufferService = new DocumentBufferService();
     private readonly IGherkinDocumentTaggerService _taggerService = Substitute.For<IGherkinDocumentTaggerService>();
+    private readonly IBindingMatchService _bindingMatchService = Substitute.For<IBindingMatchService>();
     private readonly IMediator _mediator = Substitute.For<IMediator>();
     private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
 
     private static readonly DocumentUri FeatureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
 
     private TextDocumentSyncHandler CreateSut() =>
-        new(_bufferService, _taggerService, _mediator, _logger);
+        new(_bufferService, _taggerService, _bindingMatchService, _mediator, _logger);
 
     [Fact]
-    public async Task Handle_DidOpen_stores_document_and_publishes_parsed_notification()
+    public async Task Handle_DidOpen_stores_document_and_publishes_match_cache_changed_notification()
     {
         var tags = Array.Empty<DeveroomTag>();
         _taggerService.ParseAsync(FeatureUri, 3).Returns(tags);
@@ -46,12 +48,11 @@ public class TextDocumentSyncHandlerTests
         buffer.Should().NotBeNull();
         buffer!.Text.Should().Be(request.TextDocument.Text);
         buffer.Version.Should().Be(3);
-        // Tag storage is delegated to IGherkinDocumentTaggerService.ParseAsync (mocked here),
-        // so buffer.Tags is not set by the handler; the notification below carries the tags.
+        // Tag storage and match-set computation are delegated to IGherkinDocumentTaggerService.ParseAsync
+        // (mocked here); the handler only publishes the match-cache-changed notification afterwards.
 
         await _mediator.Received(1).Publish(
-            Arg.Is<GherkinDocumentParsedNotification>(n =>
-                n.Uri == FeatureUri && n.Version == 3 && ReferenceEquals(n.Tags, tags)),
+            Arg.Is<MatchCacheChangedNotification>(n => n.Uri == FeatureUri && n.Version == 3),
             Arg.Any<CancellationToken>());
     }
 
@@ -83,12 +84,11 @@ public class TextDocumentSyncHandlerTests
         buffer.Should().NotBeNull();
         buffer!.Text.Should().Be("Feature: New\nScenario: S\n  Given changed\n");
         buffer.Version.Should().Be(2);
-        // Tag storage is delegated to IGherkinDocumentTaggerService.ParseAsync (mocked here),
-        // so buffer.Tags is not set by the handler; the notification below carries the tags.
+        // Tag storage and match-set computation are delegated to IGherkinDocumentTaggerService.ParseAsync
+        // (mocked here); the handler only publishes the match-cache-changed notification afterwards.
 
         await _mediator.Received(1).Publish(
-            Arg.Is<GherkinDocumentParsedNotification>(n =>
-                n.Uri == FeatureUri && n.Version == 2 && ReferenceEquals(n.Tags, tags)),
+            Arg.Is<MatchCacheChangedNotification>(n => n.Uri == FeatureUri && n.Version == 2),
             Arg.Any<CancellationToken>());
     }
 
@@ -116,7 +116,7 @@ public class TextDocumentSyncHandlerTests
         buffer.Version.Should().Be(4);
 
         await _mediator.Received(1).Publish(
-            Arg.Is<GherkinDocumentParsedNotification>(n => n.Uri == FeatureUri && n.Version == 4),
+            Arg.Is<MatchCacheChangedNotification>(n => n.Uri == FeatureUri && n.Version == 4),
             Arg.Any<CancellationToken>());
     }
 
@@ -135,6 +135,7 @@ public class TextDocumentSyncHandlerTests
 
         result.Should().Be(Unit.Value);
         _bufferService.TryGet(FeatureUri, out _).Should().BeFalse();
+        _bindingMatchService.Received(1).Invalidate(FeatureUri.ToString());
 
         await _mediator.DidNotReceiveWithAnyArgs().Publish(default!, default);
     }

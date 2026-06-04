@@ -11,7 +11,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Notifications;
 /// <remarks>
 /// Consumers should re-parse every open feature file that belongs to
 /// <see cref="Project"/> so that step-definition tags are evaluated against the
-/// new registry, then publish <see cref="GherkinDocumentParsedNotification"/> for each
+/// new registry, then publish <see cref="MatchCacheChangedNotification"/> for each
 /// to trigger a semantic-token refresh.
 /// </remarks>
 public record BindingRegistryChangedNotification(
