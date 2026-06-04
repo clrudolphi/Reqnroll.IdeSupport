@@ -33,6 +33,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="ApprovalTests" Version="5.9.0" /> <!-- cannot upgrade to 6.0 because of test execution issues -->
+    <PackageReference Include="System.Data.SqlClient" Version="4.8.6" />
     <PackageReference Include="System.IO.Abstractions.TestingHelpers" Version="22.1.1" />
     <PackageReference Include="NSubstitute " Version="5.3.0" />
     <PackageReference Include="AwesomeAssertions" Version="9.4.0" />
@@ -48,6 +49,7 @@
   <ItemGroup>
     <ProjectReference Include="../../../src/Core/Reqnroll.IdeSupport.Common/Reqnroll.IdeSupport.Common.csproj" />
     <ProjectReference Include="../../../src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.VSSDKIntegration/Reqnroll.IdeSupport.VisualStudio.VSSDKIntegration.csproj" />
+    <ProjectReference Include="../../../src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Extension/Reqnroll.IdeSupport.VisualStudio.Extension.csproj" />
     <ProjectReference Include="../../../src/LSP/Reqnroll.IdeSupport.LSP.Core/Reqnroll.IdeSupport.LSP.Core.csproj" />
     <ProjectReference Include="../Reqnroll.VisualStudio.VsxStubs/Reqnroll.VisualStudio.VsxStubs.csproj" />
   </ItemGroup>

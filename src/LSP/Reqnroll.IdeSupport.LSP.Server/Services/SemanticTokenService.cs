@@ -10,15 +10,13 @@ namespace Reqnroll.IdeSupport.LSP.Server.Services;
 /// Maps <see cref="DeveroomTag"/> instances to LSP semantic token integer tuples
 /// on demand and caches the encoded result per document version.
 /// Encoding is deferred until the client sends a semantic tokens request.
-/// The token type legend and the tag→token mapping are provided by an injected
-/// <see cref="ISemanticTokenProfile"/>, allowing different IDEs to use different
-/// token type names and mappings.
+/// The token type legend and the tag→token mapping are the fixed Reqnroll definitions
+/// in <see cref="ReqnrollSemanticTokens"/> (identical for every IDE client).
 /// </summary>
 public sealed class SemanticTokenService : ISemanticTokenService
 {
     // ── State ─────────────────────────────────────────────────────────────────
     private readonly IDocumentBufferService _documentBufferService;
-    private readonly ISemanticTokenProfile  _profile;
     private readonly IDeveroomLogger         _logger;
 
     // key: (uri, version)  value: encoded token data
@@ -26,16 +24,14 @@ public sealed class SemanticTokenService : ISemanticTokenService
 
     // ── ISemanticTokenService.Legend ──────────────────────────────────────────
     /// <inheritdoc/>
-    public SemanticTokensLegend Legend => _profile.Legend;
+    public SemanticTokensLegend Legend => ReqnrollSemanticTokens.Legend;
 
     // ── Construction ──────────────────────────────────────────────────────────
     public SemanticTokenService(
         IDocumentBufferService documentBufferService,
-        ISemanticTokenProfile  profile,
         IDeveroomLogger         logger)
     {
         _documentBufferService = documentBufferService;
-        _profile               = profile;
         _logger                = logger;
     }
 
@@ -53,7 +49,7 @@ public sealed class SemanticTokenService : ISemanticTokenService
             return Task.FromResult<SemanticTokens?>(null);
         }
 
-        var encoded = Encode(tags, _profile);
+        var encoded = Encode(tags);
         tokens = new SemanticTokens { Data = [.. encoded], ResultId = $"{uri}@{version}" };
         _cache[(uri, version)] = tokens;
         PurgePriorVersions(uri, version);
@@ -83,11 +79,11 @@ public sealed class SemanticTokenService : ISemanticTokenService
     /// block tags (FeatureBlock, etc.) are not emitted themselves but their
     /// children are processed recursively.
     /// </summary>
-    private static List<int> Encode(IReadOnlyCollection<DeveroomTag> tags, ISemanticTokenProfile profile)
+    private static List<int> Encode(IReadOnlyCollection<DeveroomTag> tags)
     {
         // Collect all leaf tokens in document order (line asc, char asc).
         var entries = new List<(int Line, int Char, int Length, int TypeIdx, int ModBits)>();
-        CollectLeafTokens(tags, profile, entries);
+        CollectLeafTokens(tags, entries);
 
         // Primary sort: (line, char) ascending.
         // Tie-break: length descending so that a longer outer token (e.g. DefinedStep
@@ -198,12 +194,11 @@ public sealed class SemanticTokenService : ISemanticTokenService
 
     private static void CollectLeafTokens(
         IEnumerable<DeveroomTag> tags,
-        ISemanticTokenProfile profile,
         List<(int Line, int Char, int Length, int TypeIdx, int ModBits)> entries)
     {
         foreach (var tag in tags)
         {
-            if (profile.TryGetToken(tag, out var typeIdx, out var modBits))
+            if (ReqnrollSemanticTokens.TryGetToken(tag, out var typeIdx, out var modBits))
             {
                 var (startLine, startChar) = ResolvePosition(tag.Range, tag.Range.Start);
                 var (endLine, endChar) = ResolvePosition(tag.Range, tag.Range.End);

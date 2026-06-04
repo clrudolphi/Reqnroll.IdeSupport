@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Test harness for Reqnroll LSP Server – semantic tokens smoke test.
+    Test harness for Reqnroll LSP Server ï¿½ semantic tokens smoke test.
 
 .DESCRIPTION
     1. Builds the server (debug).
@@ -235,10 +235,21 @@ Feature: Calculator
 $rootUriStr  = "file:///" + ($repoRoot -replace '\\','/')
 $featureUri  = $rootUriStr + "/test-dummy.feature"
 
-# ---- Token legend (must match SemanticTokenService._tokenTypes order) --------
+# ---- Token legend (must match ReqnrollClassificationTypeNames.Ordered) --------
 
-$tokenTypeNames     = @('Keyword','String','Parameter','Variable','Comment','Class','Function','Regexp','Struct','Event')
-$tokenModifierNames = @('Declaration','Deprecated')
+$tokenTypeNames     = @(
+    'reqnroll.keyword',
+    'reqnroll.tag',
+    'reqnroll.description',
+    'reqnroll.comment',
+    'reqnroll.doc_string',
+    'reqnroll.data_table',
+    'reqnroll.data_table_header',
+    'reqnroll.step_parameter',
+    'reqnroll.scenario_outline_placeholder',
+    'reqnroll.undefined_step'
+)
+$tokenModifierNames = @()
 
 function Decode-SemanticTokens([int[]] $data) {
     $rows = [System.Collections.Generic.List[PSCustomObject]]::new()

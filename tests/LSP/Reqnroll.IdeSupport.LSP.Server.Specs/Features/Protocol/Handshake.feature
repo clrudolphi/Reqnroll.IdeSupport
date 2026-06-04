@@ -8,11 +8,11 @@ Scenario: Server completes the initialize handshake and advertises semantic toke
 	Given the LSP server is started
 	Then the server advertises a semantic tokens provider
 	And the semantic tokens legend includes the token types
-		| tokenType |
-		| keyword   |
-		| function  |
-		| parameter |
-		| regexp    |
+		| tokenType                            |
+		| reqnroll.keyword                     |
+		| reqnroll.step_parameter              |
+		| reqnroll.scenario_outline_placeholder |
+		| reqnroll.undefined_step              |
 
 Scenario: Keywords are tokenized over the wire for an opened feature file
 	Given the LSP server is started
@@ -24,7 +24,7 @@ Scenario: Keywords are tokenized over the wire for an opened feature file
 			Given I have entered 50 into the calculator
 			When I press add
 		"""
-	Then the semantic tokens include a "keyword" token for "Feature:"
-	And the semantic tokens include a "keyword" token for "Scenario:"
-	And the semantic tokens include a "keyword" token for "Given"
-	And the semantic tokens include a "keyword" token for "When"
+	Then the semantic tokens include a "reqnroll.keyword" token for "Feature:"
+	And the semantic tokens include a "reqnroll.keyword" token for "Scenario:"
+	And the semantic tokens include a "reqnroll.keyword" token for "Given"
+	And the semantic tokens include a "reqnroll.keyword" token for "When"

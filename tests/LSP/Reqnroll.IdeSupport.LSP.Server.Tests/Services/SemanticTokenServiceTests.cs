@@ -1,4 +1,5 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using Reqnroll.IdeSupport.Common.Classification;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Document;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
@@ -9,12 +10,11 @@ namespace Reqnroll.IdeSupport.LSP.Server.Tests.Services;
 public class SemanticTokenServiceTests
 {
     private readonly IDocumentBufferService _bufferService = Substitute.For<IDocumentBufferService>();
-    private readonly ISemanticTokenProfile _profile = new VisualStudioSemanticTokenProfile();
     private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
 
     private static readonly DocumentUri FeatureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
 
-    private SemanticTokenService CreateSut() => new(_bufferService, _profile, _logger);
+    private SemanticTokenService CreateSut() => new(_bufferService, _logger);
 
     private void SetupBuffer(DocumentBuffer? buf)
     {
@@ -36,20 +36,20 @@ public class SemanticTokenServiceTests
     }
 
     [Fact]
-    public void Legend_contains_expected_token_types()
+    public void Legend_contains_the_custom_reqnroll_token_types()
     {
         var sut = CreateSut();
-        sut.Legend.TokenTypes.Should().Contain(SemanticTokenType.Keyword);
-        sut.Legend.TokenTypes.Should().Contain(SemanticTokenType.Function);
-        sut.Legend.TokenTypes.Should().Contain(SemanticTokenType.Regexp);
+        var advertised = sut.Legend.TokenTypes.Select(t => t.ToString()).ToList();
+        advertised.Should().Contain(ReqnrollClassificationTypeNames.Keyword);
+        advertised.Should().Contain(ReqnrollClassificationTypeNames.StepParameter);
+        advertised.Should().Contain(ReqnrollClassificationTypeNames.UndefinedStep);
     }
 
     [Fact]
-    public void Legend_contains_expected_token_modifiers()
+    public void Legend_declares_no_token_modifiers()
     {
         var sut = CreateSut();
-        sut.Legend.TokenModifiers.Should().Contain(SemanticTokenModifier.Declaration);
-        sut.Legend.TokenModifiers.Should().Contain(SemanticTokenModifier.Deprecated);
+        sut.Legend.TokenModifiers.Should().BeEmpty();
     }
 
     // ── No buffer / no tags ───────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 using Nerdbank.Streams;
+using Newtonsoft.Json.Linq;                                            // JToken (custom notification capture)
 using OmniSharp.Extensions.LanguageServer.Client;                      // LanguageClient factory + option extensions
 using OmniSharp.Extensions.LanguageServer.Protocol;                    // WorkspaceNames, DocumentUri
 using OmniSharp.Extensions.LanguageServer.Protocol.Client;             // ILanguageClient
@@ -6,7 +7,6 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;// Semant
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;             // InitializeResult
 using OmniSharp.Extensions.LanguageServer.Server;                      // LanguageServer factory
 using Reqnroll.IdeSupport.LSP.Server;
-using Reqnroll.IdeSupport.LSP.Server.Services;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Specs.Support;
 
@@ -29,6 +29,10 @@ public sealed class LspServerHarness : IAsyncDisposable
     private int _refreshCount;
     private TaskCompletionSource<int> _refreshSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
+    private readonly object _pushLock = new();
+    private readonly List<(string Uri, int TokenCount)> _pushes = new();
+    private TaskCompletionSource<int> _pushSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     public ILanguageClient Client =>
         _client ?? throw new InvalidOperationException("Harness not started.");
 
@@ -38,18 +42,23 @@ public sealed class LspServerHarness : IAsyncDisposable
     /// <summary>Number of workspace/semanticTokens/refresh requests received so far.</summary>
     public int RefreshCount { get { lock (_refreshLock) return _refreshCount; } }
 
+    /// <summary>The <c>reqnroll/semanticTokens</c> push notifications received so far (uri + token count).</summary>
+    public IReadOnlyList<(string Uri, int TokenCount)> SemanticTokenPushes
+    {
+        get { lock (_pushLock) return _pushes.ToArray(); }
+    }
+
     public async Task StartAsync(string workspaceFolder, string? ideId = null)
     {
         var (serverStream, clientStream) = FullDuplexStream.CreatePair();
 
-        var profile = SemanticTokenProfileFactory.Create(ideId);
-
         // Start the server first (do not await yet — From() completes once the client's
-        // initialize handshake lands).
+        // initialize handshake lands).  The --ide identifier no longer affects the semantic
+        // token legend, but is still threaded through to exercise the startup plumbing.
         var serverTask = LanguageServer.From(options =>
         {
             options.WithInput(serverStream).WithOutput(serverStream);
-            Program.ConfigureServer(options, profile);
+            Program.ConfigureServer(options, ideId);
         });
 
         _client = await LanguageClient.From(options =>
@@ -68,6 +77,15 @@ public sealed class LspServerHarness : IAsyncDisposable
                 RecordRefresh();
                 return Task.CompletedTask;
             });
+
+            // Sink for the VS-only server-push notification carrying encoded tokens.
+            options.OnNotification("reqnroll/semanticTokens", (JToken p) =>
+            {
+                var uri = p["uri"]?.Value<string>() ?? string.Empty;
+                var count = (p["data"] as JArray)?.Count / 5 ?? 0;
+                RecordPush(uri, count);
+                return Task.CompletedTask;
+            });
         }).ConfigureAwait(false);
 
         _server = await serverTask.ConfigureAwait(false);
@@ -81,6 +99,42 @@ public sealed class LspServerHarness : IAsyncDisposable
             var prev = _refreshSignal;
             _refreshSignal = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
             prev.TrySetResult(_refreshCount);
+        }
+    }
+
+    private void RecordPush(string uri, int tokenCount)
+    {
+        lock (_pushLock)
+        {
+            _pushes.Add((uri, tokenCount));
+            var prev = _pushSignal;
+            _pushSignal = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+            prev.TrySetResult(_pushes.Count);
+        }
+    }
+
+    /// <summary>
+    /// Waits until a <c>reqnroll/semanticTokens</c> push whose URI satisfies <paramref name="uriMatch"/>
+    /// has been received, or the timeout elapses. Returns true if one arrived.
+    /// </summary>
+    public async Task<bool> WaitForPushAsync(Func<string, bool> uriMatch, int timeoutMs = 5000)
+    {
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (true)
+        {
+            Task<int> wait;
+            lock (_pushLock)
+            {
+                if (_pushes.Any(p => uriMatch(p.Uri))) return true;
+                wait = _pushSignal.Task;
+            }
+            var remaining = (int)(deadline - DateTime.UtcNow).TotalMilliseconds;
+            if (remaining <= 0) return false;
+            var completed = await Task.WhenAny(wait, Task.Delay(remaining)).ConfigureAwait(false);
+            if (completed != wait)
+            {
+                lock (_pushLock) return _pushes.Any(p => uriMatch(p.Uri));
+            }
         }
     }
 

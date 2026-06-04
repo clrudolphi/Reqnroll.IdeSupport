@@ -19,7 +19,14 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\clrud\\\\source\\\\repos\\\\scratch\\\\Reqnroll.IdeSupport\" -Recurse -Directory)",
       "Bash(Sort-Object)",
       "PowerShell(head -60)",
-      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\clrud\\\\source\\\\repos\\\\Reqnroll.VisualStudio\\\\Connectors\\\\Reqnroll.VisualStudio.ReqnrollConnector.Generic\\\\AssemblyLoading\\\\dotNET\\\\\" -Filter \"*.cs\" | Select-Object Name)"
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\clrud\\\\source\\\\repos\\\\Reqnroll.VisualStudio\\\\Connectors\\\\Reqnroll.VisualStudio.ReqnrollConnector.Generic\\\\AssemblyLoading\\\\dotNET\\\\\" -Filter \"*.cs\" | Select-Object Name)",
+      "Bash(dotnet build *)",
+      "Bash(dotnet test *)",
+      "Bash(cd /c/Users/clrud/AppData/Local/Reqnroll; echo \"=== inspector size ===\"; wc -l lsp-inspector-20260604-094919.log; echo \"=== vs debug size ===\"; wc -l reqnroll-vs-debug-20260604.log)",
+      "mcp__854f8b49-9c69-48f2-a8e3-0f83cb47b63c__microsoft_docs_search",
+      "mcp__854f8b49-9c69-48f2-a8e3-0f83cb47b63c__microsoft_docs_fetch",
+      "Bash(find \"/c/Program Files/Microsoft Visual Studio\" -iname \"Microsoft.VisualStudio.LanguageServer.Client*.dll\" 2>/dev/null | head; echo \"=== NUGET ===\"; find ~/.nuget/packages -iname \"Microsoft.VisualStudio.LanguageServer.Client.dll\" 2>/dev/null | head)",
+      "Bash(grep -iv \"//\")"
     ]
   }
 }

@@ -364,6 +364,7 @@ A TypeScript extension using `vscode-languageclient`. This is the thinnest of th
 |------|---------|
 | `extension.ts` | Entry point: `activate()` creates the output channel, instantiates `TableHighlightService`, resolves server path, configures `ServerOptions` (stdio) and `ClientOptions`, starts the `LanguageClient`; `deactivate()` stops it |
 | `tableHighlightService.ts` | Client-side decoration service for Gherkin table cells (see below) |
+| `package.json` (`semanticTokenScopes` / `configurationDefaults`) | Maps the custom `reqnroll.*` semantic token types from the server legend to TextMate scopes and default colors — see [F1 · Client-side token-type mapping](#f1--gherkin-syntax-highlighting) |
 
 #### Table decoration service
 
@@ -452,6 +453,7 @@ Three IntelliJ Platform extension points are registered:
 | `ReqnrollServerPathResolver` | Resolves server executable path using three strategies (see below) |
 | `ReqnrollFeatureDefinitionReferenceProvider` | PSI bridge for Go to Definition (see below) |
 | `ReqnrollLspLogger` | Debug logging to `{temp-dir}/gherkin-lsp.log` with timestamp prefix |
+| `ReqnrollSemanticTokensColorSettings` | Registers a custom `TextAttributesKey` per `reqnroll.*` legend name (default colors mirroring `DeveroomClassifications`) and maps each via the LSP descriptor's `LspSemanticTokensSupport` — see [F1 · Client-side token-type mapping](#f1--gherkin-syntax-highlighting) |
 
 #### Server path resolution
 
@@ -859,6 +861,7 @@ This section records key architectural decisions and the alternatives that were 
 | # | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|---|
 | R1 | OmniSharp dynamic→static registration for VS semantic tokens requires patching or custom base classes | High | Phase 1 blocker | Spike in Phase 1; custom base classes or OmniSharp patch designed before handler work begins |
+| R1a | **(Confirmed)** VS's built-in LSP semantic-token colorizer maps token-type names via a fixed internal table and cannot resolve custom `reqnroll.*` names (they render as plain text); VS also pulls semantic tokens unreliably | High → Resolved | Custom colors absent / intermittent in VS | Resolved: the server **pushes** tokens to the VS client (`reqnroll/semanticTokens`, gated by `--ide visualstudio`) and the VS client drives its own `IClassifier` against `DeveroomClassifications` (see [F1 · Visual Studio](#f1--gherkin-syntax-highlighting)). VS Code / Rider are unaffected (they map legend names natively and pull normally). |
 | R2 | F14 `textDocument/references` dispatch — IDEs may not reliably route to Reqnroll server vs. C# server based on caret position | Medium | Feature degraded to custom command | Fallback: `workspace/executeCommand`-based command; test in Phase 4 before committing to either approach |
 | R3 | Rider formatter overrides LSP `textDocument/formatting` for `.feature` files (F11, F12) | Low–Medium | Formatting degraded on Rider | Testing gate in Phase 3 verification; workaround via Rider formatter configuration if confirmed |
 | R4 | OmniSharp.Extensions.LanguageServer goes unmaintained | Low | Major dependency replacement | Fork or migrate to `Microsoft.VisualStudio.LanguageServer.Protocol`; `LSP.Core` is insulated from the framework layer (see §11.2) |
@@ -919,17 +922,57 @@ Keywords (`Feature:`, `Scenario:`, `Given`, `When`, `Then`, `And`, `But`), step 
 
 **Gherkin dialect support**: The Semantic Token Service reads the active dialect from the project's `reqnroll.json` (default: `en`). Non-English keywords (e.g., German `Gegeben sei`, French `Soit`, Dutch `Stel`) are tokenized as `keyword` type identically to their English equivalents. The dialect must be resolved before the first `textDocument/semanticTokens/full` request is processed for a project.
 
-**Semantic token types used** (aligned with Cucumber LSP convention):
+**Semantic token types used** (custom Reqnroll token types):
 
-| Token type | Gherkin element |
-|------------|----------------|
-| `keyword` | `Feature:`, `Scenario:`, `Given`, `When`, `Then`, `And`, `But`, `Background:`, `Rule:`, `Examples:` |
-| `string` | Doc string content; table cell content |
-| `parameter` | Bound step argument values |
-| `variable` | Scenario Outline parameter placeholders `<param>` |
-| `type` | Tag (`@tag`) |
-| `comment` | `#` line comments |
-| `property` | Table header row content |
+Rather than emitting the generic LSP standard token types (`keyword`, `string`, `parameter`, …), the server declares a set of **custom semantic token types** whose names match the custom `ClassificationTypeDefinition` names already used by the existing `Reqnroll.VisualStudio` extension (`DeveroomClassifications`). This preserves an exact one-to-one correspondence between the LSP server's output and the classification concepts the existing extension's users already see, and lets each IDE map a Reqnroll-specific concept to a Reqnroll-specific color rather than overloading a host theme's generic scopes.
+
+The server advertises these names in the `legend.tokenTypes` array of its `textDocument/semanticTokens` server capability (in the `initialize` response). The token type index emitted in each 5-tuple is an index into this legend. The legend is the contract between the server and every client; all three clients must map these same names.
+
+| Custom token type (legend name) | `DeveroomClassifications` constant | Gherkin element |
+|------------|------------|----------------|
+| `reqnroll.keyword` | `Keyword` | `Feature:`, `Scenario:`, `Given`, `When`, `Then`, `And`, `But`, `Background:`, `Rule:`, `Examples:`, `Scenario Outline:` |
+| `reqnroll.tag` | `Tag` | Tag (`@tag`) |
+| `reqnroll.description` | `Description` | Free-text description lines under `Feature:` / `Scenario:` |
+| `reqnroll.comment` | `Comment` | `#` line comments |
+| `reqnroll.doc_string` | `DocString` | Doc string (`"""` / ` ``` `) content |
+| `reqnroll.data_table` | `DataTable` | Data table cell content (non-header rows) |
+| `reqnroll.data_table_header` | `DataTableHeader` | Data table header row content |
+| `reqnroll.step_parameter` | `StepParameter` | Bound step argument values |
+| `reqnroll.scenario_outline_placeholder` | `ScenarioOutlinePlaceholder` | Scenario Outline parameter placeholders `<param>` |
+| `reqnroll.undefined_step` | `UndefinedStep` | Step text of a step with no matching binding (emitted once binding discovery — F2 — is available; in Phase 1 all step text is emitted without this type) |
+
+> **Note**: `reqnroll.undefined_step` depends on binding match results from F2 and therefore only carries meaning from Phase 2 onward. Its name is reserved in the legend from Phase 1 so the legend does not change across phases (a stable legend simplifies client-side mapping and avoids re-registration).
+
+> **Why custom names instead of standard LSP types**: The standard types force a lossy mapping (e.g., both tags and... data tables would collapse onto a host theme's generic `string`/`type` scopes, and there is no standard type that expresses "undefined step" or "scenario outline placeholder"). Custom names move the mapping decision to each client, where the existing color story can be reproduced faithfully. The trade-off is that a client that does **not** map these names gets no coloring at all for unmapped types (rather than a generic fallback); each client therefore ships a complete mapping (see below), and the VS Code client additionally ships a TextMate grammar fallback (see [§6.1](#61-vs-code)) for the activation gap.
+
+#### Client-side token-type mapping
+
+The LSP `legend` only names the token types; it is the responsibility of **each IDE client** to map each legend name to a concrete editor color / classification. The mapping is intentionally pushed to the client so each IDE can honor its own theming system and the user's customized colors.
+
+**Visual Studio** — The VSSDK side of the new extension (`Reqnroll.IdeSupport.VisualStudio.VSSDKIntegration`) **re-uses the existing `DeveroomClassifications` class verbatim**, including its MEF exports (`ClassificationTypeDefinition`, `EditorFormatDefinition`/`ClassificationFormatDefinition`, and the `[Name(...)]` exports), so the custom classification types and their default formats (italic Description, the `#887DBA` Undefined Step foreground, etc.) are registered exactly as before.
+
+> **Important — VS does not map custom LSP token types by name, and does not reliably pull them.** Two confirmed VS limitations break the naïve approach:
+> 1. Visual Studio's built-in LSP semantic-token colorizer (`Microsoft.VisualStudio.LanguageServer.Client.SemanticTokensTaggerBase.ClassificationTypeNameForTokenType`) maps token-type names to classifications through a **fixed internal `switch`** that only recognizes the standard LSP token types (plus C++/Roslyn/Razor sets); every unrecognized name — including all `reqnroll.*` names — falls through to plain `"text"`. It never consults the classification registry by the raw legend name, so registering same-named classifications is **not sufficient** in VS (unlike VS Code / Rider).
+> 2. VS only **pulls** `textDocument/semanticTokens/full` lazily and inconsistently (driven by its own tagger lifecycle); in practice it sometimes never requests tokens for an open document at all.
+>
+> Both were confirmed empirically (decompiling the shipped client; LSP trace logs) and are the R1/R1a risks in [§12](#12-risk-register).
+
+To restore the custom colors reliably, VS uses a **server-push + client-classifier** path that does not depend on VS's native semantic-token pull or its token-type mapping:
+- **Server push** — when launched with `--ide visualstudio`, the server's `SemanticTokensPushHandler` reacts to each `MatchCacheChangedNotification` by encoding the file's tokens and pushing them to the client via a custom `reqnroll/semanticTokens` notification (`{ uri, version, data[] }`). Every other client ignores this notification and uses the standard pull flow. (This is the one place the retained `--ide` flag changes server behaviour.)
+- **Client capture** — a `SemanticTokensClassificationInterceptor` on the existing `LspInterceptingPipe` captures the `reqnroll/semanticTokens` notification (and the legend from the `initialize` response), decodes the 5-int data, and caches absolute tokens per file in a process-wide `SemanticTokenClassificationStore`. Messages pass through untouched.
+- **Client classifier** — a classic MEF `IClassifierProvider` (`[ContentType("reqnroll-gherkin")]`) returns a `GherkinSemanticClassifier` that reads those cached tokens and emits `ClassificationSpan`s, resolving each token's legend name to the `DeveroomClassifications` classification of the **same name** via `IClassificationTypeRegistryService`.
+
+The net effect is still **pixel-for-pixel continuity** (existing users keep their configured Reqnroll colors under Tools → Options → Fonts and Colors with no migration) and the server's token encoding stays shared with the other IDEs — only the *delivery* (push vs pull) and the *color mapping* (our classifier vs VS's native colorizer) are VS-specific. VS's native colorizer, if it does pull, produces harmless `"text"` tags for the same spans; the derived Reqnroll classifications take precedence. **Note:** structural coloring (keywords, tags, comments, descriptions, doc strings, tables, placeholders) is fully covered; `reqnroll.undefined_step` coloring depends on binding match results and therefore only appears once F2 discovery is active.
+
+**VS Code** — The client maps each custom token type to a color in one of two ways:
+- A `semanticTokenScopes` contribution in `package.json` that associates each `reqnroll.*` token type with one or more TextMate scopes, so existing color themes light them up automatically; and/or
+- A `configurationDefaults` block setting `editor.semanticTokenColorCustomizations` to supply default Reqnroll colors (mirroring the `DeveroomClassifications` defaults) for themes that do not style the mapped scopes.
+
+The token-type names registered here must match the server legend exactly. (Table cell/header per-pipe coloring is additionally refined by the client-side `TableHighlightService` decorations described in [§6.1](#61-vs-code); the `reqnroll.data_table*` token types provide the base coloring.)
+
+**Rider / IntelliJ Platform** — Rider's built-in LSP client exposes a hook for translating LSP semantic token types into IntelliJ `TextAttributesKey`s. The Rider plugin registers a set of custom `TextAttributesKey`s (one per `reqnroll.*` legend name, with default colors mirroring `DeveroomClassifications`) and overrides the LSP server descriptor's semantic-tokens customization (e.g., `LspSemanticTokensSupport.getTextAttributesKey(tokenType, modifiers)`) to return the matching key for each legend name. Registering these keys against a Reqnroll color-settings page also lets users recolor them under Settings → Editor → Color Scheme. This is additional Kotlin code in the Rider client beyond the thin-wrapper baseline and should be added to the `plugin.xml` extension-point list in [§6.3](#63-rider).
+
+> **Legend stability is a cross-client contract**: Adding, removing, or reordering legend entries is a breaking change for all three client mappings simultaneously. The legend is therefore versioned with the server/clients as a unit (see [Versioning and Compatibility](#versioning-and-compatibility)), and new token types are appended (never reordered) so older index assumptions remain valid.
 
 #### Sequence diagram
 

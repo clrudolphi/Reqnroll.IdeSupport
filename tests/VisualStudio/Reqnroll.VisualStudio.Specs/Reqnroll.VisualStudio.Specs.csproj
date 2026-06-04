@@ -21,7 +21,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="NuGet.CommandLine" Version="6.11.0" CopyTools="true" CopyToolsTarget="Tools-NuGet">
+    <PackageReference Include="NuGet.CommandLine" Version="6.11.2" CopyTools="true" CopyToolsTarget="Tools-NuGet">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>

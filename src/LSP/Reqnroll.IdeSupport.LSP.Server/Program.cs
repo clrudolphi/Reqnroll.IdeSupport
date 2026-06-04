@@ -24,14 +24,14 @@ public class Program
 {
     public static async Task Main(string[] args)
     {
-        // Resolve the IDE-specific semantic token profile from the --ide argument.
         // Each IDE's glue component passes --ide <identifier> when spawning the server.
-        // The profile controls the token type legend and the DeveroomTag→token mapping.
+        // The semantic token legend no longer varies by IDE, but the identifier is retained for
+        // features that may need to vary their behaviour per IDE (e.g. future static-vs-dynamic
+        // capability registration decisions).
         var ideId = args
             .SkipWhile(a => !string.Equals(a, "--ide", StringComparison.OrdinalIgnoreCase))
             .Skip(1)
             .FirstOrDefault();
-        var tokenProfile = SemanticTokenProfileFactory.Create(ideId);
 
         // Write any unhandled startup exception to a file next to the LSP inspector logs
         // so crashes are self-diagnosing without needing to capture stderr.
@@ -43,7 +43,7 @@ public class Program
                     // Production transport: the IDE talks to the server over stdio.
                     options.WithInput(Console.OpenStandardInput())
                            .WithOutput(Console.OpenStandardOutput());
-                    ConfigureServer(options, tokenProfile);
+                    ConfigureServer(options, ideId);
                 })
                 .ConfigureAwait(false);
             await server.WaitForExit.ConfigureAwait(false);
@@ -72,7 +72,12 @@ public class Program
     /// (see <see cref="Main"/>); the in-process protocol specs host the server over an
     /// in-memory pipe.
     /// </summary>
-    internal static void ConfigureServer(LanguageServerOptions options, ISemanticTokenProfile tokenProfile)
+    /// <param name="clientIde">
+    /// The <c>--ide</c> identifier of the connecting client (e.g. <c>"visualstudio"</c>), or
+    /// <see langword="null"/> when absent.  Currently unused by the semantic-token pipeline
+    /// (the legend is shared across IDEs); retained for features that may vary behaviour per IDE.
+    /// </param>
+    internal static void ConfigureServer(LanguageServerOptions options, string? clientIde = null)
     {
         IServiceProvider? serverServices = null;
 
@@ -90,8 +95,9 @@ public class Program
 
         options.Services
                .AddMediatR(typeof(Program))
-               // Register the IDE-specific semantic token profile selected from --ide argument.
-               .AddSingleton<ISemanticTokenProfile>(tokenProfile)
+               // The connecting client's --ide identifier, so handlers can vary behaviour per IDE
+               // (e.g. SemanticTokensPushHandler pushes tokens to Visual Studio).
+               .AddSingleton(new ClientIdeContext(clientIde))
                .AddSingleton<IDeveroomLogger, LspDeveroomLogger>()
                .AddSingleton<IIdeScope, LspIdeScope>()
                .AddSingleton<IMonitoringService>(sp => NullMonitoringService.Instance)

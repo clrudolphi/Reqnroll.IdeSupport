@@ -8,6 +8,7 @@ using Microsoft.VisualStudio.Extensibility.LanguageServer;
 using Microsoft.VisualStudio.RpcContracts.LanguageServerProvider;
 using Microsoft.VisualStudio.Shell;
 using Nerdbank.Streams;
+using Reqnroll.IdeSupport.VisualStudio.Extension.Classification;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspNotifications;
 #pragma warning disable VSEXTPREVIEW_LSP
@@ -108,11 +109,18 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
             var logFile    = Path.Combine(logDir, $"lsp-inspector-{DateTime.Now:yyyyMMdd-HHmmss}.log");
             _inspectorLogger = new LspInspectorLogger(logFile, _traceSource);
 
-            // Send pipeline:   VS → [logger] → Server
-            // Receive pipeline: Server → [logger] → VS
+            // Observes semanticTokens traffic (both directions) and caches the decoded tokens so the
+            // editor classifier can colour .feature files with Reqnroll's custom classifications,
+            // bypassing VS's fixed built-in token-type→classification table. One instance is shared
+            // by both pipelines so it sees requests (VS→Server) and their responses (Server→VS).
+            var semanticTokensInterceptor = new SemanticTokensClassificationInterceptor(
+                SemanticTokenClassificationStore.Instance, _traceSource);
+
+            // Send pipeline:   VS → [logger, semanticTokens] → Server
+            // Receive pipeline: Server → [logger, semanticTokens] → VS
             // Add consuming interceptors to the receive list as features are added.
-            var sendInterceptors    = new ILspMessageInterceptor[] { _inspectorLogger };
-            var receiveInterceptors = new ILspMessageInterceptor[] { _inspectorLogger };
+            var sendInterceptors    = new ILspMessageInterceptor[] { _inspectorLogger, semanticTokensInterceptor };
+            var receiveInterceptors = new ILspMessageInterceptor[] { _inspectorLogger, semanticTokensInterceptor };
 
             _interceptingPipe = new LspInterceptingPipe(rawPipe, sendInterceptors, receiveInterceptors, _traceSource);
             // Pass CancellationToken.None: the pumps must live for the entire connection

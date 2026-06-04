@@ -153,6 +153,23 @@ public sealed class ProtocolSteps
         => (await _ctx.Harness.WaitForRefreshAsync(minCount: 1)).Should().BeTrue(
             "the server should ask the client to refresh semantic tokens after a re-parse");
 
+    [Then(@"the client receives a semantic tokens push for ""(.*)""")]
+    public async Task ThenClientReceivesPushFor(string fileName)
+        => (await _ctx.Harness.WaitForPushAsync(
+                uri => uri.EndsWith(fileName, StringComparison.OrdinalIgnoreCase)))
+            .Should().BeTrue(
+                $"the server should push a reqnroll/semanticTokens notification for '{fileName}' to the VS client");
+
+    [Then("the client receives no semantic tokens push")]
+    public async Task ThenClientReceivesNoPush()
+    {
+        // The push (if any) fires immediately after the match cache changes — which also drives the
+        // (debounced, 500 ms) refresh request. Wait past that window, then assert nothing was pushed.
+        await Task.Delay(1500);
+        _ctx.Harness.SemanticTokenPushes.Should().BeEmpty(
+            "non-Visual-Studio clients pull semantic tokens themselves; the server must not push to them");
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────────────
 
     private SemanticTokensLegend GetLegend()

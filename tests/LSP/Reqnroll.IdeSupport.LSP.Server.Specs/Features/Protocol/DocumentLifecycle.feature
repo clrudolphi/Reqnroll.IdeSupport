@@ -35,7 +35,7 @@ Scenario: Editing a document re-tokenizes the new content
 		Scenario: Added later
 			When I press add
 		"""
-	Then the semantic tokens include a "keyword" token for "Scenario:"
+	Then the semantic tokens include a "reqnroll.keyword" token for "Scenario:"
 
 Scenario: A document can be closed and reopened with fresh content
 	Given the LSP server is started
@@ -54,7 +54,7 @@ Scenario: A document can be closed and reopened with fresh content
 		Scenario: Reopened
 			Given I have entered 50 into the calculator
 		"""
-	Then the semantic tokens include a "keyword" token for "Given"
+	Then the semantic tokens include a "reqnroll.keyword" token for "Given"
 
 Scenario: Custom project notifications are accepted and editing still works
 	Given the LSP server is started
@@ -66,7 +66,7 @@ Scenario: Custom project notifications are accepted and editing still works
 		Scenario: Add
 			Given I have entered 50 into the calculator
 		"""
-	Then the semantic tokens include a "keyword" token for "Given"
+	Then the semantic tokens include a "reqnroll.keyword" token for "Given"
 	When the project is unloaded
 	And the semantic tokens are requested again
-	Then the semantic tokens include a "keyword" token for "Given"
+	Then the semantic tokens include a "reqnroll.keyword" token for "Given"

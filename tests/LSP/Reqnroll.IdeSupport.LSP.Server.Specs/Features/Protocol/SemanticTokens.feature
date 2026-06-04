@@ -18,10 +18,10 @@ Scenario: Tags, comments and descriptions are tokenized
 		Scenario: S
 			When I press add
 		"""
-	Then the semantic tokens include a "comment" token for "# a leading comment"
-	And the semantic tokens include a "variable" token for "@smoke"
-	And the semantic tokens include a "variable" token for "@fast"
-	And the semantic tokens include a "string" token for "This describes the feature."
+	Then the semantic tokens include a "reqnroll.comment" token for "# a leading comment"
+	And the semantic tokens include a "reqnroll.tag" token for "@smoke"
+	And the semantic tokens include a "reqnroll.tag" token for "@fast"
+	And the semantic tokens include a "reqnroll.description" token for "This describes the feature."
 
 Scenario: Doc strings and data tables are tokenized
 	Given the LSP server is started
@@ -38,8 +38,8 @@ Scenario: Doc strings and data tables are tokenized
 				2 + 3
 				```
 		"""
-	Then the semantic tokens include a "struct" token for "operand"
-	And the semantic tokens include a "struct" token for "type"
+	Then the semantic tokens include a "reqnroll.data_table_header" token for "operand"
+	And the semantic tokens include a "reqnroll.data_table_header" token for "type"
 
 Scenario: Scenario outline placeholders are tokenized as parameters and do not overlap
 	Given the LSP server is started
@@ -54,9 +54,9 @@ Scenario: Scenario outline placeholders are tokenized as parameters and do not o
 			| a | b | op  |
 			| 1 | 2 | add |
 		"""
-	Then the semantic tokens include a "parameter" token for "<a>"
-	And the semantic tokens include a "parameter" token for "<b>"
-	And the semantic tokens include a "parameter" token for "<op>"
+	Then the semantic tokens include a "reqnroll.scenario_outline_placeholder" token for "<a>"
+	And the semantic tokens include a "reqnroll.scenario_outline_placeholder" token for "<b>"
+	And the semantic tokens include a "reqnroll.scenario_outline_placeholder" token for "<op>"
 	And the semantic tokens are non-overlapping
 
 Scenario: Steps are not marked as errors when no bindings are available
@@ -69,4 +69,4 @@ Scenario: Steps are not marked as errors when no bindings are available
 			Given I have entered 50 into the calculator
 			When I press add
 		"""
-	Then the semantic tokens do not include any "regexp" token
+	Then the semantic tokens do not include any "reqnroll.undefined_step" token
