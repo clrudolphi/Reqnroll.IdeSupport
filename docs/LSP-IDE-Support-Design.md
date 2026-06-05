@@ -297,20 +297,20 @@ Protocol handlers (in `Handlers/Protocol/`) are the OmniSharp-based classes that
 
 Internal handlers (in `Handlers/Internal/`) subscribe to these notifications and perform the actual work, each publishing further notifications in turn. This yields an event-driven pipeline with no single orchestrating manager:
 
-The pipeline uses a **sync-first, async-rest** model. The Protocol Handler directly performs the first state-changing step (parsing and storing in the Document Buffer), because the AST is needed synchronously to respond to the current LSP request (e.g., `semanticTokens/full` must return the cached AST immediately). All downstream effects — binding matching, diagnostics — are then dispatched asynchronously via MediatR:
+The pipeline uses a **sync-first, async-rest** model. The Protocol Handler directly performs the first state-changing step (parsing and storing in the Document Buffer), because the tag tree is needed synchronously to respond to the current LSP request (e.g., `semanticTokens/full` must return the cached tags immediately). All downstream effects — diagnostics — are then dispatched asynchronously via MediatR:
 
 ```
 LSP Client message
   → Protocol Handler (OmniSharp base class)
-      → [sync] Parses document, stores AST in DocBuffer
-      → publishes ASTChangedNotification (async, via MediatR)
-          → Internal Handler B (recomputes binding matches)
-              → publishes MatchCacheChangedNotification
-                  → Internal Handler C (aggregates diagnostics)
-                      → pushes textDocument/publishDiagnostics
+      → [sync] Parses document + matches steps, stores DeveroomTag[] + MatchSet in DocBuffer/BindingMatchService
+      → publishes MatchCacheChangedNotification (async, via MediatR)
+          → Internal Handler C (aggregates diagnostics)
+              → pushes textDocument/publishDiagnostics
 ```
 
 This means the Protocol Handler is responsible for the initial synchronous state write; MediatR orchestrates the background fan-out only.
+
+> **As-built note**: parsing and binding matching are **not separate pipeline stages**. `DeveroomTagParser` performs both in a single AST walk (see [F1 · as-built note](#f1--gherkin-syntax-highlighting)), so the `ASTChangedNotification` → `BindingMatchInternalHandler` stage shown in the design-level description is collapsed into the sync handler itself. The `MatchCacheChangedNotification` is what actually fans out to diagnostics.
 **`textDocument/codeAction` scope**: `FeatureCodeActionHandler` handles code actions on `.feature` files. Planned actions: "Define missing steps" (F6) and any future quick-fixes on Gherkin diagnostics. Code actions on `.cs` files (e.g., "Generate step definition from binding template") are feasible but deferred; they would be handled by a dedicated `.cs` code action handler. IDEs universally merge code actions from multiple registered language servers for the same file type — the Reqnroll server's actions will appear alongside those from the native C# server in the lightbulb menu without conflict.
 
 **Key protocol handler classes** (one per LSP capability group):
@@ -343,6 +343,8 @@ This means the Protocol Handler is responsible for the initial synchronous state
 | `CsFileChangedNotification` | `CsSyncHandler` | `RoslynDiscoveryInternalHandler` |
 | `BindingRegistryChangedNotification` | `RoslynDiscoveryInternalHandler`, `ReflectionDiscoveryInternalHandler` | `BindingMatchInternalHandler` |
 | `MatchCacheChangedNotification` | `BindingMatchInternalHandler` | `DiagnosticsInternalHandler` |
+
+> **As-built note (feature file parse + match path)**: the `FeatureFileChangedNotification` → `GherkinParseInternalHandler` → `ASTChangedNotification` → `BindingMatchInternalHandler` stages are collapsed in the implementation. The sync handler calls `GherkinDocumentTaggerService`, which invokes `DeveroomTagParser` to produce a `DeveroomTag[]` covering both structural classifications and step match results in one pass, then derives and stores a `FeatureBindingMatchSet`. The sync handler then publishes `MatchCacheChangedNotification` directly — skipping the intermediate `ASTChangedNotification` entirely. See [F1 · as-built note](#f1--gherkin-syntax-highlighting) for the full rationale.
 
 > **As-built note (C# / Roslyn path)**: the implemented flow does not use a dedicated `CsFileChangedNotification` / `RoslynDiscoveryInternalHandler`. Instead, on a `.cs` `didOpen`/`didChange` the sync handler calls `ICSharpBindingDiscoveryService` directly; that service patches the owning project's `ConnectorBindingRegistryProvider` (which raises its `BindingRegistryChanged` event), and `BindingRegistryProviderRouter` publishes the existing `BindingRegistryChangedNotification`. From there the established re-match path runs (`BindingRegistryChangedHandler` → re-parse open feature files → `MatchCacheChangedNotification` → semantic-token refresh). The reflection (post-build) discovery raises the same `BindingRegistryChangedNotification`, so both discovery sources converge on one re-match path.
 
@@ -989,29 +991,35 @@ sequenceDiagram
 
     box LightBlue LSP Server
         participant FSH as FeatureSyncHandler
-        participant GP as Gherkin Parser
+        participant DTP as DeveroomTagParser
         participant DB as Document Buffer
+        participant BMS as Binding Match Service
         participant FSTH as FeatureSemanticTokensHandler
         participant STS as Semantic Token Service
     end
 
     User->>IDE: Opens / edits .feature file
     IDE->>FSH: textDocument/didOpen (or didChange)
-    FSH->>GP: Parse entire document
-    GP-->>FSH: Gherkin AST + ParseErrors[]
-    FSH->>DB: Store (URI, version, AST, ParseErrors)
+    FSH->>DTP: Parse document + match steps against registry
+    DTP-->>FSH: DeveroomTag[] (structural + parse error + match tags)
+    FSH->>DB: Store (URI, version, DeveroomTag[])
+    FSH->>BMS: Store FeatureBindingMatchSet (derived from tags)
 
     Note over IDE,FSTH: Client requests token coloring
     IDE->>FSTH: textDocument/semanticTokens/full
-    FSTH->>DB: Retrieve AST by URI
-    DB-->>FSTH: Gherkin AST
-    FSTH->>STS: Compute tokens from AST
+    FSTH->>DB: Retrieve DeveroomTag[] by URI
+    DB-->>FSTH: DeveroomTag[]
+    FSTH->>STS: Compute tokens from DeveroomTag[]
     STS-->>FSTH: SemanticTokens[]
     FSTH-->>IDE: SemanticTokens response
     IDE-->>User: Colored keywords, tags, parameters
 ```
 
 > **Note**: Although `textDocument/didChange` may carry only the incremental text delta, the Gherkin parser always re-parses the **entire file**. Gherkin AST nodes carry absolute line/column locations; inserting or deleting a line shifts the position of every subsequent node, making partial re-parse impractical.
+
+> **As-built note**: the sync handler does not call a raw `GherkinParser` directly. Instead it invokes `DeveroomTagParser` (`GherkinDocumentTaggerService`), which wraps `DeveroomGherkinParser` (the Gherkin parse step) and in the **same AST walk** produces a `DeveroomTag[]` tree encoding all downstream-needed classification info: structural spans (keywords, tags, descriptions, comments, doc strings, data tables), parse error spans, and — when a binding registry is available — step match results (`DefinedStep`, `UndefinedStep`, `StepParameter`, `ScenarioOutlinePlaceholder`, hook references). The Document Buffer stores this tag tree rather than a raw AST; the `SemanticTokenService` reads the tag tree directly. A `FeatureBindingMatchSet` is derived from the tags and stored in the `BindingMatchService` for use by Go to Definition, diagnostics, and find-usages features.
+>
+> This combined-pass design avoids joining AST structural info with match results at render time, and mirrors the approach from the existing `Reqnroll.VisualStudio` extension.
 
 ---
 
@@ -1144,26 +1152,30 @@ sequenceDiagram
 
     box LightBlue LSP Server
         participant FSH as FeatureSyncHandler
-        participant GP as Gherkin Parser
+        participant DTP as DeveroomTagParser
+        participant BR as Binding Registry
         participant DB as Document Buffer
-        participant BMH as BindingMatchInternalHandler
+        participant BMS as Binding Match Service
         participant DA as Diagnostics Aggregator
     end
 
     User->>IDE: Edits .feature file
     IDE->>FSH: textDocument/didChange
-    FSH->>GP: Parse entire document
-    GP-->>FSH: Updated AST + ParseErrors[]
-    FSH->>DB: Store updated AST + ParseErrors
-    FSH-->>BMH: [internal] ASTChangedNotification
-    BMH->>BMH: Recompute binding matches for changed region
-    BMH-->>DA: [internal] MatchCacheChangedNotification
-    DA->>DB: Retrieve ParseErrors[] for this URI
-    DA->>BMH: Retrieve binding mismatches for this URI
+    FSH->>DTP: Parse document + match steps against registry
+    DTP->>BR: Look up current bindings (per project)
+    BR-->>DTP: ProjectBindingRegistry
+    DTP-->>FSH: DeveroomTag[] (structural + parse error + match tags)
+    FSH->>DB: Store updated DeveroomTag[]
+    FSH->>BMS: Store FeatureBindingMatchSet (derived from tags)
+    FSH-->>DA: [internal] MatchCacheChangedNotification
+    DA->>DB: Retrieve ParserError tags for this URI
+    DA->>BMS: Retrieve binding mismatches for this URI
     DA->>DA: Merge into combined Diagnostic[]
     DA-->>IDE: textDocument/publishDiagnostics (parse errors + unmatched steps)
     IDE-->>User: Error squiggles (red) + warning squiggles (yellow)
 ```
+
+> **As-built note**: parsing and binding matching are **not separate pipeline stages**. `DeveroomTagParser` performs both in a single AST walk (see [F1 · as-built note](#f1--gherkin-syntax-highlighting)). Parse errors emerge as `DeveroomTag` items of type `ParserError` — not a separate `ParseErrors[]` — so the `DiagnosticsAggregator` retrieves them from the tag tree alongside `UndefinedStep` and `BindingError` tags. `MatchCacheChangedNotification` is published directly by the sync handler after storing the new tags and match set, skipping the intermediate `ASTChangedNotification` / `BindingMatchInternalHandler` stages.
 
 #### Sequence diagram — binding registry change (C# file saved or build completed)
 
@@ -1175,23 +1187,30 @@ sequenceDiagram
 
     box LightBlue LSP Server
         participant BR as Binding Registry
-        participant BMH as BindingMatchInternalHandler
-        participant DA as Diagnostics Aggregator
+        participant BMH as BindingRegistryChangedHandler
+        participant DTP as DeveroomTagParser
         participant DB as Document Buffer
+        participant BMS as Binding Match Service
+        participant DA as Diagnostics Aggregator
     end
 
     Note over IDE,BR: C# file saved or build detected (see F2)
     BR-->>BMH: [internal] BindingRegistryChangedNotification
     loop For each open .feature file
-        BMH->>BMH: Recompute binding matches against updated registry
+        BMH->>DTP: Re-parse + re-match (updated registry)
+        DTP-->>BMH: DeveroomTag[] (updated match tags)
+        BMH->>DB: Store updated DeveroomTag[]
+        BMH->>BMS: Store updated FeatureBindingMatchSet
         BMH-->>DA: [internal] MatchCacheChangedNotification (featureURI)
-        DA->>DB: Retrieve ParseErrors[] for featureURI
-        DA->>BMH: Retrieve binding mismatches for featureURI
+        DA->>DB: Retrieve ParserError tags for featureURI
+        DA->>BMS: Retrieve binding mismatches for featureURI
         DA->>DA: Merge into combined Diagnostic[]
         DA-->>IDE: textDocument/publishDiagnostics (featureURI)
     end
     IDE-->>IDE: Feature file squiggles updated
 ```
+
+> **As-built note**: when the registry changes, `BindingRegistryChangedHandler` re-invokes `DeveroomTagParser` for each open feature file. Because `DeveroomTagParser` takes the snapshot text (not a cached AST) as input, the Gherkin text is re-parsed on every registry-change re-tag — a minor inefficiency versus a pure re-match on a cached AST. This is accepted because Gherkin parsing is fast and caching the intermediate `DeveroomGherkinDocument` separately from the tag tree would add complexity without a compelling user-visible benefit.
 
 ---
 
@@ -1211,7 +1230,7 @@ Structural errors in `.feature` files (e.g., missing `Feature:` header, invalid 
 
 #### Implementation note
 
-Parse errors are produced by the Gherkin parser whenever a `.feature` file is parsed (`textDocument/didOpen` or `didChange`). They are stored alongside the AST in the Document Buffer and are contributed to the `DiagnosticsAggregator` as `DiagnosticSeverity.Error` items, using a `source` field of `"reqnroll.parser"` to distinguish them from binding mismatch warnings. The complete combined `textDocument/publishDiagnostics` flow is described in [F3](#f3--gherkin-file-diagnostics).
+Parse errors are produced by `DeveroomTagParser` whenever a `.feature` file is parsed (`textDocument/didOpen` or `didChange`). Rather than a separate `ParseErrors[]` array, each parse error is stored as a `DeveroomTag` of type `ParserError` in the tag tree alongside structural and match tags. The `DiagnosticsAggregator` reads these `ParserError` tags from the Document Buffer and emits them as `DiagnosticSeverity.Error` items with `source: "reqnroll.parser"` to distinguish them from binding mismatch warnings. The complete combined `textDocument/publishDiagnostics` flow is described in [F3](#f3--gherkin-file-diagnostics).
 
 ---
 
