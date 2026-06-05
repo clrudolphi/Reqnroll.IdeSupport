@@ -8,6 +8,7 @@ using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
+using Reqnroll.IdeSupport.LSP.Core.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Diagnostics;
@@ -119,6 +120,7 @@ public class Program
                .AddSingleton<IBindingMatchService, BindingMatchService>()
                .AddSingleton<IGherkinDocumentTaggerService, GherkinDocumentTaggerService>()
                .AddSingleton<ISemanticTokenService, SemanticTokenService>()
+               .AddSingleton<IDiagnosticsAggregator, DiagnosticsAggregator>()
                // MediatR notification handlers — registered solely via AddMediatR(typeof(Program))
                // above, which scans this assembly and registers each INotificationHandler<T>
                // implementation exactly once as a transient service.  Do NOT add explicit
@@ -128,6 +130,7 @@ public class Program
                // singleton from the explicit call).  None of these handlers are IDisposable, so
                // DryIoc's TrackingDisposableTransients validation does not require them to be
                // singletons.  Handlers covered: SemanticTokensRefreshHandler,
+               // SemanticTokensPushHandler, DiagnosticsPublishHandler,
                // ReqnrollConfigChangedHandler, BindingRegistryChangedHandler.
                //
                // OmniSharp protocol handlers ARE registered as singletons below because OmniSharp

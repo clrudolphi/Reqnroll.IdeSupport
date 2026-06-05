@@ -3,6 +3,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
@@ -26,6 +27,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private readonly IBindingMatchService _bindingMatchService;
     private readonly ICSharpBindingDiscoveryService _csharpDiscoveryService;
     private readonly IMediator _mediator;
+    private readonly ILanguageServerFacade _languageServer;
     private readonly IDeveroomLogger _logger;
 
     private static readonly TextDocumentSelector _documentSelector = new(
@@ -41,6 +43,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         IBindingMatchService bindingMatchService,
         ICSharpBindingDiscoveryService csharpDiscoveryService,
         IMediator mediator,
+        ILanguageServerFacade languageServer,
         IDeveroomLogger logger)
     {
         _documentBufferService = documentBufferService;
@@ -48,6 +51,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         _bindingMatchService = bindingMatchService;
         _csharpDiscoveryService = csharpDiscoveryService;
         _mediator = mediator;
+        _languageServer = languageServer;
         _logger = logger;
     }
 
@@ -126,6 +130,17 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         _logger.LogInfo($"Document closed: {uri}");
         _documentBufferService.Remove(uri);
         _bindingMatchService.Invalidate(uri.ToString());
+
+        // Clear any squiggles the IDE may have retained for this URI.
+        // LSP spec: sending an empty diagnostics list for a URI clears all previously
+        // pushed diagnostics for that URI on the client.
+        _languageServer.SendNotification(
+            "textDocument/publishDiagnostics",
+            new PublishDiagnosticsParams
+            {
+                Uri         = uri,
+                Diagnostics = new Container<Diagnostic>()
+            });
 
         return Unit.Task;
     }

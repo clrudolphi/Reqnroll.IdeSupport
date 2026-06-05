@@ -1123,12 +1123,14 @@ We are **not** addressing this at this time. Closing the gap would mean feeding 
 
 Two categories of diagnostic are displayed for `.feature` files:
 
-- **Binding mismatches** (warning): steps that have no matching binding are underlined with a warning squiggle. Hovering shows "Step definition not found."
-- **Parse errors** (error): structurally invalid Gherkin (e.g., missing `Feature:` header, invalid tag syntax) is underlined with an error squiggle.
+- **Binding mismatches** (`DiagnosticSeverity.Warning`, yellow squiggle, `source: "reqnroll.binding"`): steps that have no matching binding are underlined. Hovering shows "Step definition not found."
+- **Parse errors** (`DiagnosticSeverity.Error`, red squiggle, `source: "reqnroll.parser"`): structurally invalid Gherkin (e.g., missing `Feature:` header, invalid tag syntax) is underlined with a description.
 
 Both categories are computed after every edit and pushed as a **single** `textDocument/publishDiagnostics` message. The LSP specification requires that one message delivers the complete diagnostic set for a URI; separate messages would clear previously delivered diagnostics of the other category. A `DiagnosticsAggregator` combines both sources before sending.
 
-Diagnostics refresh after every `textDocument/didChange` and also whenever the Binding Registry changes (C# file save or build).
+Diagnostics refresh after every `textDocument/didChange` and also whenever the Binding Registry changes (C# file save or build). On `textDocument/didClose`, an **empty** `textDocument/publishDiagnostics` is pushed for the closed URI to clear any squiggles the IDE retained.
+
+> **Design rationale — color and squiggles are complementary, not redundant**: F1/F2 already color unbound steps (purple in Visual Studio). F3 diagnostics are still required because: (a) squiggles appear in the IDE Problems panel / Error List, enabling cross-file triage and keyboard navigation ("Next Warning") that color cannot provide; (b) color-only feedback is inaccessible to colorblind users. Using `Warning` rather than `Error` for binding mismatches distinguishes them visually from parse errors and accommodates step-first development workflows where a binding may not yet exist.
 
 #### IDE support matrix
 
@@ -1172,7 +1174,7 @@ sequenceDiagram
     DA->>BMS: Retrieve binding mismatches for this URI
     DA->>DA: Merge into combined Diagnostic[]
     DA-->>IDE: textDocument/publishDiagnostics (parse errors + unmatched steps)
-    IDE-->>User: Error squiggles (red) + warning squiggles (yellow)
+    IDE-->>User: Error squiggles (red, parse errors) + warning squiggles (yellow, unmatched steps)
 ```
 
 > **As-built note**: parsing and binding matching are **not separate pipeline stages**. `DeveroomTagParser` performs both in a single AST walk (see [F1 · as-built note](#f1--gherkin-syntax-highlighting)). Parse errors emerge as `DeveroomTag` items of type `ParserError` — not a separate `ParseErrors[]` — so the `DiagnosticsAggregator` retrieves them from the tag tree alongside `UndefinedStep` and `BindingError` tags. `MatchCacheChangedNotification` is published directly by the sync handler after storing the new tags and match set, skipping the intermediate `ASTChangedNotification` / `BindingMatchInternalHandler` stages.
