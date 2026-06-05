@@ -69,10 +69,16 @@ public abstract class OutProcReqnrollConnector
         _logger.LogVerbose($"{workingDirectory}>{connectorPath} {string.Join(" ", arguments)}");
         _logger.LogVerbose($"Exit code: {result.ExitCode}");
         if (result.HasErrors)
-            _logger.LogVerbose(result.StandardError);
+            _logger.LogWarning(result.StandardError);
 
 #if DEBUG
-        _logger.LogVerbose(result.StandardOut);
+        // Log only the JSON payload between the >>>>>>>>>> / <<<<<<<<<< markers; the assembly-loader
+        // trace that precedes it is noise that bloats the log and buries the actual binding data.
+        var jsonPayload = ExtractJsonPayload(result.StandardOut);
+        if (jsonPayload != null)
+            _logger.LogVerbose($"[Connector JSON]\n{jsonPayload}");
+        else if (!string.IsNullOrWhiteSpace(result.StandardOut))
+            _logger.LogVerbose($"[Connector stdout]\n{result.StandardOut}");
 #endif
 
         DiscoveryResult discoveryResult;
@@ -147,6 +153,19 @@ public abstract class OutProcReqnrollConnector
     }
 
     protected abstract string GetConnectorPath(List<string> arguments);
+
+    private static string? ExtractJsonPayload(string stdout)
+    {
+        const string open  = ">>>>>>>>>>";
+        const string close = "<<<<<<<<<<";
+        var openIdx = stdout.IndexOf(open, StringComparison.Ordinal);
+        if (openIdx < 0) return null;
+        var afterOpen = stdout.IndexOf('\n', openIdx);
+        if (afterOpen < 0) return null;
+        var closeIdx = stdout.IndexOf(close, afterOpen, StringComparison.Ordinal);
+        if (closeIdx < 0) return null;
+        return stdout.Substring(afterOpen + 1, closeIdx - afterOpen - 1).Trim();
+    }
 
     private string GetDotNetInstallLocation()
     {

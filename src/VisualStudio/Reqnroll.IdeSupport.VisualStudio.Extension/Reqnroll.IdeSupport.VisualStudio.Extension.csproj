@@ -49,6 +49,7 @@
         <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
         <IncludeOutputGroupsInVSIX>TemplateProjectOutputGroup%3b</IncludeOutputGroupsInVSIX>
     </ProjectReference>
+    <ProjectReference Include="..\..\Core\Reqnroll.IdeSupport.Common\Reqnroll.IdeSupport.Common.csproj" />
     <ProjectReference Include="..\Reqnroll.IdeSupport.VisualStudio.Wizards\Reqnroll.IdeSupport.VisualStudio.Wizards.csproj">
         <Name>Reqnroll.IdeSupport.VisualStudio.Wizards</Name>
         <IncludeOutputGroupsInVSIX>BuiltProjectOutputGroup%3bGetCopyToOutputDirectoryItems%3b</IncludeOutputGroupsInVSIX>

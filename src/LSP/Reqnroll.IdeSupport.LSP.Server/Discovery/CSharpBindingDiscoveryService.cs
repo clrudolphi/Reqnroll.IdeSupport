@@ -48,11 +48,15 @@ public sealed class CSharpBindingDiscoveryService : ICSharpBindingDiscoveryServi
 
         cancellationToken.ThrowIfCancellationRequested();
 
+        var previousCount = provider.Current.StepDefinitions.Length;
         var file = FileDetails.FromPath(filePath).WithCSharpContent(text);
         await provider.ApplyRoslynFileUpdateAsync(file).ConfigureAwait(false);
+        var newCount = provider.Current.StepDefinitions.Length;
+        var delta = newCount - previousCount;
+        var deltaStr = delta == 0 ? "no change" : (delta > 0 ? $"+{delta}" : delta.ToString());
 
         _logger.LogInfo(
             $"[Roslyn] Re-discovered bindings for '{Path.GetFileName(filePath)}' " +
-            $"in project '{project.ProjectName}'.");
+            $"in project '{project.ProjectName}': {newCount} step definition(s) ({deltaStr}).");
     }
 }

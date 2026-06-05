@@ -40,7 +40,10 @@ public sealed class SemanticTokenService : ISemanticTokenService
         DocumentUri uri, int version, CancellationToken cancellationToken = default)
     {
         if (_cache.TryGetValue((uri, version), out var tokens))
+        {
+            _logger.LogVerbose($"SemanticTokenService: cache hit for {uri} v{version}");
             return Task.FromResult<SemanticTokens?>(tokens);
+        }
 
         // Cache miss – encode from the tags already stored in the document buffer.
         if (!_documentBufferService.TryGet(uri, out var buffer) || buffer?.Tags is not { } tags || tags.Count == 0)

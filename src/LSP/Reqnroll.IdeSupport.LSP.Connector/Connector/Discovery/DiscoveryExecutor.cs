@@ -37,7 +37,9 @@ public class DiscoveryExecutor
         }
         catch (Exception ex)
         {
-            return CreateErrorResult(analytics, $"Could not load config file: {options.ConfigFile}", ex);
+            var msg = $"Could not load config file: {options.ConfigFile}";
+            log.Error($"{msg}: {ex}");
+            return CreateErrorResult(analytics, msg, ex);
         }
 
         var bindingProvider = GetBindingProvider(targetFramework, reqnrollVersion, log);
@@ -49,7 +51,9 @@ public class DiscoveryExecutor
         }
         catch (Exception ex)
         {
-            return CreateErrorResult(analytics, $"Could discover bindings via: {bindingProvider}", ex);
+            var msg = $"Could not discover bindings via: {bindingProvider}";
+            log.Error($"{msg}: {ex}");
+            return CreateErrorResult(analytics, msg, ex);
         }
 
         InternalDiscoveryResult discoveryResult;
@@ -61,7 +65,9 @@ public class DiscoveryExecutor
         }
         catch (Exception ex)
         {
-            return CreateErrorResult(analytics, "Could not transform discovery result.", ex);
+            var msg = "Could not transform discovery result.";
+            log.Error($"{msg}: {ex}");
+            return CreateErrorResult(analytics, msg, ex);
         }
 
         return new DiscoveryResult
@@ -80,7 +86,7 @@ public class DiscoveryExecutor
     {
         // we could choose a version-specific binding provider here if needed
         var bindingProvider = new DefaultBindingProvider();
-        log.Info($"Using binding provider: {bindingProvider} (target framework: {targetFramework}, Reqnroll version: {reqnrollVersion}");
+        log.Info($"Using binding provider: {bindingProvider} (target framework: {targetFramework}, Reqnroll version: {reqnrollVersion?.ProductVersion})");
         return bindingProvider;
     }
 

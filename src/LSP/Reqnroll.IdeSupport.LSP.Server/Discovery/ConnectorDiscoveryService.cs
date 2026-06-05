@@ -55,7 +55,7 @@ public sealed class ConnectorDiscoveryService : IConnectorDiscoveryService
 
         if (!File.Exists(assemblyPath))
         {
-            _logger.LogVerbose($"[{scope.ProjectName}] Output assembly not found: {assemblyPath}");
+            _logger.LogInfo($"[{scope.ProjectName}] Output assembly not found (project not yet built?): {assemblyPath}");
             return (lastGood, lastHash);
         }
 
@@ -74,15 +74,17 @@ public sealed class ConnectorDiscoveryService : IConnectorDiscoveryService
         _logger.LogInfo($"[{scope.ProjectName}] Starting binding discovery: {Path.GetFileName(assemblyPath)}");
 
         DiscoveryResult result;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             result = connector.RunDiscovery(assemblyPath, configFilePath);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning($"[{scope.ProjectName}] Connector invocation failed: {ex.Message}");
+            _logger.LogWarning($"[{scope.ProjectName}] Connector invocation failed after {sw.ElapsedMilliseconds}ms: {ex.Message}");
             return (lastGood, lastHash);
         }
+        sw.Stop();
 
         ct.ThrowIfCancellationRequested();
 
@@ -90,14 +92,14 @@ public sealed class ConnectorDiscoveryService : IConnectorDiscoveryService
 
         if (result.IsFailed)
         {
-            _logger.LogWarning($"[{scope.ProjectName}] Discovery failed: {result.ErrorMessage}");
+            _logger.LogWarning($"[{scope.ProjectName}] Discovery failed after {sw.ElapsedMilliseconds}ms: {result.ErrorMessage}");
             return (lastGood, lastHash);
         }
 
         var registry = BuildRegistry(scope, result);
         _logger.LogInfo(
-            $"[{scope.ProjectName}] Discovery complete: {registry.StepDefinitions.Length} step definition(s), " +
-            $"{registry.Hooks.Length} hook(s).");
+            $"[{scope.ProjectName}] Discovery complete in {sw.ElapsedMilliseconds}ms: " +
+            $"{registry.StepDefinitions.Length} step definition(s), {registry.Hooks.Length} hook(s).");
         return (registry, currentHash);
     }
 

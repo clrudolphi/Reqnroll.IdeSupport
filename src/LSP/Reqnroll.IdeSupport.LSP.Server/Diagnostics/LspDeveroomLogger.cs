@@ -1,4 +1,5 @@
-﻿using Reqnroll.IdeSupport.Common.Diagnostics;
+﻿using System.Reflection;
+using Reqnroll.IdeSupport.Common.Diagnostics;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Diagnostics;
 
@@ -9,6 +10,8 @@ namespace Reqnroll.IdeSupport.LSP.Server.Diagnostics;
 ///   <item><see cref="DeveroomDebugLogger"/> — writes to <see cref="Debug"/> output</item>
 ///   <item><see cref="SynchronousFileLogger"/> — appends to the Reqnroll log file</item>
 /// </list>
+/// Emits a session-start banner as the first log line so runs within a day-appended file
+/// can be distinguished by version, PID, and server path.
 /// </summary>
 public sealed class LspDeveroomLogger : IDeveroomLogger
 {
@@ -19,6 +22,11 @@ public sealed class LspDeveroomLogger : IDeveroomLogger
         _inner = new DeveroomCompositeLogger()
             .Add(new DeveroomDebugLogger())
             .Add(new SynchronousFileLogger());
+
+        var version   = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
+        var location  = Assembly.GetExecutingAssembly().Location;
+        var pid       = Environment.ProcessId;
+        this.LogInfo($"=== Reqnroll LSP Server started — v{version}, PID {pid}, {location} ===");
     }
 
     public TraceLevel Level => _inner.Level;

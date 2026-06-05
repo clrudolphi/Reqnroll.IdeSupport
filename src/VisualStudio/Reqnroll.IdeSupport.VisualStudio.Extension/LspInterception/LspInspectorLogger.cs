@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -20,6 +21,10 @@ internal sealed class LspInspectorLogger : ILspMessageInterceptor, IDisposable
     private readonly string _logFilePath;
     private readonly TraceSource _traceSource;
     private readonly SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
+
+    // Tracks in-flight request timestamps keyed by JSON-RPC id (as string) so that responses
+    // can report round-trip latency via the "latencyMs" envelope field.
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _pendingRequests = new();
 
     private StreamWriter? _writer;
     private bool _disposed;
@@ -78,10 +83,13 @@ internal sealed class LspInspectorLogger : ILspMessageInterceptor, IDisposable
 
     // ── Formatting ─────────────────────────────────────────────────────────
 
-    private static string FormatEntry(LspMessage msg)
+    private string FormatEntry(LspMessage msg)
     {
         // lsp-viewer format: [LSP   - HH:mm:ss] <JSON>\n
         // JSON: {"isLSPMessage":true,"type":"<type>","message":{...},"timestamp":<unix-ms>}
+        // Extended fields (ignored by the tool, useful for grep):
+        //   "latencyMs" — round-trip ms on response entries
+        //   "traceId"   — W3C trace-context trace ID from VS-originated requests
 
         string type;
         bool isSend = msg.Direction == LspMessageDirection.Send;
@@ -103,9 +111,37 @@ internal sealed class LspInspectorLogger : ILspMessageInterceptor, IDisposable
             ["timestamp"]    = timestampMs,
         };
 
+        // Track request timestamps for latency computation on matching responses.
+        if (msg.IsRequest && msg.Id is not null)
+            _pendingRequests[msg.Id.ToString()] = msg.Timestamp;
+
+        // Annotate responses with round-trip latency.
+        if (msg.IsResponse && msg.Id is not null &&
+            _pendingRequests.TryRemove(msg.Id.ToString(), out var requestTime))
+        {
+            entry["latencyMs"] = (long)(msg.Timestamp - requestTime).TotalMilliseconds;
+        }
+
+        // Extract the W3C trace ID from VS-originated requests so the entry is greppable
+        // alongside the server-side debug log (one-way handle: request → server handling).
+        var traceparent = msg.Body["traceparent"]?.Value<string>();
+        if (traceparent is not null)
+        {
+            var traceId = ExtractTraceId(traceparent);
+            if (traceId is not null)
+                entry["traceId"] = traceId;
+        }
+
         // Compact single-line JSON to match the lsp-viewer expectation.
         string json = JsonConvert.SerializeObject(entry, Formatting.None);
         return $"[LSP   - {timeLabel}] {json}\n";
+    }
+
+    private static string? ExtractTraceId(string traceparent)
+    {
+        // W3C traceparent format: "00-<trace-id>-<parent-id>-<flags>"
+        var parts = traceparent.Split('-');
+        return parts.Length >= 2 ? parts[1] : null;
     }
 
     // ── IDisposable

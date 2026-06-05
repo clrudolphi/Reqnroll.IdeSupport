@@ -28,12 +28,12 @@ public class NetFxTestAssemblyContext : ITestAssemblyContext, IDisposable
         var bootstrapDst = Path.Combine(_bridgeTargetDir, BRIDGEASSEMBLYNAME + ".dll");
 
         if (!File.Exists(bootstrapDst))
-            File.Copy(bootstrapSrc, bootstrapDst);
+            TryCopyBridgeAssembly(bootstrapSrc, bootstrapDst, log);
 
         var proxyInterfaceSrc = Path.Combine(connectorDir, PROXYINTERFACEASSEMBLYNAME + ".dll");
         var proxyInterfaceDst = Path.Combine(_bridgeTargetDir, PROXYINTERFACEASSEMBLYNAME + ".dll");
         if (!File.Exists(proxyInterfaceDst))
-            File.Copy(proxyInterfaceSrc, proxyInterfaceDst);
+            TryCopyBridgeAssembly(proxyInterfaceSrc, proxyInterfaceDst, log);
 
         var setup = new AppDomainSetup
         {
@@ -90,6 +90,20 @@ public class NetFxTestAssemblyContext : ITestAssemblyContext, IDisposable
 
     //public Assembly LoadFromAssemblyName(AssemblyName assemblyNameObj) =>
     //    _proxy.LoadAssemblyByName(assemblyNameObj.FullName);
+
+    private static void TryCopyBridgeAssembly(string src, string dst, ILogger log)
+    {
+        try
+        {
+            File.Copy(src, dst);
+        }
+        catch (Exception ex)
+        {
+            log.Error($"Failed to copy bridge assembly '{src}' → '{dst}': {ex.Message}. " +
+                      $"The AppDomain proxy will likely fail to load.");
+            throw;
+        }
+    }
 
     public void Dispose()
     {

@@ -378,6 +378,16 @@ internal sealed class LspInterceptingPipe : IDisposable
         {
             _injectLock.Release();
         }
+
+        // Notify interceptors about the injected notification so it appears in the inspector log.
+        // This runs outside the inject lock to avoid holding it during potentially-slow I/O.
+        JObject? bodyObj = null;
+        try { bodyObj = JObject.Parse(body); } catch { /* malformed — skip */ }
+        if (bodyObj is not null)
+        {
+            var synthetic = new LspMessage(LspMessageDirection.Send, bodyObj, DateTimeOffset.Now);
+            await RunInterceptorsAsync(synthetic, _sendInterceptors, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private static string JsonEscape(string value)

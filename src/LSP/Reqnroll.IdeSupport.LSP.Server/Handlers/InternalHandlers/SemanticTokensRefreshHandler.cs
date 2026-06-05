@@ -74,7 +74,7 @@ public class SemanticTokensRefreshHandler : INotificationHandler<MatchCacheChang
         }
         catch (OperationCanceledException)
         {
-            // A newer notification superseded this one — normal debounce cancellation.
+            _logger.LogVerbose("SemanticTokensRefreshHandler: debounce cancelled — superseded by newer notification");
         }
         catch (Exception ex)
         {

@@ -8,6 +8,7 @@ using Microsoft.VisualStudio.Extensibility.LanguageServer;
 using Microsoft.VisualStudio.RpcContracts.LanguageServerProvider;
 using Microsoft.VisualStudio.Shell;
 using Nerdbank.Streams;
+using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.Classification;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspNotifications;
@@ -19,6 +20,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension;
 internal class ReqnrollLanguageClient : LanguageServerProvider
 {
     private readonly TraceSource _traceSource;
+    private readonly IDeveroomLogger _fileLogger;
     private Process? _serverProcess;
     private LspInspectorLogger? _inspectorLogger;
     private LspInterceptingPipe? _interceptingPipe;
@@ -32,7 +34,11 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
         : base(container, extensibilityObject)
     {
         _traceSource = traceSource;
+        _fileLogger  = new SynchronousFileLogger();
         _traceSource.TraceInformation("ReqnrollLanguageClient: Instance created.");
+        _fileLogger.LogInfo(
+            $"ReqnrollLanguageClient: VS extension loaded. " +
+            $"Assembly: {typeof(ReqnrollLanguageClient).Assembly.Location}");
     }
 
     /// <inheritdoc />
@@ -52,11 +58,13 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
             "Reqnroll.IdeSupport.LSP.Server.exe");
 
         _traceSource.TraceInformation("ReqnrollLanguageClient: CreateServerConnectionAsync called. Server exe path: {0}", serverExe);
+        _fileLogger.LogInfo($"ReqnrollLanguageClient: CreateServerConnectionAsync — server exe: {serverExe}");
 
         if (!File.Exists(serverExe))
         {
             _traceSource.TraceEvent(TraceEventType.Error, 0,
                 "ReqnrollLanguageClient: Server executable not found at '{0}'. Disabling.", serverExe);
+            _fileLogger.LogWarning($"ReqnrollLanguageClient: Server executable not found: {serverExe}");
             Enabled = false;
             return null;
         }
@@ -107,6 +115,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
             // Build the LSP Inspector log file path, unique per session.
             var logDir     = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Reqnroll");
             var logFile    = Path.Combine(logDir, $"lsp-inspector-{DateTime.Now:yyyyMMdd-HHmmss}.log");
+            _fileLogger.LogInfo($"ReqnrollLanguageClient: Server process started (PID {_serverProcess.Id}). Inspector log: {logFile}");
             _inspectorLogger = new LspInspectorLogger(logFile, _traceSource);
 
             // Observes semanticTokens traffic (both directions) and caches the decoded tokens so the
@@ -147,9 +156,12 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
     {
         if (serverInitializationResult == ServerInitializationResult.Failed)
         {
+            var failMsg = initializationFailureInfo?.StatusMessage
+                          ?? initializationFailureInfo?.Exception?.Message
+                          ?? "(none)";
             _traceSource.TraceEvent(TraceEventType.Error, 0,
-                "ReqnrollLanguageClient: Server initialization failed. Info: {0}",
-                initializationFailureInfo?.StatusMessage ?? initializationFailureInfo?.Exception?.Message ?? "(none)");
+                "ReqnrollLanguageClient: Server initialization failed. Info: {0}", failMsg);
+            _fileLogger.LogWarning($"ReqnrollLanguageClient: Server initialization failed: {failMsg}");
             Enabled = false;
             return;
         }
@@ -157,6 +169,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
         _traceSource.TraceInformation(
             "ReqnrollLanguageClient: Server initialized successfully ({0}).",
             serverInitializationResult);
+        _fileLogger.LogInfo($"ReqnrollLanguageClient: Server initialized successfully ({serverInitializationResult}).");
 
         // Start monitoring VS project events and flush the current solution state.
         if (_interceptingPipe is not null)
@@ -184,6 +197,8 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
     {
         if (isDisposing)
         {
+            _fileLogger.LogInfo("ReqnrollLanguageClient: Disposing — shutting down server connection.");
+
             _projectMonitor?.Dispose();
             _projectMonitor = null;
 

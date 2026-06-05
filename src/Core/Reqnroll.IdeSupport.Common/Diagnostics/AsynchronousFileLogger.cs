@@ -18,7 +18,8 @@ public class AsynchronousFileLogger : IDeveroomLogger, IDisposable
     {
         _fileSystem = fileSystem;
         Level = level;
-        _channel = Channel.CreateBounded<LogMessage>(100);
+        // Unbounded so that bursts (e.g. 30+ concurrent spec scenarios) never silently drop messages.
+        _channel = Channel.CreateUnbounded<LogMessage>();
         _stopTokenSource = new CancellationTokenSource();
         LogFilePath = GetLogFile();
     }
@@ -87,9 +88,12 @@ public class AsynchronousFileLogger : IDeveroomLogger, IDisposable
 
     protected void WriteLogMessage(LogMessage message)
     {
+        // Indent continuation lines so multi-line messages (e.g. connector JSON, stack traces)
+        // remain visually grouped without losing the structured prefix on the first line.
+        var body = message.Message.Replace("\r\n", "\n").Replace("\n", "\n    ");
         var content =
-            $"{message.TimeStamp:yyyy-MM-ddTHH\\:mm\\:ss.fffzzz}, {message.Level}@{message.ManagedThreadId}, {message.CallerMethod}: {message.Message}";
-        if (message.Exception != null) content += $" : {message.Exception}";
+            $"{message.TimeStamp:yyyy-MM-ddTHH\\:mm\\:ss.fffzzz}, {message.Level}@{message.ManagedThreadId}, {message.CallerMethod}: {body}";
+        if (message.Exception != null) content += $"\n    : {message.Exception}".Replace("\n", "\n    ");
         content += Environment.NewLine;
 
         _fileSystem.File.AppendAllText(LogFilePath, content, Encoding.UTF8);
