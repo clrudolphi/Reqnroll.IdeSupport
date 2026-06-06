@@ -1,5 +1,6 @@
 using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
@@ -17,13 +18,15 @@ public class TextDocumentSyncHandlerTests
     private readonly IBindingMatchService _bindingMatchService = Substitute.For<IBindingMatchService>();
     private readonly ICSharpBindingDiscoveryService _csharpDiscoveryService = Substitute.For<ICSharpBindingDiscoveryService>();
     private readonly IMediator _mediator = Substitute.For<IMediator>();
+    private readonly ILanguageServerFacade _languageServer = Substitute.For<ILanguageServerFacade>();
     private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
 
     private static readonly DocumentUri FeatureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
     private static readonly DocumentUri CsUri = DocumentUri.FromFileSystemPath("/workspace/Steps.cs");
 
     private TextDocumentSyncHandler CreateSut() =>
-        new(_bufferService, _taggerService, _bindingMatchService, _csharpDiscoveryService, _mediator, _logger);
+        new(_bufferService, _taggerService, _bindingMatchService, _csharpDiscoveryService,
+            _mediator, _languageServer, _logger);
 
     [Fact]
     public async Task Handle_DidOpen_stores_document_and_publishes_match_cache_changed_notification()
@@ -124,7 +127,7 @@ public class TextDocumentSyncHandlerTests
     }
 
     [Fact]
-    public async Task Handle_DidClose_removes_document_buffer()
+    public async Task Handle_DidClose_removes_document_buffer_and_invalidates_match_cache()
     {
         _bufferService.Update(FeatureUri, 1, "Feature: X\n");
 
@@ -140,7 +143,28 @@ public class TextDocumentSyncHandlerTests
         _bufferService.TryGet(FeatureUri, out _).Should().BeFalse();
         _bindingMatchService.Received(1).Invalidate(FeatureUri.ToString());
 
+        // No parse/match notification — the close path does not publish MatchCacheChangedNotification.
         await _mediator.DidNotReceiveWithAnyArgs().Publish(default!, default);
+    }
+
+    [Fact]
+    public async Task Handle_DidClose_pushes_empty_diagnostics_to_clear_IDE_squiggles()
+    {
+        _bufferService.Update(FeatureUri, 1, "Feature: X\n");
+
+        var sut = CreateSut();
+        var request = new DidCloseTextDocumentParams
+        {
+            TextDocument = new TextDocumentIdentifier { Uri = FeatureUri }
+        };
+
+        await sut.Handle(request, CancellationToken.None);
+
+        _languageServer.Received(1).SendNotification(
+            "textDocument/publishDiagnostics",
+            Arg.Is<PublishDiagnosticsParams>(p =>
+                p.Uri == FeatureUri &&
+                !p.Diagnostics.Any()));
     }
 
     [Fact]
@@ -202,6 +226,8 @@ public class TextDocumentSyncHandlerTests
         result.Should().Be(Unit.Value);
         // Closing a .cs file must not invalidate feature match state; bindings are retained until rebuild.
         _bindingMatchService.DidNotReceiveWithAnyArgs().Invalidate(default!);
+        // No diagnostics push — the server does not own diagnostics for .cs files.
+        _languageServer.DidNotReceive().SendNotification(Arg.Any<string>(), Arg.Any<PublishDiagnosticsParams>());
     }
 
     [Fact]
