@@ -140,7 +140,8 @@ public class Program
                .AddSingleton<TextDocumentSyncHandler>()
                .AddSingleton<WorkspaceFoldersHandler>()
                .AddSingleton<WatchedFilesHandler>()
-               .AddSingleton<SemanticTokensHandler>();
+               .AddSingleton<SemanticTokensHandler>()
+               .AddSingleton<StepReferencesHandler>();
 
         options.AddHandler<TextDocumentSyncHandler>()
                .AddHandler<WorkspaceFoldersHandler>()
@@ -201,6 +202,13 @@ public class Program
         options.OnRequest<SemanticTokensDeltaParams, SemanticTokensFullOrDelta?>(
                     "textDocument/semanticTokens/full/delta",
                     (request, ct) => serverServices!.GetRequiredService<SemanticTokensHandler>().Handle(request, ct));
+
+        // F14 — Find Step Definition Usages.
+        // Registered manually (same pattern as semantic tokens) to avoid dynamic registration
+        // ambiguity with the C# language server on .cs files. See design-doc Q13.
+        options.OnRequest<ReferenceParams, LocationOrLocationLinks?>(
+            "textDocument/references",
+            (request, ct) => serverServices!.GetRequiredService<StepReferencesHandler>().Handle(request, ct));
 
     }
 }

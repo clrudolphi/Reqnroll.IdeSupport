@@ -37,7 +37,8 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
     private readonly object _cts_lock = new();
     private CancellationTokenSource? _cts;
 
-    private event EventHandler? _bindingRegistryChanged;
+    // bool arg = isFullReplacement: true for connector runs, false for Roslyn per-file patches.
+    private event EventHandler<bool>? _bindingRegistryChanged;
 
     /// <summary>
     /// Creates a provider backed by the default connector-based discovery service
@@ -69,7 +70,7 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
     public ProjectBindingRegistry Current => _current;
 
     /// <inheritdoc/>
-    public event EventHandler? BindingRegistryChanged
+    public event EventHandler<bool>? BindingRegistryChanged
     {
         add    => _bindingRegistryChanged += value;
         remove => _bindingRegistryChanged -= value;
@@ -117,7 +118,7 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
     {
         var updated = await _current.ReplaceBindings(file).ConfigureAwait(false);
         _current = updated;
-        _bindingRegistryChanged?.Invoke(this, EventArgs.Empty);
+        _bindingRegistryChanged?.Invoke(this, false);
     }
 
     // ── IDisposable ───────────────────────────────────────────────────────────
@@ -158,7 +159,7 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
             _lastHash = newHash;
             _current  = newRegistry;
 
-            _bindingRegistryChanged?.Invoke(this, EventArgs.Empty);
+            _bindingRegistryChanged?.Invoke(this, true);
         }
         catch (OperationCanceledException)
         {

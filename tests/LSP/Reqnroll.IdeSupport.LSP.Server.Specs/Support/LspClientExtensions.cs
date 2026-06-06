@@ -82,4 +82,15 @@ public static class LspClientExtensions
 
     public static void SendProjectUnloaded(this ILanguageClient client, object payload)
         => client.SendNotification("reqnroll/projectUnloaded", payload);
+
+    public static Task<LocationOrLocationLinks?> RequestReferencesAsync(
+        this ILanguageClient client, DocumentUri uri, int line, int character, CancellationToken ct = default)
+        => client.SendRequest("textDocument/references",
+                new ReferenceParams
+                {
+                    TextDocument = new TextDocumentIdentifier { Uri = uri },
+                    Position     = new Position(line, character),
+                    Context      = new ReferenceContext { IncludeDeclaration = false }
+                })
+            .Returning<LocationOrLocationLinks?>(ct);
 }

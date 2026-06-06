@@ -9,10 +9,13 @@ namespace Reqnroll.IdeSupport.LSP.Server.Notifications;
 /// <c>reqnroll.json</c> change).
 /// </summary>
 /// <remarks>
-/// Consumers should re-parse every open feature file that belongs to
-/// <see cref="Project"/> so that step-definition tags are evaluated against the
-/// new registry, then publish <see cref="MatchCacheChangedNotification"/> for each
-/// to trigger a semantic-token refresh.
+/// When <see cref="IsFullReplacement"/> is <see langword="true"/> (e.g. startup or a post-build
+/// reflection discovery run), consumers should re-parse <em>all</em> workspace feature files that
+/// belong to <see cref="Project"/> — not only the currently open ones — so that the binding match
+/// cache covers the complete workspace for features such as Find Usages (F14).
+/// When <see cref="IsFullReplacement"/> is <see langword="false"/> (incremental Roslyn re-discovery
+/// on a <c>.cs</c> save), re-parsing only the open feature files is sufficient.
 /// </remarks>
 public record BindingRegistryChangedNotification(
-    LspReqnrollProject Project) : INotification;
+    LspReqnrollProject Project,
+    bool IsFullReplacement = false) : INotification;

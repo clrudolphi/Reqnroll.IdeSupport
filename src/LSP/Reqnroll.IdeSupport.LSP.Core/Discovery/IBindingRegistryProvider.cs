@@ -10,6 +10,11 @@ public interface IBindingRegistryProvider
 {
     ProjectBindingRegistry Current { get; }
 
-    /// <summary>Raised on any thread when the registry is replaced.</summary>
-    event EventHandler BindingRegistryChanged;
+    /// <summary>
+    /// Raised on any thread when the registry is replaced.
+    /// The <c>bool</c> argument is <see langword="true"/> for a full registry replacement
+    /// (connector/reflection discovery) and <see langword="false"/> for an incremental
+    /// Roslyn per-file patch.
+    /// </summary>
+    event EventHandler<bool> BindingRegistryChanged;
 }

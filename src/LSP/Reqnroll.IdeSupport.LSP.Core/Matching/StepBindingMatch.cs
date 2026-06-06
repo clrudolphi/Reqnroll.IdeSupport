@@ -20,11 +20,19 @@ namespace Reqnroll.IdeSupport.LSP.Core.Matching;
 /// </remarks>
 public sealed class StepBindingMatch
 {
-    public StepBindingMatch(GherkinRange range, MatchResult result)
+    public StepBindingMatch(string featureDocumentId, GherkinRange range, MatchResult result)
     {
+        FeatureDocumentId = featureDocumentId ?? throw new ArgumentNullException(nameof(featureDocumentId));
         Range = range ?? throw new ArgumentNullException(nameof(range));
         Result = result ?? throw new ArgumentNullException(nameof(result));
     }
+
+    /// <summary>
+    /// The document ID (URI string) of the feature file that contains this step.
+    /// Backs Find Usages (F14) and Code Lens usage counts (F18): callers need the feature file
+    /// URI to build <c>Location</c> responses without a separate document-ID lookup.
+    /// </summary>
+    public string FeatureDocumentId { get; }
 
     /// <summary>The span of the step text (excluding the keyword) within the feature document.</summary>
     public GherkinRange Range { get; }

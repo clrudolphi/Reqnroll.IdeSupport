@@ -73,7 +73,7 @@ public sealed class FeatureBindingMatchSet
 
             // Collapse the DefinedStep/UndefinedStep pair a single step may emit: same span, same result.
             if (!byStart.ContainsKey(tag.Range.Start))
-                byStart[tag.Range.Start] = new StepBindingMatch(tag.Range, match);
+                byStart[tag.Range.Start] = new StepBindingMatch(documentId, tag.Range, match);
         }
 
         var steps = byStart.Values.OrderBy(s => s.Range.Start).ToArray();

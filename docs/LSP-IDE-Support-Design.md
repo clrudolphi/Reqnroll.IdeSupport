@@ -811,7 +811,7 @@ Each uses a distinct marketplace identifier, coexisting with the existing `Reqnr
 | Q10 | Should the VisualStudio.* projects be nested under the `clients/` folder alongside the VS Code and Rider clients, or remain in `src/`? | TBD | Open |
 | Q11 | Which telemetry architecture should be used? Three options: (a) **Direct HTTP from LSP server** (via `Reqnroll.IdeSupport.Common`) — centralized, but misses pre-server events; (b) **Direct HTTP from each IDE client** — captures installation events, but requires telemetry code in three clients; (c) **LSP `telemetry/event` notification** (server → client) — server fires events, client relays to HTTP endpoint — best of both but requires all three clients to handle the notification. See §9 Telemetry. | TBD | Open |
 | Q12 | Should we plan for debug support for feature files (breakpoints, step-into, etc.) in a future phase? | TBD | Open |
-| Q13 | For F14, do the target IDEs reliably dispatch `textDocument/references` to the Reqnroll server vs. the C# server based on caret position (attribute vs. method body)? If not, what is the fallback UX? | TBD | Needs testing |
+| Q13 | For F14, do the target IDEs reliably dispatch `textDocument/references` to the Reqnroll server vs. the C# server based on caret position (attribute vs. method body)? If not, what is the fallback UX? | **Resolved — dispatch is unreliable in VS.** The VS built-in Find All References does not route to the Reqnroll server; it always resolves via the C# server (finding C# attribute usages or string literals). A custom VS.Extensibility command (`ReqnrollFindStepUsagesCommand`) is required. VS Code and Rider are untested. | Resolved (VS); Needs testing (VS Code, Rider) |
 | Q14 | When finding candidate step matches for Step Completion - how sophiscated of a matching algorithm is required? | TBD | Open |
 | Q15 | What IPC mechanism connects the LSP server to the out-of-process Binding Connector? Candidates: (a) stdin/stdout child process — simplest, no port conflict; (b) local named pipe — supports long-running Connector reused across builds; (c) localhost TCP with randomized port. Choice also affects Q4 (Connector lifecycle) and security posture (§9). | TBD | Open |
 | Q16 | What degree of support should be provided for progress support notifications (`$/progress`, `window/workDoneProgress`)? Long-running operations (workspace scan, reflection discovery) are candidates. | TBD | Open |
@@ -894,7 +894,7 @@ This section records key architectural decisions and the alternatives that were 
 |---|---|---|---|---|
 | R1 | OmniSharp dynamic→static registration for VS semantic tokens requires patching or custom base classes | High | Phase 1 blocker | Spike in Phase 1; custom base classes or OmniSharp patch designed before handler work begins |
 | R1a | **(Confirmed)** VS's built-in LSP semantic-token colorizer maps token-type names via a fixed internal table and cannot resolve custom `reqnroll.*` names (they render as plain text); VS also pulls semantic tokens unreliably | High → Resolved | Custom colors absent / intermittent in VS | Resolved: the server **pushes** tokens to the VS client (`reqnroll/semanticTokens`, gated by `--ide visualstudio`) and the VS client drives its own `IClassifier` against `DeveroomClassifications` (see [F1 · Visual Studio](#f1--gherkin-syntax-highlighting)). VS Code / Rider are unaffected (they map legend names natively and pull normally). |
-| R2 | F14 `textDocument/references` dispatch — IDEs may not reliably route to Reqnroll server vs. C# server based on caret position | Medium | Feature degraded to custom command | Fallback: `workspace/executeCommand`-based command; test in Phase 4 before committing to either approach |
+| R2 | **(Confirmed — VS)** F14 `textDocument/references` dispatch — VS does not route to the Reqnroll server; C# server intercepts unconditionally regardless of caret position | Medium → Confirmed (VS) | Feature requires custom VS command | `StepReferencesHandler` is implemented and tested; a custom `ReqnrollFindStepUsagesCommand` (VS.Extensibility) is required to invoke it. VS Code and Rider untested. Action item for next session (see [F14 · as-built note](#implementation-status-12)). |
 | R3 | Rider formatter overrides LSP `textDocument/formatting` for `.feature` files (F11, F12) | Low–Medium | Formatting degraded on Rider | Testing gate in Phase 3 verification; workaround via Rider formatter configuration if confirmed |
 | R4 | OmniSharp.Extensions.LanguageServer goes unmaintained | Low | Major dependency replacement | Fork or migrate to `Microsoft.VisualStudio.LanguageServer.Protocol`; `LSP.Core` is insulated from the framework layer (see §11.2) |
 | R5 | VS.Extensibility does not expose Code Lens API before Phase 4 | High (already known) | VSSDK bridge required for F18 throughout Preview | VSSDK bridge designed and included in Phase 4 plan; monitor VS roadmap (Q6) |
@@ -915,6 +915,7 @@ This section tracks engineering work that is **not** an end-user feature (F1–F
 | T1 | **Performance benchmarking harness** — a console/test harness that launches a real LSP server, drives it through a simulated client over its actual transport, and reports per-operation latency percentiles against the §9 targets (Performance Verification, Layer 2). Asserts absolute thresholds on a designated reference machine. | [§9 Performance Verification](#performance-verification) | Open |
 | T2 | **Representative benchmark corpus** — a pinned, versioned set of `.feature` files and binding patterns matching the §9 "typical workspace conditions" (≤500 feature files, ≤2,000 binding patterns), used as the controlled workload for T1. Includes a generator or curation script so the corpus is reproducible. | [§9 Performance Verification](#performance-verification) | Open |
 | T3 | **Field performance instrumentation** — wrap protocol handlers to record their own durations and emit them via the existing logging path (and optionally as a telemetry metric), for real-world P95 measurement (Performance Verification, Layer 4). | [§9 Performance Verification](#performance-verification), [§9 Telemetry](#telemetry) | Open |
+| T4 | Retrofit Reqnroll.VisualStudio.Specs tests to new code | [§9 Testing](##testing-strategy)| Open |
 
 ---
 
@@ -1761,6 +1762,29 @@ sequenceDiagram
     SRH-->>IDE: Location[] response
     IDE-->>User: References panel populated with .feature step locations
 ```
+
+#### Implementation status
+
+F14 is **implemented**. The as-built mapping is:
+
+| Design element | As-built |
+|---|---|
+| `StepReferencesHandler` registered for `textDocument/references` | Registered via `options.OnRequest` (same static-registration pattern as semantic tokens) to avoid OmniSharp dynamic-registration ambiguity with the C# language server on `.cs` files (see Q13) |
+| Binding location lookup | `IBindingMatchService.FindUsages(SourceLocation)` — iterates all cached `FeatureBindingMatchSet` entries and returns every `StepBindingMatch` whose `BindingLocations` match the supplied file + line (column is ignored; line is 1-based) |
+| Document ID on match results | `StepBindingMatch.FeatureDocumentId` (added for F14) carries the feature file's document URI, eliminating the need for a tuple return from `FindUsages` |
+| LSP position → `SourceLocation` conversion | `StepReferencesHandler` converts 0-based LSP line/character to 1-based `SourceLocation(file, line+1, char+1)` |
+| `GherkinRange` → LSP `Range` | `GherkinRangeExtensions.ToLspRange()` (new `LSP.Server`-layer extension); pure offset-to-line geometry lives in `GherkinRange.ResolveOffset` (`LSP.Core`) |
+| Workspace-wide scan on startup | `BindingRegistryChangedNotification.IsFullReplacement` flag (added for F14): `true` when fired by the Connector / reflection path, `false` for Roslyn incremental. A full replacement triggers `BindingRegistryChangedHandler.ScanAllFeatureFilesAsync`, which calls `IGherkinDocumentTaggerService.ScanClosedFileAsync` for every `.feature` file in the project folder not already held in the open-document buffer. **Known limitation**: this glob misses linked feature files located outside the project folder — see Q17. |
+| Incremental update on Roslyn edit | `IsFullReplacement = false` → only currently open feature files are re-parsed; closed files retain their cached match sets |
+
+> **As-built note — VS "Find All References" does not integrate automatically.** When tested in the VS Experimental Instance, the VS built-in **Find All References** command did **not** route `textDocument/references` to the Reqnroll LSP server. Two failure modes were observed:
+>
+> - Invoking on the **attribute keyword itself** (e.g. the word `Given` in `[Given("…")]`) found all uses of that attribute type across the solution — the standard C# references result, not feature-file steps.
+> - Invoking on the **binding expression string** found all identical string literals in C# code — again a C# result, not feature-file steps.
+>
+> This confirms that VS does not dispatch `textDocument/references` to secondary LSP servers for `.cs` files based on caret position; the C# language server intercepts the request unconditionally. Q13 is therefore **resolved as "dispatch is unreliable"** and R2's predicted fallback applies.
+>
+> **Action item (next session):** Build a custom VS.Extensibility command — provisionally `ReqnrollFindStepUsagesCommand` — that explicitly invokes `textDocument/references` (or a custom `reqnroll/findStepUsages` request) against the Reqnroll LSP server and populates a results pane. The server-side handler (`StepReferencesHandler`) is already implemented and tested; the work is entirely on the VS client side.
 
 ---
 

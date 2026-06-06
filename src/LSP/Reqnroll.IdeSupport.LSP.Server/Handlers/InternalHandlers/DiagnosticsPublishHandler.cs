@@ -3,8 +3,8 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Diagnostics;
-using Reqnroll.IdeSupport.LSP.Core.Document;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
+using Reqnroll.IdeSupport.LSP.Server.Document;
 using Reqnroll.IdeSupport.LSP.Server.Notifications;
 using Reqnroll.IdeSupport.LSP.Server.Services;
 
@@ -84,40 +84,13 @@ public sealed class DiagnosticsPublishHandler : INotificationHandler<MatchCacheC
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static Diagnostic ToLspDiagnostic(GherkinDiagnostic d)
-    {
-        var (startLine, startChar) = ResolvePosition(d.Range, d.Range.Start);
-        var (endLine,   endChar)   = ResolvePosition(d.Range, d.Range.End);
-
-        return new Diagnostic
+        => new()
         {
-            Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(
-                new Position(startLine, startChar),
-                new Position(endLine,   endChar)),
+            Range    = d.Range.ToLspRange(),
             Severity = d.Severity == GherkinDiagnosticSeverity.Error
                 ? DiagnosticSeverity.Error
                 : DiagnosticSeverity.Warning,
             Source  = d.Source,
             Message = d.Message
         };
-    }
-
-    /// <summary>
-    /// Resolves an absolute character offset to (line, character) using the snapshot embedded
-    /// in the <see cref="GherkinRange"/>.  Mirrors the identical helper in
-    /// <see cref="SemanticTokenService"/>.
-    /// </summary>
-    private static (int Line, int Character) ResolvePosition(GherkinRange range, int absoluteOffset)
-    {
-        var snapshot = range.Snapshot;
-        for (int ln = 0; ln < snapshot.LineCount; ln++)
-        {
-            var line = snapshot.GetLineFromLineNumber(ln);
-            if (absoluteOffset <= line.End)
-                return (ln, absoluteOffset - line.Start);
-        }
-        // Clamp to the end of the last line.
-        int lastLine = snapshot.LineCount - 1;
-        var last = snapshot.GetLineFromLineNumber(lastLine);
-        return (lastLine, last.End - last.Start);
-    }
 }

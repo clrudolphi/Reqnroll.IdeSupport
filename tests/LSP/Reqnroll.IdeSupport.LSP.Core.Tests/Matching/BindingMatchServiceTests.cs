@@ -182,4 +182,67 @@ public class BindingMatchServiceTests
 
         sut.FindUsages(new SourceLocation("Other.cs", 1, 1)).Should().BeEmpty();
     }
+
+    [Fact]
+    public void FindUsages_null_location_returns_empty()
+    {
+        var sut = new BindingMatchService();
+        sut.Store(BuildSet(DefinedFeature, RegistryWith(GivenBinding("my step"))));
+
+        sut.FindUsages(null!).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void FindUsages_each_result_carries_the_feature_document_id()
+    {
+        var sut = new BindingMatchService();
+        sut.Store(BuildSet(DefinedFeature, RegistryWith(GivenBinding("my step", file: "Steps.cs", line: 5))));
+
+        var usage = sut.FindUsages(new SourceLocation("Steps.cs", 5, 1)).Single();
+
+        usage.FeatureDocumentId.Should().Be(Uri);
+    }
+
+    [Fact]
+    public void FindUsages_finds_matches_across_multiple_documents()
+    {
+        const string secondUri = "file:///c:/proj/feature2.feature";
+        var sut = new BindingMatchService();
+        var registry = RegistryWith(GivenBinding("my step", file: "Steps.cs", line: 5));
+
+        sut.Store(BuildSet(DefinedFeature, registry));
+
+        // Manually build a second set keyed on a different document URI.
+        var tags2      = ParseTags(DefinedFeature, registry);
+        var secondSet  = FeatureBindingMatchSet.FromTags(secondUri, documentVersion: 1, registry.Version, tags2);
+        sut.Store(secondSet);
+
+        var usages = sut.FindUsages(new SourceLocation("Steps.cs", 5, 1));
+
+        usages.Should().HaveCount(2);
+        usages.Select(u => u.FeatureDocumentId).Should()
+              .BeEquivalentTo([Uri, secondUri]);
+    }
+
+    [Fact]
+    public void FindUsages_uses_case_insensitive_path_comparison_on_source_file()
+    {
+        var sut = new BindingMatchService();
+        sut.Store(BuildSet(DefinedFeature, RegistryWith(GivenBinding("my step", file: "Steps.cs", line: 5))));
+
+        // Windows paths are case-insensitive.
+        var usages = sut.FindUsages(new SourceLocation("STEPS.CS", 5, 1));
+
+        usages.Should().ContainSingle();
+    }
+
+    [Fact]
+    public void FindUsages_does_not_return_undefined_steps()
+    {
+        var sut = new BindingMatchService();
+        sut.Store(BuildSet(UndefinedFeature, RegistryWith(GivenBinding("my step"))));
+
+        // The step text doesn't match — it has no BindingLocations, so no location to match.
+        sut.FindUsages(new SourceLocation("Steps.cs", 5, 1)).Should().BeEmpty();
+    }
 }

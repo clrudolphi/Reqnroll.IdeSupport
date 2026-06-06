@@ -13,7 +13,7 @@ public sealed class NullBindingRegistryProvider : IBindingRegistryProvider
 
     /// <inheritdoc/>
     /// <remarks>Never raised by this implementation.</remarks>
-    public event EventHandler? BindingRegistryChanged
+    public event EventHandler<bool>? BindingRegistryChanged
     {
         add    { /* no-op */ }
         remove { /* no-op */ }

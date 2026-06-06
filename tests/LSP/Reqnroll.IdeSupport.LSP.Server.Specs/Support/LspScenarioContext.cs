@@ -24,6 +24,7 @@ public sealed class LspScenarioContext
     public string LastDocumentText { get; set; } = string.Empty;
     public int LastVersion { get; set; }
     public SemanticTokens? LastTokens { get; set; }
+    public LocationOrLocationLinks? LastReferences { get; set; }
 
     public DocumentUri UriFor(string relativeName)
         => DocumentUri.FromFileSystemPath(Path.Combine(WorkspaceFolder, relativeName));

@@ -47,7 +47,7 @@ public sealed class BindingRegistryProviderRouter : IProjectBindingRegistryLooku
     // that was passed to += in OnProjectDiscovered.
     private readonly ConcurrentDictionary<
         LspReqnrollProject,
-        (ConnectorBindingRegistryProvider Provider, EventHandler Handler)>
+        (ConnectorBindingRegistryProvider Provider, EventHandler<bool> Handler)>
         _entries = new();
 
     public BindingRegistryProviderRouter(
@@ -101,7 +101,7 @@ public sealed class BindingRegistryProviderRouter : IProjectBindingRegistryLooku
 
         // Capture project in a named local so the closure below can reference it.
         // Store the delegate so Dispose can unsubscribe by identity.
-        EventHandler handler = (_, _) => OnProviderChanged(project);
+        EventHandler<bool> handler = (_, isFullReplacement) => OnProviderChanged(project, isFullReplacement);
         provider.BindingRegistryChanged += handler;
 
         _entries[project] = (provider, handler);
@@ -131,13 +131,14 @@ public sealed class BindingRegistryProviderRouter : IProjectBindingRegistryLooku
 
     // ── Change notification ───────────────────────────────────────────────────
 
-    private void OnProviderChanged(LspReqnrollProject project)
+    private void OnProviderChanged(LspReqnrollProject project, bool isFullReplacement)
     {
         _logger.LogVerbose(
-            $"[Router] Binding registry updated for '{project.ProjectName}'; publishing notification.");
+            $"[Router] Binding registry updated for '{project.ProjectName}' " +
+            $"(fullReplacement={isFullReplacement}); publishing notification.");
 
         // Fire-and-forget: MediatR publish is async but this is called from a background
         // Task inside ConnectorBindingRegistryProvider.  Exceptions are logged by the handler.
-        _ = _mediator.Publish(new BindingRegistryChangedNotification(project));
+        _ = _mediator.Publish(new BindingRegistryChangedNotification(project, isFullReplacement));
     }
 }

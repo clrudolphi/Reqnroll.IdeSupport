@@ -4,6 +4,7 @@ using Reqnroll.IdeSupport.LSP.Core.Discovery;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
+using Reqnroll.IdeSupport.LSP.Server.Document;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Services;
 
@@ -76,5 +77,19 @@ public class GherkinDocumentTaggerService : IGherkinDocumentTaggerService
         _semanticTokenService.InvalidateCache(uri);
 
         return Task.FromResult(tags);
+    }
+
+    public Task ScanClosedFileAsync(DocumentUri uri, string text)
+    {
+        var snapshot = new LspTextSnapshot(uri.ToString(), version: 0, text);
+        var registry = _registryLookup.GetRegistryForUri(uri);
+        var tags = _tagParser.Parse(snapshot, registry);
+
+        var matchSet = FeatureBindingMatchSet.FromTags(
+            uri.ToString(), documentVersion: null, registry.Version, tags);
+        _bindingMatchService.Store(matchSet);
+
+        _logger.LogVerbose($"ScanClosedFile: stored {matchSet.Steps.Count} step(s) for {uri}");
+        return Task.CompletedTask;
     }
 }

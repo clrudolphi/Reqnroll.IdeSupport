@@ -16,7 +16,7 @@ public class NullBindingRegistryProviderTests
     public void Subscribing_and_unsubscribing_the_change_event_is_a_no_op()
     {
         var sut = new NullBindingRegistryProvider();
-        EventHandler handler = (_, _) => { };
+        EventHandler<bool> handler = (_, _) => { };
 
         var act = () =>
         {

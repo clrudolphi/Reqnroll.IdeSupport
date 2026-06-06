@@ -69,8 +69,25 @@ public class GherkinRange : IEquatable<GherkinRange>
     }
 
     // Line/character resolution — needed by LSP response mapping
-    public (int Line, int Character) StartLinePosition { get; }
-    public (int Line, int Character) EndLinePosition { get; }
+    public (int Line, int Character) StartLinePosition => ResolveOffset(Snapshot, Start);
+    public (int Line, int Character) EndLinePosition   => ResolveOffset(Snapshot, End);
+
+    /// <summary>
+    /// Converts an absolute character offset to a (line, character) pair using the given snapshot.
+    /// Lines and characters are both 0-based (LSP convention).
+    /// </summary>
+    internal static (int Line, int Character) ResolveOffset(IGherkinTextSnapshot snapshot, int offset)
+    {
+        for (int ln = 0; ln < snapshot.LineCount; ln++)
+        {
+            var line = snapshot.GetLineFromLineNumber(ln);
+            if (offset <= line.End)
+                return (ln, offset - line.Start);
+        }
+        int lastLine = snapshot.LineCount - 1;
+        var last = snapshot.GetLineFromLineNumber(lastLine);
+        return (lastLine, last.End - last.Start);
+    }
 
     // Used by VoidDeveroomTag
     public static readonly GherkinRange Empty = new GherkinRange(NullSnapshot.Instance, 0, 0);
