@@ -265,11 +265,49 @@ The server registers interest in both `*.feature` files and `*.cs` files. It doe
 
 > **As-built note**: `.cs` interest for binding re-discovery is implemented (see [F2 · Implementation status](#f2--binding-discovery)). A single OmniSharp text-document sync handler (`TextDocumentSyncHandler`) registers a document selector covering **both** `**/*.feature` and `**/*.cs` and routes by file extension, rather than a separate `CsSyncHandler` — this avoids OmniSharp's ambiguity when two `TextDocumentSyncHandlerBase` implementations claim overlapping documents. `.cs` files are deliberately **not** stored in the Gherkin document buffer.
 
+### Client ↔ Server custom notifications
+
+Beyond the standard LSP surface, each IDE glue layer sends a small set of Reqnroll-specific notifications that carry project-system information LSP itself has no vocabulary for. These are produced by the client/glue (which has access to the IDE's project model) and consumed by the `LspWorkspaceScopeManager`.
+
+| Method | Direction | Purpose |
+|---|---|---|
+| `reqnroll/projectLoaded` | Client → Server | A Reqnroll project was opened, or its **build properties** changed (rebuild, configuration switch). Carries `workspaceFolder`, `projectFile`, `projectFolder`, `outputAssemblyPath`, `targetFrameworkMoniker`, and resolved `packageReferences`. Cheap to produce; sent early so binding discovery can start as soon as the output path is known. |
+| `reqnroll/projectFiles` | Client → Server | The project's **file membership** (feature files + binding source files, on-disk paths, including links). Separate from `projectLoaded` because membership has a different change cadence and, in some IDEs, a different (slower, async) production path. See [Project membership](#project-membership-the-path--projects-index) below and [Q17](#10-open-questions). |
+| `reqnroll/projectUnloaded` | Client → Server | A project was removed from the solution/workspace. Carries `projectFile`. |
+
+> **Why `projectFiles` is a separate notification, not fields on `projectLoaded`.** The decision is driven by concrete differences between the three IDE project systems — VS Code cannot produce the manifest as a cheap byproduct of project load at all (it has no MSBuild project system); VS's authoritative item enumeration (CPS / MSBuild evaluation) is a slower, async path than the EnvDTE property reads that power `projectLoaded` today; and Rider can produce it readily but its built-in LSP client's custom-notification transport is not yet proven. An optional, snapshot-plus-delta message decouples fast-path discovery from membership, matches each project system's change events, and degrades gracefully per client. The full rationale is recorded under [Q17](#10-open-questions).
+
 ### Workspace Model
 
 Each opened workspace folder maps to an `LspWorkspaceScope` containing one or more `LspProjectScope` instances. Project detection reads `*.csproj` files to discover `reqnroll.json` configuration and output assembly paths for the Binding Connector.
 
-**Multi-root configuration divergence**: In a workspace with multiple root folders (e.g., a monorepo with separate application and test projects), each root may carry a different `reqnroll.json`. The `LspWorkspaceScope` maintains a separate `LspProjectScope` — and thus a separate Binding Registry — per project. Feature files are resolved against the registry of the project that owns them. If a feature file's owning project cannot be determined unambiguously, the handling strategy is an open question — see [Q17](#10-open-questions). A naive fallback to a merged view of all registries is not realistic for production use.
+**Multi-root configuration divergence**: In a workspace with multiple root folders (e.g., a monorepo with separate application and test projects), each root may carry a different `reqnroll.json`. The `LspWorkspaceScope` maintains a separate `LspProjectScope` — and thus a separate Binding Registry — per project. Feature files are resolved against the registry of the project(s) that own them, using the authoritative membership index described next. A naive fallback to a merged view of all registries is not realistic for production use.
+
+#### Project membership: the `path → {projects}` index
+
+A file's owning project is **not** inferred from on-disk folder containment. MSBuild allows a project to **link** files that live outside its folder — `<Compile Include="..\Other\X.cs" Link="…">`, `<None Include="…" Link="…">`, the `ReqnrollUseIntermediateOutputPathForCodeBehind = true` pattern — and to **exclude** files that live inside it (`<Compile Remove>`, `<None Remove>`, or a false `Condition`). A single physical file may therefore belong to **zero, one, or several** projects. This is a genuine many-to-many relation that folder-prefix matching cannot express (see [Q17](#10-open-questions) for the analysis and the corpus reproduction that motivated this design).
+
+The server maintains an explicit, authoritative index mapping each file's on-disk path to the **set** of projects that include it, keyed within each project by `(projectFile, targetFrameworkMoniker)` so that per-TFM conditional membership lands on the correct registry. The index is populated by the **`reqnroll/projectFiles`** client→server notification (see below); folder-prefix containment survives only as a clearly-degraded, read-only last resort for files that **no** project claims, and it must never write into a registry or into usages/unused accounting.
+
+Two invariants follow, and both are load-bearing for correctness:
+
+1. **Membership is conferred exclusively by the index.** Neither folder containment nor a file being open in the editor may grant a file ownership in any project. The closed-file workspace scan is driven by the index, not by a folder glob — otherwise an *excluded* file physically inside a project folder would be silently re-admitted.
+2. **Open-state never confers membership or accounting.** A file the user opens that no project owns receives only registry-independent features (semantic tokens, parse-error diagnostics, folding, formatting, document symbols). Binding-dependent features (unmatched-step diagnostics, step↔binding navigation, binding completion, usages/unused) are suppressed for it — and an opened-but-unowned `.cs` must **not** inject phantom bindings into any registry via the Roslyn live path. Were this not enforced, merely opening an excluded feature file could flip a binding from "unused" to "used" in F15.
+
+#### The `reqnroll/projectFiles` notification
+
+Each IDE glue layer enumerates a project's feature files and binding source files — resolved to their **on-disk** paths, including linked files — and sends them to the server. This is a **separate** notification from [`reqnroll/projectLoaded`](#client--server-custom-notifications), deliberately decoupled because the two carry information of different cadence and availability (the rationale, including how each IDE's project system constrains the choice, is recorded under [Q17](#10-open-questions)):
+
+| Property | Value |
+|---|---|
+| Method | `reqnroll/projectFiles` (client → server notification) |
+| Key | `projectFile` + `targetFrameworkMoniker` (matches the `reqnroll/projectLoaded` keying) |
+| Payload | `{ projectFile, targetFrameworkMoniker, kind: "baseline" \| "delta", files: [{ path, role: "feature" \| "binding", added? }] }` |
+| Baseline | A `kind: "baseline"` message carries the project's complete current membership and is the **authoritative snapshot**. Receiving it flips every previously-absent file under that project from *pending* to *excluded*. |
+| Delta | A `kind: "delta"` message carries incremental add/remove entries, matching the fine-grained item-change events the VS and Rider project systems surface. |
+| Optional | A client that cannot reliably produce the manifest simply omits the notification; that project then falls back to folder-prefix routing. This makes the message safe to adopt per-client (notably for Rider's less-proven built-in LSP transport). |
+
+**Pending vs. excluded.** Because both "deliberately excluded" and "not yet reported" manifest as *absence from the index*, the server treats absence as **pending** (unknown — defer binding-dependent features rather than declaring the file unowned) until the project's first `baseline` arrives, and as **excluded** thereafter. The glue layer must therefore re-send membership not only on project load and rebuild but on **`.csproj` change**, so that re-including a file in the editor restores its ownership.
 
 **Gherkin dialect resolution**: Dialect is resolved at two levels:
 
@@ -401,6 +439,10 @@ The LSP client registers interest in two document types:
 
 > **Note**: The Thomas Heijtink PoC restricts the C# selector to `pattern: '**/Steps/*.cs'`. For production use, the selector should cover all `.cs` files so that step definitions in any project subfolder are discovered by the Roslyn binding discovery pipeline.
 
+#### Project membership (`reqnroll/projectFiles`)
+
+VS Code has **no MSBuild project system of its own**, so — unlike VS and Rider — it cannot produce the file-membership manifest as a cheap byproduct of opening the workspace. Authoritative membership must come from one of: (a) the LSP server (or a helper) invoking `dotnet msbuild` to evaluate the project's item groups; (b) the C# Dev Kit project system, if a dependency on it is acceptable; or (c) the server itself evaluating MSBuild (it already shells out to `dotnet` for the Connector). All three are async and complete after a coarse "project exists" signal could be sent — which is precisely why membership is delivered via the separate, later-arriving `reqnroll/projectFiles` notification rather than being folded into `reqnroll/projectLoaded`. Until a baseline manifest is available, this client may send `projectLoaded` alone; the affected projects route via the folder-prefix fallback in the interim.
+
 #### Server path resolution
 
 | Priority | Strategy |
@@ -434,6 +476,8 @@ The embedded `LSPServer.exe` is published to the VSIX under the `LSPServer/` sub
 
 **Named pipe uniqueness**: If the user has multiple Visual Studio instances open simultaneously (e.g., two different solutions), each instance launches its own `Reqnroll.IdeSupport.LSP.Server` process. Named pipe identifiers must be unique per workspace to prevent the second instance from accidentally connecting to the first instance's server. The pipe name should include a workspace-unique component — for example, a hash of the solution file path — appended at server launch time.
 
+**Project membership (`reqnroll/projectFiles`)**: The current `VsProjectEventMonitor` sources `reqnroll/projectLoaded` from **EnvDTE** (`Project.FullName`, output path, TFM, package references) — cheap synchronous property reads. Producing an *authoritative* membership manifest is a different, heavier path: EnvDTE `ProjectItems` is unreliable for SDK-style projects, glob-defaulted includes, `<Compile Remove>`, conditional items, and linked-file on-disk paths, so the manifest must instead come from **CPS** (`UnconfiguredProject` / `ConfiguredProject` project-subscription dataflow) or an MSBuild evaluation. That source is async and updates on its own schedule, which is why membership rides on the separate `reqnroll/projectFiles` notification rather than blocking `projectLoaded`. The monitor must also subscribe to **item add/remove and `.csproj`-change** events (not only build completion, as today) so it can emit `delta` updates and restore ownership when a file is re-included.
+
 ### 6.3 Rider
 
 The Rider plugin is a **hybrid Kotlin/JVM + .NET** project built with a Gradle + MSBuild pipeline. The Kotlin layer handles the Rider frontend (LSP lifecycle, file type registration, and the Go to Definition PSI bridge); the .NET layer provides a ReSharper zone definition required by Rider's dependency injection system.
@@ -451,6 +495,8 @@ Three IntelliJ Platform extension points are registered:
 | `fileType` | `ReqnrollFeatureFileType` | Registers `.feature` file type and language |
 
 **Plugin dependencies declared:** `com.intellij.modules.lsp` (Rider's built-in LSP client) and `com.intellij.modules.platform`.
+
+**Project membership (`reqnroll/projectFiles`)**: Rider's backend has a full, authoritative MSBuild project model (links, `Remove`, conditions, per-TFM membership) and fires fine-grained project-model-change events, so *producing* the manifest is straightforward. The open risk is **transport**: how freely the plugin can push a custom outbound notification through Rider's built-in LSP client is the same "needs testing" caveat that sits on [Q1/Q2](#10-open-questions). Because `reqnroll/projectFiles` is optional, Rider can adopt it incrementally — if the custom notification proves unreliable, the plugin omits it and those projects fall back to folder-prefix routing without affecting `projectLoaded`.
 
 #### Kotlin source components
 
@@ -815,11 +861,49 @@ Each uses a distinct marketplace identifier, coexisting with the existing `Reqnr
 | Q14 | When finding candidate step matches for Step Completion - how sophiscated of a matching algorithm is required? | TBD | Open |
 | Q15 | What IPC mechanism connects the LSP server to the out-of-process Binding Connector? Candidates: (a) stdin/stdout child process — simplest, no port conflict; (b) local named pipe — supports long-running Connector reused across builds; (c) localhost TCP with randomized port. Choice also affects Q4 (Connector lifecycle) and security posture (§9). | TBD | Open |
 | Q16 | What degree of support should be provided for progress support notifications (`$/progress`, `window/workDoneProgress`)? Long-running operations (workspace scan, reflection discovery) are candidates. | TBD | Open |
-| Q17 | How should the LSP server handle feature files that are **outside the workspace root** but referenced by a `.csproj` via `<ItemGroup>` entries (a supported Reqnroll pattern using `ReqnrollUseIntermediateOutputPathForCodeBehind = true`)? The server must be able to associate such files with the correct project registry. | TBD | Open |
+| Q17 | How should the LSP server associate files with the correct project registry when a `.csproj` **links** files (feature files and/or binding `.cs` files) that live outside the project folder, or **excludes** files inside it? A linked/excluded file is a **many-to-many** relationship (one physical file ↔ zero, one, or several projects) that the folder-prefix membership model cannot express. **Reproduced** in the `Minimal/ExternalReferences` corpus (logs 2026-06-07). | Chris | **Resolved (design)** — authoritative `path → {projects}` index populated by a new optional `reqnroll/projectFiles` notification; folder-prefix retained only as fallback. See [analysis & chosen design](#q17--linked-files-and-project-membership--analysis-and-resolution) and [Project membership](#project-membership-the-path--projects-index). |
 | Q18 | Should the LSP server write to a **local log file** in addition to routing entries via `window/logMessage` to the IDE output channel? A file sink would help users who cannot easily access the IDE output panel. If yes, where should the log file be written and how should it be configured? | TBD | Open |
 | Q19 | Should the server support **diagnostic pull** (`textDocument/diagnostic` request, LSP 3.17+) in addition to the current push model (`textDocument/publishDiagnostics`)? Pull allows IDEs to request diagnostics on demand rather than receiving them asynchronously. See F3. | TBD | Open |
 | Q20 | For step-to-binding navigation (F5), should the server respond to `textDocument/definition` or `textDocument/implementation`? In LSP semantics, a step text is more analogous to an interface/specification (definition) while the binding method is the implementation. The correct choice affects how IDEs route the navigation command. | TBD | Open |
 | Q21 | Should the server support `textDocument/documentLink` for step-to-binding navigation? This would render step lines as clickable hyperlinks when the user holds Ctrl and hovers — an alternative or complement to Go to Definition (F5) that requires no keystroke. | TBD | Open |
+
+### Q17 · Linked files and project membership — analysis and resolution
+
+**Reproduction (2026-06-07).** The `Minimal/ExternalReferences` corpus links one `.feature` file and two binding `.cs` files from the `Minimal` project into the `ExternalReferences` project. Running the LSP extension against it surfaced three concrete symptoms in the logs:
+
+1. **The connector reports the linked file's *physical* path, identically for every linking project.** `ExternalReferences`'s discovery returns step definitions whose `sourceFiles[0]` is `…\Minimal\Minimal\StepDefinitions\CalculatorStepDefinitions.cs` — the file's home in `Minimal`, not anything under `ExternalReferences\`. `Minimal`'s discovery reports the same path. This is inherent to reflection/PDB sequence points (they record the compile-time source path, which for a linked item is its original location). The connector output therefore gives **no signal** that one registry obtained the binding via a link.
+2. **The workspace-startup glob never sees the linked feature file from its linking project.** The full-replacement scan reported "scanning **1** closed feature file under …\Minimal" but "scanning **0** closed feature file(s) under …\ExternalReferences", and "no open feature files to reparse under …\ExternalReferences" — because the feature file is physically under `Minimal\Minimal\Features\`. This is the "Known limitation" noted in the F14 as-built table.
+3. **`didOpen`/`didChange` carry only the on-disk URI**, with no project discriminator. This is inherent to LSP — a `TextDocumentItem` has no project field, and the IDE will not tell the server which project's *view* of a shared file is open.
+
+**Root cause.** The server has no authoritative file→project map. Membership is *inferred* from on-disk folder containment in [`LspWorkspaceScopeManager.GetProjectForUri`](../src/LSP/Reqnroll.IdeSupport.LSP.Server/Workspace/LspWorkspaceScopeManager.cs) (`filePath.StartsWith(p.ProjectFolder)`, longest prefix wins, `FirstOrDefault`). This collapses a many-to-many relation (one physical file ↔ many projects) into a single guess. A linked `.cs`/`.feature` physically under `Minimal\` therefore **always** routes to `Minimal`, never to `ExternalReferences`; a file linked from outside *every* project folder routes to **no** project and falls back to default configuration (every step shows unmatched). In this corpus the defect is partly *masked* because `ExternalReferences`'s registry is byte-identical to `Minimal`'s; it becomes visible the moment two linking projects have different bindings (cf. `Minimalnet481`, which already produces a different regex for the same step text).
+
+**Impact on F14 (Find All Usages / Find All Unused).** Both features are inherently many-to-many and cannot be computed correctly on the folder-prefix model:
+
+- **Find All Usages(binding)** must union, across *every project that includes that binding*, the feature steps that match it. A binding linked into N projects is "used" if a feature in *any* of the N references it.
+- **Find All Unused(binding)** must intersect: the binding is unused only if *no* feature in *any* including project references it. A folder-scoped search rooted at the binding's physical project will **falsely report a linked-and-used binding as unused** — an actively harmful result, since it invites deletion of live code.
+
+**Edge cases — excluded and ad-hoc-opened files.** The same model must handle the inverse of linking: a file physically *inside* a project folder but **excluded** from the `.csproj` (via `<Compile Remove>` / `<None Remove>` or a false `Condition`). An exclusion is simply the *absence* of a positive membership assertion, so it looks identical to "not yet reported." The analysis confirmed two failure modes the design must prevent: (a) the folder glob re-admitting an excluded *closed* feature file into a project's scan; and (b) the user *opening* an excluded file — which must not confer membership, must not push binding-dependent diagnostics for it, and (for an excluded `.cs`) must not let the Roslyn live path inject phantom bindings that flip a step to "matched" or a binding to "used" until the next build wipes them.
+
+**Chosen design.** Adopt the [`path → {projects}` membership index](#project-membership-the-path--projects-index), populated by a new optional [`reqnroll/projectFiles`](#client--server-custom-notifications) notification. The decisions:
+
+1. **Membership is explicit, never inferred.** Each IDE glue layer enumerates the project's feature files and binding source files, on-disk paths **including links**, and sends them via `reqnroll/projectFiles`. The server never re-derives membership from the filesystem. (`VsProjectEventMonitor` does not yet enumerate item lists and `ReqnrollProjectLoadedParams` carries only `ProjectFolder` — both are extended for this; the VS enumeration moves from EnvDTE to CPS/MSBuild, see [§6.2](#62-visual-studio).)
+
+2. **A *separate* notification, not extra fields on `projectLoaded`.** This is the resolution of the "extend vs. new message" sub-question, and it is driven by the three IDEs' differing capabilities:
+   - **VS Code** has no MSBuild project system, so it cannot produce the manifest as a cheap byproduct of project load at all — membership requires an async MSBuild/C# Dev Kit evaluation that necessarily lands later than a coarse "project exists" signal.
+   - **Visual Studio** *can* produce it, but only via CPS/MSBuild evaluation — a slower, async path than the EnvDTE property reads that power `projectLoaded` today. Coupling would make the fast path (output assembly → start discovery, observed in the logs within ~1 s of load) wait on the slow one.
+   - **Rider** produces it readily from its backend project model, but the reliability of pushing a *custom* outbound notification through its built-in LSP client is unproven (cf. Q1/Q2).
+   
+   An **optional, snapshot-plus-delta** message decouples fast-path discovery from membership, matches each project system's change cadence (membership changes far more often than build properties), and degrades gracefully per client (a client that can't produce it omits it; that project falls back to folder-prefix). The cost — tolerating `projectFiles` / `projectLoaded` arriving in either order, keyed by `(projectFile, TFM)` — is the same pending-state machinery required by point 4 anyway.
+
+3. **Two routing invariants** (detailed under [Project membership](#project-membership-the-path--projects-index)): membership is conferred *only* by the index (closed-file enumeration is index-driven, not a folder glob), and open-state *never* confers membership or accounting (an opened-but-unowned file gets registry-independent features only). `GetProjectForUri` returns a *set*; folder-prefix survives only as a read-only fallback for files no project claims.
+
+4. **Absence means *pending*, then *excluded*.** The server treats a file's absence from the index as unknown (defer binding-dependent features) until the project's first `baseline` manifest arrives, and as deliberately excluded thereafter. The glue layer re-sends membership on project load, rebuild, **and `.csproj` change**, so re-including a file in the editor restores its ownership.
+
+5. **Feature-aware operations iterate the owning set.** Diagnostics/matching for a linked feature run against each owner's registry (a step is unmatched only if unmatched in *all* owners). [F14](#f14--find-step-definition-usages) unions a binding's usages across all including projects; [F15](#f15--find-unused-step-definitions) intersects (unused only if unused in *every* including project).
+
+6. **F2 fan-out is deliberate.** A single `didChange` to a linked `.cs` invalidates *every* registry that includes it; the per-file Roslyn patch fans out to all owning projects rather than a single target, and is *gated* on index membership so an excluded-but-open `.cs` patches nothing. See the [F2 planned-change note](#f2--binding-discovery).
+
+**Implementation plan.** The concrete code changes across the LSP server and VS extension — DTOs, the index in `LspWorkspaceScopeManager`, consumer re-gating, VS manifest production, phasing, and tests — are documented in [Q17 Membership Index Implementation Plan](Q17-membership-index-implementation-plan.md).
 
 ---
 
@@ -1110,8 +1194,9 @@ sequenceDiagram
     Note over IDE,BR: User saves a .cs step file
     IDE->>CSS: textDocument/didChange (.cs file)
     CSS-->>RD: [internal] CsFileChangedNotification
-    RD-->>BR: Replace bindings for that file
-    BR-->>BR: [internal] BindingRegistryChangedNotification
+    Note over CSS,RD: Look up owning project(s) in the membership index
+    RD-->>BR: Replace bindings for that file in EACH owning project's registry
+    BR-->>BR: [internal] BindingRegistryChangedNotification (per project)
 
     Note over IDE,BR: Build detected (assembly changed)
     IDE->>WFH: workspace/didChangeWatchedFiles (assembly path)
@@ -1139,6 +1224,8 @@ The Roslyn (source-level) path is **implemented**. The diagram above uses ideali
 **Behavioural nuance**: a step renders as *unbound* (a `reqnroll.undefined_step` token / "step definition not found" diagnostic) only once the owning project has a **valid** (non-`Invalid`) registry — i.e. after any discovery has completed, whether the startup reflection run **or** the first Roslyn `.cs` open. Against an `Invalid` registry (no discovery yet) the tag parser skips step matching, leaving steps unclassified rather than unbound.
 
 The reflection (post-build) trigger shown in the lower half of the diagram is also implemented: `WatchedFilesHandler` registers `workspace/didChangeWatchedFiles` watchers for `**/bin/**/*.dll` (and `**/reqnroll.json`) and calls `ConnectorBindingRegistryProvider.TriggerRefresh()` for the project whose output path matches. An initial run is likewise triggered on `reqnroll/projectLoaded`. Whether each IDE reliably *delivers* those watched-file events on build remains [Q9](#10-open-questions).
+
+> **Planned change — index-driven, multi-project routing.** As built, `CSharpBindingDiscoveryService` routes a `.cs` edit to a **single** owning project via `ILspWorkspaceScopeManager.GetProjectForUri` (longest folder-prefix match). Under the [membership-index design](#project-membership-the-path--projects-index) this becomes a lookup returning the **set** of owning projects, and the per-file Roslyn patch fans out to *each* of their registries (a linked `.cs` legitimately belongs to several projects, so one edit invalidates several registries). The same lookup **gates** the patch: a `.cs` that no project's index claims — e.g. one excluded from its `.csproj` but opened in the editor — contributes bindings to **no** registry, preventing phantom bindings that would otherwise be wiped on the next build. The folder-prefix match is retained only as the fallback for projects that have not (yet) sent a `reqnroll/projectFiles` baseline.
 
 #### Known limitations
 
@@ -1774,7 +1861,7 @@ F14 is **implemented**. The as-built mapping is:
 | Document ID on match results | `StepBindingMatch.FeatureDocumentId` (added for F14) carries the feature file's document URI, eliminating the need for a tuple return from `FindUsages` |
 | LSP position → `SourceLocation` conversion | `StepReferencesHandler` converts 0-based LSP line/character to 1-based `SourceLocation(file, line+1, char+1)` |
 | `GherkinRange` → LSP `Range` | `GherkinRangeExtensions.ToLspRange()` (new `LSP.Server`-layer extension); pure offset-to-line geometry lives in `GherkinRange.ResolveOffset` (`LSP.Core`) |
-| Workspace-wide scan on startup | `BindingRegistryChangedNotification.IsFullReplacement` flag (added for F14): `true` when fired by the Connector / reflection path, `false` for Roslyn incremental. A full replacement triggers `BindingRegistryChangedHandler.ScanAllFeatureFilesAsync`, which calls `IGherkinDocumentTaggerService.ScanClosedFileAsync` for every `.feature` file in the project folder not already held in the open-document buffer. **Known limitation**: this glob misses linked feature files located outside the project folder — see Q17. |
+| Workspace-wide scan on startup | `BindingRegistryChangedNotification.IsFullReplacement` flag (added for F14): `true` when fired by the Connector / reflection path, `false` for Roslyn incremental. A full replacement triggers `BindingRegistryChangedHandler.ScanAllFeatureFilesAsync`, which calls `IGherkinDocumentTaggerService.ScanClosedFileAsync` for every `.feature` file in the project folder not already held in the open-document buffer. **As-built limitation, with chosen resolution**: this folder glob *misses* linked feature files outside the project folder and *wrongly admits* feature files excluded from the `.csproj`. Per the [membership-index design](#project-membership-the-path--projects-index), closed-file enumeration moves from the folder glob to the project's `reqnroll/projectFiles` baseline — scan exactly the feature files the project actually includes, links and all, and nothing it excludes. See [Q17](#10-open-questions). |
 | Incremental update on Roslyn edit | `IsFullReplacement = false` → only currently open feature files are re-parsed; closed files retain their cached match sets |
 
 > **As-built note — VS "Find All References" does not integrate automatically.** When tested in the VS Experimental Instance, the VS built-in **Find All References** command did **not** route `textDocument/references` to the Reqnroll LSP server. Two failure modes were observed:
@@ -1797,6 +1884,8 @@ F14 is **implemented**. The as-built mapping is:
 A command "Find Unused Step Definitions" scans the Binding Registry against the match cache and reports any binding methods in C# that have zero matched steps across all `.feature` files in the workspace. Results appear in the IDE's output or search panel.
 
 This is a workspace-wide operation; it is implemented as a custom command handled server-side.
+
+> **Cross-project semantics (membership index).** A binding `.cs` linked into several projects appears in *each* of their registries; a feature file may belong to several projects. "Unused" must therefore be evaluated against the [membership index](#project-membership-the-path--projects-index), not folder layout: a binding is unused only if it has zero matched steps in **every** project that includes it (an *intersection* — symmetrically, F14 *unions* a binding's usages across all including projects). A folder-scoped analysis would falsely report a binding that is linked into project B and used by a feature in B as "unused" merely because project A — where the file physically lives — has no matching feature. Because false "unused" results invite deletion of live code, the analysis must only consider files the index actually attributes to a project, and must never let a binding contributed by the editor-open Roslyn path (in a project that does not own the file) suppress an "unused" result.
 
 #### IDE support matrix
 
