@@ -43,10 +43,18 @@ internal class SourceLocationProvider : ISourceLocationProvider
             }
         );
 
-        // Extract the points
-        if (startSequencePoint != null && endSequencePoint != null)
+        // Use the first sequence point as a zero-width location (start == end).
+        // PDB sequence points begin at the first executable statement, not the method
+        // signature; using start==end keeps navigation consistent with the Roslyn path
+        // (which anchors to the method identifier) — both produce no block-selection.
+        if (startSequencePoint != null)
         {
-            return new SourceLocation(startSequencePoint.SourcePath, startSequencePoint.StartLine, startSequencePoint.StartColumn, endSequencePoint.EndLine, endSequencePoint.EndColumn);
+            return new SourceLocation(
+                startSequencePoint.SourcePath,
+                startSequencePoint.StartLine,
+                startSequencePoint.StartColumn,
+                startSequencePoint.StartLine,
+                startSequencePoint.StartColumn);
         }
 
         return null;

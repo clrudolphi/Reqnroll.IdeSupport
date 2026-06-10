@@ -208,9 +208,10 @@ namespace TestProject
     }
 
     [Fact]
-    public async Task Reports_method_body_source_location()
+    public async Task Source_location_is_zero_width_range_at_method_identifier()
     {
-        // The body opening brace is on its own line; verify 1-based line/column reporting.
+        // LSP convention: definition range is the identifier span, not the full declaration.
+        // Start and end must be the same position (zero-width).
         var stepDefinitions = await ParseStepDefinitions(
             @"[Given(""x"")]
               public void Method()
@@ -219,8 +220,27 @@ namespace TestProject
 
         var location = stepDefinitions.Should().ContainSingle().Subject.Implementation.SourceLocation;
         location.SourceFile.Should().Be(FilePath);
-        location.SourceFileLine.Should().BeLessThan(location.SourceFileEndLine.Value);
         location.HasEndPosition.Should().BeTrue();
+        location.SourceFileLine.Should().Be(location.SourceFileEndLine!.Value);
+        location.SourceFileColumn.Should().Be(location.SourceFileEndColumn!.Value);
+    }
+
+    [Fact]
+    public async Task Source_location_points_to_method_name_not_attribute_or_body()
+    {
+        // Attribute on body-line 1 (template line 8), method identifier on body-line 2 (template line 9).
+        // The location must land on "TargetMethod", not on "[Given]" (line 8) or on "{" (line 10).
+        // Template adds 7 header lines before the body, so:
+        //   line 8  = [Given("x")]
+        //   line 9  = public void TargetMethod() { }   <- identifier at column 13 (1-based)
+        var stepDefinitions = await ParseStepDefinitions(
+            "[Given(\"x\")]\npublic void TargetMethod() { }");
+
+        var location = stepDefinitions.Should().ContainSingle().Subject.Implementation.SourceLocation;
+        location.SourceFileLine.Should().Be(9);      // method signature line, not attribute (line 8)
+        location.SourceFileColumn.Should().Be(13);   // "public void " = 12 chars → identifier at col 13
+        location.SourceFileEndLine.Should().Be(9);
+        location.SourceFileEndColumn.Should().Be(13);
     }
 
     [Fact]

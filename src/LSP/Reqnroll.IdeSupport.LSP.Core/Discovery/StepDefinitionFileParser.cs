@@ -266,46 +266,14 @@ public class StepDefinitionFileParser
 
     private static SourceLocation GetSourceLocation(string sourceFile, MethodDeclarationSyntax method)
     {
-        // Begin: the first step-definition/hook attribute, so caret-on-attribute resolves.
-        // Falls back to the body/expression-body start (mirrors connector-path PDB convention)
-        // when no Reqnroll attribute is found. Expression-bodied and bodyless methods fall back
-        // to the method identifier when there is no block body either.
-        SyntaxToken beginToken;
-        SyntaxToken endToken;
-        if (method.Body != null)
-        {
-            beginToken = FindFirstReqnrollAttributeToken(method) ?? method.Body.GetFirstToken();
-            endToken   = method.Body.GetLastToken();
-        }
-        else if (method.ExpressionBody != null)
-        {
-            beginToken = FindFirstReqnrollAttributeToken(method) ?? method.ExpressionBody.GetFirstToken();
-            endToken   = method.ExpressionBody.GetLastToken();
-        }
-        else
-        {
-            beginToken = endToken = method.Identifier;
-        }
-
-        var begin = beginToken.GetLocation().GetLineSpan().StartLinePosition;
-        var end   = endToken.GetLocation().GetLineSpan().StartLinePosition;
+        // Point to the method identifier (name token) — consistent with standard LSP convention
+        // where textDocument/definition returns the span of the symbol being defined, not the
+        // full declaration.  This produces a zero-width highlight at the method name regardless
+        // of whether the method has a block body, expression body, or attributes.
+        var pos = method.Identifier.GetLocation().GetLineSpan().StartLinePosition;
         return new SourceLocation(sourceFile,
-            begin.Line + 1, begin.Character + 1,
-            end.Line + 1, end.Character + 1);
-    }
-
-    private static SyntaxToken? FindFirstReqnrollAttributeToken(MethodDeclarationSyntax method)
-    {
-        foreach (var attrList in method.AttributeLists)
-        {
-            foreach (var attr in attrList.Attributes)
-            {
-                var name = GetAttributeName(attr);
-                if (StepDefinitionAttributes.ContainsKey(name) || HookAttributes.ContainsKey(name))
-                    return attrList.GetFirstToken();
-            }
-        }
-        return null;
+            pos.Line + 1, pos.Character + 1,
+            pos.Line + 1, pos.Character + 1);
     }
 
     private static RawScope ReadScopeAttributes(SyntaxList<AttributeListSyntax> attributeLists)

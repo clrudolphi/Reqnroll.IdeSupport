@@ -142,11 +142,13 @@ public class Program
                .AddSingleton<WatchedFilesHandler>()
                .AddSingleton<SemanticTokensHandler>()
                .AddSingleton<StepReferencesHandler>()
-               .AddSingleton<FindStepUsagesHandler>();
+               .AddSingleton<FindStepUsagesHandler>()
+               .AddSingleton<FeatureDefinitionHandler>();
 
         options.AddHandler<TextDocumentSyncHandler>()
                .AddHandler<WorkspaceFoldersHandler>()
-               .AddHandler<WatchedFilesHandler>();
+               .AddHandler<WatchedFilesHandler>()
+               .AddHandler<FeatureDefinitionHandler>();
 
         options.OnStarted((languageServer, ct) =>
         {
