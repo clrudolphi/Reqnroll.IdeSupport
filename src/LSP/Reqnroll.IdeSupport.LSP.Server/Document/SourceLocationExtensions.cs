@@ -13,24 +13,24 @@ namespace Reqnroll.IdeSupport.LSP.Server.Document;
 public static class SourceLocationExtensions
 {
     /// <summary>
-    /// Converts a <see cref="SourceLocation"/> to an LSP <see cref="Location"/>.
-    /// Uses the end-position fields when present; otherwise produces a degenerate (zero-length)
-    /// range at the start position so clients can navigate to the right line without a method span.
+    /// Converts a <see cref="SourceLocation"/> to an LSP <see cref="Location"/> for use in
+    /// <c>textDocument/definition</c> responses.  Always produces a zero-width range at the
+    /// start position — consistent with LSP convention where the definition range identifies
+    /// the symbol, not its body.  End-position data from the discovery layer (e.g. PDB
+    /// sequence-point spans from the Connector) is intentionally discarded here.
     /// </summary>
     public static Location ToLspLocation(this SourceLocation loc)
     {
         // SourceLocation is 1-based; LSP positions are 0-based.
-        var startLine = loc.SourceFileLine - 1;
-        var startChar = loc.SourceFileColumn - 1;
-        var endLine   = loc.HasEndPosition ? loc.SourceFileEndLine!.Value  - 1 : startLine;
-        var endChar   = loc.HasEndPosition ? loc.SourceFileEndColumn!.Value - 1 : startChar;
+        var line = loc.SourceFileLine - 1;
+        var ch   = loc.SourceFileColumn - 1;
 
         return new Location
         {
             Uri   = DocumentUri.FromFileSystemPath(loc.SourceFile),
             Range = new LspRange(
-                new Position(startLine, startChar),
-                new Position(endLine,   endChar))
+                new Position(line, ch),
+                new Position(line, ch))
         };
     }
 }

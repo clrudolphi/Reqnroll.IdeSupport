@@ -197,26 +197,13 @@ public class FeatureDefinitionHandlerTests
     }
 
     [Fact]
-    public async Task Handle_location_range_uses_end_position_when_available_Async()
+    public async Task Handle_location_range_is_always_zero_width_Async()
     {
+        // End-position data from the discovery layer (e.g. PDB body span from the Connector)
+        // must be discarded — the LSP definition range is always zero-width at the start.
         var step = MakeDefinedMatch(
             "Steps.cs", csLine: 10, csColumn: 5,
             csEndLine: 10, csEndColumn: 15);
-        _matchService.Store(new FeatureBindingMatchSet(
-            FeatureUri.ToString(), ProjectOwner.Unknown, 1, 1, new[] { step }));
-
-        var result = await CreateSut().Handle(
-            RequestAt(FeatureUri, 2, 10), CancellationToken.None);
-
-        var range = result!.Single().Location!.Range;
-        range.End.Line.Should().Be(9);
-        range.End.Character.Should().Be(14);
-    }
-
-    [Fact]
-    public async Task Handle_location_range_end_equals_start_when_no_end_position_Async()
-    {
-        var step = MakeDefinedMatch("Steps.cs", csLine: 10, csColumn: 5);
         _matchService.Store(new FeatureBindingMatchSet(
             FeatureUri.ToString(), ProjectOwner.Unknown, 1, 1, new[] { step }));
 
