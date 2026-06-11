@@ -134,4 +134,18 @@ public static class LspClientExtensions
         => client.SendRequest("textDocument/codeLens",
                 new CodeLensParams { TextDocument = new TextDocumentIdentifier { Uri = uri } })
             .Returning<CodeLens[]?>(ct);
+
+    /// <summary>
+    /// Sends a <c>textDocument/completion</c> request (F7 keyword completion, F8 step completion).
+    /// </summary>
+    public static Task<CompletionList?> RequestCompletionAsync(
+        this ILanguageClient client, DocumentUri uri, int line, int character,
+        CancellationToken ct = default)
+        => client.SendRequest("textDocument/completion",
+                new CompletionParams
+                {
+                    TextDocument = new TextDocumentIdentifier { Uri = uri },
+                    Position     = new Position(line, character)
+                })
+            .Returning<CompletionList?>(ct);
 }

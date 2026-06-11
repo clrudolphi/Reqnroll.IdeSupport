@@ -13,6 +13,8 @@ using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
+using Reqnroll.IdeSupport.LSP.Core.Editor.Completions;
+using Reqnroll.IdeSupport.LSP.Core.Editor.Completions.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Handlers.InternalHandlers;
 using Reqnroll.IdeSupport.LSP.Server.Handlers.ProtocolHandlers;
 using Reqnroll.IdeSupport.LSP.Server.Notifications;
@@ -143,15 +145,20 @@ public class Program
                .AddSingleton<SemanticTokensHandler>()
                .AddSingleton<StepReferencesHandler>()
                .AddSingleton<FindStepUsagesHandler>()
+               .AddSingleton<ICompletionContextResolver, CompletionContextResolver>()
+               .AddSingleton<ICompletionService, CompletionService>()
+               .AddSingleton<ICompletionMatcher, ReturnAllCompletionMatcher>()
                .AddSingleton<FeatureDefinitionHandler>()
                .AddSingleton<GoToStepDefinitionsHandler>()
                .AddSingleton<GoToHooksHandler>()
-               .AddSingleton<StepCodeLensHandler>();
+               .AddSingleton<StepCodeLensHandler>()
+               .AddSingleton<GherkinCompletionHandler>();
 
         options.AddHandler<TextDocumentSyncHandler>()
                .AddHandler<WorkspaceFoldersHandler>()
                .AddHandler<WatchedFilesHandler>()
-               .AddHandler<FeatureDefinitionHandler>();
+               .AddHandler<FeatureDefinitionHandler>()
+               .AddHandler<GherkinCompletionHandler>();
 
         options.OnStarted((languageServer, ct) =>
         {

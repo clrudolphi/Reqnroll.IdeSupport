@@ -563,7 +563,17 @@ sequenceDiagram
 
 ### F7 · Keyword Completion
 
-**Phase 3**
+**Phase 3** — **Implemented** (branch `f7_and_f8_completions`)
+
+#### As-built notes
+
+- **Handler**: `GherkinCompletionHandler` (`LSP.Server/Handlers/ProtocolHandlers/`) implements `ICompletionHandler` and is registered via OmniSharp dynamic registration (`AddHandler<GherkinCompletionHandler>()`, document selector `**/*.feature`).
+- **Core logic**: `CompletionService.GetKeywordCompletions(TokenType[], GherkinDialect)` and `GetDefaultKeywordCompletions(GherkinDialect)` in `LSP.Core/Editor/Completions/`.
+- **Token dispatch**: `DeveroomGherkinDocument.GetExpectedTokens(line, monitoringService)` → switch on `TokenType`; fallback is the default keyword set (Feature, Scenario, steps).
+- **Keyword format**: Block keywords (FeatureLine, ScenarioLine, etc.) get `": "` appended because Gherkin dialect keywords have no trailing colon. Step keywords from the dialect already include a trailing space.
+- **Dialect fallback**: `new GherkinDialectProvider(lang).DefaultDialect` (public API) rather than the `internal` `ReqnrollGherkinDialectProvider`.
+- **Insert text**: `TextEditOrInsertReplaceEdit` wrapping a `TextEdit` spanning the keyword range on the current line.
+- **Tests**: `CompletionServiceKeywordTests` (19 unit tests) + `KeywordCompletion.feature` spec (5 scenarios).
 
 #### End-user experience
 
@@ -612,13 +622,29 @@ sequenceDiagram
 
 ### F8 · Step Completion
 
-**Phase 4**
+**Phase 4** — **Implemented** (branch `f7_and_f8_completions`)
+
+#### As-built notes
+
+- **Handler**: same `GherkinCompletionHandler` as F7. Step completion is dispatched when the cursor is on a step line (`DeveroomTagTypes.StepBlock` tag) and `cursorOffset >= stepTextStart` (past the keyword).
+- **Step text start**: `snapshotLine.Start + (step.Location.Column - 1) + step.Keyword.Length` (1-based Gherkin location, keyword includes trailing space).
+- **Core logic**: `CompletionService.GetStepCompletions(step, typedAfterKeyword, registry, usageCounter, matcher)` in `LSP.Core/Editor/Completions/`.
+  - Filters `ProjectStepDefinitionBinding` by `ScenarioBlock` matching the step keyword.
+  - Samples each binding via `StepDefinitionSampler.GetStepDefinitionSample()` (ported from Reqnroll.VisualStudio).
+  - Deduplicates identical samples.
+  - Ranks via `ICompletionMatcher.Rank()` → default implementation is `ReturnAllCompletionMatcher` (pass-through, `IsIncomplete=false`).
+  - `SortText` = zero-padded rank index (6 digits).
+- **Insert format**: literal sample text, e.g. `"I have entered [int] into the calculator"` — no snippet placeholders. The `TextEdit` replaces from the step text start to end of the step line.
+- **Sampler**: `StepDefinitionSampler` uses `RegexStepDefinitionExpressionAnalyzer` to walk regex parts, substituting type placeholders for capture groups. Choice groups like `(option1|option2)` are kept verbatim. netstandard2.0-compatible (no `[^1]` index syntax).
+- **Usage count**: `IBindingMatchService.FindUsages(sourceLocation, projectFilter).Count` passed as `usageCounter` → forwarded to `ICompletionMatcher` for future ranking algorithms.
+- **Q14 resolution**: `ReturnAllCompletionMatcher` passes all candidates to the client; the LSP client does the filtering. `ICompletionMatcher` is the extension point for FuzzySharp if needed.
+- **Tests**: `CompletionServiceStepTests` (9 unit tests) + `StepDefinitionSamplerTests` (8 unit tests) + `ReturnAllCompletionMatcherTests` (5 unit tests) + `StepCompletion.feature` spec (4 scenarios).
 
 #### End-user experience
 
 When typing a step line after a keyword (`Given`, `When`, `Then`, etc.), the IDE offers completions matching existing step binding patterns. Completions include parameter placeholders styled appropriately and insert the full step text on selection.
 
-> **Open question (Q14)**: How sophisticated should the step matching be? Is Fuzzy matching needed? See [Open Questions & Risk Register](LSP-IDE-Support-Open-Questions.md).
+> **Q14 resolved**: Client-side matching used (see [Open Questions](LSP-IDE-Support-Open-Questions.md#q14)).
 
 #### IDE support matrix
 

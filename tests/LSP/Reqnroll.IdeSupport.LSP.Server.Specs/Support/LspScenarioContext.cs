@@ -29,6 +29,7 @@ public sealed class LspScenarioContext
     public FindStepUsagesResponse? LastFindStepUsages { get; set; }
     public GoToHooksResponse? LastGoToHooks { get; set; }
     public CodeLens[]? LastCodeLens { get; set; }
+    public CompletionList? LastCompletions { get; set; }
 
     public DocumentUri UriFor(string relativeName)
         => DocumentUri.FromFileSystemPath(Path.Combine(WorkspaceFolder, relativeName));

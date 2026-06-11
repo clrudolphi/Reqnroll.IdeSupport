@@ -27,7 +27,10 @@
       "mcp__854f8b49-9c69-48f2-a8e3-0f83cb47b63c__microsoft_docs_fetch",
       "Bash(find \"/c/Program Files/Microsoft Visual Studio\" -iname \"Microsoft.VisualStudio.LanguageServer.Client*.dll\" 2>/dev/null | head; echo \"=== NUGET ===\"; find ~/.nuget/packages -iname \"Microsoft.VisualStudio.LanguageServer.Client.dll\" 2>/dev/null | head)",
       "Bash(grep -iv \"//\")",
-      "Bash(cd /c/Users/clrud/AppData/Local/Reqnroll && ls -la *.log | tail -20; echo \"=== sizes ===\"; wc -l lsp-inspector-20260604-160559.log reqnroll-vs-debug-20260604.log)"
+      "Bash(cd /c/Users/clrud/AppData/Local/Reqnroll && ls -la *.log | tail -20; echo \"=== sizes ===\"; wc -l lsp-inspector-20260604-160559.log reqnroll-vs-debug-20260604.log)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\clrud\\\\source\\\\repos\\\\Reqnroll.VisualStudio\" -Recurse -Directory | Where-Object { $_.Name -match \"complet|sugges\" } | Select-Object -ExpandProperty FullName)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\clrud\\\\source\\\\repos\\\\Reqnroll.VisualStudio\\\\Reqnroll.VisualStudio\\\\Editor\\\\Completions\" -Recurse -File | Where-Object { $_.Extension -eq '.cs' } | Select-Object FullName)",
+      "Bash(cd /c/Users/clrud/source/repos/Reqnroll.VisualStudio && find . -iname \"StepDefinitionSampler.cs\" -o -iname \"RegexStepDefinitionExpressionAnalyzer.cs\" -o -iname \"AnalyzedStepDefinitionExpression*.cs\" -o -iname \"DeveroomCompletionSource*.cs\" 2>/dev/null)"
     ]
   }
 }
