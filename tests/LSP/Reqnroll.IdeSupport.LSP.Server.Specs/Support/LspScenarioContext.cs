@@ -28,6 +28,7 @@ public sealed class LspScenarioContext
     public LocationOrLocationLinks? LastReferences { get; set; }
     public FindStepUsagesResponse? LastFindStepUsages { get; set; }
     public GoToHooksResponse? LastGoToHooks { get; set; }
+    public CodeLens[]? LastCodeLens { get; set; }
 
     public DocumentUri UriFor(string relativeName)
         => DocumentUri.FromFileSystemPath(Path.Combine(WorkspaceFolder, relativeName));

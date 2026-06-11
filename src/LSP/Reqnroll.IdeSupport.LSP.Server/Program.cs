@@ -145,7 +145,8 @@ public class Program
                .AddSingleton<FindStepUsagesHandler>()
                .AddSingleton<FeatureDefinitionHandler>()
                .AddSingleton<GoToStepDefinitionsHandler>()
-               .AddSingleton<GoToHooksHandler>();
+               .AddSingleton<GoToHooksHandler>()
+               .AddSingleton<StepCodeLensHandler>();
 
         options.AddHandler<TextDocumentSyncHandler>()
                .AddHandler<WorkspaceFoldersHandler>()
@@ -246,6 +247,13 @@ public class Program
         options.OnRequest<TextDocumentPositionParams, GoToHooksResponse>(
             "reqnroll/goToHooks",
             (request, ct) => serverServices!.GetRequiredService<GoToHooksHandler>().HandleAsync(request, ct));
+
+        // F18 — Step Code Lens.
+        // Registered manually (same pattern as semantic tokens) to avoid dynamic registration
+        // ambiguity with the C# language server on .cs files.
+        options.OnRequest<CodeLensParams, CodeLens[]?>(
+            "textDocument/codeLens",
+            (request, ct) => serverServices!.GetRequiredService<StepCodeLensHandler>().HandleAsync(request, ct));
 
     }
 }

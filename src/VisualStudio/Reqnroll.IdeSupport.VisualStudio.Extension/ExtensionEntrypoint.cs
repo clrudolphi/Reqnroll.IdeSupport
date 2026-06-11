@@ -3,6 +3,8 @@ using Microsoft.VisualStudio.Extensibility;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 using Reqnroll.IdeSupport.VisualStudio.Extension.GoToDefinition;
 using Reqnroll.IdeSupport.VisualStudio.Extension.GoToHooks;
+using Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
+#pragma warning disable VSEXTPREVIEW_CODELENS
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension
 {
@@ -31,6 +33,9 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension
             serviceCollection.AddSingleton<FindStepUsagesState>();
             serviceCollection.AddSingleton<GoToHooksState>();
             serviceCollection.AddSingleton<GoToDefinitionState>();
+            serviceCollection.AddSingleton<StepCodeLensState>();
+            // ExtensionPart subclasses are not auto-registered by the framework; must be explicit.
+            serviceCollection.AddSingleton<StepCodeLensProvider>();
         }
     }
 }

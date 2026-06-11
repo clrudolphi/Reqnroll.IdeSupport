@@ -123,4 +123,15 @@ public static class LspClientExtensions
                     Position     = new Position(line, character),
                 })
             .Returning<GoToHooksResponse?>(ct);
+
+    /// <summary>
+    /// Sends a <c>textDocument/codeLens</c> request (F18 — Step Code Lens).
+    /// Returns a CodeLens array for .cs files with step-binding attributes,
+    /// or <see langword="null"/> for non-.cs files.
+    /// </summary>
+    public static Task<CodeLens[]?> RequestCodeLensAsync(
+        this ILanguageClient client, DocumentUri uri, CancellationToken ct = default)
+        => client.SendRequest("textDocument/codeLens",
+                new CodeLensParams { TextDocument = new TextDocumentIdentifier { Uri = uri } })
+            .Returning<CodeLens[]?>(ct);
 }

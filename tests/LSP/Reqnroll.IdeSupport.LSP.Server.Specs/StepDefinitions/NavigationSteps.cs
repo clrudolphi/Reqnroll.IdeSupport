@@ -135,4 +135,58 @@ public sealed class NavigationSteps
             $"a hook with a location in '{fileName}' should be present");
     }
 
+    // ── textDocument/codeLens (F18 — Step Code Lens) ──────────────────────────
+
+    [When(@"code lens is requested for ""(.*)""")]
+    public async Task WhenCodeLensIsRequestedFor(string fileName)
+    {
+        var uri = _ctx.UriFor(fileName);
+        _ctx.LastCodeLens = await _ctx.Harness.Client
+            .RequestCodeLensAsync(uri)
+            .ConfigureAwait(false);
+    }
+
+    [Then(@"(\d+) code lens(?:es are|es is| is| are) returned")]
+    public void ThenNCodeLensesAreReturned(int expected)
+    {
+        if (expected == 0)
+        {
+            var count = _ctx.LastCodeLens?.Length ?? 0;
+            count.Should().Be(0, $"expected 0 code lenses but got {count}");
+        }
+        else
+        {
+            _ctx.LastCodeLens.Should().NotBeNull("code lenses should have been returned");
+            _ctx.LastCodeLens!.Should().HaveCount(expected);
+        }
+    }
+
+    [Then(@"the code lens at index (\d+) has title ""(.*)""")]
+    public void ThenCodeLensAtIndexHasTitle(int index, string expectedTitle)
+    {
+        _ctx.LastCodeLens.Should().NotBeNull();
+        _ctx.LastCodeLens!.Should().HaveCountGreaterThan(index,
+            $"at least {index + 1} code lenses should exist");
+        _ctx.LastCodeLens![index].Command!.Title.Should().Be(expectedTitle);
+    }
+
+    [Then(@"at least one code lens has a title containing ""(.*)""")]
+    public void ThenAtLeastOneCodeLensHasTitleContaining(string fragment)
+    {
+        _ctx.LastCodeLens.Should().NotBeNull();
+        _ctx.LastCodeLens!.Should().Contain(
+            lens => lens.Command != null &&
+                    lens.Command.Title.Contains(fragment, StringComparison.OrdinalIgnoreCase),
+            $"at least one code lens should have a title containing '{fragment}'");
+    }
+
+    [Then(@"all code lenses have command ""(.*)""")]
+    public void ThenAllCodeLensesHaveCommand(string commandName)
+    {
+        _ctx.LastCodeLens.Should().NotBeNull();
+        _ctx.LastCodeLens!.Should().OnlyContain(
+            lens => lens.Command != null && lens.Command.Name == commandName,
+            $"all code lenses should have command '{commandName}'");
+    }
+
 }

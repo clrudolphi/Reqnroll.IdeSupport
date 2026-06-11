@@ -1161,7 +1161,11 @@ C# step binding methods display an inline annotation above the method's binding 
 |---------|---------------|-------|
 | ✅ Generic | 🔧 Plugin (VSSDK) | ⚠️ Config |
 
-**Visual Studio note**: `textDocument/codeLens` is not supported by VS.Extensibility as of VS 17.x. The VSSDK plugin acts as a bridge: it sends the standard `textDocument/codeLens` request to the LSP server, receives the `CodeLens[]` response, and then relays the usage counts into the VSSDK `IVsCodeLensDataPointProvider` API so VS renders them natively. The LSP server requires no special awareness of this bridging. See [Q10](LSP-IDE-Support-Open-Questions.md) for the VS.Extensibility roadmap question.
+**Visual Studio note**: VS.Extensibility shipped `ICodeLensProvider` in VS 17.x (as a preview API). The VS plugin implements this interface directly rather than bridging via the legacy VSSDK `IVsCodeLensDataPointProvider`. `StepCodeLensProvider` is an `ExtensionPart` + `ICodeLensProvider` that is called once per C# _code element_ (method) in the active document. It fetches the full `textDocument/codeLens` response for the file from `StepCodeLensService` and then maps the attribute-level server lenses to the correct method.
+
+**VS attribute-to-method mapping**: The LSP server (`StepCodeLensHandler`) emits one `CodeLens` item per step-binding _attribute_, with the item's range at the method-declaration line (0-based). VS.Extensibility, however, fires one `GetLabelAsync` callback per _method_, reporting the code-element range as starting at the method's _first attribute line_ (which may be one or more lines above the declaration when non-binding attributes such as `[Scope]` appear first). Additionally, VS processes visible methods bottom-to-top, calling `TryCreateCodeLensAsync`+`GetLabelAsync` as an interleaved pair per method before moving to the next.
+
+To bridge the mismatch, `StepCodeLensState` maintains a per-file registry of method start lines. As each `TryCreateCodeLensAsync` fires it registers the reported line. By the time `GetLabelAsync` runs for method N, all methods below it (higher line numbers, processed earlier) are already registered. `GetNextMethodLine` returns the smallest registered line above the current method, providing a reliable upper bound. The filter `RangeLine >= currentStartLine && RangeLine < nextMethodStartLine` then selects exactly the server lenses that belong to this method. For the bottommost visible method (no next entry registered yet) a fixed `AttributeLookahead = 5` constant serves as fallback.
 
 **Rider note**: Code Lens via LSP is supported but requires verification of how project-wide refresh is triggered when the Binding Registry changes.
 
@@ -1178,7 +1182,7 @@ C# step binding methods display an inline annotation above the method's binding 
 ```mermaid
 sequenceDiagram
     participant IDE
-    participant VSBridge as VSSDK Bridge\n(VS only)
+    participant SCP as StepCodeLensProvider\n(VS only — ICodeLensProvider)
 
     box LightBlue LSP Server
         participant SCLH as StepCodeLensHandler
@@ -1187,20 +1191,23 @@ sequenceDiagram
 
     alt VS Code or Rider
         IDE->>SCLH: textDocument/codeLens (.cs file)
+        SCLH->>BM: For each binding in file, get usage count from match cache
+        BM-->>SCLH: UsageCount per binding
+        SCLH-->>IDE: CodeLens[] (one per attribute; range = method-decl line)
+        IDE-->>IDE: Render lens above each binding attribute
     else Visual Studio
-        VSBridge->>SCLH: textDocument/codeLens (.cs file)\n[via LSP client managed by VSSDK plugin]
+        Note over IDE,SCP: VS.Extensibility ICodeLensProvider — one callback per C# method
+        IDE->>SCP: TryCreateCodeLensAsync (code element = method,\nrange.Start = first-attribute line)
+        SCP->>SCP: Register method start line in per-file bag
+        IDE->>SCP: GetLabelAsync (same method)
+        SCP->>SCLH: textDocument/codeLens (.cs file)
+        SCLH->>BM: For each binding in file, get usage count from match cache
+        BM-->>SCLH: UsageCount per binding
+        SCLH-->>SCP: CodeLens[] (one per attribute; range = method-decl line)
+        SCP->>SCP: Filter: RangeLine ∈ [currentStartLine, nextMethodStartLine)\nsum usage counts across all attributes on this method
+        SCP-->>IDE: CodeLensLabel ("N step usage(s)")
+        IDE-->>IDE: Render lens above first attribute of method
     end
-
-    SCLH->>BM: For each binding in file, get usage count from match cache
-    BM-->>SCLH: UsageCount per binding
-    SCLH-->>IDE: CodeLens[] ({range, command: "N usages → references"})
-
-    alt Visual Studio
-        IDE-->>VSBridge: CodeLens[] response intercepted
-        VSBridge->>VSBridge: Relay to IVsCodeLensDataPointProvider
-    end
-
-    IDE-->>IDE: Render code lens annotations above binding attributes
 ```
 
 ---

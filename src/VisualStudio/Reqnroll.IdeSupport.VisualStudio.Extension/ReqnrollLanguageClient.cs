@@ -14,6 +14,7 @@ using Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 using Reqnroll.IdeSupport.VisualStudio.Extension.GoToDefinition;
 using Reqnroll.IdeSupport.VisualStudio.Extension.GoToHooks;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
+using Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspNotifications;
 #pragma warning disable VSEXTPREVIEW_LSP
 
@@ -27,6 +28,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
     private readonly FindStepUsagesState _findStepUsagesState;
     private readonly GoToHooksState _goToHooksState;
     private readonly GoToDefinitionState _goToDefinitionState;
+    private readonly StepCodeLensState _stepCodeLensState;
     private Process? _serverProcess;
     private LspInspectorLogger? _inspectorLogger;
     private LspInterceptingPipe? _interceptingPipe;
@@ -39,13 +41,15 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
         TraceSource traceSource,
         FindStepUsagesState findStepUsagesState,
         GoToHooksState goToHooksState,
-        GoToDefinitionState goToDefinitionState)
+        GoToDefinitionState goToDefinitionState,
+        StepCodeLensState stepCodeLensState)
         : base(container, extensibilityObject)
     {
         _traceSource          = traceSource;
         _findStepUsagesState  = findStepUsagesState;
         _goToHooksState       = goToHooksState;
         _goToDefinitionState  = goToDefinitionState;
+        _stepCodeLensState    = stepCodeLensState;
         _fileLogger          = new SynchronousFileLogger();
         _traceSource.TraceInformation("ReqnrollLanguageClient: Instance created.");
         _fileLogger.LogInfo(
@@ -191,6 +195,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
             _findStepUsagesState.Service  = new FindStepUsagesService(_interceptingPipe, _traceSource);
             _goToHooksState.Service       = new GoToHooksService(_interceptingPipe, _traceSource);
             _goToDefinitionState.Service  = new GoToDefinitionService(_interceptingPipe, _traceSource);
+            _stepCodeLensState.Service    = new StepCodeLensService(_interceptingPipe, _traceSource);
 
             try
             {
@@ -202,6 +207,10 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
 
                 var serviceProvider = ServiceProvider.GlobalProvider;
                 _findStepUsagesState.Renderer = new FindStepUsagesRenderer(serviceProvider, _traceSource);
+
+                // F18 — reuse F14 find-usages components for the code-lens click action.
+                _stepCodeLensState.FindUsagesService  = _findStepUsagesState.Service;
+                _stepCodeLensState.FindUsagesRenderer = _findStepUsagesState.Renderer;
 
                 _fileLogger.LogInfo("ReqnrollLanguageClient: Creating VsProjectEventMonitor.");
                 _projectMonitor = new VsProjectEventMonitor(
@@ -239,6 +248,9 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
             _findStepUsagesState.Renderer = null;
             _goToHooksState.Service       = null;
             _goToDefinitionState.Service  = null;
+            _stepCodeLensState.Service           = null;
+            _stepCodeLensState.FindUsagesService  = null;
+            _stepCodeLensState.FindUsagesRenderer = null;
 
             _interceptingPipe?.Dispose();
             _interceptingPipe = null;

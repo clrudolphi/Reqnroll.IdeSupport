@@ -1,0 +1,329 @@
+#nullable enable
+
+using AwesomeAssertions;
+using NSubstitute;
+using OmniSharp.Extensions.LanguageServer.Protocol;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.LSP.Core.Discovery;
+using Reqnroll.IdeSupport.LSP.Core.Document;
+using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
+using Reqnroll.IdeSupport.LSP.Core.Matching;
+using Reqnroll.IdeSupport.LSP.Server.Discovery;
+using Reqnroll.IdeSupport.LSP.Server.Document;
+using Reqnroll.IdeSupport.LSP.Server.Handlers.ProtocolHandlers;
+using Reqnroll.IdeSupport.LSP.Server.Workspace;
+
+namespace Reqnroll.IdeSupport.LSP.Server.Tests.Handlers;
+
+public class StepCodeLensHandlerTests
+{
+    private readonly IBindingMatchService          _matchService   = Substitute.For<IBindingMatchService>();
+    private readonly ILspWorkspaceScopeManager     _scopeManager   = Substitute.For<ILspWorkspaceScopeManager>();
+    private readonly IProjectBindingRegistryLookup _registryLookup = Substitute.For<IProjectBindingRegistryLookup>();
+    private readonly IDeveroomLogger               _logger         = Substitute.For<IDeveroomLogger>();
+
+    private static readonly DocumentUri CsUri      = DocumentUri.FromFileSystemPath("/workspace/Steps.cs");
+    private static readonly DocumentUri FeatureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+
+    public StepCodeLensHandlerTests()
+    {
+        _scopeManager.ResolveOwners(Arg.Any<DocumentUri>())
+                     .Returns(Array.Empty<LspReqnrollProject>());
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.Invalid);
+    }
+
+    private StepCodeLensHandler CreateSut() =>
+        new(_matchService, _scopeManager, _registryLookup, _logger);
+
+    private static CodeLensParams RequestFor(DocumentUri uri) =>
+        new() { TextDocument = new TextDocumentIdentifier { Uri = uri } };
+
+    private static ProjectBindingRegistry MakeRegistry(params ProjectStepDefinitionBinding[] bindings)
+    {
+        var allBindings = bindings as IEnumerable<ProjectStepDefinitionBinding>;
+        return new ProjectBindingRegistry(allBindings, Array.Empty<ProjectHookBinding>(), projectHash: 1);
+    }
+
+    // ── Non-.cs URI ───────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Handle_non_cs_uri_returns_empty_array()
+    {
+        var result = await CreateSut().HandleAsync(RequestFor(FeatureUri), CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result!.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Handle_non_cs_uri_does_not_query_registry()
+    {
+        await CreateSut().HandleAsync(RequestFor(FeatureUri), CancellationToken.None);
+
+        _registryLookup.DidNotReceive().GetRegistryForUri(Arg.Any<DocumentUri>());
+    }
+
+    // ── Invalid / empty registry ─────────────────────────────────────────────
+
+    [Fact]
+    public async Task Handle_invalid_registry_returns_empty_array()
+    {
+        _registryLookup.GetRegistryForUri(CsUri).Returns(ProjectBindingRegistry.Invalid);
+
+        var result = await CreateSut().HandleAsync(RequestFor(CsUri), CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result!.Should().BeEmpty();
+    }
+
+    // ── File-path matching ────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Handle_binding_in_different_file_is_excluded()
+    {
+        var otherPath = "/workspace/OtherSteps.cs";
+        var binding = StepBindingBuilder.Create()
+                                        .AtSourceFile(otherPath).AtLine(5).AtColumn(1)
+                                        .Build();
+        _registryLookup.GetRegistryForUri(CsUri).Returns(MakeRegistry(binding));
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(Array.Empty<StepBindingMatch>());
+
+        var result = await CreateSut().HandleAsync(RequestFor(CsUri), CancellationToken.None);
+
+        result!.Should().BeEmpty();
+    }
+
+    // ── Usage counts ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Handle_single_binding_with_zero_usages_returns_one_lens_with_correct_title()
+    {
+        var csPath  = CsUri.GetFileSystemPath()!;
+        var binding = StepBindingBuilder.Create()
+                                        .AtSourceFile(csPath).AtLine(5).AtColumn(1)
+                                        .Build();
+        _registryLookup.GetRegistryForUri(CsUri).Returns(MakeRegistry(binding));
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(Array.Empty<StepBindingMatch>());
+
+        var result = await CreateSut().HandleAsync(RequestFor(CsUri), CancellationToken.None);
+
+        result!.Should().ContainSingle();
+        result![0].Command!.Title.Should().Be("0 step usages");
+    }
+
+    [Fact]
+    public async Task Handle_single_binding_with_one_usage_returns_singular_title()
+    {
+        var csPath  = CsUri.GetFileSystemPath()!;
+        var binding = StepBindingBuilder.Create()
+                                        .AtSourceFile(csPath).AtLine(5).AtColumn(1)
+                                        .Build();
+        _registryLookup.GetRegistryForUri(CsUri).Returns(MakeRegistry(binding));
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(new[] { StepBindingMatchBuilder.Create(FeatureUri) });
+
+        var result = await CreateSut().HandleAsync(RequestFor(CsUri), CancellationToken.None);
+
+        result![0].Command!.Title.Should().Be("1 step usage");
+    }
+
+    [Fact]
+    public async Task Handle_single_binding_with_multiple_usages_returns_plural_title()
+    {
+        var csPath  = CsUri.GetFileSystemPath()!;
+        var binding = StepBindingBuilder.Create()
+                                        .AtSourceFile(csPath).AtLine(5).AtColumn(1)
+                                        .Build();
+        _registryLookup.GetRegistryForUri(CsUri).Returns(MakeRegistry(binding));
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(new[]
+                     {
+                         StepBindingMatchBuilder.Create(FeatureUri),
+                         StepBindingMatchBuilder.Create(FeatureUri),
+                         StepBindingMatchBuilder.Create(FeatureUri),
+                     });
+
+        var result = await CreateSut().HandleAsync(RequestFor(CsUri), CancellationToken.None);
+
+        result![0].Command!.Title.Should().Be("3 step usages");
+    }
+
+    // ── Range / position ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Handle_lens_range_is_at_attribute_line_zero_based()
+    {
+        var csPath  = CsUri.GetFileSystemPath()!;
+        var binding = StepBindingBuilder.Create()
+                                        .AtSourceFile(csPath).AtLine(10).AtColumn(5)
+                                        .Build();
+        _registryLookup.GetRegistryForUri(CsUri).Returns(MakeRegistry(binding));
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(Array.Empty<StepBindingMatch>());
+
+        var result = await CreateSut().HandleAsync(RequestFor(CsUri), CancellationToken.None);
+
+        // SourceFileLine 10 → LSP line 9; SourceFileColumn 5 → LSP character 4
+        var range = result![0].Range!;
+        range.Start.Line.Should().Be(9);
+        range.Start.Character.Should().Be(4);
+        range.End.Line.Should().Be(9);
+        range.End.Character.Should().Be(4);
+    }
+
+    // ── Command wiring ────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Handle_lens_with_usages_uses_findStepUsages_command_name()
+    {
+        var csPath  = CsUri.GetFileSystemPath()!;
+        var binding = StepBindingBuilder.Create()
+                                        .AtSourceFile(csPath).AtLine(5).AtColumn(1)
+                                        .Build();
+        _registryLookup.GetRegistryForUri(CsUri).Returns(MakeRegistry(binding));
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(new[] { StepBindingMatchBuilder.Create(FeatureUri) });
+
+        var result = await CreateSut().HandleAsync(RequestFor(CsUri), CancellationToken.None);
+
+        result![0].Command!.Name.Should().Be("reqnroll.findStepUsages");
+    }
+
+    [Fact]
+    public async Task Handle_lens_with_zero_usages_uses_noStepUsages_command_name()
+    {
+        var csPath  = CsUri.GetFileSystemPath()!;
+        var binding = StepBindingBuilder.Create()
+                                        .AtSourceFile(csPath).AtLine(5).AtColumn(1)
+                                        .Build();
+        _registryLookup.GetRegistryForUri(CsUri).Returns(MakeRegistry(binding));
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(Array.Empty<StepBindingMatch>());
+
+        var result = await CreateSut().HandleAsync(RequestFor(CsUri), CancellationToken.None);
+
+        result![0].Command!.Name.Should().Be("reqnroll.noStepUsages");
+    }
+
+    // ── Multiple bindings ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Handle_two_bindings_in_same_file_returns_two_lenses()
+    {
+        var csPath = CsUri.GetFileSystemPath()!;
+        var b1 = StepBindingBuilder.Create().AtSourceFile(csPath).AtLine(5).AtColumn(1).Build();
+        var b2 = StepBindingBuilder.Create().AtSourceFile(csPath).AtLine(9).AtColumn(1).Build();
+        _registryLookup.GetRegistryForUri(CsUri).Returns(MakeRegistry(b1, b2));
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(Array.Empty<StepBindingMatch>());
+
+        var result = await CreateSut().HandleAsync(RequestFor(CsUri), CancellationToken.None);
+
+        result!.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task Handle_duplicate_attribute_location_emits_only_one_lens()
+    {
+        var csPath = CsUri.GetFileSystemPath()!;
+        // Same location as different bindings (e.g. registry seen twice for linked files)
+        var b1 = StepBindingBuilder.Create().AtSourceFile(csPath).AtLine(5).AtColumn(1).Build();
+        var b2 = StepBindingBuilder.Create().AtSourceFile(csPath).AtLine(5).AtColumn(1).Build();
+        _registryLookup.GetRegistryForUri(CsUri).Returns(MakeRegistry(b1, b2));
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(Array.Empty<StepBindingMatch>());
+
+        var result = await CreateSut().HandleAsync(RequestFor(CsUri), CancellationToken.None);
+
+        result!.Should().ContainSingle("duplicate locations should be deduplicated");
+    }
+
+    // ── Project-owner filter ──────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Handle_passes_null_project_filter_when_no_owners()
+    {
+        var csPath  = CsUri.GetFileSystemPath()!;
+        var binding = StepBindingBuilder.Create().AtSourceFile(csPath).AtLine(5).AtColumn(1).Build();
+        _registryLookup.GetRegistryForUri(CsUri).Returns(MakeRegistry(binding));
+        _scopeManager.ResolveOwners(CsUri).Returns(Array.Empty<LspReqnrollProject>());
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(Array.Empty<StepBindingMatch>());
+
+        await CreateSut().HandleAsync(RequestFor(CsUri), CancellationToken.None);
+
+        _matchService.Received(1).FindUsages(
+            Arg.Any<SourceLocation>(),
+            Arg.Is<IReadOnlyCollection<ProjectOwner>?>(f => f == null));
+    }
+
+    // ── SourceLocation passed to FindUsages ───────────────────────────────────
+
+    [Fact]
+    public async Task Handle_passes_correct_source_location_to_FindUsages()
+    {
+        var csPath  = CsUri.GetFileSystemPath()!;
+        var binding = StepBindingBuilder.Create().AtSourceFile(csPath).AtLine(7).AtColumn(3).Build();
+        _registryLookup.GetRegistryForUri(CsUri).Returns(MakeRegistry(binding));
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(Array.Empty<StepBindingMatch>());
+
+        SourceLocation? captured = null;
+        _matchService.FindUsages(Arg.Do<SourceLocation>(loc => captured = loc),
+                                 Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(Array.Empty<StepBindingMatch>());
+
+        await CreateSut().HandleAsync(RequestFor(CsUri), CancellationToken.None);
+
+        captured!.SourceFileLine.Should().Be(7);
+        captured!.SourceFileColumn.Should().Be(3);
+    }
+}
+
+// ── Test helpers ──────────────────────────────────────────────────────────────
+
+file static class StepBindingBuilder
+{
+    public static Builder Create() => new();
+
+    public sealed class Builder
+    {
+        private string _file   = "/workspace/Steps.cs";
+        private int    _line   = 5;
+        private int    _col    = 1;
+
+        public Builder AtSourceFile(string file)  { _file = file; return this; }
+        public Builder AtLine(int line)            { _line = line; return this; }
+        public Builder AtColumn(int col)           { _col  = col;  return this; }
+
+        public ProjectStepDefinitionBinding Build()
+        {
+            var impl = new ProjectBindingImplementation(
+                "MyMethod_" + _line,
+                parameterTypes: null,
+                new SourceLocation(_file, _line, _col));
+            return new ProjectStepDefinitionBinding(
+                ScenarioBlock.Given,
+                new System.Text.RegularExpressions.Regex("^.*$"),
+                scope: null,
+                implementation: impl);
+        }
+    }
+}
+
+file static class StepBindingMatchBuilder
+{
+    private static readonly DocumentUri DefaultUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+
+    public static StepBindingMatch Create(DocumentUri? featureUri = null)
+    {
+        var uri      = featureUri ?? DefaultUri;
+        var snapshot = new LspTextSnapshot(uri.ToString(), 1, "Feature: F\nScenario: S\n    Given step\n");
+        var range    = GherkinRange.FromPoint(snapshot, 23, 4);
+        return new StepBindingMatch(uri.ToString(), range, MatchResult.NoMatch, "Given", "S", "P");
+    }
+}
