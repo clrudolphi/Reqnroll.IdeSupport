@@ -141,11 +141,16 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
             var semanticTokensInterceptor = new SemanticTokensClassificationInterceptor(
                 SemanticTokenClassificationStore.Instance, _traceSource);
 
-            // Send pipeline:   VS → [logger, semanticTokens] → Server
-            // Receive pipeline: Server → [logger, semanticTokens] → VS
-            // Add consuming interceptors to the receive list as features are added.
-            var sendInterceptors    = new ILspMessageInterceptor[] { _inspectorLogger, semanticTokensInterceptor };
-            var receiveInterceptors = new ILspMessageInterceptor[] { _inspectorLogger, semanticTokensInterceptor };
+            // Tracks .cs files created by the scaffold code action and injects a
+            // reqnroll/projectFiles delta before the server sees textDocument/didOpen.
+            // Uses a lazy reference because _projectMonitor is created after the pipe.
+            var scaffoldInterceptor = new ScaffoldTrackingInterceptor(
+                () => _projectMonitor, _traceSource);
+
+            // Send pipeline:   VS → [logger, semanticTokens, scaffold] → Server
+            // Receive pipeline: Server → [logger, semanticTokens, scaffold] → VS
+            var sendInterceptors    = new ILspMessageInterceptor[] { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor };
+            var receiveInterceptors = new ILspMessageInterceptor[] { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor };
 
             _interceptingPipe = new LspInterceptingPipe(rawPipe, sendInterceptors, receiveInterceptors, _traceSource);
             // Pass CancellationToken.None: the pumps must live for the entire connection

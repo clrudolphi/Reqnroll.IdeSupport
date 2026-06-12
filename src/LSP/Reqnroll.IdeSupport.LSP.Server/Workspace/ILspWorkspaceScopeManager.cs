@@ -135,6 +135,12 @@ public interface ILspWorkspaceScopeManager
     IReadOnlyCollection<string> GetIndexedFeatureFiles(LspReqnrollProject project);
 
     /// <summary>
+    /// Returns all binding (C#) file paths attributed to <paramref name="project"/> by the
+    /// membership index.  Returns an empty collection when no baseline has been received yet.
+    /// </summary>
+    IReadOnlyCollection<string> GetBindingFilePathsForProject(LspReqnrollProject project);
+
+    /// <summary>
     /// Returns <see langword="true"/> when a baseline has been received for
     /// <paramref name="project"/>, even if that baseline contained no files.
     /// </summary>

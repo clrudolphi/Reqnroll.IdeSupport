@@ -82,6 +82,75 @@ internal sealed class VsProjectEventMonitor : IDisposable
         }
     }
 
+    // ── Scaffold notification ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Sends a <c>reqnroll/projectFiles</c> delta that registers a newly scaffolded
+    /// <c>.cs</c> file in the server's membership index so Roslyn discovery accepts it.
+    /// Must be called BEFORE the server receives <c>textDocument/didOpen</c> for the file.
+    /// </summary>
+    public async Task SendScaffoldedFileAsync(string filePath, CancellationToken ct)
+    {
+        try
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(ct);
+
+            var project = FindProjectContaining(filePath);
+            if (project is null)
+            {
+                _trace.TraceEvent(TraceEventType.Warning, 0,
+                    "VsProjectEventMonitor: No project found for scaffolded file '{0}'", filePath);
+                return;
+            }
+
+            var tfm = VsUtils.GetTargetFrameworkMoniker(project) ?? string.Empty;
+            var paramsObj = new
+            {
+                projectFile            = project.FullName,
+                targetFrameworkMoniker = tfm,
+                kind                   = 1,  // ProjectFilesKind.Delta = 1
+                files                  = new[] { new { path = filePath, role = 1, added = true } }
+            };
+            var paramsJson = JsonConvert.SerializeObject(paramsObj, Formatting.None);
+            await _pipe.SendNotificationToServerAsync("reqnroll/projectFiles", paramsJson, ct)
+                       .ConfigureAwait(false);
+
+            _trace.TraceInformation(
+                "VsProjectEventMonitor: Sent projectFiles delta for scaffolded file '{0}' in '{1}'",
+                Path.GetFileName(filePath), project.Name);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            _trace.TraceEvent(TraceEventType.Warning, 0,
+                "VsProjectEventMonitor: SendScaffoldedFileAsync failed for '{0}': {1}",
+                filePath, ex.Message);
+        }
+    }
+
+    private Project? FindProjectContaining(string filePath)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var solution = _dte.Solution;
+        if (solution?.IsOpen != true)
+            return null;
+
+        Project? best    = null;
+        int      bestLen = 0;
+        foreach (Project project in solution.Projects)
+        {
+            if (!IsSolutionProject(project))
+                continue;
+            var folder = Path.GetDirectoryName(project.FullName) ?? string.Empty;
+            if (filePath.StartsWith(folder, StringComparison.OrdinalIgnoreCase) &&
+                folder.Length > bestLen)
+            {
+                best    = project;
+                bestLen = folder.Length;
+            }
+        }
+        return best;
+    }
+
     // ── DTE event handlers ────────────────────────────────────────────────────
 
     private void OnProjectAdded(Project project)

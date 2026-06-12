@@ -33,6 +33,12 @@ public sealed class ReqnrollProjectLoadedParams
     public string TargetFrameworkMoniker { get; set; } = string.Empty;
 
     /// <summary>
+    /// The project's default namespace (e.g. <c>MyApp.Tests</c>).
+    /// Used to derive namespaces for generated step-definition files.
+    /// </summary>
+    public string DefaultNamespace { get; set; } = string.Empty;
+
+    /// <summary>
     /// NuGet package references resolved for this project.
     /// Used to identify Reqnroll projects and determine the Reqnroll version.
     /// </summary>

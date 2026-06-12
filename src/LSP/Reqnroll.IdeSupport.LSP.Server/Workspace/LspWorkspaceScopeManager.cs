@@ -397,6 +397,20 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         }
     }
 
+    public IReadOnlyCollection<string> GetBindingFilePathsForProject(LspReqnrollProject project)
+    {
+        var key = MakeKey(project);
+        lock (_membershipLock)
+        {
+            return _membership
+                .Where(kvp =>
+                    kvp.Value.TryGetValue(key, out var role) &&
+                    role == ProjectFileRole.Binding)
+                .Select(kvp => kvp.Key)
+                .ToList();
+        }
+    }
+
     public bool HasBaselineForProject(LspReqnrollProject project)
         => _baselineReceived.ContainsKey(MakeKey(project));
 

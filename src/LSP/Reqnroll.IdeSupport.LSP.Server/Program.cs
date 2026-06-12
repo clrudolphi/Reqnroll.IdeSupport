@@ -15,6 +15,7 @@ using Reqnroll.IdeSupport.LSP.Server.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Completions;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Completions.Matching;
+using Reqnroll.IdeSupport.LSP.Core.Editor.Scaffolding;
 using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.LSP.Server.Configuration;
 using Reqnroll.IdeSupport.LSP.Server.Handlers.InternalHandlers;
@@ -157,13 +158,16 @@ public class Program
                .AddSingleton<GoToStepDefinitionsHandler>()
                .AddSingleton<GoToHooksHandler>()
                .AddSingleton<StepCodeLensHandler>()
-               .AddSingleton<GherkinCompletionHandler>();
+               .AddSingleton<GherkinCompletionHandler>()
+               .AddSingleton<IStepScaffoldService, StepScaffoldService>()
+               .AddSingleton<FeatureCodeActionHandler>();
 
         options.AddHandler<TextDocumentSyncHandler>()
                .AddHandler<WorkspaceFoldersHandler>()
                .AddHandler<WatchedFilesHandler>()
                .AddHandler<FeatureDefinitionHandler>()
-               .AddHandler<GherkinCompletionHandler>();
+               .AddHandler<GherkinCompletionHandler>()
+               .AddHandler<FeatureCodeActionHandler>();
 
         options.OnStarted((languageServer, ct) =>
         {

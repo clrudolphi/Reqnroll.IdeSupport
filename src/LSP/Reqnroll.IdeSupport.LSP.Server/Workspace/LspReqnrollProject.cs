@@ -104,9 +104,12 @@ public sealed class LspReqnrollProject : IProjectScope, IDisposable
             !string.Equals(OutputAssemblyPath, info.OutputAssemblyPath, StringComparison.OrdinalIgnoreCase) ||
             !string.Equals(TargetFrameworkMoniker, info.TargetFrameworkMoniker, StringComparison.Ordinal);
 
-        OutputAssemblyPath    = info.OutputAssemblyPath;
+        OutputAssemblyPath      = info.OutputAssemblyPath;
         TargetFrameworkMoniker  = info.TargetFrameworkMoniker;
         TargetFrameworkMonikers = info.TargetFrameworkMoniker;
+        DefaultNamespace        = string.IsNullOrEmpty(info.DefaultNamespace)
+            ? ProjectName
+            : info.DefaultNamespace;
         PackageReferences = (info.PackageReferences ?? [])
             .Select(p => new NuGetPackageReference(
                 p.PackageId,
