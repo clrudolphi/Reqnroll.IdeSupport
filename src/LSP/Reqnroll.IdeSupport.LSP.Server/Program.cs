@@ -86,8 +86,6 @@ public class Program
     /// </param>
     internal static void ConfigureServer(LanguageServerOptions options, string? clientIde = null)
     {
-        IServiceProvider? serverServices = null;
-
         options.ConfigureLogging(logging =>
         {
             logging.SetMinimumLevel(LogLevel.Trace);
@@ -100,99 +98,26 @@ public class Program
             Version = "0.1.0"
         });
 
+        // Configure Dependency Injection
         options.Services
-               .AddMediatR(typeof(Program))
-               // The connecting client's --ide identifier, so handlers can vary behaviour per IDE
-               // (e.g. SemanticTokensPushHandler pushes tokens to Visual Studio).
-               .AddSingleton(new ClientIdeContext(clientIde))
-               .AddSingleton<IDeveroomLogger, LspDeveroomLogger>()
-               .AddSingleton<IIdeScope, LspIdeScope>()
-               .AddSingleton<IEditorConfigOptionsProvider>(sp =>
-                   new FileSystemEditorConfigOptionsProvider(
-                       sp.GetRequiredService<IIdeScope>().FileSystem))
-               .AddSingleton<IMonitoringService>(sp => NullMonitoringService.Instance)
-               .AddSingleton<IDeveroomConfigurationProvider, ProjectSystemDeveroomConfigurationProvider>()
-               .AddSingleton<ILspWorkspaceScopeManager, LspWorkspaceScopeManager>()
-               // BindingRegistryProviderRouter creates and owns one ConnectorBindingRegistryProvider
-               // per project and routes binding-registry lookups to the correct per-project instance
-               // via IProjectBindingRegistryLookup.GetRegistryForUri.  Registries are NOT merged —
-               // each feature file is resolved against only its own project's bindings.
-               .AddSingleton<BindingRegistryProviderRouter>()
-               .AddSingleton<IProjectBindingRegistryLookup>(sp => sp.GetRequiredService<BindingRegistryProviderRouter>())
-               // Roslyn (source-level) binding discovery for .cs edits (design doc F2).
-               .AddSingleton<ICSharpBindingDiscoveryService, CSharpBindingDiscoveryService>()
-               .AddSingleton<IDeveroomTagParser, DeveroomTagParser>()
-               .AddSingleton<IDocumentBufferService, DocumentBufferService>()
-               // BindingMatchService holds the per-document match cache; it must be a singleton
-               // so the cache survives across requests and is shared by the tagger (writer) and
-               // the Go to Definition / diagnostics consumers (readers).
-               .AddSingleton<IBindingMatchService, BindingMatchService>()
-               .AddSingleton<IGherkinDocumentTaggerService, GherkinDocumentTaggerService>()
-               .AddSingleton<ISemanticTokenService, SemanticTokenService>()
-               .AddSingleton<IDiagnosticsAggregator, DiagnosticsAggregator>()
-               // MediatR notification handlers — registered solely via AddMediatR(typeof(Program))
-               // above, which scans this assembly and registers each INotificationHandler<T>
-               // implementation exactly once as a transient service.  Do NOT add explicit
-               // AddSingleton<INotificationHandler<T>> registrations here: that would create a
-               // second registration for the same interface, causing MediatR to dispatch every
-               // notification to two handler instances (the transient from the scan and the
-               // singleton from the explicit call).  None of these handlers are IDisposable, so
-               // DryIoc's TrackingDisposableTransients validation does not require them to be
-               // singletons.  Handlers covered: SemanticTokensRefreshHandler,
-               // SemanticTokensPushHandler, DiagnosticsPublishHandler,
-               // ReqnrollConfigChangedHandler, BindingRegistryChangedHandler.
-               //
-               // OmniSharp protocol handlers ARE registered as singletons below because OmniSharp
-               // resolves them from the root DryIoc container (not from a per-request scope) and
-               // they hold injected ILanguageServer references that must live for the server's
-               // lifetime.
-               .AddSingleton<TextDocumentSyncHandler>()
-               .AddSingleton<WorkspaceFoldersHandler>()
-               .AddSingleton<WatchedFilesHandler>()
-               .AddSingleton<SemanticTokensHandler>()
-               .AddSingleton<StepReferencesHandler>()
-               .AddSingleton<FindStepUsagesHandler>()
-               .AddSingleton<ICompletionContextResolver, CompletionContextResolver>()
-               .AddSingleton<ICompletionService, CompletionService>()
-               .AddSingleton<ICompletionMatcher, ReturnAllCompletionMatcher>()
-               .AddSingleton<FeatureDefinitionHandler>()
-               .AddSingleton<GoToStepDefinitionsHandler>()
-               .AddSingleton<GoToHooksHandler>()
-               .AddSingleton<StepCodeLensHandler>()
-               .AddSingleton<GherkinCompletionHandler>()
-               .AddSingleton<IStepScaffoldService, StepScaffoldService>()
-               .AddSingleton<FeatureCodeActionHandler>()
-               .AddSingleton<FindUnusedStepDefinitionsHandler>()
-               .AddSingleton<GherkinFormattingHandler>()
-               .AddSingleton<IGherkinDocumentSymbolService, GherkinDocumentSymbolService>()
-               .AddSingleton<FeatureDocumentSymbolHandler>();
+            // AddMediatR scans the assembly containing typeof(Program) and registers 
+            // all INotificationHandler<T> implementations as transient services.
+            // DO NOT add explicit AddSingleton<INotificationHandler<T>> registrations in 
+            // AddReqnrollLspHandlers(), as it will cause MediatR to dispatch every 
+            // notification to two handler instances (the transient from the scan and 
+            // the singleton from the explicit call).
+            .AddMediatR(typeof(Program).Assembly)
+            .AddReqnrollLspCoreServices(clientIde)
+            .AddReqnrollProjectSystem()
+            .AddReqnrollEditorServices()
+            .AddReqnrollLspHandlers();
 
-        options.AddHandler<TextDocumentSyncHandler>()
-               .AddHandler<WorkspaceFoldersHandler>()
-               .AddHandler<WatchedFilesHandler>()
-               .AddHandler<FeatureDefinitionHandler>()
-               .AddHandler<GherkinCompletionHandler>()
-               .AddHandler<FeatureCodeActionHandler>()
-               .AddHandler<GherkinFormattingHandler>()
-               .AddHandler<FeatureDocumentSymbolHandler>();
+        // Register standard LSP handlers
+        options.AddStandardHandlers();
 
-        options.OnStarted((languageServer, ct) =>
-        {
-            // Seed workspace scopes from the folders sent during the initialize handshake.
-            var scopeManager = languageServer.Services.GetRequiredService<ILspWorkspaceScopeManager>();
-            serverServices = languageServer.Services; // Caching the service provider for later use in handlers that don't have it injected.
-            if (languageServer.ClientSettings.WorkspaceFolders is not null)
-            {
-                foreach (var folder in languageServer.ClientSettings.WorkspaceFolders)
-                {
-                    var path = folder.Uri.GetFileSystemPath();
-                    if (!string.IsNullOrEmpty(path))
-                        scopeManager.OpenWorkspace(path);
-                }
-            }
+        // Register custom Reqnroll protocol handlers and manual routing workarounds
+        options.AddReqnrollCustomProtocolHandlers();
 
-            return Task.CompletedTask;
-        });
         options.OnInitialized((languageServer, request, response, ct) =>
         {
             var tokenService = languageServer.Services.GetRequiredService<ISemanticTokenService>();
@@ -206,83 +131,5 @@ public class Program
 
             return Task.CompletedTask;
         });
-
-        // ── Custom client-to-server notifications ─────────────────────────────
-        // reqnroll/projectLoaded — IDE glue sends project metadata when a project opens or rebuilds.
-        options.OnNotification<ReqnrollProjectLoadedParams>(
-            "reqnroll/projectLoaded",
-            (p, ct) => serverServices!
-                .GetRequiredService<ILspWorkspaceScopeManager>()
-                .HandleProjectLoadedAsync(p, ct));
-
-        // reqnroll/projectUnloaded — IDE glue sends this when a project is removed.
-        options.OnNotification<ReqnrollProjectUnloadedParams>(
-            "reqnroll/projectUnloaded",
-            (p, ct) => serverServices!
-                .GetRequiredService<ILspWorkspaceScopeManager>()
-                .HandleProjectUnloadedAsync(p, ct));
-
-        // reqnroll/projectFiles — IDE glue sends the authoritative file-membership index
-        // (baseline on load/rebuild, delta on item add/remove).  Drives I1/I2 invariants.
-        options.OnNotification<ReqnrollProjectFilesParams>(
-            "reqnroll/projectFiles",
-            (p, ct) => serverServices!
-                .GetRequiredService<ILspWorkspaceScopeManager>()
-                .HandleProjectFilesAsync(p, ct));
-
-        // ── Bypassing registering the SemanticTokensHandler as a regular handler ──
-        // Otherwise, it will register its capabilities dynamically, which VisualStudio doesn't support.
-        // Directly wiring the handler to respond to specific request messages.
-        options.OnRequest<SemanticTokensParams, SemanticTokens?>(
-                    "textDocument/semanticTokens/full",
-                    (request, ct) => serverServices!.GetRequiredService<SemanticTokensHandler>().HandleAsync(request, ct));
-        options.OnRequest<SemanticTokensDeltaParams, SemanticTokensFullOrDelta?>(
-                    "textDocument/semanticTokens/full/delta",
-                    (request, ct) => serverServices!.GetRequiredService<SemanticTokensHandler>().HandleAsync(request, ct));
-
-        // F14 — Find Step Definition Usages.
-        // Registered manually (same pattern as semantic tokens) to avoid dynamic registration
-        // ambiguity with the C# language server on .cs files. See design-doc Q13.
-        options.OnRequest<ReferenceParams, LocationOrLocationLinks?>(
-            "textDocument/references",
-            (request, ct) => serverServices!.GetRequiredService<StepReferencesHandler>().HandleAsync(request, ct));
-
-        // F14 P2b — Custom reqnroll/findStepUsages request.
-        // Delivers the full three-state contract (null / empty / locations) and per-location stepText
-        // that textDocument/references cannot carry (OmniSharp LocationOrLocationLinks cannot serialize null).
-        // The VS client uses this request exclusively; textDocument/references is retained for
-        // spec-test compatibility and any future non-VS clients.
-        options.OnRequest<ReferenceParams, FindStepUsagesResponse?>(
-            "reqnroll/findStepUsages",
-            (request, ct) => serverServices!.GetRequiredService<FindStepUsagesHandler>().HandleAsync(request, ct));
-
-        // F5 — Go to Step Definitions (rich).
-        // Custom message that returns step-type and method-name metadata alongside each location so the
-        // VS extension's picker can show labelled items.  The standard textDocument/definition handler
-        // (FeatureDefinitionHandler) is retained for generic LSP clients.
-        options.OnRequest<TextDocumentPositionParams, GoToStepDefinitionsResponse>(
-            "reqnroll/goToStepDefinitions",
-            (request, ct) => serverServices!.GetRequiredService<GoToStepDefinitionsHandler>().HandleAsync(request, ct));
-
-        // F17 — Go to Hooks.
-        // Custom message so the server can distinguish "find hooks" from F5 "find step definition"
-        // on step lines, where both would fire at the same position if textDocument/definition were reused.
-        options.OnRequest<TextDocumentPositionParams, GoToHooksResponse>(
-            "reqnroll/goToHooks",
-            (request, ct) => serverServices!.GetRequiredService<GoToHooksHandler>().HandleAsync(request, ct));
-
-        // F18 — Step Code Lens.
-        // Registered manually (same pattern as semantic tokens) to avoid dynamic registration
-        // ambiguity with the C# language server on .cs files.
-        options.OnRequest<CodeLensParams, CodeLens[]?>(
-            "textDocument/codeLens",
-            (request, ct) => serverServices!.GetRequiredService<StepCodeLensHandler>().HandleAsync(request, ct));
-
-        // F15 — Find Unused Step Definitions.
-        // Workspace-wide command; no text-document context required.
-        options.OnRequest<FindUnusedStepDefinitionsParams, FindUnusedStepDefinitionsResponse>(
-            "reqnroll/findUnusedStepDefinitions",
-            (_, ct) => serverServices!.GetRequiredService<FindUnusedStepDefinitionsHandler>().HandleAsync(ct));
-
     }
 }
