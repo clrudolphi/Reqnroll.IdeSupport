@@ -2,9 +2,11 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Diagnostics;
+using Reqnroll.IdeSupport.LSP.Core.Discovery;
 using Reqnroll.IdeSupport.LSP.Core.Document;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
+using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Document;
 using Reqnroll.IdeSupport.LSP.Server.Handlers.InternalHandlers;
 using Reqnroll.IdeSupport.LSP.Server.Notifications;
@@ -17,6 +19,7 @@ public class DiagnosticsPublishHandlerTests
 {
     private readonly IDocumentBufferService    _bufferService  = Substitute.For<IDocumentBufferService>();
     private readonly IBindingMatchService      _matchService   = Substitute.For<IBindingMatchService>();
+    private readonly IProjectBindingRegistryLookup _registryLookup = Substitute.For<IProjectBindingRegistryLookup>();
     private readonly ILspWorkspaceScopeManager _scopeManager   = Substitute.For<ILspWorkspaceScopeManager>();
     private readonly IDiagnosticsAggregator    _aggregator     = Substitute.For<IDiagnosticsAggregator>();
     private readonly ILanguageServerFacade     _facade         = Substitute.For<ILanguageServerFacade>();
@@ -28,10 +31,15 @@ public class DiagnosticsPublishHandlerTests
     {
         // Default: no primary owner resolved — handler falls back to Unknown key.
         _scopeManager.ResolvePrimaryOwner(Arg.Any<DocumentUri>()).Returns((LspReqnrollProject?)null);
+
+        // Default: registry not ready — simulates pre-Connector state. Tests that need a
+        // real registry can override this return with a non-Invalid ProjectBindingRegistry.
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                      .Returns(ProjectBindingRegistry.Invalid);
     }
 
     private DiagnosticsPublishHandler CreateSut() =>
-        new(_bufferService, _matchService, _scopeManager, _aggregator, _facade, _logger);
+        new(_bufferService, _matchService, _registryLookup, _scopeManager, _aggregator, _facade, _logger);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -232,5 +240,96 @@ public class DiagnosticsPublishHandlerTests
         lspRange.Start.Character.Should().Be(10);
         lspRange.End.Line.Should().Be(2);
         lspRange.End.Character.Should().Be(14);  // 10 + 4
+    }
+
+    // ── Q24: registry-ready guard ────────────────────────────────────────────
+
+    /// <summary>
+    /// A real-but-empty match set that is clearly not <see cref="FeatureBindingMatchSet.Empty"/>.
+    /// Used by the Q24 guard tests to verify the guard correctly substitutes or preserves the
+    /// match set depending on registry state. Avoids the heavy scaffolding of real
+    /// <see cref="StepBindingMatch"/> entries.
+    /// </summary>
+    private static readonly FeatureBindingMatchSet NonEmptyMatchSet =
+        new("non-empty-doc", ProjectOwner.Unknown,
+            documentVersion: 1, registryVersion: 0,
+            Array.Empty<StepBindingMatch>());
+
+    /// <summary>
+    /// A <see cref="ProjectBindingRegistry"/> instance that is not the <c>Invalid</c> singleton
+    /// — used to simulate the post-Connector ready state without needing binding scaffolding.
+    /// </summary>
+    private static readonly ProjectBindingRegistry ReadyRegistry =
+        ProjectBindingRegistry.FromBindings(Array.Empty<ProjectStepDefinitionBinding>());
+
+    [Fact]
+    public async Task Aggregator_receives_empty_match_set_when_registry_is_Invalid()
+    {
+        // Arrange
+        SetupBuffer(Array.Empty<DeveroomTag>());
+        // Registry stays Invalid (default from constructor).
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+                     .Returns(x =>
+                     {
+                         x[1] = NonEmptyMatchSet;
+                         return true;
+                     });
+        SetupAggregator();
+
+        // Act
+        await CreateSut().Handle(new MatchCacheChangedNotification(FeatureUri, 1), CancellationToken.None);
+
+        // Assert — the real match set must NOT have been forwarded; the Q24 guard
+        // substitutes FeatureBindingMatchSet.Empty when the registry is Invalid.
+        _aggregator.Received(1).Aggregate(
+            Arg.Any<IReadOnlyCollection<DeveroomTag>>(),
+            FeatureBindingMatchSet.Empty);
+    }
+
+    [Fact]
+    public async Task Aggregator_receives_real_match_set_when_registry_is_ready()
+    {
+        // Arrange
+        SetupBuffer(Array.Empty<DeveroomTag>());
+        _registryLookup.GetRegistryForUri(FeatureUri).Returns(ReadyRegistry);
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+                     .Returns(x =>
+                     {
+                         x[1] = NonEmptyMatchSet;
+                         return true;
+                     });
+        SetupAggregator();
+
+        // Act
+        await CreateSut().Handle(new MatchCacheChangedNotification(FeatureUri, 1), CancellationToken.None);
+
+        // Assert — the real match set IS forwarded because the registry is ready
+        // (not the Invalid singleton).
+        _aggregator.Received(1).Aggregate(
+            Arg.Any<IReadOnlyCollection<DeveroomTag>>(),
+            NonEmptyMatchSet);
+    }
+
+    [Fact]
+    public async Task Parse_error_diagnostics_are_published_when_registry_is_Invalid()
+    {
+        // Arrange
+        const string featureText = "Feature: F\n  Scenario: S\n    Given step\n";
+        var snapshot = new LspTextSnapshot(FeatureUri.ToString(), 1, featureText);
+        var parseErrorTag = new DeveroomTag(
+            DeveroomTagTypes.ParserError,
+            GherkinRange.FromPoint(snapshot, 0, 10),
+            "syntax error");
+        SetupBuffer(new[] { parseErrorTag });
+        // Registry stays Invalid (default from constructor).
+        SetupAggregator(MakeDiagnostic(featureText, 0, 10,
+            GherkinDiagnosticSeverity.Error, DiagnosticsAggregator.ParserSource, "syntax error"));
+
+        // Act
+        await CreateSut().Handle(new MatchCacheChangedNotification(FeatureUri, 1), CancellationToken.None);
+
+        // Assert — parse error diagnostics survive despite the Invalid registry.
+        _facade.Received(1).SendNotification("textDocument/publishDiagnostics",
+            Arg.Is<PublishDiagnosticsParams>(p => p.Diagnostics.Any()));
     }
 }

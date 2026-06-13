@@ -3,7 +3,9 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Diagnostics;
+using Reqnroll.IdeSupport.LSP.Core.Discovery;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
+using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Document;
 using Reqnroll.IdeSupport.LSP.Server.Notifications;
 using Reqnroll.IdeSupport.LSP.Server.Services;
@@ -33,6 +35,7 @@ public sealed class DiagnosticsPublishHandler : INotificationHandler<MatchCacheC
 {
     private readonly IDocumentBufferService   _documentBufferService;
     private readonly IBindingMatchService     _bindingMatchService;
+    private readonly IProjectBindingRegistryLookup _registryLookup;
     private readonly ILspWorkspaceScopeManager _scopeManager;
     private readonly IDiagnosticsAggregator   _aggregator;
     private readonly ILanguageServerFacade    _languageServer;
@@ -41,6 +44,7 @@ public sealed class DiagnosticsPublishHandler : INotificationHandler<MatchCacheC
     public DiagnosticsPublishHandler(
         IDocumentBufferService    documentBufferService,
         IBindingMatchService      bindingMatchService,
+        IProjectBindingRegistryLookup registryLookup,
         ILspWorkspaceScopeManager scopeManager,
         IDiagnosticsAggregator    aggregator,
         ILanguageServerFacade     languageServer,
@@ -48,6 +52,7 @@ public sealed class DiagnosticsPublishHandler : INotificationHandler<MatchCacheC
     {
         _documentBufferService = documentBufferService;
         _bindingMatchService   = bindingMatchService;
+        _registryLookup        = registryLookup;
         _scopeManager          = scopeManager;
         _aggregator            = aggregator;
         _languageServer        = languageServer;
@@ -75,6 +80,14 @@ public sealed class DiagnosticsPublishHandler : INotificationHandler<MatchCacheC
 
         _bindingMatchService.TryGet(matchKey, out var matchSet);
         // TryGet returns Empty when not found, so matchSet is never null here.
+
+        // Q24: when the binding registry is not yet ready (Invalid), the Connector has not
+        // completed its first run yet. Suppress binding-mismatch diagnostics so the user
+        // doesn't see spurious "undefined step" warnings before bindings are loaded.
+        // Parse errors (syntax errors) from the tagger are always published regardless.
+        var registry = _registryLookup.GetRegistryForUri(uri);
+        if (ReferenceEquals(registry, ProjectBindingRegistry.Invalid))
+            matchSet = FeatureBindingMatchSet.Empty;
 
         var gherkinDiagnostics = _aggregator.Aggregate(buffer.Tags, matchSet);
 
