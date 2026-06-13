@@ -16,6 +16,7 @@ using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Completions;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Completions.Matching;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Scaffolding;
+using Reqnroll.IdeSupport.LSP.Core.Editor.Services.DocumentOutline;
 using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.LSP.Server.Configuration;
 using Reqnroll.IdeSupport.LSP.Server.Handlers.InternalHandlers;
@@ -162,7 +163,9 @@ public class Program
                .AddSingleton<IStepScaffoldService, StepScaffoldService>()
                .AddSingleton<FeatureCodeActionHandler>()
                .AddSingleton<FindUnusedStepDefinitionsHandler>()
-               .AddSingleton<GherkinFormattingHandler>();
+               .AddSingleton<GherkinFormattingHandler>()
+               .AddSingleton<IGherkinDocumentSymbolService, GherkinDocumentSymbolService>()
+               .AddSingleton<FeatureDocumentSymbolHandler>();
 
         options.AddHandler<TextDocumentSyncHandler>()
                .AddHandler<WorkspaceFoldersHandler>()
@@ -170,7 +173,8 @@ public class Program
                .AddHandler<FeatureDefinitionHandler>()
                .AddHandler<GherkinCompletionHandler>()
                .AddHandler<FeatureCodeActionHandler>()
-               .AddHandler<GherkinFormattingHandler>();
+               .AddHandler<GherkinFormattingHandler>()
+               .AddHandler<FeatureDocumentSymbolHandler>();
 
         options.OnStarted((languageServer, ct) =>
         {

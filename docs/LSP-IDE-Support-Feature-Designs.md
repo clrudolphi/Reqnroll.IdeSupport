@@ -697,7 +697,13 @@ The IDE's "Outline" or "Structure" panel shows the hierarchy of the feature file
 
 | VS Code | Visual Studio | Rider |
 |---------|---------------|-------|
-| ✅ Generic | ✅ Generic | ✅ Generic |
+| ✅ Generic | ⚠️ VS-specific work required | ✅ Generic |
+
+**Visual Studio caveat:** The standard LSP `textDocument/documentSymbol` handler is implemented and functional. However, VS does not route `documentSymbol` responses to its Document Outline window (View → Other Windows → Document Outline). That window uses legacy COM/`IVsHierarchy` APIs from the old language service model, not LSP. Confirmed by log analysis: VS registered the `documentSymbol` capability but never issued a `textDocument/documentSymbol` request during an active editing session with feature files open.
+
+VS _does_ consume `textDocument/documentSymbol` for other surfaces (Navigation Bar dropdowns, Go to Member), but these require VS content-type plumbing to hook up for `.feature` files.
+
+See [Q22](LSP-IDE-Support-Open-Questions.md#open-questions) for the options and decision.
 
 #### LSP messages
 
@@ -726,6 +732,14 @@ sequenceDiagram
     FDSH-->>IDE: DocumentSymbol[] response
     IDE-->>IDE: Render outline panel
 ```
+
+#### As-built notes
+
+- `GherkinDocumentSymbolService` (LSP.Core) walks the `DeveroomTag` tree and returns a `GherkinDocumentSymbol` hierarchy (protocol-agnostic model).
+- `FeatureDocumentSymbolHandler` (LSP.Server) converts to OmniSharp `DocumentSymbol[]` and registers via `AddHandler<>`.
+- Symbol kind mapping: Feature→Module, Background→Constructor, Rule→Namespace, Scenario/ScenarioOutline→Method, Step→Field, Examples→Array.
+- `DocumentSymbol.Children` is `init`-only; children must be wrapped in `Container<DocumentSymbol>` and set in the object initializer.
+- VS integration gap documented above; all other LSP-native clients (VS Code, Rider) receive the outline via the generic handler.
 
 ---
 

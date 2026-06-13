@@ -184,6 +184,16 @@ public static class LspClientExtensions
             .Returning<TextEdit[]?>(ct);
 
     /// <summary>
+    /// Sends a <c>textDocument/documentSymbol</c> request (F9 — Document Outline).
+    /// Returns the nested symbol hierarchy for the given feature file.
+    /// </summary>
+    public static Task<SymbolInformationOrDocumentSymbolContainer?> RequestDocumentSymbolAsync(
+        this ILanguageClient client, DocumentUri uri, CancellationToken ct = default)
+        => client.SendRequest("textDocument/documentSymbol",
+                new DocumentSymbolParams { TextDocument = new TextDocumentIdentifier { Uri = uri } })
+            .Returning<SymbolInformationOrDocumentSymbolContainer?>(ct);
+
+    /// <summary>
     /// Sends a <c>textDocument/completion</c> request (F7 keyword completion, F8 step completion).
     /// </summary>
     public static Task<CompletionList?> RequestCompletionAsync(

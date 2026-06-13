@@ -31,6 +31,7 @@ public sealed class LspScenarioContext
     public CodeLens[]? LastCodeLens { get; set; }
     public CompletionList? LastCompletions { get; set; }
     public TextEdit[]? LastFormattingEdits { get; set; }
+    public SymbolInformationOrDocumentSymbolContainer? LastDocumentSymbols { get; set; }
 
     public DocumentUri UriFor(string relativeName)
         => DocumentUri.FromFileSystemPath(Path.Combine(WorkspaceFolder, relativeName));
