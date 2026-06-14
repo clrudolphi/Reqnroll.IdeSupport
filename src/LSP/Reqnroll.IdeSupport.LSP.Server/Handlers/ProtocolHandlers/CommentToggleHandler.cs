@@ -83,9 +83,10 @@ public sealed class CommentToggleHandler : IExecuteCommandHandler
         }
 
         var text   = buffer.Text;
+        var lines  = text.Replace("\r\n", "\n").Split('\n');
         var result = _toggleService.ToggleComment(text, startLine, endLine);
 
-        var edit = BuildWorkspaceEdit(uri, result);
+        var edit = BuildWorkspaceEdit(uri, result, lines);
         _logger.LogInfo($"F13 reqnroll.toggleComment: {uri} lines [{startLine}..{endLine}] → {result.Edits.Count} change(s)");
 
         _languageServer.SendNotification("workspace/applyEdit", edit);
@@ -97,12 +98,17 @@ public sealed class CommentToggleHandler : IExecuteCommandHandler
 
     private static ApplyWorkspaceEditParams BuildWorkspaceEdit(
         DocumentUri uri,
-        GherkinCommentToggleResult result)
+        GherkinCommentToggleResult result,
+        string[] lines)
     {
         var textEdits = new TextEditContainer(
             result.Edits.Select(e => new TextEdit
             {
-                Range   = new LspRange(new Position(e.StartLine, 0), new Position(e.EndLine, 0)),
+                // End character = line length so the range covers the full line content
+                // (not the newline), turning this into a replacement rather than an insertion.
+                Range   = new LspRange(
+                    new Position(e.StartLine, 0),
+                    new Position(e.EndLine, e.EndLine < lines.Length ? lines[e.EndLine].Length : 0)),
                 NewText = e.NewText
             }));
 

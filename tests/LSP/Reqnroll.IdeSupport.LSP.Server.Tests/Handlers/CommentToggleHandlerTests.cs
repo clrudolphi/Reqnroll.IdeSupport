@@ -134,4 +134,55 @@ public class CommentToggleHandlerTests
 
         _toggleService.Received(1).ToggleComment("Given a step\nWhen step2\n", 1, 2);
     }
+
+    [Fact]
+    public async Task ApplyEdit_range_is_replacement_not_insertion_Async()
+    {
+        // "Feature: F" has length 10; the range end character must be 10, not 0.
+        // A zero-length range (start == end at col 0) inserts text rather than
+        // replacing it, duplicating the existing line content (regression guard).
+        const string lineContent = "Feature: F";
+        SetupBuffer(FeatureUri, lineContent + "\n");
+        _toggleService.ToggleComment(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>())
+            .Returns(new GherkinCommentToggleResult(new[]
+            {
+                new GherkinCommentEdit(0, 0, "# " + lineContent)
+            }));
+
+        await CreateSut().Handle(
+            MakeParams("reqnroll.toggleComment", FeatureUri.ToString(), 0, 0),
+            CancellationToken.None);
+
+        _languageServer.Received(1).SendNotification("workspace/applyEdit",
+            Arg.Is<ApplyWorkspaceEditParams>(p =>
+                p.Edit.DocumentChanges!
+                    .First().TextDocumentEdit!.Edits
+                    .First().Range.End.Character == lineContent.Length));
+    }
+
+    [Theory]
+    [InlineData("Feature: F\n")]          // LF
+    [InlineData("Feature: F\r\n")]        // CRLF
+    public async Task ApplyEdit_range_end_character_excludes_line_ending_Async(string documentText)
+    {
+        // End character must equal the length of the line content, regardless of
+        // whether the file uses LF or CRLF line endings.
+        const int expectedEndChar = 10; // "Feature: F".Length
+        SetupBuffer(FeatureUri, documentText);
+        _toggleService.ToggleComment(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>())
+            .Returns(new GherkinCommentToggleResult(new[]
+            {
+                new GherkinCommentEdit(0, 0, "# Feature: F")
+            }));
+
+        await CreateSut().Handle(
+            MakeParams("reqnroll.toggleComment", FeatureUri.ToString(), 0, 0),
+            CancellationToken.None);
+
+        _languageServer.Received(1).SendNotification("workspace/applyEdit",
+            Arg.Is<ApplyWorkspaceEditParams>(p =>
+                p.Edit.DocumentChanges!
+                    .First().TextDocumentEdit!.Edits
+                    .First().Range.End.Character == expectedEndChar));
+    }
 }

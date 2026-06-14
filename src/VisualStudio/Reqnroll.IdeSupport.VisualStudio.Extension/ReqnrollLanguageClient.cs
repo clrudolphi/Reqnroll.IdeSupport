@@ -10,6 +10,7 @@ using Microsoft.VisualStudio.Shell;
 using Nerdbank.Streams;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.Classification;
+using Reqnroll.IdeSupport.VisualStudio.Extension.CommentToggle;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
 using Reqnroll.IdeSupport.VisualStudio.Extension.GoToDefinition;
@@ -31,6 +32,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
     private readonly GoToHooksState _goToHooksState;
     private readonly GoToDefinitionState _goToDefinitionState;
     private readonly StepCodeLensState _stepCodeLensState;
+    private readonly CommentToggleState _commentToggleState;
     private Process? _serverProcess;
     private LspInspectorLogger? _inspectorLogger;
     private LspInterceptingPipe? _interceptingPipe;
@@ -45,7 +47,8 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
         FindUnusedStepDefinitionsState findUnusedStepDefinitionsState,
         GoToHooksState goToHooksState,
         GoToDefinitionState goToDefinitionState,
-        StepCodeLensState stepCodeLensState)
+        StepCodeLensState stepCodeLensState,
+        CommentToggleState commentToggleState)
         : base(container, extensibilityObject)
     {
         _traceSource                    = traceSource;
@@ -54,6 +57,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
         _goToHooksState                 = goToHooksState;
         _goToDefinitionState            = goToDefinitionState;
         _stepCodeLensState              = stepCodeLensState;
+        _commentToggleState             = commentToggleState;
         _fileLogger          = new SynchronousFileLogger();
         _traceSource.TraceInformation("ReqnrollLanguageClient: Instance created.");
         _fileLogger.LogInfo(
@@ -206,6 +210,11 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
             _goToHooksState.Service                 = new GoToHooksService(_interceptingPipe, _traceSource);
             _goToDefinitionState.Service            = new GoToDefinitionService(_interceptingPipe, _traceSource);
             _stepCodeLensState.Service              = new StepCodeLensService(_interceptingPipe, _traceSource);
+            _commentToggleState.Service             = new CommentToggleService(_interceptingPipe, _traceSource);
+
+            // Set the VSSDK command filter redirect so the keyboard shortcut interception
+            // for Edit.CommentSelection/UncommentSelection/ToggleLineComment calls our service.
+            CommentToggleRedirect.ToggleCommentAsync = _commentToggleState.Service.ToggleCommentAsync;
 
             try
             {
@@ -269,6 +278,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
             _stepCodeLensState.Service           = null;
             _stepCodeLensState.FindUsagesService  = null;
             _stepCodeLensState.FindUsagesRenderer = null;
+            _commentToggleState.Service = null;
 
             _interceptingPipe?.Dispose();
             _interceptingPipe = null;

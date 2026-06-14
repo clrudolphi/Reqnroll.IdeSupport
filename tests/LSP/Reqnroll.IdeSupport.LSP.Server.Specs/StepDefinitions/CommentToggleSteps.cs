@@ -55,5 +55,7 @@ public sealed class CommentToggleSteps
             e => e.Range.Start.Line == line && e.Range.End.Line == line,
             $"a text edit for line {line} should exist").Subject;
         textEdit.NewText.Should().Be(expectedText);
+        textEdit.Range.End.Character.Should().BeGreaterThan(0,
+            "the edit must replace the line content, not insert at column 0 (which would duplicate the existing text)");
     }
 }

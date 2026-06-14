@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.Extensibility;
+using Reqnroll.IdeSupport.VisualStudio.Extension.CommentToggle;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
 using Reqnroll.IdeSupport.VisualStudio.Extension.GoToDefinition;
@@ -36,6 +37,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension
             serviceCollection.AddSingleton<GoToHooksState>();
             serviceCollection.AddSingleton<GoToDefinitionState>();
             serviceCollection.AddSingleton<StepCodeLensState>();
+            serviceCollection.AddSingleton<CommentToggleState>();
             // ExtensionPart subclasses are not auto-registered by the framework; must be explicit.
             serviceCollection.AddSingleton<StepCodeLensProvider>();
         }
