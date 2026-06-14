@@ -1,3 +1,4 @@
+using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -216,4 +217,12 @@ public static class LspClientExtensions
         => client.SendRequest("textDocument/foldingRange",
                 new FoldingRangeRequestParam { TextDocument = new TextDocumentIdentifier { Uri = uri } })
             .Returning<Container<FoldingRange>?>(ct);
+
+    /// <summary>
+    /// Sends a <c>workspace/executeCommand</c> request (F13 — Comment/Uncomment).
+    /// </summary>
+    public static Task RequestCommandAsync(
+        this ILanguageClient client, ExecuteCommandParams commandParams, CancellationToken ct = default)
+        => client.SendRequest("workspace/executeCommand", commandParams)
+            .Returning<Unit>(ct);
 }

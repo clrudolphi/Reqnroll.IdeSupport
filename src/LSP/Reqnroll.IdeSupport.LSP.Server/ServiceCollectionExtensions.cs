@@ -10,6 +10,7 @@ using Reqnroll.IdeSupport.LSP.Core.Editor.Completions.Matching;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Scaffolding;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.DocumentOutline;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Folding;
+using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Commenting;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Configuration;
@@ -74,7 +75,8 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IGherkinDocumentTaggerService, GherkinDocumentTaggerService>()
             .AddSingleton<ISemanticTokenService, SemanticTokenService>()
             .AddSingleton<IDiagnosticsAggregator, DiagnosticsAggregator>()
-            .AddSingleton<IGherkinFoldingRangeService, GherkinFoldingRangeService>();
+            .AddSingleton<IGherkinFoldingRangeService, GherkinFoldingRangeService>()
+            .AddSingleton<ICommentToggleService, CommentToggleService>();
     }
 
     /// <summary>
@@ -113,6 +115,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<GherkinFormattingHandler>()
             .AddSingleton<IGherkinDocumentSymbolService, GherkinDocumentSymbolService>()
             .AddSingleton<FeatureDocumentSymbolHandler>()
-            .AddSingleton<FeatureFoldingRangeHandler>();
+            .AddSingleton<FeatureFoldingRangeHandler>()
+            .AddSingleton<CommentToggleHandler>();
     }
 }

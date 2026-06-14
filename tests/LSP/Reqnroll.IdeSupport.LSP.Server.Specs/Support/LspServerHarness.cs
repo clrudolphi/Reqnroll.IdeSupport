@@ -48,6 +48,15 @@ public sealed class LspServerHarness : IAsyncDisposable
         get { lock (_pushLock) return _pushes.ToArray(); }
     }
 
+    private readonly object _applyEditLock = new();
+    private ApplyWorkspaceEditParams? _lastApplyEdit;
+    private TaskCompletionSource<int> _applyEditSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public ApplyWorkspaceEditParams? LastApplyEdit
+    {
+        get { lock (_applyEditLock) return _lastApplyEdit; }
+    }
+
     public async Task StartAsync(string workspaceFolder, string? ideId = null)
     {
         var (serverStream, clientStream) = FullDuplexStream.CreatePair();
@@ -86,6 +95,13 @@ public sealed class LspServerHarness : IAsyncDisposable
                 RecordPush(uri, count);
                 return Task.CompletedTask;
             });
+
+            // Sink for workspace/applyEdit (F13 — Comment/Uncomment).
+            options.OnNotification("workspace/applyEdit", (ApplyWorkspaceEditParams p) =>
+            {
+                RecordApplyEdit(p);
+                return Task.CompletedTask;
+            });
         }).ConfigureAwait(false);
 
         _server = await serverTask.ConfigureAwait(false);
@@ -110,6 +126,17 @@ public sealed class LspServerHarness : IAsyncDisposable
             var prev = _pushSignal;
             _pushSignal = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
             prev.TrySetResult(_pushes.Count);
+        }
+    }
+
+    private void RecordApplyEdit(ApplyWorkspaceEditParams p)
+    {
+        lock (_applyEditLock)
+        {
+            _lastApplyEdit = p;
+            var prev = _applyEditSignal;
+            _applyEditSignal = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+            prev.TrySetResult(1);
         }
     }
 
