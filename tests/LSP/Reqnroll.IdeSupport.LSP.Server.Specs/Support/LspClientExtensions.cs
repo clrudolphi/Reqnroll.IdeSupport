@@ -206,4 +206,14 @@ public static class LspClientExtensions
                     Position     = new Position(line, character)
                 })
             .Returning<CompletionList?>(ct);
+
+    /// <summary>
+    /// Sends a <c>textDocument/foldingRange</c> request (F10 — Code Folding).
+    /// Returns the foldable region ranges for the given feature file.
+    /// </summary>
+    public static Task<Container<FoldingRange>?> RequestFoldingRangeAsync(
+        this ILanguageClient client, DocumentUri uri, CancellationToken ct = default)
+        => client.SendRequest("textDocument/foldingRange",
+                new FoldingRangeRequestParam { TextDocument = new TextDocumentIdentifier { Uri = uri } })
+            .Returning<Container<FoldingRange>?>(ct);
 }

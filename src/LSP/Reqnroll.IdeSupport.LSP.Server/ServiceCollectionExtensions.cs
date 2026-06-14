@@ -9,6 +9,7 @@ using Reqnroll.IdeSupport.LSP.Core.Editor.Completions;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Completions.Matching;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Scaffolding;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.DocumentOutline;
+using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Folding;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Configuration;
@@ -72,7 +73,8 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IBindingMatchService, BindingMatchService>()
             .AddSingleton<IGherkinDocumentTaggerService, GherkinDocumentTaggerService>()
             .AddSingleton<ISemanticTokenService, SemanticTokenService>()
-            .AddSingleton<IDiagnosticsAggregator, DiagnosticsAggregator>();
+            .AddSingleton<IDiagnosticsAggregator, DiagnosticsAggregator>()
+            .AddSingleton<IGherkinFoldingRangeService, GherkinFoldingRangeService>();
     }
 
     /// <summary>
@@ -110,6 +112,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<FindUnusedStepDefinitionsHandler>()
             .AddSingleton<GherkinFormattingHandler>()
             .AddSingleton<IGherkinDocumentSymbolService, GherkinDocumentSymbolService>()
-            .AddSingleton<FeatureDocumentSymbolHandler>();
+            .AddSingleton<FeatureDocumentSymbolHandler>()
+            .AddSingleton<FeatureFoldingRangeHandler>();
     }
 }

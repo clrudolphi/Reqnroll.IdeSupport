@@ -32,6 +32,7 @@ public sealed class LspScenarioContext
     public CompletionList? LastCompletions { get; set; }
     public TextEdit[]? LastFormattingEdits { get; set; }
     public SymbolInformationOrDocumentSymbolContainer? LastDocumentSymbols { get; set; }
+    public Container<FoldingRange>? LastFoldingRanges { get; set; }
 
     public DocumentUri UriFor(string relativeName)
         => DocumentUri.FromFileSystemPath(Path.Combine(WorkspaceFolder, relativeName));

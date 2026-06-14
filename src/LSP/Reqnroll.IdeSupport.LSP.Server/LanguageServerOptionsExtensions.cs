@@ -25,7 +25,8 @@ public static class LanguageServerOptionsExtensions
                .AddHandler<GherkinCompletionHandler>()
                .AddHandler<FeatureCodeActionHandler>()
                .AddHandler<GherkinFormattingHandler>()
-               .AddHandler<FeatureDocumentSymbolHandler>();
+               .AddHandler<FeatureDocumentSymbolHandler>()
+               .AddHandler<FeatureFoldingRangeHandler>();
     }
 
     /// <summary>
