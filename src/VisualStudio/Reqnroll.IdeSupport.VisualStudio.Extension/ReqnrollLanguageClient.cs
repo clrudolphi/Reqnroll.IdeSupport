@@ -232,6 +232,11 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
                     .SendInitialProjectsAsync(cancellationToken)
                     .ConfigureAwait(false);
 
+                _fileLogger.LogInfo("ReqnrollLanguageClient: Flushing .feature stub frames.");
+                await VsStubFrameInitializer.ForceInitFeatureStubsAsync(
+                        ServiceProvider.GlobalProvider, _traceSource, cancellationToken)
+                    .ConfigureAwait(false);
+
                 _fileLogger.LogInfo("ReqnrollLanguageClient: Initial project flush complete.");
             }
             catch (Exception ex)

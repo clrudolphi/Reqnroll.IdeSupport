@@ -1,5 +1,6 @@
 using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Notifications;
 using Reqnroll.IdeSupport.LSP.Server.Services;
@@ -34,6 +35,8 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
     private readonly IDocumentBufferService        _documentBufferService;
     private readonly IGherkinDocumentTaggerService  _taggerService;
     private readonly ILspWorkspaceScopeManager     _scopeManager;
+    private readonly ILanguageServerFacade         _languageServer;
+    private readonly ClientIdeContext              _clientIde;
     private readonly IMediator                     _mediator;
     private readonly IDeveroomLogger                _logger;
 
@@ -41,12 +44,16 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
         IDocumentBufferService documentBufferService,
         IGherkinDocumentTaggerService taggerService,
         ILspWorkspaceScopeManager scopeManager,
+        ILanguageServerFacade languageServer,
+        ClientIdeContext clientIde,
         IMediator mediator,
         IDeveroomLogger logger)
     {
         _documentBufferService = documentBufferService;
         _taggerService         = taggerService;
         _scopeManager          = scopeManager;
+        _languageServer        = languageServer;
+        _clientIde             = clientIde;
         _mediator              = mediator;
         _logger                = logger;
     }
@@ -59,6 +66,27 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
             await ScanAllFeatureFilesAsync(notification.Project, cancellationToken).ConfigureAwait(false);
 
         await ReparseOpenFilesAsync(notification.Project, cancellationToken).ConfigureAwait(false);
+
+        // Q23 Piece 2b: after the binding registry is populated (Connector run complete),
+        // ask the client to refresh its code lens. Without this, a .cs file that was the
+        // foreground editor at startup never receives updated code lens counts.
+        if (notification.IsFullReplacement && _clientIde.IsVisualStudio)
+        {
+            _logger.LogInfo(
+                "BindingRegistryChanged: sending workspace/codeLens/refresh for project '{0}'.",
+                notification.Project.ProjectName);
+            try
+            {
+                await _languageServer.Client
+                    .SendRequest("workspace/codeLens/refresh")
+                    .ReturningVoid(CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"workspace/codeLens/refresh failed: {ex.Message}");
+            }
+        }
     }
 
     private async Task ScanAllFeatureFilesAsync(

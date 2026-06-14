@@ -675,4 +675,19 @@ public static class VsUtils
     //        this.y = y;
     //    }
     //}
+
+    /// <summary>
+    /// Shows a temporary message in the VS status bar. Centralises the VSSDK
+    /// <see cref="IVsStatusbar"/> dependency here so it can be replaced with
+    /// <c>Extensibility.Shell().StatusBar.ShowMessageAsync</c> when the VS
+    /// Extensibility SDK supports it.
+    /// Must be called from the UI thread.
+    /// </summary>
+#pragma warning disable VSTHRD010 // Callers must be on the UI thread (commands, package init, etc.).
+    public static void ShowStatusBarMessage(string message)
+    {
+        var statusBar = ServiceProvider.GlobalProvider.GetService(typeof(SVsStatusbar)) as IVsStatusbar;
+        statusBar?.SetText(message);
+    }
+#pragma warning restore VSTHRD010
 }

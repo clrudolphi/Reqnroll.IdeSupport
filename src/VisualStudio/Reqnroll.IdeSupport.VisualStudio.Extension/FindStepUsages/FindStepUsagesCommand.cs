@@ -8,6 +8,7 @@ using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.Commands;
 using Microsoft.VisualStudio.Extensibility.Editor;
 using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.VisualStudio;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 
@@ -80,6 +81,7 @@ internal sealed class FindStepUsagesCommand : Command
                 _fileLogger.LogWarning(
                     "FindStepUsagesCommand: LSP server not yet initialized " +
                     $"(service={(service is null ? "null" : "set")}, renderer={(renderer is null ? "null" : "set")}).");
+                VsUtils.ShowStatusBarMessage("Reqnroll: LSP server not yet initialized — open a .feature file to activate it.");
                 return;
             }
 

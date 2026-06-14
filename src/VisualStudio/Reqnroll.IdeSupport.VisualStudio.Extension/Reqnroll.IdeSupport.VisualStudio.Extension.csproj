@@ -56,7 +56,6 @@
     </ProjectReference>
     <ProjectReference Include="..\Reqnroll.IdeSupport.VisualStudio.VSSDKIntegration\Reqnroll.IdeSupport.VisualStudio.VSSDKIntegration.csproj">
         <Name>Reqnroll.IdeSupport.VisualStudio.VSSDKIntegration</Name>
-        <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
         <IncludeOutputGroupsInVSIX>BuiltProjectOutputGroup%3bReferenceCopyLocalPathsOutputGroup%3b</IncludeOutputGroupsInVSIX>
     </ProjectReference>
     <ProjectReference Include="..\..\LSP\Reqnroll.IdeSupport.LSP.Server\Reqnroll.IdeSupport.LSP.Server.csproj">

@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.Commands;
 using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.VisualStudio;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
 
@@ -51,6 +52,7 @@ internal sealed class FindUnusedStepDefinitionsCommand : Command
                     "FindUnusedStepDefinitionsCommand: LSP server not yet initialized " +
                     $"(service={(service is null ? "null" : "set")}, " +
                     $"renderer={(renderer is null ? "null" : "set")}).");
+                VsUtils.ShowStatusBarMessage("Reqnroll: LSP server not yet initialized — open a .feature file to activate it.");
                 return;
             }
 

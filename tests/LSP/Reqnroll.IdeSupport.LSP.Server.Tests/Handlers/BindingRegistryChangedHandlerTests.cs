@@ -1,5 +1,7 @@
 using MediatR;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.LSP.Server;
 using Reqnroll.IdeSupport.LSP.Server.Handlers.InternalHandlers;
 using Reqnroll.IdeSupport.LSP.Server.Notifications;
 using Reqnroll.IdeSupport.LSP.Server.Services;
@@ -19,6 +21,8 @@ public class BindingRegistryChangedHandlerTests : IDisposable
     private readonly IDocumentBufferService       _bufferService = Substitute.For<IDocumentBufferService>();
     private readonly IGherkinDocumentTaggerService _taggerService = Substitute.For<IGherkinDocumentTaggerService>();
     private readonly ILspWorkspaceScopeManager    _scopeManager  = Substitute.For<ILspWorkspaceScopeManager>();
+    private readonly ILanguageServerFacade        _languageServer = Substitute.For<ILanguageServerFacade>();
+    private readonly ClientIdeContext             _clientIde     = new("visualstudio");
     private readonly IMediator                    _mediator      = Substitute.For<IMediator>();
     private readonly IDeveroomLogger              _logger        = Substitute.For<IDeveroomLogger>();
 
@@ -61,7 +65,7 @@ public class BindingRegistryChangedHandlerTests : IDisposable
     }
 
     private BindingRegistryChangedHandler CreateSut()
-        => new(_bufferService, _taggerService, _scopeManager, _mediator, _logger);
+        => new(_bufferService, _taggerService, _scopeManager, _languageServer, _clientIde, _mediator, _logger);
 
     // ── Closed-file scanning — index-driven (baseline received) ───────────────
 
