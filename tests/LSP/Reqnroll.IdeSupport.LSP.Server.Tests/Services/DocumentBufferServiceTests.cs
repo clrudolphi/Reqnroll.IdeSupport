@@ -124,4 +124,35 @@ public class DocumentBufferServiceTests
         var sut = CreateSut();
         sut.All.Should().BeEmpty();
     }
+
+    // ── Case-insensitive drive letter ──────────────────────────────────────────
+
+    [Fact]
+    public void Update_with_upper_case_drive_is_retrievable_with_lower_case_drive()
+    {
+        var sut = CreateSut();
+        var upper = DocumentUri.FromFileSystemPath("C:\\workspace\\test.feature");
+        var lower = DocumentUri.FromFileSystemPath("c:\\workspace\\test.feature");
+
+        sut.Update(upper, 1, "Feature: X\n");
+        sut.TryGet(lower, out var buffer).Should().BeTrue();
+        buffer!.Text.Should().Be("Feature: X\n");
+
+        // Also works in reverse
+        sut.Update(lower, 2, "Feature: Y\n");
+        sut.TryGet(upper, out var buffer2).Should().BeTrue();
+        buffer2!.Text.Should().Be("Feature: Y\n");
+    }
+
+    [Fact]
+    public void Remove_with_different_case_still_removes()
+    {
+        var sut = CreateSut();
+        var upper = DocumentUri.FromFileSystemPath("C:\\workspace\\test.feature");
+        var lower = DocumentUri.FromFileSystemPath("c:\\workspace\\test.feature");
+
+        sut.Update(upper, 1, "text");
+        sut.Remove(lower);
+        sut.TryGet(upper, out _).Should().BeFalse();
+    }
 }
