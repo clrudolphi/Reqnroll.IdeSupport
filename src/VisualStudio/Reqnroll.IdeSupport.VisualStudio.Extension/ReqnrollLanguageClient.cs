@@ -159,9 +159,14 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
             var scaffoldInterceptor = new ScaffoldTrackingInterceptor(
                 () => _projectMonitor, _traceSource);
 
-            // Send pipeline:   VS → [logger, semanticTokens, scaffold] → Server
+            // Watches textDocument/didChange on .cs files and invalidates code lenses
+            // so VS re-queries the server for updated usage counts after a binding edit.
+            var codeLensRefreshInterceptor = new CodeLensRefreshInterceptor(
+                _stepCodeLensState, _traceSource);
+
+            // Send pipeline:   VS → [logger, semanticTokens, scaffold, codeLensRefresh] → Server
             // Receive pipeline: Server → [logger, semanticTokens, scaffold] → VS
-            var sendInterceptors    = new ILspMessageInterceptor[] { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor };
+            var sendInterceptors    = new ILspMessageInterceptor[] { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor, codeLensRefreshInterceptor };
             var receiveInterceptors = new ILspMessageInterceptor[] { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor };
 
             _interceptingPipe = new LspInterceptingPipe(rawPipe, sendInterceptors, receiveInterceptors, _traceSource);
