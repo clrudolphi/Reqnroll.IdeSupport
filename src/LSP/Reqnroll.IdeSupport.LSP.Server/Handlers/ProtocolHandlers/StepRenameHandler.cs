@@ -526,13 +526,38 @@ public sealed class StepRenameHandler
         var csPath = uri.GetFileSystemPath();
         if (string.IsNullOrEmpty(csPath))
         {
-            _logger.LogVerbose("StepRenameHandler: FindAttributeLiteralAsync — csPath is null/empty");
-            return null;
+            if (binding?.Implementation?.SourceLocation?.SourceFile != null)
+            {
+                csPath = binding.Implementation.SourceLocation.SourceFile;
+                _logger.LogVerbose($"StepRenameHandler: FindAttributeLiteralAsync — using binding source file '{csPath}'");
+            }
+            else
+            {
+                _logger.LogVerbose("StepRenameHandler: FindAttributeLiteralAsync — csPath is null/empty");
+                return null;
+            }
+        }
+        else if (!csPath.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+        {
+            // When called from a .feature file, use the binding's C# source file
+            if (binding?.Implementation?.SourceLocation?.SourceFile != null)
+            {
+                csPath = binding.Implementation.SourceLocation.SourceFile;
+                _logger.LogVerbose($"StepRenameHandler: FindAttributeLiteralAsync — redirected from '{uri.GetFileSystemPath()}' to binding source '{csPath}'");
+            }
+            else
+            {
+                _logger.LogVerbose($"StepRenameHandler: FindAttributeLiteralAsync — non-cs file and no binding source: '{csPath}'");
+                return null;
+            }
         }
 
         // Get file text from the document buffer, or read from disk
         string? fileText = null;
-        if (_documentBuffer.TryGet(uri, out var buffer) && buffer?.Text != null)
+        var csUri = string.Equals(uri.GetFileSystemPath(), csPath, StringComparison.OrdinalIgnoreCase)
+            ? uri
+            : DocumentUri.FromFileSystemPath(csPath);
+        if (_documentBuffer.TryGet(csUri, out var buffer) && buffer?.Text != null)
         {
             fileText = buffer.Text;
             _logger.LogVerbose($"StepRenameHandler: FindAttributeLiteralAsync — got text from buffer ({fileText.Length} chars)");
