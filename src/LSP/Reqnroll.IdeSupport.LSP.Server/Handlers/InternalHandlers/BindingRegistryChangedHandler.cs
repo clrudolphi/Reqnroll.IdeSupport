@@ -1,7 +1,9 @@
 using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.LSP.Core.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Notifications;
 using Reqnroll.IdeSupport.LSP.Server.Services;
@@ -229,13 +231,33 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
     /// Re-runs Roslyn source-level discovery on all open .cs files belonging to
     /// <paramref name="project"/> after a Connector full replacement has overwritten
     /// the registry with potentially stale compiled bindings.
+    /// Uses a direct folder-prefix check (not the membership index) and accesses
+    /// the provider directly from the project's Properties to avoid the
+    /// ResolveOwners dependency in UpdateFromSourceAsync.
     /// </summary>
     private async Task RediscoverOpenCsFilesAsync(LspReqnrollProject project, CancellationToken ct)
     {
+        var projectFolder = project.ProjectFolder;
+        if (string.IsNullOrEmpty(projectFolder))
+            return;
+
+        if (!project.Properties.TryGetValue(typeof(ConnectorBindingRegistryProvider), out var obj)
+            || obj is not ConnectorBindingRegistryProvider provider)
+        {
+            _logger.LogVerbose(
+                $"[Connector startup] No binding provider for '{project.ProjectName}'; skipping Roslyn rediscovery.");
+            return;
+        }
+
         var csBuffers = _documentBufferService.All
-            .Where(b => b.Uri.GetFileSystemPath()?.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) == true
-                        && !string.IsNullOrEmpty(b.Text)
-                        && IsOwnedByProject(b.Uri, project))
+            .Where(b =>
+            {
+                var path = b.Uri.GetFileSystemPath();
+                return !string.IsNullOrEmpty(path)
+                    && path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrEmpty(b.Text)
+                    && path.StartsWith(projectFolder, StringComparison.OrdinalIgnoreCase);
+            })
             .ToList();
 
         if (csBuffers.Count == 0)
@@ -250,13 +272,17 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
             ct.ThrowIfCancellationRequested();
             try
             {
-                await _csharpDiscoveryService.UpdateFromSourceAsync(buffer.Uri, buffer.Text, ct)
-                    .ConfigureAwait(false);
+                var filePath = buffer.Uri.GetFileSystemPath()!;
+                var file = FileDetails.FromPath(filePath).WithCSharpContent(buffer.Text);
+                await provider.ApplyRoslynFileUpdateAsync(file).ConfigureAwait(false);
+
+                _logger.LogVerbose(
+                    $"[Connector startup] Roslyn rediscovery applied for '{filePath}' in project '{project.ProjectName}'.");
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogWarning(
-                    $"[Connector startup] Roslyn discovery failed for '{buffer.Uri}': {ex.Message}");
+                    $"[Connector startup] Roslyn rediscovery failed for '{buffer.Uri}': {ex.Message}");
             }
         }
     }
