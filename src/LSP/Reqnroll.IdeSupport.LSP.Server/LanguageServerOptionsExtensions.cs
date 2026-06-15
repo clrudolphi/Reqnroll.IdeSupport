@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Server;
+using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 using Reqnroll.IdeSupport.LSP.Server.Handlers.ProtocolHandlers;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
@@ -108,6 +109,23 @@ public static class LanguageServerOptionsExtensions
         options.OnRequest<FindUnusedStepDefinitionsParams, FindUnusedStepDefinitionsResponse>(
             LspMethodNames.ReqnrollFindUnusedStepDefinitions,
             (_, ct) => resolver!.Get<FindUnusedStepDefinitionsHandler>().HandleAsync(ct));
+
+        // ── F16 Step Rename ────────────────────────────────────────────────────
+        options.OnRequest<PrepareRenameParams, LspRange?>(
+            "textDocument/prepareRename",
+            (request, ct) => resolver!.Get<StepRenameHandler>().HandlePrepareRenameAsync(request, ct));
+
+        options.OnRequest<RenameParams, WorkspaceEdit?>(
+            "textDocument/rename",
+            (request, ct) => resolver!.Get<StepRenameHandler>().HandleRenameAsync(request, ct));
+
+        options.OnRequest<TextDocumentPositionParams, RenameTargetsResponse?>(
+            LspMethodNames.ReqnrollRenameTargets,
+            (request, ct) => resolver!.Get<StepRenameHandler>().HandleRenameTargetsAsync(request, ct));
+
+        options.OnNotification<SelectRenameTargetParams>(
+            LspMethodNames.ReqnrollSelectRenameTarget,
+            (request, ct) => resolver!.Get<StepRenameHandler>().HandleSelectRenameTargetAsync(request, ct));
     }
 
     /// <summary>

@@ -4,6 +4,7 @@ using Cucumber.TagExpressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 using Reqnroll.IdeSupport.LSP.Core.Discovery.TagExpressions;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
 using System.Text;
@@ -394,4 +395,63 @@ public class StepDefinitionFileParser
     }
 
     private sealed record RawScope(string Tag, string Feature, string Scenario);
+
+#nullable enable
+    /// <summary>
+    /// Information about a string literal token in a binding attribute argument — its source
+    /// span, syntax kind (regular string or raw string), and raw source text.
+    /// </summary>
+    public sealed record AttributeStringInfo(
+        TextSpan Span,
+        SyntaxKind LiteralKind,
+        string RawText);
+
+    /// <summary>
+    /// Locates the string-literal argument of a binding attribute at the given source position
+    /// and attribute index, and returns information about its token. Returns <c>null</c> when
+    /// the argument is not a literal string expression (e.g. a constant reference or nameof).
+    /// </summary>
+    public async Task<AttributeStringInfo?> GetAttributeStringInfo(
+        CSharpStepDefinitionFile file,
+        int methodLine,
+        int methodColumn,
+        int attributeIndex,
+        string expression)
+    {
+        var rootNode = await file.Content.GetRootAsync();
+
+        var methods = rootNode
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>();
+
+        foreach (var method in methods)
+        {
+            var pos = method.Identifier.GetLocation().GetLineSpan().StartLinePosition;
+            if (pos.Line != methodLine - 1 || pos.Character != methodColumn - 1)
+                continue;
+
+            var attributes = EnumerateAttributes(method.AttributeLists).ToList();
+            if (attributeIndex < 0 || attributeIndex >= attributes.Count)
+                return null;
+
+            var attribute = attributes[attributeIndex];
+            if (attribute.ArgumentList == null)
+                return null;
+
+            var literalArgument = attribute.ArgumentList.Arguments
+                .Select(a => a.Expression)
+                .OfType<LiteralExpressionSyntax>()
+                .FirstOrDefault(e => e.IsKind(SyntaxKind.StringLiteralExpression));
+
+            if (literalArgument == null)
+                return null;
+
+            return new AttributeStringInfo(
+                literalArgument.Token.Span,
+                literalArgument.Token.Kind(),
+                literalArgument.Token.Text);
+        }
+
+        return null;
+    }
 }

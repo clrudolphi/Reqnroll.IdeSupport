@@ -13,6 +13,7 @@ using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Folding;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Commenting;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
+using Reqnroll.IdeSupport.LSP.Core.Rename;
 using Reqnroll.IdeSupport.LSP.Server.Configuration;
 using Reqnroll.IdeSupport.LSP.Server.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
@@ -116,6 +117,8 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IGherkinDocumentSymbolService, GherkinDocumentSymbolService>()
             .AddSingleton<FeatureDocumentSymbolHandler>()
             .AddSingleton<FeatureFoldingRangeHandler>()
-            .AddSingleton<CommentToggleHandler>();
+            .AddSingleton<CommentToggleHandler>()
+            .AddSingleton<StepRenameHandler>()
+            .AddSingleton<RenameSessionManager>();
     }
 }

@@ -1094,27 +1094,84 @@ sequenceDiagram
 
 ### F16 · Step Rename Refactoring
 
-**Phase 4**
+**Phase 4** — prerequisite: F2 (binding registry), F3 (match sets), F14 membership index (Q17)
 
 #### End-user experience
 
 Renaming a step text (from either the `.feature` file step line or the C# `[Given("...")]` attribute string) updates all occurrences across the workspace: the attribute string in the binding class and every matching step in every `.feature` file.
 
+Key behavioural properties:
+
+- **Parameter preservation.** The expression's parameter slots (`(.*)`, `(\d+)`, Cucumber expression parameters) are preserved — the user renames the non-parameter text only. The parameter count and expression types must be identical before and after rename.
+- **Scenario Outline blocking.** Steps in Scenario Outlines that contain `<placeholder>` tokens in the feature file step text are NOT renamed. Renaming would corrupt the data-binding relationship between the outline and its example set.
+- **Derived-attribute support.** Custom attributes deriving from `[Given]` / `[When]` / `[Then]` (e.g., `class GivenWebAttribute : GivenAttribute`) are supported: the rename updates the attribute string text but preserves the attribute type name.
+- **Unambiguous cursor position.** When the cursor is in C# code, it must be positioned on the specific attribute string to rename. On a method with multiple binding attributes (e.g., `[Given("x")]`, `[When("y")]`), the cursor must be inside the target attribute's string literal. A cursor on the method signature or between attributes causes `prepareRename` to return `null` (rename not available); the user must click into the specific attribute.
+- **Ambiguous multi-attribute handling via custom command.** For the case where the user invokes rename from a method-level position (method body, method signature, or partially visible attribute), a **custom client-side command** (`reqnroll/renameStep` on VS, equivalent command on other IDEs) shows a picker to select which binding to rename. This is the same picker pattern used by F14 Find Usages.
+
+#### Validation rules
+
+The `StepRenameHandler` applies the following validations in order. Any validation failure causes the rename to return an error with a human-readable message.
+
+| # | Rule | Error message | Scope |
+|---|------|---------------|-------|
+| 1 | Cursor must resolve to a single binding at the given position | `"No step definition found at this position"` | `prepareRename` + `rename` |
+| 2 | Binding expression must be a valid string literal (not a constant, concatenation, or expression) | `"Step definition expression cannot be detected"` | `prepareRename` |
+| 3 | Non-parameter parts of the new expression must not contain regex / Cucumber expression operators (`?`, `*`, `+`, `[`, `]`, `{`, `}`, `(`, `)`, `^`, `$`, `\|`) | `"The non-parameter parts cannot contain expression operators"` | `rename` |
+| 4 | Parameter count in the new expression must match the original | `"Parameter count mismatch"` | `rename` |
+| 5 | Explicit parameter expressions (e.g., `(\d+)` → `(/d)`) must be compatible — same type, same allowed value range | `"Parameter expression mismatch"` | `rename` |
+| 6 | Step text in matching `.feature` files must not contain Scenario Outline placeholders (`<param>`) | `"Could not rename step with placeholders in scenario outline: {step text}"` | `rename` |
+| 7 | The owning project must have a valid (non-`Invalid`) binding registry with membership index populated | `"The project is not initialized yet"` / `"No Reqnroll project with feature files found"` | `prepareRename` |
+| 8 | For linked bindings: the rename must be able to reach every including project's feature files | Handled by fallback: un-reachable files logged, user warned via `window/showMessage` | `rename` (post-WorkspaceEdit) |
+
+> **Design note on operator validation (Rule 3):** The non-parameter parts of a Cucumber expression must remain literal text. Operators like `?`, `*`, `+`, `[...]`, `{...}`, `(...)`, `^`, `$`, `|` change the generated regex semantics. This validation parses the new expression by splitting on parameter slots and scanning each non-parameter segment for these operator characters. Escaped operators (e.g., `\(`, `\)`, `\\`) are excluded from the scan. The same validation is already implemented in the existing VS `RenameStepCommand`; the LSP server reuses the same parsing logic.
+
+#### C# attribute resolution (via `StepDefinitionFileParser.GetAttributeStringInfo`)
+
+When the rename handler needs the attribute expression's source range and delimiter type in the `.cs` file, it calls **`StepDefinitionFileParser.GetAttributeStringInfo(CSharpStepDefinitionFile, methodLine, methodColumn, expressionPattern)`** — a new public method on the existing F2 discovery parser. The method reuses the same private helpers (`GetSourceLocation`, `EnumerateAttributes`, `GetStepDefinitionExpression`, `GetStringConstant`) that `ParseBindings` already uses, so no new file-reading or attribute-walking infrastructure is needed. The resolution proceeds as follows:
+
+1. The method receives the `.cs` file content via `CSharpStepDefinitionFile` (the same wrapper `ParseBindings` uses). If the file is open, the document buffer provides the latest version; if closed, it reads from disk.
+2. It parses the file into a Roslyn `SyntaxTree` (`Content.GetRootAsync()`, identical to line 79 of `ParseBindings`).
+3. It walks `DescendantNodes().OfType<MethodDeclarationSyntax>()` and finds the one whose source line/column matches the binding registry's recorded method location (via `GetSourceLocation`).
+4. From that method, it walks `AttributeLists` → `EnumerateAttributes` → `GetStepDefinitionExpression` to find the attribute whose expression matches the binding.
+5. It extracts:
+   - **`Span`** — the exact source range of the string literal (including delimiters)
+   - **`SyntaxKind`** — `StringLiteralToken` (regular `"..."`) vs `SingleLineRawStringLiteralToken` (verbatim `@"..."`) to determine escaping rules
+   - **`Text`** — the raw source text (including escape sequences like `\"\"`, `\(`)
+
+This parse is **fast** (single file, single attribute list walk — typically <50ms for a step definition class) and **consistent** because the handler reads the document buffer, which reflects whatever the user currently sees in the editor. If the user has unsaved edits, the rename edits the version they're looking at, which is the correct behaviour.
+
+> **Rationale — dynamic parse over proactive storage.** The expression type (`@"..."` vs `"..."`) and the attribute's source span are only needed at rename time, which is an infrequent, user-invoked operation. Storing them proactively in the binding registry would add three fields per binding attribute that go unused between renames, introduce a sync problem on every `.cs` edit (the cached span goes stale the moment the user types), and add complexity to the registry data model. A dynamic parse at rename time is simpler (no data model change), always reflects the current editor state, and costs negligible wall-clock time for a user-triggered operation. The only case where the document buffer does not have the file is when the `.cs` file was modified externally and not opened — in that case the handler reads from disk, which is also fine because a rename on a file the user isn't looking at is unlikely to race with an external edit.
+
 #### IDE support matrix
 
-| VS Code | Visual Studio | Rider |
-|---------|---------------|-------|
-| ✅ Generic | ✅ Generic | ✅ Generic |
+|| VS Code | Visual Studio | Rider |
+||---------|---------------|-------|
+|| ✅ Generic (single-binding) + ⚠️ Config (multi-attribute fallback) | ✅ Generic (single-binding) + 🔧 Plugin (multi-attribute + custom dialog) | ✅ Generic (single-binding) + 🔧 Plugin (multi-attribute) |
+
+**Multi-attribute method resolution** is the key divergence:
+
+- **VS Code**: When the cursor is on a multi-attribute binding method, `prepareRename` returns `null` and the standard rename gesture (F2) is unavailable. The user must click into the specific attribute string to rename. An additional keyboard shortcut binding (provided via `package.json`) routes to the custom `reqnroll/renameStep` command when supported.
+- **Visual Studio**: The existing `RenameStepCommand` (VSSDK) is retained for the multi-attribute case and for users who prefer the custom dialog with inline validation (`RenameStepViewModel`). The standard LSP rename handles the single-binding case. The VS command checks whether the cursor is on an unambiguous binding and delegates to the LSP rename flow; otherwise it falls back to the custom dialog with the step-definition picker.
+- **Rider**: The Rider LSP client bridges multi-attribute ambiguity through a PSI-level handler (similar to the F14 Find Usages approach) that intercepts the rename gesture and, when multiple candidates exist, shows the IntelliJ-native "Choose Step Definition" popup.
 
 #### LSP messages
 
 | Direction | Method | Purpose |
 |-----------|--------|---------|
-| Client → Server | `textDocument/prepareRename` | Validate rename is possible at position |
-| Client → Server | `textDocument/rename` | Execute rename with new text |
-| Server → Client | `WorkspaceEdit` response | All edits across all files |
+| Client → Server | `textDocument/prepareRename` | Validate cursor position is on a renameable binding; return `null` if ambiguous or invalid |
+| Client → Server | `textDocument/rename` (with `position`) | Execute rename — server uses cursor position to disambiguate which binding to rename |
+| Server → Client | `WorkspaceEdit` response (success) | Multi-file edit covering `.cs` attribute string + all matching `.feature` step lines |
+| Server → Client | `ResponseError` with message (failure) | Validation error message (e.g., "Parameter count mismatch"), displayed in IDE rename dialog |
+| Server → Client | `window/showMessage` (post-rename warning) | Non-blocking notification about files that could not be renamed (e.g., read-only, pending membership) |
 
-#### Sequence diagram
+| Direction | Method | Purpose |
+|-----------|--------|---------|
+|| Client → Server | `reqnroll/renameTargets` (custom, optional) | When the cursor is on a multi-attribute method, returns the list of binding(s) at that position so the client can show a picker |
+|| Server → Client | `RenameTargetsResponse` | `{ targets: RenameTargetItem[] }` — one entry per binding attribute, each carrying `{ label, attributeRange }` |
+
+> **Design note — custom request flow:** The standard LSP rename flow has no provision for a mid-rename picker. When the cursor is on a method with multiple binding attributes, `prepareRename` cannot return a meaningful range (it would apply the rename to all attributes, which is wrong). The server therefore returns `null` from `prepareRename`, disabling the standard F2 gesture. The custom `reqnroll/renameTargets` request gives the client (via its plugin — VSSDK, Rider PSI, VS Code command) the data needed to show a picker. After the user selects one target, the client issues a follow-up `reqnroll/selectRenameTarget` notification, and the server then accepts `textDocument/rename` for that specific target within the next 30 seconds (stored as a pending rename session keyed by `(uri, version)`).
+
+#### Sequence diagram — single-binding rename (standard LSP)
 
 ```mermaid
 sequenceDiagram
@@ -1124,20 +1181,99 @@ sequenceDiagram
     box LightBlue LSP Server
         participant SRenH as StepRenameHandler
         participant BM as Binding Match Service
+        participant BR as Binding Registry
+        participant SFP as StepDefinitionFileParser.GetAttributeStringInfo
     end
 
-    User->>IDE: Rename step (F2 on step text or attribute string)
+    User->>IDE: F2 on unambiguous step text or attribute string
     IDE->>SRenH: textDocument/prepareRename (uri, position)
-    SRenH-->>IDE: Range of renameable text
-    User->>IDE: Types new step text, confirms
-    IDE->>SRenH: textDocument/rename (newName)
-    SRenH->>BM: Resolve symbol at (uri, position)
-    BM-->>SRenH: Binding pattern + all locations from match cache
-    Note over SRenH: Locations include: csharp attribute ranges + all .feature step ranges
-    SRenH->>SRenH: Build WorkspaceEdit from all locations
+    SRenH->>BR: Look up binding at (uri, position)
+    BR-->>SRenH: Binding (or null / multi-attribute)
+
+    alt Cursor on non-binding location or multi-attribute method
+        SRenH-->>IDE: null (rename not available)
+        IDE-->>User: F2 gesture unavailable; user navigates to specific attribute
+    else Single binding resolved
+        SRenH-->>IDE: Range of renameable text (attribute string / step text)
+        User->>IDE: Types new expression, confirms
+        IDE->>SRenH: textDocument/rename (uri, position, newName)
+        SRenH->>SRenH: Validate newName (rules 3-6)
+
+        alt Validation failed
+            SRenH-->>IDE: ResponseError with message
+            IDE-->>User: Validation error in rename dialog
+        else Validation passed
+            SRenH->>BM: Resolve binding + feature step locations
+            BM-->>SRenH: Binding pattern + feature step ranges (all .feature matches)
+            SRenH->>SFP: Parse .cs file to locate attribute string range + delimiter type
+            SFP-->>SRenH: AttributeStringInfo (span, literalKind, rawText)
+            SRenH->>SRenH: Build WorkspaceEdit (1 csharp edit + N feature edits)
+            SRenH-->>IDE: WorkspaceEdit
+            alt Partial failure (some files read-only / pending)
+                SRenH-->>IDE: window/showMessage (warning)
+            end
+            IDE-->>User: All occurrences renamed
+        end
+    end
+```
+
+#### Sequence diagram — multi-attribute rename (custom command + picker)
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant IDE
+
+    box LightBlue LSP Server
+        participant SRenH as StepRenameHandler
+        participant BM as Binding Match Service
+        participant SFP as StepDefinitionFileParser.GetAttributeStringInfo
+    end
+
+    User->>IDE: Custom "Rename Step" command on multi-attribute method
+    IDE->>SRenH: reqnroll/renameTargets (uri, position)
+    SRenH->>SFP: Parse .cs file at method location
+    SFP-->>SRenH: AttributeArgumentSyntax[] per binding attribute
+    SRenH->>BM: Build RenameTarget[] (label + attributeRange per attribute)
+    BM-->>SRenH: RenameTarget[] (one per binding attribute)
+    SRenH-->>IDE: RenameTarget[]
+    alt Single target
+        IDE-->>User: Continue directly to rename dialog
+    else Multiple targets
+        IDE->>IDE: Show picker (ContextMenu / NavigationPickerDialog / PSI popup)
+        User->>IDE: Select one target
+    end
+    IDE->>SRenH: reqnroll/selectRenameTarget { uri, version, attributeRange }
+    SRenH-->>IDE: OK (pending session established)
+    IDE-->>User: Native rename dialog with attribute text pre-filled
+    User->>IDE: Types new expression, confirms
+    IDE->>SRenH: textDocument/rename (uri, position, newName)
+    Note over SRenH: Server matches position + pending session to identify binding
+    SRenH->>SFP: Re-parse .cs to confirm attribute span (version may have changed)
+    SFP-->>SRenH: Current attribute string span + delimiter
+    SRenH->>SRenH: Validate newName → Build WorkspaceEdit
     SRenH-->>IDE: WorkspaceEdit
     IDE-->>User: All occurrences renamed
 ```
+
+#### Error handling
+
+| Scenario | Behaviour |
+|----------|-----------|
+| C# file is read-only or checked out to another user | The WorkspaceEdit fails for that file. `textDocument/rename` returns a `ResponseError` indicating the file that could not be modified. No partial rename is applied. |
+| Feature file membership is in **pending** state (no `reqnroll/projectFiles` baseline) | The rename proceeds for all files that *can* be resolved. After the rename completes, the server publishes a `window/showMessage`: "Step renamed in N file(s). Note: project '{project}' has not reported its file membership — steps in that project may not have been updated." |
+| Feature file in a linked project that has not yet sent membership | Same as pending state — logged, reported via `window/showMessage`. User is advised to trigger a project reload. |
+| Binding registry becomes `Invalid` between `prepareRename` and `rename` | `ResponseError("The binding registry has been invalidated. Please try again after the project finishes loading.")` |
+| User edits the `.cs` file between `prepareRename` and `rename` | Since `StepDefinitionFileParser.GetAttributeStringInfo` reads from the document buffer at `rename` time (via `CSharpStepDefinitionFile`), it always targets the current editor state. The `prepareRename` response warned the user with the old range, but the actual edit applies to the new version — which is correct behaviour (the user edited the file, and the rename should edit what's on screen). |
+
+#### Implementation notes
+
+- **LSP handler placement.** `StepRenameHandler` lives alongside the other OmniSharp handlers in `src/LSP/Reqnroll.IdeSupport.LSP.Server/Handlers/`. The handler registers for `textDocument/prepareRename` and `textDocument/rename` via the OmniSharp `ILanguageServer` router (same pattern as `FeatureDefinitionHandler`).
+- **Validator class.** The validation rules (Rules 1-8) are extracted to a shared `StepRenameValidator` in `LSP.Core/Rename/` to separate concerns from the OmniSharp handler layer and enable unit testing.
+- **Reuse existing expression parsing.** The Cucumber-expression parsing and parameter-slot extraction used by the existing VS `RenameStepCommand` lives in `Reqnroll.IdeSupport.Common/StepDefinitionExpressionParser`. The LSP server references the same library; `StepRenameValidator` delegates to it rather than reimplementing.
+- **WorkspaceEdit construction.** The `WorkspaceEdit` builder (`Changes` / `DocumentChanges` dictionary) is populated from two sources: (a) `StepDefinitionFileParser.GetAttributeStringInfo` result for the C# attribute string edit (span + replacement text with correct escaping), and (b) each matching `.feature` step location from the binding-match result (step `SourceLocation` → `TextEdit` replacing the step text).
+- **Phase 4 migration path for VS.** The existing `RenameStepCommand` (VSSDK) is retained and acts as a façade: for single-binding positions it delegates to the LSP `textDocument/rename` flow (via the same `LspInterceptingPipe` used by F14's custom command). For multi-attribute positions it shows the existing picker + `RenameStepViewModel` dialog. This dual-path approach lets the LSP rename ship in Phase 4 without regressing the rich VS validation UX, and the VS-specific code can be retired in a later release once the LSP dialog ecosystem catches up.
+- **Linked files.** When the membership index (Q17) reports that a binding `.cs` file belongs to multiple projects, the rename handler unions the feature files from **all** including projects into the WorkspaceEdit. The handler calls `ILspWorkspaceScopeManager.GetProjectsForUri(bindingCsFile)` to get the owning set, then iterates each project's registry to find matching feature steps. This is the same multi-project routing already designed for F14/F15; the rename handler uses the same `GetProjectsForUri` API.
 
 ---
 

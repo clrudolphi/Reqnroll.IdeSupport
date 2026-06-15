@@ -15,8 +15,10 @@ public static class LspMethodNames
     public const string ReqnrollGoToStepDefinitions = "reqnroll/goToStepDefinitions";
     public const string ReqnrollGoToHooks = "reqnroll/goToHooks";
     public const string ReqnrollFindUnusedStepDefinitions = "reqnroll/findUnusedStepDefinitions";
+    public const string ReqnrollRenameTargets = "reqnroll/renameTargets";
+    public const string ReqnrollSelectRenameTarget = "reqnroll/selectRenameTarget";
 
-    // ── Standard LSP Methods (routed manually to avoid dynamic registration issues with VS) ─
+    // ── Standard LSP Methods
     public const string TextDocumentSemanticTokensFull = "textDocument/semanticTokens/full";
     public const string TextDocumentSemanticTokensFullDelta = "textDocument/semanticTokens/full/delta";
     public const string TextDocumentReferences = "textDocument/references";
