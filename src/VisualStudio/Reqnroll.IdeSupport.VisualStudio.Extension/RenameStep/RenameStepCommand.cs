@@ -157,8 +157,11 @@ internal sealed class RenameStepCommand : Command
             _fileLogger.LogInfo($"RenameStepCommand: rename result = {result}");
 
             // Step 6: Apply the WorkspaceEdit (buffer-first for open documents)
-            var applier = new WorkspaceEditApplier(service, _fileLogger, _traceSource);
-            await applier.ApplyAsync(result, cancellationToken).ConfigureAwait(false);
+            if (result is not null)
+            {
+                var applier = new WorkspaceEditApplier(service, _fileLogger, _traceSource);
+                await applier.ApplyAsync(result, cancellationToken).ConfigureAwait(false);
+            }
 
             _fileLogger.LogInfo("RenameStepCommand: rename completed successfully.");
             VsUtils.ShowStatusBarMessage("Reqnroll: Step renamed successfully.");

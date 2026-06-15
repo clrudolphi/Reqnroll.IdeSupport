@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -11,7 +10,6 @@ using System.Threading.Tasks;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.TextManager.Interop;
-using Newtonsoft.Json.Linq;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.RenameStep;
@@ -39,22 +37,18 @@ internal sealed class WorkspaceEditApplier
     }
 
     /// <summary>
-    /// Applies all file edits from a <c>textDocument/rename</c> workspace edit result.
+    /// Applies all file edits from a <see cref="RenameWorkspaceEdit"/> result.
+    /// For documents open in the editor, edits are applied via VS text buffer
+    /// (<see cref="IVsTextLines.ReplaceLines"/>) so that unsaved changes are not
+    /// overwritten.  For closed documents, <c>File.WriteAllText</c> is used.
     /// </summary>
-    /// <param name="result">The JSON result of the rename request (a WorkspaceEdit with a "changes" map).</param>
+    /// <param name="workspace">The structured workspace edit with pre-parsed file edits.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task ApplyAsync(JToken result, CancellationToken cancellationToken)
+    public async Task ApplyAsync(RenameWorkspaceEdit workspace, CancellationToken cancellationToken)
     {
-        if (result is not JObject editObj)
+        if (workspace.FileEdits.Count == 0)
         {
-            _logger.LogWarning("WorkspaceEditApplier: result is not a JSON object.");
-            return;
-        }
-
-        var changes = editObj["changes"] as JObject;
-        if (changes is null)
-        {
-            _logger.LogWarning("WorkspaceEditApplier: result has no 'changes' property.");
+            _logger.LogWarning("WorkspaceEditApplier: no file edits to apply.");
             return;
         }
 
@@ -63,23 +57,10 @@ internal sealed class WorkspaceEditApplier
         var rdt = ServiceProvider.GlobalProvider.GetService(typeof(SVsRunningDocumentTable))
             as IVsRunningDocumentTable;
 
-        foreach (var fileEntry in changes)
+        foreach (var kvp in workspace.FileEdits)
         {
-            var uri  = fileEntry.Key;
-            var edits = fileEntry.Value as JArray;
-            if (edits is null || edits.Count == 0)
-                continue;
-
-            var localPath = UriToLocalPath(uri);
-            _logger.LogInfo($"WorkspaceEditApplier: applying {edits.Count} edit(s) to '{localPath}'.");
-
-            if (!System.IO.File.Exists(localPath))
-            {
-                _logger.LogWarning($"WorkspaceEditApplier: file not found: '{localPath}'.");
-                continue;
-            }
-
-            var textEdits = ParseTextEdits(edits);
+            var localPath = kvp.Key;
+            var textEdits = kvp.Value;
 
             // Try VS text buffer first (preserves unsaved changes)
             if (rdt != null && TryApplyToBuffer(rdt, localPath, textEdits, cancellationToken))
@@ -182,45 +163,6 @@ internal sealed class WorkspaceEditApplier
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    /// <summary>Converts a <c>file:///</c> URI string to a local filesystem path.</summary>
-    private static string UriToLocalPath(string uri)
-    {
-        if (uri.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
-            return uri.Substring(8).Replace('/', '\\');
-        return uri;
-    }
-
-    /// <summary>Parses a JSON array of LSP TextEdit objects and returns them sorted bottom-to-top.</summary>
-    private static List<TextEditItem> ParseTextEdits(JArray edits)
-    {
-        var result = new List<TextEditItem>(edits.Count);
-        foreach (var edit in edits.Cast<JObject>())
-        {
-            var range = edit["range"];
-            if (range is null) continue;
-            var start = range["start"];
-            var end   = range["end"];
-            if (start is null || end is null) continue;
-
-            result.Add(new TextEditItem(
-                start["line"]?.Value<int>() ?? 0,
-                start["character"]?.Value<int>() ?? 0,
-                end["line"]?.Value<int>() ?? 0,
-                end["character"]?.Value<int>() ?? 0,
-                edit["newText"]?.Value<string>() ?? ""
-            ));
-        }
-
-        // Sort descending so edits applied bottom-to-top keep positions valid.
-        result.Sort((a, b) =>
-        {
-            var lineCmp = b.StartLine.CompareTo(a.StartLine);
-            return lineCmp != 0 ? lineCmp : b.StartChar.CompareTo(a.StartChar);
-        });
-
-        return result;
-    }
-
     /// <summary>Applies a single <see cref="TextEditItem"/> to a VS text buffer.</summary>
     private static void ApplyEditToBuffer(IVsTextLines textLines, TextEditItem edit)
     {
@@ -275,11 +217,3 @@ internal sealed class WorkspaceEditApplier
         }
     }
 }
-
-/// <summary>A single position-indexed text replacement within a document.</summary>
-internal sealed record TextEditItem(
-    int    StartLine,
-    int    StartChar,
-    int    EndLine,
-    int    EndChar,
-    string NewText);
