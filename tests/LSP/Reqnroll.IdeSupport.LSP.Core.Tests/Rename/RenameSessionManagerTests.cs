@@ -114,4 +114,16 @@ public class RenameSessionManagerTests
 
         consumed.Should().BeFalse();
     }
+
+    [Fact]
+    public void SetSession_with_upper_case_drive_is_consumable_with_lower_case_drive()
+    {
+        var sut = CreateSut();
+
+        sut.SetSession("file:///C:/Users/test/Steps.cs", 0, 2);
+        var consumed = sut.TryConsume("file:///c:/Users/test/Steps.cs", 0, out var attributeIndex);
+
+        consumed.Should().BeTrue();
+        attributeIndex.Should().Be(2);
+    }
 }

@@ -20,7 +20,7 @@ public class RenameSessionManager
     /// <summary>Stores a pending rename session with a 30-second expiry.</summary>
     public void SetSession(string uri, int version, int attributeIndex)
     {
-        var key = (uri, version);
+        var key = (NormalizeUri(uri), version);
         _sessions[key] = (attributeIndex, DateTime.UtcNow + SessionDuration);
         Cleanup();
     }
@@ -34,8 +34,8 @@ public class RenameSessionManager
     {
         attributeIndex = 0;
         Cleanup();
-        
-        var key = (uri, version);
+
+        var key = (NormalizeUri(uri), version);
         if (_sessions.TryRemove(key, out var entry))
         {
             if (entry.ExpiresAt > DateTime.UtcNow)
@@ -45,6 +45,13 @@ public class RenameSessionManager
             }
         }
         return false;
+    }
+
+    private static string NormalizeUri(string uri)
+    {
+        // Normalize URI casing so that file:///C:/Users/... and file:///c:/Users/...
+        // map to the same key. On Windows, file paths are case-insensitive.
+        return uri.ToLowerInvariant();
     }
 
     /// <summary>Removes expired sessions on a best-effort basis.</summary>
