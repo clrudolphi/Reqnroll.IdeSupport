@@ -6,6 +6,8 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
@@ -360,8 +362,6 @@ public sealed class StepRenameHandler
         if (string.IsNullOrEmpty(csPath))
             return null;
 
-        var bindingLine = binding.Implementation.SourceLocation?.SourceFileLine ?? 1;
-
         // Get file text from the document buffer, or read from disk
         string? fileText = null;
         if (_documentBuffer.TryGet(uri, out var buffer) && buffer?.Text != null)
@@ -377,29 +377,35 @@ public sealed class StepRenameHandler
         var fileDetails = FileDetails.FromPath(csPath);
         var csFile = new CSharpStepDefinitionFile(fileDetails, tree);
 
-        // Find the attribute index by matching the expression at the binding's line
-        var allStepDefs = registry.StepDefinitions
-            .Where(b => b.Implementation.SourceLocation != null &&
-                        string.Equals(b.Implementation.SourceLocation.SourceFile, csPath, StringComparison.OrdinalIgnoreCase) &&
-                        b.Implementation.SourceLocation.SourceFileLine == bindingLine)
-            .Select((b, i) => new { b.Expression, Index = i })
-            .ToList();
+        // Find the method whose attribute lists contain a string-literal argument
+        // matching originalExpression. This avoids reliance on PDB line numbers.
+        var rootNode = await csFile.Content.GetRootAsync();
+        var targetMethod = rootNode
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .FirstOrDefault(m => m.AttributeLists
+                .SelectMany(al => al.Attributes)
+                .SelectMany(a => a.ArgumentList?.Arguments ?? Enumerable.Empty<AttributeArgumentSyntax>())
+                .Select(a => a.Expression)
+                .OfType<LiteralExpressionSyntax>()
+                .Any(e => e.Token.ValueText == originalExpression));
 
-        var attrIndex = allStepDefs
-            .Where(s => s.Expression == originalExpression)
-            .Select(s => s.Index)
-            .FirstOrDefault();
+        if (targetMethod == null)
+            return null;
 
-        // Parse the .cs to find the attribute string range
-        var parser = new StepDefinitionFileParser();
-        var info = await parser.GetAttributeStringInfo(
-            csFile, bindingLine, methodColumn: 1, attrIndex, originalExpression);
+        // Find the exact literal-expression attribute argument that matches
+        var literalArgument = targetMethod.AttributeLists
+            .SelectMany(al => al.Attributes)
+            .SelectMany(a => a.ArgumentList?.Arguments ?? Enumerable.Empty<AttributeArgumentSyntax>())
+            .Select(a => a.Expression)
+            .OfType<LiteralExpressionSyntax>()
+            .FirstOrDefault(e => e.Token.ValueText == originalExpression);
 
-        if (info == null)
+        if (literalArgument == null)
             return null;
 
         // Convert the character-offset TextSpan to line/column using the SyntaxTree
-        var lineSpan = tree.GetLineSpan(info.Span);
+        var lineSpan = tree.GetLineSpan(literalArgument.Token.Span);
         var startPos = lineSpan.StartLinePosition;
         var endPos   = lineSpan.EndLinePosition;
 
