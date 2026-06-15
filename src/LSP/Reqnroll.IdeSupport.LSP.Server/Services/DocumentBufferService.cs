@@ -22,7 +22,9 @@ public class DocumentBufferService : IDocumentBufferService
     {
         var key = uri.ToString();
         // Normalize drive letter (Windows): file:///C:/path → file:///c:/path
-        if (key.StartsWith("file:///", StringComparison.OrdinalIgnoreCase) && key.Length > 8 && key[8] == ':')
+        if (key.StartsWith("file:///", StringComparison.OrdinalIgnoreCase) &&
+            key.Length > 9 && key[9] == ':' &&
+            char.IsLetter(key[8]) && char.IsUpper(key[8]))
             key = "file:///" + char.ToLowerInvariant(key[8]) + key.Substring(9);
         return key;
     }
