@@ -261,7 +261,7 @@ public sealed class StepRenameHandler
 
         var registry = _registryLookup.GetRegistryForUri(uri);
         if (registry == ProjectBindingRegistry.Invalid)
-            return Task.FromResult<RenameTargetsResponse?>(null);
+            return Task.FromResult<RenameTargetsResponse?>(new RenameTargetsResponse());
 
         // Collect all bindings at this method location (heuristic: within 5 lines)
         var allBindings = registry.StepDefinitions
@@ -272,7 +272,7 @@ public sealed class StepRenameHandler
             .ToList();
 
         if (allBindings.Count == 0)
-            return Task.FromResult<RenameTargetsResponse?>(null);
+            return Task.FromResult<RenameTargetsResponse?>(new RenameTargetsResponse());
 
         var response = new RenameTargetsResponse();
         int idx = 0;

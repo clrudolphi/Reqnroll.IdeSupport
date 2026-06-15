@@ -39,9 +39,9 @@ internal sealed class RenameStepService
             .SendRequestToServerAsync(RenameTargetsMethod, paramsJson, cancellationToken)
             .ConfigureAwait(false);
 
-        if (result is JObject obj && obj["targets"] is JArray)
+        if (result is JObject obj && obj["targets"] is JArray arr && arr.Count > 0)
         {
-            _fileLogger.LogInfo($"RenameStepService: got {obj["targets"]!.Value<JArray>()!.Count} target(s)");
+            _fileLogger.LogInfo($"RenameStepService: got {arr.Count} target(s)");
             return obj;
         }
 
