@@ -179,6 +179,7 @@ public sealed class StepRenameHandler
         // attribute string — the picker pre-selected which binding to rename.
         ProjectStepDefinitionBinding? binding = null;
         int? pendingAttributeIndex = null;
+        List<ProjectStepDefinitionBinding> bindingsAtLocation = new();
 
         // Use version from request or fallback to 0
         var documentVersion = 0;
@@ -191,7 +192,7 @@ public sealed class StepRenameHandler
         if (pendingAttributeIndex.HasValue)
         {
             // Find the binding by enumerating bindings at the method location
-            var bindingsAtLocation = registry.StepDefinitions
+            bindingsAtLocation = registry.StepDefinitions
                 .Where(b => b.Implementation.SourceLocation != null &&
                             string.Equals(b.Implementation.SourceLocation.SourceFile, path, StringComparison.OrdinalIgnoreCase) &&
                             Math.Abs(b.Implementation.SourceLocation.SourceFileLine - line) <= 5)
@@ -252,7 +253,19 @@ public sealed class StepRenameHandler
         // ── 5. Build .cs file edit (if cursor was on C#) ──────────────────────
         if (path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
         {
-            var csEdit = await BuildCSharpEditAsync(uri, binding, registry, expression, newName);
+            // When multiple methods share the same expression (scoped duplicates),
+            // compute the index of this binding among same-expression bindings
+            // so BuildCSharpEditAsync can find the Nth matching method.
+            var sameExprCount = 0;
+            var sameExprIndex = -1;
+            foreach (var bd in bindingsAtLocation)
+            {
+                if (bd.Expression != expression) continue;
+                if (ReferenceEquals(bd, binding)) { sameExprIndex = sameExprCount; break; }
+                sameExprCount++;
+            }
+
+            var csEdit = await BuildCSharpEditAsync(uri, expression, newName, sameExprIndex);
             if (csEdit != null)
             {
                 if (!changes.TryGetValue(uri, out var list))
@@ -298,11 +311,12 @@ public sealed class StepRenameHandler
             return Task.FromResult<RenameTargetsResponse?>(new RenameTargetsResponse());
 
         // Collect all bindings at this method location (heuristic: within 5 lines)
+        // Do NOT DistinctBy expression — multiple methods can share the same expression
+        // with different Scope attributes (e.g. [Scope(Tag="tag1")] + [Given("text")]).
         var allBindings = registry.StepDefinitions
             .Where(b => b.Implementation.SourceLocation != null &&
                         string.Equals(b.Implementation.SourceLocation.SourceFile, path, StringComparison.OrdinalIgnoreCase) &&
                         Math.Abs(b.Implementation.SourceLocation.SourceFileLine - line) <= 5)
-            .DistinctBy(b => b.Expression)
             .ToList();
 
         if (allBindings.Count == 0)
@@ -312,9 +326,12 @@ public sealed class StepRenameHandler
         int idx = 0;
         foreach (var b in allBindings)
         {
+            // Include scope tag in label to disambiguate methods sharing the same expression
+            var scopeTag = b.Scope?.Tag?.ToString();
+            var scopeSuffix = !string.IsNullOrEmpty(scopeTag) ? $" [@{scopeTag}]" : "";
             response.Targets.Add(new RenameTargetItem
             {
-                Label = $"{b.StepDefinitionType} {b.Expression ?? "(unknown)"}",
+                Label = $"{b.StepDefinitionType} {b.Expression ?? "(unknown)"}{scopeSuffix}",
                 AttributeIndex = idx,
                 StartLine = (b.Implementation.SourceLocation?.SourceFileLine ?? line) - 1,
                 StartChar = 1,
@@ -353,10 +370,9 @@ public sealed class StepRenameHandler
 
     private async Task<TextEdit?> BuildCSharpEditAsync(
         DocumentUri uri,
-        ProjectStepDefinitionBinding binding,
-        ProjectBindingRegistry registry,
         string originalExpression,
-        string newName)
+        string newName,
+        int sameExprIndex)
     {
         var csPath = uri.GetFileSystemPath();
         if (string.IsNullOrEmpty(csPath))
@@ -377,18 +393,24 @@ public sealed class StepRenameHandler
         var fileDetails = FileDetails.FromPath(csPath);
         var csFile = new CSharpStepDefinitionFile(fileDetails, tree);
 
-        // Find the method whose attribute lists contain a string-literal argument
-        // matching originalExpression. This avoids reliance on PDB line numbers.
+        // Find all methods whose attribute lists contain a string-literal argument
+        // matching originalExpression. Pick the Nth one (sameExprIndex) when
+        // multiple methods share the same expression with different scopes.
         var rootNode = await csFile.Content.GetRootAsync();
-        var targetMethod = rootNode
+        var matchingMethods = rootNode
             .DescendantNodes()
             .OfType<MethodDeclarationSyntax>()
-            .FirstOrDefault(m => m.AttributeLists
+            .Where(m => m.AttributeLists
                 .SelectMany(al => al.Attributes)
                 .SelectMany(a => a.ArgumentList?.Arguments ?? Enumerable.Empty<AttributeArgumentSyntax>())
                 .Select(a => a.Expression)
                 .OfType<LiteralExpressionSyntax>()
-                .Any(e => e.Token.ValueText == originalExpression));
+                .Any(e => e.Token.ValueText == originalExpression))
+            .ToList();
+
+        var targetMethod = sameExprIndex >= 0 && sameExprIndex < matchingMethods.Count
+            ? matchingMethods[sameExprIndex]
+            : matchingMethods.FirstOrDefault();
 
         if (targetMethod == null)
             return null;
