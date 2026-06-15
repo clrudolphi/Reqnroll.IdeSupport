@@ -14,6 +14,7 @@ using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Discovery;
+using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Core.Rename;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
@@ -224,6 +225,13 @@ public sealed class StepRenameHandler
             return null;
         }
 
+        // Resolve the live source expression once (preserves the original parameter syntax).
+        // For a .cs-invoked rename this is the attribute string literal; otherwise it falls back
+        // to the registry expression. It anchors both the feature edits (static-segment
+        // substitution) and the C# attribute edit.
+        var sourceLiteral = await FindAttributeLiteralAsync(uri, binding);
+        var sourceExpression = sourceLiteral?.Token.ValueText ?? expression;
+
         // ── 3. Resolve feature step locations ──────────────────────────────────
         var owners = _scopeManager.ResolveOwners(uri);
         var projectFilter = owners.Count > 0
@@ -243,7 +251,7 @@ public sealed class StepRenameHandler
                 changes[featureUri] = list;
             }
 
-            // Read the feature step text to preserve parameter values
+            // Read the feature step text to preserve parameter values / placeholders
             string? stepText = null;
             if (usage.Range != null)
             {
@@ -251,7 +259,7 @@ public sealed class StepRenameHandler
                 stepText = ReadStepText(featureUri, stepRange);
             }
 
-            var featureNewText = FeatureStepTextBuilder.Build(newName, binding.Regex, stepText);
+            var featureNewText = FeatureStepTextBuilder.Build(newName, sourceExpression, binding.Regex, stepText);
             list.Add(new TextEdit
             {
                 Range = usage.Range!.ToLspRange(),
@@ -262,19 +270,7 @@ public sealed class StepRenameHandler
         // ── 5. Build .cs file edit (if cursor was on C#) ──────────────────────
         if (path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
         {
-            // When multiple methods share the same expression (scoped duplicates),
-            // compute the index of this binding among same-expression bindings
-            // so BuildCSharpEditAsync can find the Nth matching method.
-            var sameExprCount = 0;
-            var sameExprIndex = -1;
-            foreach (var bd in bindingsAtLocation)
-            {
-                if (bd.Expression != expression) continue;
-                if (ReferenceEquals(bd, binding)) { sameExprIndex = sameExprCount; break; }
-                sameExprCount++;
-            }
-
-            var csEdit = await BuildCSharpEditAsync(uri, expression, newName, sameExprIndex);
+            var csEdit = BuildCSharpEdit(sourceLiteral, newName);
             if (csEdit != null)
             {
                 if (!changes.TryGetValue(uri, out var list))
@@ -301,7 +297,7 @@ public sealed class StepRenameHandler
     /// Handles <c>reqnroll/renameTargets</c> — enumerates all binding attributes
     /// at the cursor position for the multi-attribute picker flow.
     /// </summary>
-    public Task<RenameTargetsResponse?> HandleRenameTargetsAsync(
+    public async Task<RenameTargetsResponse?> HandleRenameTargetsAsync(
         TextDocumentPositionParams request,
         CancellationToken          cancellationToken)
     {
@@ -309,15 +305,13 @@ public sealed class StepRenameHandler
         var path = uri.GetFileSystemPath();
 
         if (string.IsNullOrEmpty(path) || !path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
-            return Task.FromResult<RenameTargetsResponse?>(null);
+            return null;
 
         var line   = request.Position.Line + 1;
-        var column = request.Position.Character + 1;
-        var bindingLocation = new SourceLocation(path, line, column);
 
         var registry = _registryLookup.GetRegistryForUri(uri);
         if (registry == ProjectBindingRegistry.Invalid)
-            return Task.FromResult<RenameTargetsResponse?>(new RenameTargetsResponse());
+            return new RenameTargetsResponse();
 
         // Collect all bindings at this method location (heuristic: within 5 lines)
         // Do NOT DistinctBy expression — multiple methods can share the same expression
@@ -329,18 +323,24 @@ public sealed class StepRenameHandler
             .ToList();
 
         if (allBindings.Count == 0)
-            return Task.FromResult<RenameTargetsResponse?>(new RenameTargetsResponse());
+            return new RenameTargetsResponse();
 
         var response = new RenameTargetsResponse();
         int idx = 0;
         foreach (var b in allBindings)
         {
+            // Prefer the live source expression (preserves Cucumber parameter types) for both the
+            // display label and the dialog seed; fall back to the registry expression projection.
+            var sourceLiteral = await FindAttributeLiteralAsync(uri, b);
+            var expression = sourceLiteral?.Token.ValueText ?? b.Expression ?? "(unknown)";
+
             // Include scope tag in label to disambiguate methods sharing the same expression
             var scopeTag = b.Scope?.Tag?.ToString();
             var scopeSuffix = !string.IsNullOrEmpty(scopeTag) ? $" [@{scopeTag}]" : "";
             response.Targets.Add(new RenameTargetItem
             {
-                Label = $"{b.StepDefinitionType} {b.Expression ?? "(unknown)"}{scopeSuffix}",
+                Label = $"{b.StepDefinitionType} {expression}{scopeSuffix}",
+                Expression = expression,
                 AttributeIndex = idx,
                 StartLine = (b.Implementation.SourceLocation?.SourceFileLine ?? line) - 1,
                 StartChar = 1,
@@ -350,7 +350,7 @@ public sealed class StepRenameHandler
             idx++;
         }
 
-        return Task.FromResult<RenameTargetsResponse?>(response);
+        return response;
     }
 
     /// <summary>
@@ -377,90 +377,29 @@ public sealed class StepRenameHandler
                                  b.Implementation.SourceLocation.SourceFileColumn == location.SourceFileColumn);
     }
 
-    private async Task<TextEdit?> BuildCSharpEditAsync(
-        DocumentUri uri,
-        string originalExpression,
-        string newName,
-        int sameExprIndex)
+    private TextEdit? BuildCSharpEdit(
+        LiteralExpressionSyntax? literalArgument,
+        string newName)
     {
-        var csPath = uri.GetFileSystemPath();
-        if (string.IsNullOrEmpty(csPath))
-        {
-            _logger.LogVerbose("StepRenameHandler: BuildCSharpEditAsync — csPath is null/empty");
-            return null;
-        }
-
-        // Get file text from the document buffer, or read from disk
-        string? fileText = null;
-        if (_documentBuffer.TryGet(uri, out var buffer) && buffer?.Text != null)
-        {
-            fileText = buffer.Text;
-            _logger.LogVerbose($"StepRenameHandler: BuildCSharpEditAsync — got text from buffer ({fileText.Length} chars)");
-        }
-        else if (System.IO.File.Exists(csPath))
-        {
-            fileText = await System.IO.File.ReadAllTextAsync(csPath);
-            _logger.LogVerbose($"StepRenameHandler: BuildCSharpEditAsync — got text from disk ({fileText.Length} chars)");
-        }
-
-        if (fileText == null)
-        {
-            _logger.LogVerbose("StepRenameHandler: BuildCSharpEditAsync — no file text available");
-            return null;
-        }
-
-        // Parse into a SyntaxTree and wrap in CSharpStepDefinitionFile
-        var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(fileText);
-        var fileDetails = FileDetails.FromPath(csPath);
-        var csFile = new CSharpStepDefinitionFile(fileDetails, tree);
-
-        // Find all methods whose attribute lists contain a string-literal argument
-        // matching originalExpression. Pick the Nth one (sameExprIndex) when
-        // multiple methods share the same expression with different scopes.
-        var rootNode = await csFile.Content.GetRootAsync();
-        var matchingMethods = rootNode
-            .DescendantNodes()
-            .OfType<MethodDeclarationSyntax>()
-            .Where(m => m.AttributeLists
-                .SelectMany(al => al.Attributes)
-                .SelectMany(a => a.ArgumentList?.Arguments ?? Enumerable.Empty<AttributeArgumentSyntax>())
-                .Select(a => a.Expression)
-                .OfType<LiteralExpressionSyntax>()
-                .Any(e => e.Token.ValueText == originalExpression))
-            .ToList();
-
-        _logger.LogVerbose($"StepRenameHandler: BuildCSharpEditAsync — found {matchingMethods.Count} method(s) with expression '{originalExpression}' (sameExprIndex={sameExprIndex})");
-
-        var targetMethod = sameExprIndex >= 0 && sameExprIndex < matchingMethods.Count
-            ? matchingMethods[sameExprIndex]
-            : matchingMethods.FirstOrDefault();
-
-        if (targetMethod == null)
-        {
-            _logger.LogVerbose("StepRenameHandler: BuildCSharpEditAsync — no matching method found");
-            return null;
-        }
-
-        // Find the exact literal-expression attribute argument that matches
-        var literalArgument = targetMethod.AttributeLists
-            .SelectMany(al => al.Attributes)
-            .SelectMany(a => a.ArgumentList?.Arguments ?? Enumerable.Empty<AttributeArgumentSyntax>())
-            .Select(a => a.Expression)
-            .OfType<LiteralExpressionSyntax>()
-            .FirstOrDefault(e => e.Token.ValueText == originalExpression);
-
         if (literalArgument == null)
         {
-            _logger.LogVerbose("StepRenameHandler: BuildCSharpEditAsync — found method but no matching literal argument");
+            _logger.LogVerbose("StepRenameHandler: BuildCSharpEdit — no attribute literal found");
             return null;
         }
 
+        // Preserve the parameter tokens as written in the source. The rename dialog edits
+        // the non-parameter text only; the parameter slots must keep their original syntax
+        // (e.g. a Cucumber '{int}' stays '{int}', a regex '(.*)' stays '(.*)') rather than
+        // whatever projection the dialog happened to seed.
+        var sourceExpression = literalArgument.Token.ValueText;
+        var finalText = ReconcileParameterTokens(sourceExpression, newName);
+
         // Convert the character-offset TextSpan to line/column using the SyntaxTree
-        var lineSpan = tree.GetLineSpan(literalArgument.Token.Span);
+        var lineSpan = literalArgument.SyntaxTree!.GetLineSpan(literalArgument.Token.Span);
         var startPos = lineSpan.StartLinePosition;
         var endPos   = lineSpan.EndLinePosition;
 
-        _logger.LogVerbose($"StepRenameHandler: BuildCSharpEditAsync — returning edit at ({startPos.Line},{startPos.Character})-({endPos.Line},{endPos.Character}): '{newName}'");
+        _logger.LogVerbose($"StepRenameHandler: BuildCSharpEdit — returning edit at ({startPos.Line},{startPos.Character})-({endPos.Line},{endPos.Character}): '{finalText}'");
 
         return new TextEdit
         {
@@ -469,7 +408,162 @@ public sealed class StepRenameHandler
                 Start = new Position(startPos.Line, startPos.Character),
                 End   = new Position(endPos.Line, endPos.Character)
             },
-            NewText = "\"" + newName + "\""
+            NewText = "\"" + finalText + "\""
+        };
+    }
+
+    /// <summary>
+    /// Resolves the string-literal attribute argument for <paramref name="binding"/> by its
+    /// SOURCE LOCATION, not by matching the registry's expression text. The registry
+    /// expression is a discovery-time projection (a Cucumber expression is rendered to a regex
+    /// during discovery, and it reflects the last compiled build rather than the live buffer),
+    /// so it cannot be relied on to equal the raw attribute string literal. Line drift from a
+    /// stale build is tolerated by choosing the nearest candidate method.
+    /// </summary>
+    private async Task<LiteralExpressionSyntax?> FindAttributeLiteralAsync(
+        DocumentUri uri,
+        ProjectStepDefinitionBinding binding)
+    {
+        var csPath = uri.GetFileSystemPath();
+        if (string.IsNullOrEmpty(csPath))
+        {
+            _logger.LogVerbose("StepRenameHandler: FindAttributeLiteralAsync — csPath is null/empty");
+            return null;
+        }
+
+        // Get file text from the document buffer, or read from disk
+        string? fileText = null;
+        if (_documentBuffer.TryGet(uri, out var buffer) && buffer?.Text != null)
+        {
+            fileText = buffer.Text;
+            _logger.LogVerbose($"StepRenameHandler: FindAttributeLiteralAsync — got text from buffer ({fileText.Length} chars)");
+        }
+        else if (System.IO.File.Exists(csPath))
+        {
+            fileText = await System.IO.File.ReadAllTextAsync(csPath);
+            _logger.LogVerbose($"StepRenameHandler: FindAttributeLiteralAsync — got text from disk ({fileText.Length} chars)");
+        }
+
+        if (fileText == null)
+        {
+            _logger.LogVerbose("StepRenameHandler: FindAttributeLiteralAsync — no file text available");
+            return null;
+        }
+
+        var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(fileText);
+        var rootNode = await tree.GetRootAsync();
+
+        var stepType = binding.StepDefinitionType;
+        var candidates = rootNode
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Select(m => (Method: m,
+                          Line: tree.GetLineSpan(m.Identifier.Span).StartLinePosition.Line + 1)) // 1-based
+            .Where(x => GetStepAttributeLiterals(x.Method, stepType).Any())
+            .ToList();
+
+        if (candidates.Count == 0)
+            return null;
+
+        var targetLine = binding.Implementation?.SourceLocation?.SourceFileLine;
+        var chosen = targetLine.HasValue
+            ? candidates.OrderBy(x => Math.Abs(x.Line - targetLine.Value)).ThenBy(x => x.Line).First()
+            : candidates.First();
+
+        // Among the chosen method's matching step attributes, pick the literal to rewrite.
+        // A single matching attribute (the common case) is selected regardless of its text.
+        // When a method carries several same-type attributes, prefer the one whose literal
+        // equals the registry expression, falling back to the first.
+        var literals = GetStepAttributeLiterals(chosen.Method, stepType).ToList();
+        return literals.FirstOrDefault(e => e.Token.ValueText == binding.Expression)
+               ?? literals[0];
+    }
+
+    /// <summary>
+    /// Rebuilds <paramref name="newExpression"/> so that its parameter slots carry the exact
+    /// tokens from <paramref name="sourceExpression"/> (positionally). This keeps the original
+    /// parameter syntax — a Cucumber <c>{int}</c> stays <c>{int}</c>, a regex <c>(.*)</c> stays
+    /// <c>(.*)</c> — even when the rename dialog seeded a different projection. The user's edits
+    /// to the non-parameter text are preserved. When the slot counts differ, the user's text is
+    /// honoured verbatim.
+    /// </summary>
+    internal static string ReconcileParameterTokens(string sourceExpression, string newExpression)
+    {
+        var originalSlots = StepExpressionParameters.ExtractSlots(sourceExpression);
+        if (originalSlots.Count == 0)
+            return newExpression;
+
+        var newSlots = StepExpressionParameters.ExtractSlots(newExpression);
+        if (newSlots.Count != originalSlots.Count)
+            return newExpression;
+
+        var sb = new System.Text.StringBuilder();
+        var slotIndex = 0;
+        var i = 0;
+        while (i < newExpression.Length)
+        {
+            var slotLength = StepExpressionParameters.SlotLengthAt(newExpression, i);
+            if (slotLength > 0)
+            {
+                sb.Append(originalSlots[slotIndex]);
+                slotIndex++;
+                i += slotLength;
+            }
+            else
+            {
+                sb.Append(newExpression[i]);
+                i++;
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Returns the first string-literal argument of every attribute on <paramref name="method"/>
+    /// that is a step-definition attribute for <paramref name="stepType"/> (<c>Given</c>/<c>When</c>/
+    /// <c>Then</c>, or <c>StepDefinition</c> which applies to all step kinds).
+    /// </summary>
+    private static IEnumerable<LiteralExpressionSyntax> GetStepAttributeLiterals(
+        MethodDeclarationSyntax method, ScenarioBlock stepType)
+    {
+        foreach (var attr in method.AttributeLists.SelectMany(al => al.Attributes))
+        {
+            if (!IsStepAttributeFor(attr, stepType))
+                continue;
+
+            var literal = attr.ArgumentList?.Arguments
+                .Select(a => a.Expression)
+                .OfType<LiteralExpressionSyntax>()
+                .FirstOrDefault(e => e.RawKind == (int)SyntaxKind.StringLiteralExpression);
+
+            if (literal != null)
+                yield return literal;
+        }
+    }
+
+    private static bool IsStepAttributeFor(AttributeSyntax attr, ScenarioBlock stepType)
+    {
+        var name = attr.Name switch
+        {
+            QualifiedNameSyntax q => q.Right.Identifier.Text,
+            SimpleNameSyntax    s => s.Identifier.Text,
+            _                     => attr.Name.ToString()
+        };
+
+        if (name.EndsWith("Attribute", StringComparison.Ordinal))
+            name = name.Substring(0, name.Length - "Attribute".Length);
+
+        // [StepDefinition("…")] registers for Given/When/Then alike.
+        if (string.Equals(name, "StepDefinition", StringComparison.Ordinal))
+            return true;
+
+        return stepType switch
+        {
+            ScenarioBlock.Given => name == "Given",
+            ScenarioBlock.When  => name == "When",
+            ScenarioBlock.Then  => name == "Then",
+            _                   => name is "Given" or "When" or "Then"
         };
     }
 

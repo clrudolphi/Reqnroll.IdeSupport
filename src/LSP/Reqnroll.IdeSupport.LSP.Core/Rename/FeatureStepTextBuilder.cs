@@ -1,5 +1,6 @@
 #nullable enable
 
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -7,108 +8,184 @@ using System.Text.RegularExpressions;
 namespace Reqnroll.IdeSupport.LSP.Core.Rename;
 
 /// <summary>
-/// Builds feature-step replacement text that preserves original parameter
-/// values when a binding expression is renamed.
+/// Builds feature-step replacement text that preserves the original parameter content
+/// when a binding expression is renamed.
 /// <para>
-/// Matches the old binding regex against the original step text to extract
-/// captured parameter values, then injects them into parameter slots of the
-/// new expression (regex capturing groups or cucumber expression parameters).
+/// Two strategies are applied, in order:
 /// </para>
+/// <list type="number">
+///   <item><description>
+///     <b>Regex injection.</b> Match the old binding regex against the original step text to
+///     extract captured parameter values, then inject them into the parameter slots of the new
+///     expression. This handles concrete values (e.g. <c>50</c>).
+///   </description></item>
+///   <item><description>
+///     <b>Static-segment substitution.</b> When the regex does not match — e.g. the step uses a
+///     Scenario Outline placeholder such as <c>&lt;secondNumber&gt;</c> that is not a numeric value —
+///     replace the old expression's literal segments with the new expression's literal segments,
+///     leaving whatever sits in the parameter position untouched. This keeps placeholders and other
+///     non-matching parameter content intact instead of leaking the binding's <c>{int}</c> token
+///     into the feature file.
+///   </description></item>
+/// </list>
+/// <para>If neither strategy applies, returns <paramref name="newExpression"/> unchanged.</para>
 /// </summary>
 public static class FeatureStepTextBuilder
 {
-    /// <summary>
-    /// Builds the replacement text for a feature step by matching the old regex
-    /// against the original step text, extracting captured parameter values, and
-    /// injecting them into parameter slots of the new expression.
-    /// <para>
-    /// If the regex does not match or no captures are found, returns <paramref name="newName"/>
-    /// as-is (fallback to full-range replacement).
-    /// </para>
-    /// </summary>
     public static string Build(
-        string newName,
-        Regex? regex,
+        string  newExpression,
+        string? oldExpression,
+        Regex?  regex,
         string? stepText)
     {
-        if (regex == null || string.IsNullOrEmpty(stepText))
-            return newName;
+        if (string.IsNullOrEmpty(stepText))
+            return newExpression;
+
+        // Static-segment substitution is tried first: it preserves whatever sits in the
+        // parameter position (a concrete value, a quoted {string}, or a Scenario Outline
+        // placeholder like <secondNumber>) by only rewriting the literal segments. The regex
+        // strategy is the fallback for expressions whose static text is itself regex syntax
+        // (e.g. non-capturing groups) that does not appear verbatim in the step.
+        return TryBuildViaStaticSegments(newExpression, oldExpression, stepText!)
+               ?? TryBuildViaRegex(newExpression, regex, stepText!)
+               ?? newExpression;
+    }
+
+    /// <summary>
+    /// Extracts captured parameter values by matching <paramref name="regex"/> against
+    /// <paramref name="stepText"/> and injects them into the parameter slots of
+    /// <paramref name="newExpression"/>. Returns <c>null</c> when the regex is absent, does not
+    /// match, or yields no captures, so the caller can try another strategy.
+    /// </summary>
+    private static string? TryBuildViaRegex(string newExpression, Regex? regex, string stepText)
+    {
+        if (regex == null)
+            return null;
 
         var match = regex.Match(stepText);
         if (!match.Success || match.Groups.Count <= 1)
-            return newName;
+            return null;
 
-        // Extract captured group values (group 0 = full match, groups 1..N = params)
         var capturedValues = new List<string>();
         for (int i = 1; i < match.Groups.Count; i++)
-            capturedValues.Add(match.Groups[i].Value);
+            if (match.Groups[i].Success)
+                capturedValues.Add(match.Groups[i].Value);
 
         if (capturedValues.Count == 0)
-            return newName;
+            return null;
 
-        // Replace parameter slots in the new expression with captured values.
-        // Parameter slots are regex capturing groups (...) or cucumber expression
-        // parameters {...}. We scan the new expression for these and replace them
-        // in order with the captured values.
+        // Replace parameter slots in the new expression with captured values, in order.
         var result = new StringBuilder();
         int groupIdx = 0;
         int lastEnd = 0;
 
-        for (int i = 0; i < newName.Length; i++)
+        for (int i = 0; i < newExpression.Length; i++)
         {
-            // Detect start of a capturing group: unescaped '(' not followed by '?:'
-            if (newName[i] == '(' && (i == 0 || newName[i - 1] != '\\'))
+            // Detect start of a capturing group: unescaped '(' not followed by '?:' etc.
+            if (newExpression[i] == '(' && (i == 0 || newExpression[i - 1] != '\\'))
             {
-                // Skip non-capturing groups (?:, (?=, (?!, (?<=, (?<!) and named groups
-                if (i + 1 < newName.Length && newName[i + 1] == '?' && i + 2 < newName.Length)
+                if (i + 1 < newExpression.Length && newExpression[i + 1] == '?' && i + 2 < newExpression.Length)
                 {
-                    var lookahead = newName.Substring(i + 2, 1);
+                    var lookahead = newExpression.Substring(i + 2, 1);
                     if (lookahead is ":" or "=" or "!" or "<")
                         continue; // non-capturing group, skip
                 }
 
-                // Find matching ')' accounting for nesting
                 int depth = 1;
                 int j = i + 1;
-                while (j < newName.Length && depth > 0)
+                while (j < newExpression.Length && depth > 0)
                 {
-                    if (newName[j] == '(' && newName[j - 1] != '\\') depth++;
-                    else if (newName[j] == ')' && newName[j - 1] != '\\') depth--;
+                    if (newExpression[j] == '(' && newExpression[j - 1] != '\\') depth++;
+                    else if (newExpression[j] == ')' && newExpression[j - 1] != '\\') depth--;
                     j++;
                 }
 
-                // Append static text before this group
-                result.Append(newName, lastEnd, i - lastEnd);
-
-                // Replace with captured value
+                result.Append(newExpression, lastEnd, i - lastEnd);
                 if (groupIdx < capturedValues.Count)
                     result.Append(capturedValues[groupIdx]);
                 groupIdx++;
-
-                lastEnd = j; // skip past ')'
-                i = j - 1;   // loop increment will move past ')'
+                lastEnd = j;
+                i = j - 1;
             }
-            // Detect cucumber expression parameter {...}
-            else if (newName[i] == '{')
+            else if (newExpression[i] == '{')
             {
                 int j = i + 1;
-                while (j < newName.Length && newName[j] != '}') j++;
-                if (j < newName.Length)
+                while (j < newExpression.Length && newExpression[j] != '}') j++;
+                if (j < newExpression.Length)
                 {
-                    result.Append(newName, lastEnd, i - lastEnd);
+                    result.Append(newExpression, lastEnd, i - lastEnd);
                     if (groupIdx < capturedValues.Count)
                         result.Append(capturedValues[groupIdx]);
                     groupIdx++;
                     lastEnd = j + 1;
-                    i = j; // loop increment moves past '}'
+                    i = j;
                 }
             }
         }
 
-        // Append remaining static text
-        if (lastEnd < newName.Length)
-            result.Append(newName, lastEnd, newName.Length - lastEnd);
+        if (lastEnd < newExpression.Length)
+            result.Append(newExpression, lastEnd, newExpression.Length - lastEnd);
 
-        return result.Length > 0 ? result.ToString() : newName;
+        return result.Length > 0 ? result.ToString() : null;
+    }
+
+    /// <summary>
+    /// Renames the static text of <paramref name="stepText"/> by replacing the literal segments of
+    /// <paramref name="oldExpression"/> with those of <paramref name="newExpression"/>, preserving
+    /// the parameter regions (the text the step actually carries) verbatim. Returns <c>null</c> when
+    /// the expressions cannot be aligned with the step text.
+    /// </summary>
+    private static string? TryBuildViaStaticSegments(string newExpression, string? oldExpression, string stepText)
+    {
+        if (string.IsNullOrEmpty(oldExpression))
+            return null;
+
+        var oldSegments = StepExpressionParameters.StaticSegments(oldExpression!);
+        var newSegments = StepExpressionParameters.StaticSegments(newExpression);
+
+        // Same parameter count (⇒ same number of static segments) is required to map positions.
+        if (oldSegments.Count != newSegments.Count)
+            return null;
+
+        // No parameters: the step text is fully static; the renamed text is the new expression.
+        if (oldSegments.Count == 1)
+            return newExpression;
+
+        var prefix = oldSegments[0];
+        var suffix = oldSegments[oldSegments.Count - 1];
+
+        if (!stepText.StartsWith(prefix, StringComparison.Ordinal) ||
+            !stepText.EndsWith(suffix, StringComparison.Ordinal))
+            return null;
+
+        var regionStart = prefix.Length;
+        var regionEnd   = stepText.Length - suffix.Length;
+        if (regionEnd < regionStart)
+            return null;
+
+        // Extract each parameter value by locating the interior static segments in order.
+        var values = new List<string>();
+        var cursor = regionStart;
+        for (int i = 1; i < oldSegments.Count - 1; i++)
+        {
+            var seg = oldSegments[i];
+            int idx = seg.Length == 0
+                ? cursor
+                : stepText.IndexOf(seg, cursor, regionEnd - cursor, StringComparison.Ordinal);
+            if (idx < 0)
+                return null;
+            values.Add(stepText.Substring(cursor, idx - cursor));
+            cursor = idx + seg.Length;
+        }
+        values.Add(stepText.Substring(cursor, regionEnd - cursor));
+
+        var sb = new StringBuilder();
+        sb.Append(newSegments[0]);
+        for (int i = 0; i < values.Count; i++)
+        {
+            sb.Append(values[i]);
+            sb.Append(newSegments[i + 1]);
+        }
+        return sb.ToString();
     }
 }

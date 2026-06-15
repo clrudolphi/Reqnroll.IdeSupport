@@ -18,6 +18,15 @@ public sealed class RenameTargetItem
     [JsonProperty("label")]
     public string Label { get; set; } = "";
 
+    /// <summary>
+    /// The bare step expression as written in the source attribute (e.g. <c>the first number is {int}</c>),
+    /// without the step-type prefix or scope suffix. This is what the rename dialog should seed so the
+    /// user edits the live expression form (preserving Cucumber parameter types) rather than a regex
+    /// projection. Falls back to the registry expression when the source literal cannot be resolved.
+    /// </summary>
+    [JsonProperty("expression")]
+    public string Expression { get; set; } = "";
+
     [JsonProperty("attributeIndex")]
     public int AttributeIndex { get; set; }
 

@@ -121,4 +121,37 @@ public class GherkinDocumentTaggerService : IGherkinDocumentTaggerService
         _logger.LogVerbose($"ScanClosedFile: stored {matchSet.Steps.Count} step(s) for {uri} [{project.ProjectName}]");
         return Task.CompletedTask;
     }
+
+    public async Task RescanClosedFileAsync(DocumentUri uri)
+    {
+        var path = uri.GetFileSystemPath();
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+        {
+            _logger.LogVerbose($"RescanClosedFile: '{uri}' not found on disk; skipping.");
+            return;
+        }
+
+        string text;
+        try
+        {
+            text = await File.ReadAllTextAsync(path).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning($"RescanClosedFile: could not read '{path}': {ex.Message}");
+            return;
+        }
+
+        // A feature file can be linked into more than one project; repopulate the match set for
+        // each owner so (uri, project)-keyed lookups stay complete after the buffer is gone.
+        var owners = _scopeManager.ResolveOwners(uri);
+        if (owners.Count == 0)
+        {
+            _logger.LogVerbose($"RescanClosedFile: '{uri}' has no owning project; skipping.");
+            return;
+        }
+
+        foreach (var project in owners)
+            await ScanClosedFileAsync(uri, text, project).ConfigureAwait(false);
+    }
 }

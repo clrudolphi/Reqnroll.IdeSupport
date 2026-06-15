@@ -118,18 +118,25 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         return Unit.Task;
     }
 
-    public override Task<Unit> Handle(DidCloseTextDocumentParams request, CancellationToken cancellationToken)
+    public override async Task<Unit> Handle(DidCloseTextDocumentParams request, CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
 
         // .cs files are not tracked in the Gherkin document buffer; their last-discovered bindings
         // are intentionally retained after close (a rebuild, not a close, supersedes them).
         if (IsCSharp(uri))
-            return Unit.Task;
+            return Unit.Value;
 
         _logger.LogInfo($"Document closed: {uri}");
         _documentBufferService.Remove(uri);
         _bindingMatchService.InvalidateAllForDocument(uri.ToString());
+
+        // Repopulate the match cache from disk so the file's usages remain discoverable by
+        // workspace-wide features (Find Usages / Rename) while it is closed. Without this, the
+        // file would vanish from the cache until the next full registry replacement, so a rename
+        // driven from a .cs file would silently skip closed feature files. Reading from disk also
+        // makes the cached match set reflect the persisted content (e.g. if edits were discarded).
+        await _taggerService.RescanClosedFileAsync(uri).ConfigureAwait(false);
 
         // Clear any squiggles the IDE may have retained for this URI.
         // LSP spec: sending an empty diagnostics list for a URI clears all previously
@@ -142,7 +149,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 Diagnostics = new Container<Diagnostic>()
             });
 
-        return Unit.Task;
+        return Unit.Value;
     }
 
     private static bool IsCSharp(DocumentUri uri) =>

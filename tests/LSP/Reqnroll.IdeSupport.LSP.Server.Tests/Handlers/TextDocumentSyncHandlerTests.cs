@@ -148,6 +148,24 @@ public class TextDocumentSyncHandlerTests
     }
 
     [Fact]
+    public async Task Handle_DidClose_rescans_feature_file_from_disk_to_keep_match_cache_complete()
+    {
+        _bufferService.Update(FeatureUri, 1, "Feature: X\n");
+
+        var sut = CreateSut();
+        var request = new DidCloseTextDocumentParams
+        {
+            TextDocument = new TextDocumentIdentifier { Uri = FeatureUri }
+        };
+
+        await sut.Handle(request, CancellationToken.None);
+
+        // Closing must repopulate the match cache from disk so Find Usages / Rename still see
+        // the (now closed) feature file.
+        await _taggerService.Received(1).RescanClosedFileAsync(FeatureUri);
+    }
+
+    [Fact]
     public async Task Handle_DidClose_pushes_empty_diagnostics_to_clear_IDE_squiggles()
     {
         _bufferService.Update(FeatureUri, 1, "Feature: X\n");
@@ -226,6 +244,7 @@ public class TextDocumentSyncHandlerTests
         result.Should().Be(Unit.Value);
         // Closing a .cs file must not invalidate feature match state; bindings are retained until rebuild.
         _bindingMatchService.DidNotReceiveWithAnyArgs().InvalidateAllForDocument(default!);
+        await _taggerService.DidNotReceiveWithAnyArgs().RescanClosedFileAsync(default!);
         // No diagnostics push — the server does not own diagnostics for .cs files.
         _languageServer.DidNotReceive().SendNotification(Arg.Any<string>(), Arg.Any<PublishDiagnosticsParams>());
     }

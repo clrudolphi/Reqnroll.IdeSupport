@@ -104,11 +104,13 @@ internal sealed class RenameStepCommand : Command
             // ── Step 2: Select target (picker if multiple) ──────────────────
             int selectedAttributeIndex;
             string currentLabel;
+            string currentExpression;
 
             if (targetsArray.Count == 1)
             {
                 selectedAttributeIndex = targetsArray[0]["attributeIndex"]?.Value<int>() ?? 0;
                 currentLabel = targetsArray[0]["label"]?.Value<string>() ?? "";
+                currentExpression = targetsArray[0]["expression"]?.Value<string>() ?? "";
                 _fileLogger.LogInfo($"RenameStepCommand: single target, attributeIndex={selectedAttributeIndex}, label='{currentLabel}'.");
             }
             else
@@ -132,6 +134,7 @@ internal sealed class RenameStepCommand : Command
 
                 selectedAttributeIndex = targetsArray[dialog.SelectedIndex]["attributeIndex"]?.Value<int>() ?? 0;
                 currentLabel = targetsArray[dialog.SelectedIndex]["label"]?.Value<string>() ?? "";
+                currentExpression = targetsArray[dialog.SelectedIndex]["expression"]?.Value<string>() ?? "";
                 _fileLogger.LogInfo($"RenameStepCommand: user selected target index={dialog.SelectedIndex}, attributeIndex={selectedAttributeIndex}.");
             }
 
@@ -142,13 +145,23 @@ internal sealed class RenameStepCommand : Command
             // ── Step 4: Prompt user for new step text ────────────────────────
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
-            // Extract the plain step text from the label (remove "Given " / "When " / "Then " prefix)
-            var stepTypePrefix = currentLabel.IndexOf(' ') >= 0
-                ? currentLabel.Substring(0, currentLabel.IndexOf(' ')) + " "
-                : "";
-            var currentStepText = currentLabel.Length > stepTypePrefix.Length
-                ? currentLabel.Substring(stepTypePrefix.Length)
-                : currentLabel;
+            // Seed the dialog with the live source expression (preserves Cucumber parameter
+            // types such as {int}). Fall back to stripping the step-type prefix off the label
+            // for older servers that do not send the "expression" field.
+            string currentStepText;
+            if (!string.IsNullOrEmpty(currentExpression))
+            {
+                currentStepText = currentExpression;
+            }
+            else
+            {
+                var stepTypePrefix = currentLabel.IndexOf(' ') >= 0
+                    ? currentLabel.Substring(0, currentLabel.IndexOf(' ')) + " "
+                    : "";
+                currentStepText = currentLabel.Length > stepTypePrefix.Length
+                    ? currentLabel.Substring(stepTypePrefix.Length)
+                    : currentLabel;
+            }
 
             var newStepText = Microsoft.VisualBasic.Interaction.InputBox(
                 "Enter the new step text:",

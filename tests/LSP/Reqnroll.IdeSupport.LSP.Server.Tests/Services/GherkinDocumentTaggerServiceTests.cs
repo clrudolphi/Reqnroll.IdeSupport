@@ -225,4 +225,75 @@ public class GherkinDocumentTaggerServiceTests
                 s.DocumentId == FeatureUri.ToString() &&
                 s.Owner.ProjectFile == project.ProjectFullName));
     }
+
+    // ── RescanClosedFileAsync (close → repopulate match cache from disk) ───────
+
+    [Fact]
+    public async Task RescanClosedFileAsync_reads_disk_and_stores_match_set_for_each_owner()
+    {
+        var dir = Directory.CreateDirectory(
+            Path.Combine(Path.GetTempPath(), "reqnroll-rescan-" + Guid.NewGuid().ToString("N")));
+        try
+        {
+            var filePath = Path.Combine(dir.FullName, "test.feature");
+            await File.WriteAllTextAsync(filePath, "Feature: X\n");
+            var uri = DocumentUri.FromFileSystemPath(filePath);
+
+            var project = MakeProject(dir.FullName);
+            _scopeManager.ResolveOwners(uri).Returns(new[] { project });
+
+            // The buffer was already removed (close path) → closed-file scan proceeds.
+            DocumentBuffer? none;
+            _bufferService.TryGet(uri, out none).Returns(x => { x[1] = (DocumentBuffer?)null; return false; });
+            _tagParser.Parse(Arg.Any<Reqnroll.IdeSupport.LSP.Core.Document.IGherkinTextSnapshot>(),
+                             Arg.Any<ProjectBindingRegistry>())
+                      .Returns(Array.Empty<DeveroomTag>());
+
+            await CreateSut().RescanClosedFileAsync(uri);
+
+            _bindingMatchService.Received(1).Store(
+                Arg.Is<FeatureBindingMatchSet>(s =>
+                    s.DocumentId == uri.ToString() &&
+                    s.Owner.ProjectFile == project.ProjectFullName));
+        }
+        finally
+        {
+            dir.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task RescanClosedFileAsync_is_noop_when_file_missing_on_disk()
+    {
+        var uri = DocumentUri.FromFileSystemPath(
+            Path.Combine(Path.GetTempPath(), "reqnroll-missing-" + Guid.NewGuid().ToString("N") + ".feature"));
+        _scopeManager.ResolveOwners(uri).Returns(new[] { MakeProject() });
+
+        await CreateSut().RescanClosedFileAsync(uri);
+
+        _bindingMatchService.DidNotReceive().Store(Arg.Any<FeatureBindingMatchSet>());
+    }
+
+    [Fact]
+    public async Task RescanClosedFileAsync_is_noop_when_no_owning_project()
+    {
+        var dir = Directory.CreateDirectory(
+            Path.Combine(Path.GetTempPath(), "reqnroll-rescan-" + Guid.NewGuid().ToString("N")));
+        try
+        {
+            var filePath = Path.Combine(dir.FullName, "test.feature");
+            await File.WriteAllTextAsync(filePath, "Feature: X\n");
+            var uri = DocumentUri.FromFileSystemPath(filePath);
+
+            _scopeManager.ResolveOwners(uri).Returns(Array.Empty<LspReqnrollProject>());
+
+            await CreateSut().RescanClosedFileAsync(uri);
+
+            _bindingMatchService.DidNotReceive().Store(Arg.Any<FeatureBindingMatchSet>());
+        }
+        finally
+        {
+            dir.Delete(recursive: true);
+        }
+    }
 }

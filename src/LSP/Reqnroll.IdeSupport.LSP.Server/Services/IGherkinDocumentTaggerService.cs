@@ -17,5 +17,13 @@ namespace Reqnroll.IdeSupport.LSP.Server.Services
         /// (e.g. the initial scan triggered on startup by a full binding-registry replacement).
         /// </summary>
         Task ScanClosedFileAsync(DocumentUri uri, string text, LspReqnrollProject project);
+
+        /// <summary>
+        /// Re-scans <paramref name="uri"/> from disk as a closed file for every project that owns
+        /// it, repopulating the binding match cache. Called when a feature file is closed so its
+        /// usages stay discoverable (Find Usages / Rename) after the open buffer is removed.
+        /// No-op when the file is missing on disk or has no owning project.
+        /// </summary>
+        Task RescanClosedFileAsync(DocumentUri uri);
     }
 }
