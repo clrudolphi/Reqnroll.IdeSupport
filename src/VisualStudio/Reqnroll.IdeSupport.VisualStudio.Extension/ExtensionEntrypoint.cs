@@ -5,6 +5,7 @@ using Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
 using Reqnroll.IdeSupport.VisualStudio.Extension.GoToDefinition;
 using Reqnroll.IdeSupport.VisualStudio.Extension.GoToHooks;
+using Reqnroll.IdeSupport.VisualStudio.Extension.RenameStep;
 using Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
 #pragma warning disable VSEXTPREVIEW_CODELENS
 
@@ -38,6 +39,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension
             serviceCollection.AddSingleton<GoToDefinitionState>();
             serviceCollection.AddSingleton<StepCodeLensState>();
             serviceCollection.AddSingleton<CommentToggleState>();
+            serviceCollection.AddSingleton<RenameStepState>();
             // ExtensionPart subclasses are not auto-registered by the framework; must be explicit.
             serviceCollection.AddSingleton<StepCodeLensProvider>();
         }

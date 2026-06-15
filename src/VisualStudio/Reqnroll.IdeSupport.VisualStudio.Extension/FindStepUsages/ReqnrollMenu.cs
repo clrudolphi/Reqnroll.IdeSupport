@@ -20,6 +20,7 @@ internal static class ReqnrollMenu
         [
             MenuChild.Command<FindStepUsagesCommand>(),
             MenuChild.Command<FindUnusedStepDefinitionsCommand>(),
+            MenuChild.Command<RenameStep.RenameStepCommand>(),
         ],
     };
 }
