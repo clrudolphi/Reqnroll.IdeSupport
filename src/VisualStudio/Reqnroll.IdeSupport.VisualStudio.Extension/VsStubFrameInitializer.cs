@@ -97,11 +97,33 @@ internal static class VsStubFrameInitializer
             // document (text buffer, content type, etc.) which in turn fires
             // textDocument/didOpen to the LSP client.
             if (VsShellUtilities.IsDocumentOpen(serviceProvider, moniker, Guid.Empty,
-                    out _, out _, out var frame))
+                    out var hier, out _, out var frame))
             {
                 traceSource.TraceInformation(
                     "VsStubFrameInitializer: forcing init of stub '{0}' via window frame.", moniker);
                 _ = frame.GetProperty((int)__VSFPROPID.VSFPROPID_DocData, out var _);
+
+                // After initialization, ensure the document has a real project hierarchy
+                // (not the miscellaneous-files bucket).  If it doesn't, reopen via DTE
+                // which registers the document with the owning project's IVsHierarchy.
+                if (hier == null || IsMiscellaneousFilesProject(hier))
+                {
+                    try
+                    {
+                        var dte = serviceProvider.GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+                        if (dte != null)
+                        {
+                            traceSource.TraceInformation(
+                                "VsStubFrameInitializer: reopening '{0}' through DTE for project context.", moniker);
+                            dte.ItemOperations.OpenFile(moniker);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        traceSource.TraceEvent(TraceEventType.Warning, 0,
+                            "VsStubFrameInitializer: could not set project context for '{0}': {1}", moniker, ex.Message);
+                    }
+                }
             }
         }
 
@@ -220,17 +242,36 @@ internal static class VsStubFrameInitializer
     }
 #pragma warning restore VSTHRD010
 
-#pragma warning disable VSTHRD010 // Helper methods for DTE property access.
+    /// <summary>
+    /// Returns the project display name from a <see cref="Project"/> object, or a fallback.
+    /// </summary>
     private static string GetProjectName(Project project)
     {
-        try { return project.Name ?? "(unknown)"; }
-        catch { return "(unknown)"; }
+        ThreadHelper.ThrowIfNotOnUIThread();
+        try { return project.Name ?? "(unnamed)"; }
+        catch { return "(inaccessible)"; }
+    }
+
+    private static readonly Guid MiscellaneousFilesProjectGuid = new("{A2FE74E1-B743-11d0-AE1A-00A0C90FFFC3}");
+
+    private static bool IsMiscellaneousFilesProject(IVsHierarchy hier)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        try
+        {
+            hier.GetGuidProperty(VSConstants.VSITEMID_ROOT, (int)__VSHPROPID.VSHPROPID_ProjectIDGuid, out var guid);
+            return guid == MiscellaneousFilesProjectGuid;
+        }
+        catch
+        {
+            return true;
+        }
     }
 
     private static string GetItemName(ProjectItem item)
     {
+        ThreadHelper.ThrowIfNotOnUIThread();
         try { return item.Name ?? "(unknown)"; }
         catch { return "(unknown)"; }
     }
-#pragma warning restore VSTHRD010
 }
