@@ -250,7 +250,7 @@ public sealed class StepRenameHandler
         // ── 5. Build .cs file edit (if cursor was on C#) ──────────────────────
         if (path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
         {
-            var csEdit = await BuildCSharpEditAsync(uri, bindingLocation, registry, expression, newName);
+            var csEdit = await BuildCSharpEditAsync(uri, binding, registry, expression, newName);
             if (csEdit != null)
             {
                 if (!changes.TryGetValue(uri, out var list))
@@ -351,7 +351,7 @@ public sealed class StepRenameHandler
 
     private async Task<TextEdit?> BuildCSharpEditAsync(
         DocumentUri uri,
-        SourceLocation bindingLocation,
+        ProjectStepDefinitionBinding binding,
         ProjectBindingRegistry registry,
         string originalExpression,
         string newName)
@@ -359,6 +359,8 @@ public sealed class StepRenameHandler
         var csPath = uri.GetFileSystemPath();
         if (string.IsNullOrEmpty(csPath))
             return null;
+
+        var bindingLine = binding.Implementation.SourceLocation?.SourceFileLine ?? 1;
 
         // Get file text from the document buffer, or read from disk
         string? fileText = null;
@@ -375,11 +377,11 @@ public sealed class StepRenameHandler
         var fileDetails = FileDetails.FromPath(csPath);
         var csFile = new CSharpStepDefinitionFile(fileDetails, tree);
 
-        // Find the attribute index by matching the expression
+        // Find the attribute index by matching the expression at the binding's line
         var allStepDefs = registry.StepDefinitions
             .Where(b => b.Implementation.SourceLocation != null &&
                         string.Equals(b.Implementation.SourceLocation.SourceFile, csPath, StringComparison.OrdinalIgnoreCase) &&
-                        b.Implementation.SourceLocation.SourceFileLine == bindingLocation.SourceFileLine)
+                        b.Implementation.SourceLocation.SourceFileLine == bindingLine)
             .Select((b, i) => new { b.Expression, Index = i })
             .ToList();
 
@@ -391,7 +393,7 @@ public sealed class StepRenameHandler
         // Parse the .cs to find the attribute string range
         var parser = new StepDefinitionFileParser();
         var info = await parser.GetAttributeStringInfo(
-            csFile, bindingLocation.SourceFileLine, bindingLocation.SourceFileColumn, attrIndex, originalExpression);
+            csFile, bindingLine, methodColumn: 1, attrIndex, originalExpression);
 
         if (info == null)
             return null;
