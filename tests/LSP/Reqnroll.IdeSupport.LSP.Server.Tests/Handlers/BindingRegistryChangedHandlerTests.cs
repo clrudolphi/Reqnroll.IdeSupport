@@ -2,6 +2,7 @@ using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server;
+using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Handlers.InternalHandlers;
 using Reqnroll.IdeSupport.LSP.Server.Notifications;
 using Reqnroll.IdeSupport.LSP.Server.Services;
@@ -24,6 +25,7 @@ public class BindingRegistryChangedHandlerTests : IDisposable
     private readonly ILanguageServerFacade        _languageServer = Substitute.For<ILanguageServerFacade>();
     private readonly ClientIdeContext             _clientIde     = new("visualstudio");
     private readonly IMediator                    _mediator      = Substitute.For<IMediator>();
+    private readonly ICSharpBindingDiscoveryService _csharpDiscovery = Substitute.For<ICSharpBindingDiscoveryService>();
     private readonly IDeveroomLogger              _logger        = Substitute.For<IDeveroomLogger>();
 
     private readonly IDeveroomLogger _ideLogger = Substitute.For<IDeveroomLogger>();
@@ -65,7 +67,7 @@ public class BindingRegistryChangedHandlerTests : IDisposable
     }
 
     private BindingRegistryChangedHandler CreateSut()
-        => new(_bufferService, _taggerService, _scopeManager, _languageServer, _clientIde, _mediator, _logger);
+        => new(_bufferService, _taggerService, _scopeManager, _languageServer, _clientIde, _mediator, _csharpDiscovery, _logger);
 
     // ── Closed-file scanning — index-driven (baseline received) ───────────────
 
@@ -262,7 +264,7 @@ public class BindingRegistryChangedHandlerTests : IDisposable
     {
         var nonVsIde = new ClientIdeContext("vscode");
         var sut = new BindingRegistryChangedHandler(
-            _bufferService, _taggerService, _scopeManager, _languageServer, nonVsIde, _mediator, _logger);
+            _bufferService, _taggerService, _scopeManager, _languageServer, nonVsIde, _mediator, _csharpDiscovery, _logger);
 
         _scopeManager.HasBaselineForProject(_project).Returns(true);
         _scopeManager.GetIndexedFeatureFiles(_project).Returns(Array.Empty<string>());
@@ -293,7 +295,7 @@ public class BindingRegistryChangedHandlerTests : IDisposable
     {
         var nonVsIde = new ClientIdeContext("vscode");
         var sut = new BindingRegistryChangedHandler(
-            _bufferService, _taggerService, _scopeManager, _languageServer, nonVsIde, _mediator, _logger);
+            _bufferService, _taggerService, _scopeManager, _languageServer, nonVsIde, _mediator, _csharpDiscovery, _logger);
 
         _scopeManager.HasBaselineForProject(_project).Returns(true);
         _scopeManager.GetIndexedFeatureFiles(_project).Returns(Array.Empty<string>());

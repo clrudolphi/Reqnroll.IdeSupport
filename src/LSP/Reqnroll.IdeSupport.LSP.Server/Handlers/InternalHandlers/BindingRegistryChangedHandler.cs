@@ -2,6 +2,7 @@ using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Notifications;
 using Reqnroll.IdeSupport.LSP.Server.Services;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
@@ -32,13 +33,14 @@ namespace Reqnroll.IdeSupport.LSP.Server.Handlers.InternalHandlers;
 /// </remarks>
 public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistryChangedNotification>
 {
-    private readonly IDocumentBufferService        _documentBufferService;
-    private readonly IGherkinDocumentTaggerService  _taggerService;
-    private readonly ILspWorkspaceScopeManager     _scopeManager;
-    private readonly ILanguageServerFacade         _languageServer;
-    private readonly ClientIdeContext              _clientIde;
-    private readonly IMediator                     _mediator;
-    private readonly IDeveroomLogger                _logger;
+    private readonly IDocumentBufferService         _documentBufferService;
+    private readonly IGherkinDocumentTaggerService   _taggerService;
+    private readonly ILspWorkspaceScopeManager       _scopeManager;
+    private readonly ILanguageServerFacade            _languageServer;
+    private readonly ClientIdeContext                 _clientIde;
+    private readonly IMediator                        _mediator;
+    private readonly ICSharpBindingDiscoveryService   _csharpDiscoveryService;
+    private readonly IDeveroomLogger                  _logger;
 
     public BindingRegistryChangedHandler(
         IDocumentBufferService documentBufferService,
@@ -47,15 +49,17 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
         ILanguageServerFacade languageServer,
         ClientIdeContext clientIde,
         IMediator mediator,
+        ICSharpBindingDiscoveryService csharpDiscoveryService,
         IDeveroomLogger logger)
     {
-        _documentBufferService = documentBufferService;
-        _taggerService         = taggerService;
-        _scopeManager          = scopeManager;
-        _languageServer        = languageServer;
-        _clientIde             = clientIde;
-        _mediator              = mediator;
-        _logger                = logger;
+        _documentBufferService  = documentBufferService;
+        _taggerService          = taggerService;
+        _scopeManager           = scopeManager;
+        _languageServer         = languageServer;
+        _clientIde              = clientIde;
+        _mediator               = mediator;
+        _csharpDiscoveryService = csharpDiscoveryService;
+        _logger                 = logger;
     }
 
     public async Task Handle(
@@ -63,7 +67,18 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
         CancellationToken cancellationToken)
     {
         if (notification.IsFullReplacement)
+        {
+            // After a Connector full replacement, re-discover bindings from open .cs files
+            // using Roslyn source-level discovery.  The Connector provides bindings from the
+            // compiled DLL, which may be stale if the user renamed/edited bindings without
+            // rebuilding.  Source-level discovery reads the actual editor buffers and
+            // replaces the stale compiled entries with fresh source-level data, preventing
+            // "Step definition not found" errors on steps that were correctly renamed.
+            await RediscoverOpenCsFilesAsync(notification.Project, cancellationToken)
+                .ConfigureAwait(false);
+
             await ScanAllFeatureFilesAsync(notification.Project, cancellationToken).ConfigureAwait(false);
+        }
 
         await ReparseOpenFilesAsync(notification.Project, cancellationToken).ConfigureAwait(false);
 
@@ -208,5 +223,41 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
             return false;
 
         return filePath.StartsWith(projectFolder, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Re-runs Roslyn source-level discovery on all open .cs files belonging to
+    /// <paramref name="project"/> after a Connector full replacement has overwritten
+    /// the registry with potentially stale compiled bindings.
+    /// </summary>
+    private async Task RediscoverOpenCsFilesAsync(LspReqnrollProject project, CancellationToken ct)
+    {
+        var csBuffers = _documentBufferService.All
+            .Where(b => b.Uri.GetFileSystemPath()?.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) == true
+                        && !string.IsNullOrEmpty(b.Text)
+                        && IsOwnedByProject(b.Uri, project))
+            .ToList();
+
+        if (csBuffers.Count == 0)
+            return;
+
+        _logger.LogInfo(
+            $"[Connector startup] Re-discovering {csBuffers.Count} open .cs file(s) via Roslyn " +
+            $"for project '{project.ProjectName}' to override stale compiled bindings.");
+
+        foreach (var buffer in csBuffers)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                await _csharpDiscoveryService.UpdateFromSourceAsync(buffer.Uri, buffer.Text, ct)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(
+                    $"[Connector startup] Roslyn discovery failed for '{buffer.Uri}': {ex.Message}");
+            }
+        }
     }
 }
