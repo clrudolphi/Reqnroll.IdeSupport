@@ -6,7 +6,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using EnvDTE80;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.Commands;
 using Microsoft.VisualStudio.Extensibility.Editor;
@@ -21,13 +20,15 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.RenameStep;
 /// \"Rename Step\" command for the Visual Studio extension (F16 Step Rename Refactoring).
 /// <para>
 /// When invoked from a C# binding file, queries the server for renameable targets,
-/// shows a picker if multiple targets exist, selects the target, and triggers VS's
-/// native Rename (F2) to execute the actual rename through the standard LSP protocol.
+/// shows a picker if multiple targets exist, selects the target, prompts the user
+/// for new step text, and sends the rename directly over the LSP pipe.
 /// </para>
 /// </summary>
 [VisualStudioContribution]
 internal sealed class RenameStepCommand : Command
 {
+    private const string RenameMethod = "textDocument/rename";
+
     private readonly RenameStepState _state;
     private readonly TraceSource _traceSource;
     private readonly IDeveroomLogger _fileLogger = new SynchronousFileLogger();
@@ -102,11 +103,13 @@ internal sealed class RenameStepCommand : Command
 
             // ── Step 2: Select target (picker if multiple) ──────────────────
             int selectedAttributeIndex;
+            string currentLabel;
 
             if (targetsArray.Count == 1)
             {
                 selectedAttributeIndex = targetsArray[0]["attributeIndex"]?.Value<int>() ?? 0;
-                _fileLogger.LogInfo($"RenameStepCommand: single target, attributeIndex={selectedAttributeIndex}.");
+                currentLabel = targetsArray[0]["label"]?.Value<string>() ?? "";
+                _fileLogger.LogInfo($"RenameStepCommand: single target, attributeIndex={selectedAttributeIndex}, label='{currentLabel}'.");
             }
             else
             {
@@ -116,11 +119,7 @@ internal sealed class RenameStepCommand : Command
                     .Select((t, i) =>
                     {
                         var label = t["label"]?.Value<string>() ?? $"Step definition {i + 1}";
-                        var startLine = t["startLine"]?.Value<int>() ?? 0;
-                        var startChar = t["startChar"]?.Value<int>() ?? 0;
-                        // Build a display label that includes the source location
-                        var displayText = $"{label}";
-                        return new NavigationTarget(displayText, textView.Uri.LocalPath, startLine, startChar);
+                        return new NavigationTarget(label, textView.Uri.LocalPath, 0, 0);
                     })
                     .ToList();
 
@@ -132,37 +131,191 @@ internal sealed class RenameStepCommand : Command
                 }
 
                 selectedAttributeIndex = targetsArray[dialog.SelectedIndex]["attributeIndex"]?.Value<int>() ?? 0;
+                currentLabel = targetsArray[dialog.SelectedIndex]["label"]?.Value<string>() ?? "";
                 _fileLogger.LogInfo($"RenameStepCommand: user selected target index={dialog.SelectedIndex}, attributeIndex={selectedAttributeIndex}.");
             }
 
             // ── Step 3: Tell the server which attribute was selected ────────
-            // Use version 0 as a simple sentinel — the document version isn't critical here.
             await service.SelectRenameTargetAsync(fileUri, version: 0, selectedAttributeIndex, cancellationToken)
                 .ConfigureAwait(false);
 
-            // ── Step 4: Trigger VS native rename ────────────────────────────
+            // ── Step 4: Prompt user for new step text ────────────────────────
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
-            var dte = ServiceProvider.GlobalProvider.GetService(typeof(EnvDTE.DTE)) as DTE2;
-            if (dte is null)
+            // Extract the plain step text from the label (remove "Given " / "When " / "Then " prefix)
+            var stepTypePrefix = currentLabel.IndexOf(' ') >= 0
+                ? currentLabel.Substring(0, currentLabel.IndexOf(' ')) + " "
+                : "";
+            var currentStepText = currentLabel.Length > stepTypePrefix.Length
+                ? currentLabel.Substring(stepTypePrefix.Length)
+                : currentLabel;
+
+            var newStepText = Microsoft.VisualBasic.Interaction.InputBox(
+                "Enter the new step text:",
+                "Rename Step",
+                currentStepText);
+            if (string.IsNullOrEmpty(newStepText))
             {
-                _fileLogger.LogWarning("RenameStepCommand: DTE service not available.");
-                VsUtils.ShowStatusBarMessage("Reqnroll: Press F2 to rename the selected step.");
+                _fileLogger.LogInfo("RenameStepCommand: user cancelled rename dialog.");
                 return;
             }
 
-            // The RenameSessionManager (server-side) now has the pending session.
-            // When the user triggers rename (or we execute Edit.Rename), the server
-            // will match the pending session to the selected attribute.
-            _fileLogger.LogInfo("RenameStepCommand: executing Edit.Rename via DTE.");
-            dte.ExecuteCommand("Edit.Rename");
+            _fileLogger.LogInfo($"RenameStepCommand: user entered new text '{newStepText}'.");
 
-            _fileLogger.LogInfo("RenameStepCommand: Edit.Rename executed successfully.");
+            // ── Step 5: Send textDocument/rename via the pipe ──────────────
+            var renameParams = BuildRenameParams(fileUri, lineNum, charNum, newStepText);
+            _fileLogger.LogInfo($"RenameStepCommand: sending {RenameMethod} with params={renameParams}");
+
+            var pipe = GetPipe(service);
+            if (pipe is null)
+            {
+                _fileLogger.LogWarning("RenameStepCommand: LspInterceptingPipe not available.");
+                VsUtils.ShowStatusBarMessage("Reqnroll: Could not access LSP pipe to execute rename.");
+                return;
+            }
+
+            var result = await pipe
+                .SendRequestToServerAsync(RenameMethod, renameParams, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (result is null)
+            {
+                _fileLogger.LogWarning("RenameStepCommand: server returned null from rename.");
+                VsUtils.ShowStatusBarMessage("Reqnroll: Rename failed — the step definition could not be renamed.");
+                return;
+            }
+
+            _fileLogger.LogInfo($"RenameStepCommand: rename result = {result}");
+
+            // ── Step 6: Apply the WorkspaceEdit ────────────────────────────
+            await ApplyWorkspaceEditAsync(result, cancellationToken).ConfigureAwait(false);
+
+            _fileLogger.LogInfo("RenameStepCommand: rename completed successfully.");
         }
         catch (Exception ex)
         {
             _fileLogger.LogWarning($"RenameStepCommand: failed: {ex}");
             _traceSource.TraceEvent(TraceEventType.Error, 0, "RenameStepCommand: failed: {0}", ex);
         }
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+
+    private static string BuildRenameParams(string fileUri, int line0, int char0, string newName)
+    {
+        var escapedUri = Newtonsoft.Json.JsonConvert.ToString(fileUri);
+        var escapedNewName = Newtonsoft.Json.JsonConvert.ToString(newName);
+        return $"{{" +
+               $"\"textDocument\":{{\"uri\":{escapedUri}}}," +
+               $"\"position\":{{\"line\":{line0},\"character\":{char0}}}," +
+               $"\"newName\":{escapedNewName}" +
+               $"}}";
+    }
+
+    private static LspInterception.LspInterceptingPipe? GetPipe(RenameStepService service)
+    {
+        // The pipe is accessed via a field on the service. Since we can't inject the pipe
+        // directly into the command (it's created after server init), the service holds it.
+        // Use reflection to get the private _pipe field.
+        var field = typeof(RenameStepService).GetField("_pipe",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        return field?.GetValue(service) as LspInterception.LspInterceptingPipe;
+    }
+
+    private async Task ApplyWorkspaceEditAsync(JToken result, CancellationToken cancellationToken)
+    {
+        if (result is not JObject editObj)
+        {
+            _fileLogger.LogWarning("RenameStepCommand: rename result is not a JSON object.");
+            return;
+        }
+
+        var changes = editObj["changes"] as JObject;
+        if (changes is null)
+        {
+            _fileLogger.LogWarning("RenameStepCommand: rename result has no 'changes' property.");
+            return;
+        }
+
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+        foreach (var fileEntry in changes)
+        {
+            var uri = fileEntry.Key;
+            var edits = fileEntry.Value as JArray;
+            if (edits is null || edits.Count == 0)
+                continue;
+
+            // Convert file URI to local path
+            var localPath = uri;
+            if (localPath.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
+                localPath = localPath.Substring(8).Replace('/', '\\');
+
+            _fileLogger.LogInfo($"RenameStepCommand: applying {edits.Count} edit(s) to '{localPath}'.");
+
+            // Read the file
+            if (!System.IO.File.Exists(localPath))
+            {
+                _fileLogger.LogWarning($"RenameStepCommand: file not found: '{localPath}'.");
+                continue;
+            }
+
+            var text = System.IO.File.ReadAllText(localPath);
+            var lines = text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+
+            // Apply edits in reverse order (bottom to top so line numbers stay valid)
+            var textEdits = new List<(int startLine, int startChar, int endLine, int endChar, string newText)>();
+            foreach (var edit in edits.Cast<JObject>())
+            {
+                var range = edit["range"];
+                if (range is null) continue;
+                var start = range["start"];
+                var end = range["end"];
+                if (start is null || end is null) continue;
+
+                textEdits.Add((
+                    start["line"]?.Value<int>() ?? 0,
+                    start["character"]?.Value<int>() ?? 0,
+                    end["line"]?.Value<int>() ?? 0,
+                    end["character"]?.Value<int>() ?? 0,
+                    edit["newText"]?.Value<string>() ?? ""
+                ));
+            }
+
+            // Sort by descending start position so edits don't shift each other
+            textEdits.Sort((a, b) =>
+            {
+                var lineCmp = b.startLine.CompareTo(a.startLine);
+                return lineCmp != 0 ? lineCmp : b.startChar.CompareTo(a.startChar);
+            });
+
+            foreach (var (sl, sc, el, ec, nt) in textEdits)
+            {
+                if (sl >= lines.Length) continue;
+
+                var currentLine = lines[sl];
+                var newLine = currentLine.Substring(0, sc) + nt;
+                if (el < lines.Length)
+                {
+                    var endLine = lines[el];
+                    if (ec <= endLine.Length)
+                        newLine += endLine.Substring(ec);
+                }
+                lines[sl] = newLine;
+
+                // Remove lines between start and end (if multi-line edit)
+                for (int i = sl + 1; i <= el && i < lines.Length; i++)
+                    lines[i] = null!;
+            }
+
+            // Remove nulled lines
+            var finalLines = lines.Where(l => l != null).ToArray();
+            var newContent = string.Join(Environment.NewLine, finalLines);
+            System.IO.File.WriteAllText(localPath, newContent);
+
+            _fileLogger.LogInfo($"RenameStepCommand: wrote {finalLines.Length} lines to '{localPath}'.");
+        }
+
+        VsUtils.ShowStatusBarMessage("Reqnroll: Step renamed successfully.");
     }
 }
