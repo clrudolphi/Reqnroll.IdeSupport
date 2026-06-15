@@ -126,4 +126,32 @@ public class RenameSessionManagerTests
         consumed.Should().BeTrue();
         attributeIndex.Should().Be(2);
     }
+
+    /// <summary>
+    /// Multiple bindings in the same file can share the same expression with different
+    /// [Scope] attributes. The session stores the picker's selection (attributeIndex)
+    /// so that HandleRenameAsync can identify which binding was chosen. This test
+    /// verifies that consecutive SetSession calls with different attributeIndex values
+    /// are each consumed correctly — simulating the user selecting different scoped
+    /// duplicates in the picker across separate rename invocations.
+    /// </summary>
+    [Fact]
+    public void Multiple_sessions_same_uri_different_attributeIndex()
+    {
+        var sut = CreateSut();
+
+        // First rename — select attributeIndex 0
+        sut.SetSession("file:///project/Steps.cs", 0, 0);
+        var first = sut.TryConsume("file:///project/Steps.cs", 0, out var firstIndex);
+
+        first.Should().BeTrue();
+        firstIndex.Should().Be(0);
+
+        // Second rename — select attributeIndex 2 (third binding with same expression)
+        sut.SetSession("file:///project/Steps.cs", 0, 2);
+        var second = sut.TryConsume("file:///project/Steps.cs", 0, out var secondIndex);
+
+        second.Should().BeTrue();
+        secondIndex.Should().Be(2);
+    }
 }

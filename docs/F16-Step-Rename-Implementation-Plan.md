@@ -137,7 +137,7 @@ Key implementation details:
 2. Call `StepRenameValidator.ValidateNewName(binding, newName)` — if fails, return `ResponseError`
 3. Get all feature step locations for this binding from the Binding Match Service (the inverse lookup: "all files matching this binding")
 4. For each `.feature` step location, build a `TextEdit` replacing the step text with the new expression's plain-text rendering
-5. If the cursor was on a C# file: call `StepDefinitionFileParser.GetAttributeStringInfo(csFile, methodLine, methodColumn, bindingExpression)` to get the attribute string's span, literal kind, and raw text; build a `TextEdit` for the `.cs` file
+5. If the cursor was on a C# file: compute `sameExprIndex` — the ordinal of this binding among same-expression bindings in the session-resolved list — and call `BuildCSharpEditAsync(uri, expression, newName, sameExprIndex)` to locate the correct method in the SyntaxTree by matching attribute string content (not PDB line numbers). When multiple methods share the same expression with different `[Scope]` attributes, the `sameExprIndex` picks the Nth matching method in document order.
 6. Assemble `WorkspaceEdit` and return
 7. On file-read errors: drop that file from the edit, include a `window/showMessage` warning
 8. If the binding is linked (belongs to multiple projects): union the feature files from all including projects (via `GetProjectsForUri`)
@@ -180,8 +180,8 @@ The match cache currently stores "file → matches." Rename needs "binding → m
 - Add a new method on `StepRenameHandler` or a separate `RenameTargetsHandler`
 - On request `(uri, position)`:
   1. Call `StepDefinitionFileParser.GetAttributeStringInfo` to enumerate all binding `AttributeArgumentSyntax` nodes on the method at the given line (reusing the same targeted-method-lookup logic from Phase A1)
-  2. For each, extract the label (e.g., `"Given I press add"`) and the attribute's source range
-  3. Return `RenameTarget[]`
+  2. For each, extract the label (e.g., "Given I press add"). Do not DistinctBy(Expression) — multiple methods can share the same expression with different [Scope] attributes. Include scope-tag info in each label to disambiguate (e.g., "Given text [@tag1]" vs "Given text [@tag2]").
+  3. Return RenameTarget[]
 - If only one binding attribute exists, return a single-entry array (the picker still works but the client may skip the picker UI)
 
 **C2. `RenameSessionManager`** (0.5 day)
@@ -264,6 +264,9 @@ These test the actual LSP wire protocol through `StepRenameHandler` using a real
 | `rename_scenario_outline_step_returns_error` | `textDocument/rename` | ResponseError with "Could not rename step with placeholders" |
 | `rename_with_escaped_operators_succeeds` | `textDocument/rename` | WorkspaceEdit with correct escaping in both files |
 | `rename_from_step_text_single_binding` | `textDocument/rename` | Rename invoked from `.feature` line, `.cs` attribute also updated |
+| `rename_scoped_duplicate_expression_all_targets_shown` | `reqnroll/renameTargets` | Array contains multiple entries for same expression with different scope tags in labels |
+| `rename_scoped_duplicate_expression_csharp_edit_updates_correct_method` | `reqnroll/selectRenameTarget` + `textDocument/rename` | Only the selected method's attribute string is updated; other method with same expression unchanged |
+| `rename_without_scope_tag_shows_plain_label` | `reqnroll/renameTargets` | Single-entry target label has no `[@...]` suffix |
 
 ### 3.3 Multi-attribute request flow tests (integration)
 
@@ -353,3 +356,4 @@ Phase E (parallel with D, finishes after)
 | I4 | WorkspaceEdit is too large for the LSP transport buffer (rename affecting 100+ feature files) | The LSP message size is bounded by the OmniSharp transport (stdio, no hard limit in spec). If impractical, split into batches or use `workspace/applyEdit` with `workspace/configuration` for confirmation. |
 || I5 | Vs-extensibility `ITextUndoHistory` is not accessible through the LSP pipe — WorkspaceEdit applied via `LspInterceptingPipe` does not merge into a single undo transaction | Accept as a known limitation in Phase 4; the user sees per-file undo entries (one per `.feature` file + `.cs` file). Improve in a later phase if users report it. |
 || I6 | Binding attribute argument is a constant reference (`[Given(MyStepConst)]`), not a string literal. The rename must be blocked because there is no literal to edit in the `.cs` file, and resolving the constant would require semantic analysis (a full `Compilation` with references — the same gap that limits F2's custom-derived-attribute discovery). | Block the rename with a clear error message: "Cannot rename: the step definition expression is not a string literal (e.g., it may be a constant)." Document as a known limitation alongside F2's custom-derived-attribute note. The existing `Constant_is_not_supported_in_step_definition_expression` test in `RenameStepCommandTests` already verifies this behaviour. |
+|| I7 | Scoped duplicate expressions: multiple methods share the same expression but with different `[Scope]` tags. The rename must (a) show all variants in the picker with distinguishable labels, (b) resolve `textDocument/rename` to the correct method via `sameExprIndex`, and (c) update all feature steps regardless of which variant is selected (the scope is orthogonal to the expression text). | Picker labels include `[\@scopeTag]` suffix. `BuildCSharpEditAsync` indexes methods by `sameExprIndex` in SyntaxTree document order. Feature file edits are driven by the binding match service which already handles all scoped variants. |
