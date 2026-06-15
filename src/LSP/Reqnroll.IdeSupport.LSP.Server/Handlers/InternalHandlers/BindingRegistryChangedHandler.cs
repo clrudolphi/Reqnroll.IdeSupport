@@ -70,7 +70,11 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
         // Q23 Piece 2b: after the binding registry is populated (Connector run complete),
         // ask the client to refresh its code lens. Without this, a .cs file that was the
         // foreground editor at startup never receives updated code lens counts.
-        if (notification.IsFullReplacement && _clientIde.IsVisualStudio)
+        // NOTE: this uses the standard LSP workspace/codeLens/refresh mechanism, which works
+        // for VS Code / Rider but NOT for Visual Studio's custom pipe-based code lens
+        // (StepCodeLensService uses the LspInterceptingPipe directly, not VS's built-in
+        // LSP code lens infrastructure, so VS cannot route this request to our provider).
+        if (notification.IsFullReplacement && !_clientIde.IsVisualStudio)
         {
             _logger.LogInfo(
                 "BindingRegistryChanged: sending workspace/codeLens/refresh for project '{0}'.",
