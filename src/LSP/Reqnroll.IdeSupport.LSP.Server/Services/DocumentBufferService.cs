@@ -16,33 +16,23 @@ public interface IDocumentBufferService
 
 public class DocumentBufferService : IDocumentBufferService
 {
-    private readonly ConcurrentDictionary<string, DocumentBuffer> _buffers = new();
-
-    private static string NormalizeKey(DocumentUri uri)
-    {
-        var key = uri.ToString();
-        // Normalize drive letter (Windows): file:///C:/path → file:///c:/path
-        if (key.StartsWith("file:///", StringComparison.OrdinalIgnoreCase) &&
-            key.Length > 9 && key[9] == ':' &&
-            char.IsLetter(key[8]) && char.IsUpper(key[8]))
-            key = "file:///" + char.ToLowerInvariant(key[8]) + key.Substring(9);
-        return key;
-    }
+    private readonly ConcurrentDictionary<string, DocumentBuffer> _buffers =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public void Update(DocumentUri uri, int? version, string text)
-        => _buffers[NormalizeKey(uri)] = new DocumentBuffer(uri, version, text);
+        => _buffers[uri.ToString()] = new DocumentBuffer(uri, version, text);
 
     public void UpdateTags(DocumentUri uri, IReadOnlyCollection<DeveroomTag> tags)
         => _buffers.AddOrUpdate(
-            NormalizeKey(uri),
+            uri.ToString(),
             _ => new DocumentBuffer(uri, null, string.Empty, tags),
             (_, existing) => existing with { Tags = tags });
 
     public bool TryGet(DocumentUri uri, out DocumentBuffer? buffer)
-        => _buffers.TryGetValue(NormalizeKey(uri), out buffer);
+        => _buffers.TryGetValue(uri.ToString(), out buffer);
 
     public void Remove(DocumentUri uri)
-        => _buffers.TryRemove(NormalizeKey(uri), out _);
+        => _buffers.TryRemove(uri.ToString(), out _);
 
     public IEnumerable<DocumentBuffer> All => _buffers.Values;
 }
