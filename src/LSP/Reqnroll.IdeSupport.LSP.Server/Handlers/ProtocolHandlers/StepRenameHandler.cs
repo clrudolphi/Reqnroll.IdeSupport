@@ -266,7 +266,7 @@ public sealed class StepRenameHandler
         // Collect all bindings at this method location (heuristic: within 5 lines)
         var allBindings = registry.StepDefinitions
             .Where(b => b.Implementation.SourceLocation != null &&
-                        b.Implementation.SourceLocation.SourceFile == path &&
+                        string.Equals(b.Implementation.SourceLocation.SourceFile, path, StringComparison.OrdinalIgnoreCase) &&
                         Math.Abs(b.Implementation.SourceLocation.SourceFileLine - line) <= 5)
             .DistinctBy(b => b.Expression)
             .ToList();
@@ -312,7 +312,7 @@ public sealed class StepRenameHandler
     {
         return registry.StepDefinitions
             .FirstOrDefault(b => b.Implementation.SourceLocation != null &&
-                                 b.Implementation.SourceLocation.SourceFile == location.SourceFile &&
+                                 string.Equals(b.Implementation.SourceLocation.SourceFile, location.SourceFile, StringComparison.OrdinalIgnoreCase) &&
                                  b.Implementation.SourceLocation.SourceFileLine == location.SourceFileLine &&
                                  b.Implementation.SourceLocation.SourceFileColumn == location.SourceFileColumn);
     }
@@ -346,7 +346,7 @@ public sealed class StepRenameHandler
         // Find the attribute index by matching the expression
         var allStepDefs = registry.StepDefinitions
             .Where(b => b.Implementation.SourceLocation != null &&
-                        b.Implementation.SourceLocation.SourceFile == csPath &&
+                        string.Equals(b.Implementation.SourceLocation.SourceFile, csPath, StringComparison.OrdinalIgnoreCase) &&
                         b.Implementation.SourceLocation.SourceFileLine == bindingLocation.SourceFileLine)
             .Select((b, i) => new { b.Expression, Index = i })
             .ToList();
