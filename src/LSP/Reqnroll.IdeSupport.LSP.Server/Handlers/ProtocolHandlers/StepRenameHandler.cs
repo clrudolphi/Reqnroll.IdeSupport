@@ -229,7 +229,24 @@ public sealed class StepRenameHandler
             return null;
         }
 
-        var bindingLocation = new SourceLocation(path, line, column);
+        SourceLocation bindingLocation;
+
+        // Use the binding's C# source location for FindUsages so we can find
+        // feature steps that reference this binding. For .feature-originated
+        // renames, the request path is the .feature file, not the .cs file.
+        if (!path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) &&
+            binding.Implementation?.SourceLocation?.SourceFile != null)
+        {
+            bindingLocation = new SourceLocation(
+                binding.Implementation.SourceLocation.SourceFile,
+                binding.Implementation.SourceLocation.SourceFileLine,
+                binding.Implementation.SourceLocation.SourceFileColumn);
+            _logger.LogVerbose($"StepRenameHandler: using binding source location for FindUsages: {bindingLocation}");
+        }
+        else
+        {
+            bindingLocation = new SourceLocation(path, line, column);
+        }
 
         // ── 2. Validate new name ───────────────────────────────────────────────
         var expression = binding.Expression ?? string.Empty;
@@ -282,16 +299,19 @@ public sealed class StepRenameHandler
             });
         }
 
-        // ── 5. Build .cs file edit (if cursor was on C#) ──────────────────────
-        if (path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+        // ── 5. Build .cs file edit ────────────────────────────────────────────
+        if (sourceLiteral != null)
         {
             var csEdit = BuildCSharpEdit(sourceLiteral, newName);
             if (csEdit != null)
             {
-                if (!changes.TryGetValue(uri, out var list))
+                var csUri = path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+                    ? uri
+                    : DocumentUri.FromFileSystemPath(binding.Implementation!.SourceLocation!.SourceFile);
+                if (!changes.TryGetValue(csUri, out var list))
                 {
                     list = new List<TextEdit>();
-                    changes[uri] = list;
+                    changes[csUri] = list;
                 }
                 list.Add(csEdit);
             }
