@@ -91,4 +91,27 @@ public class RenameSessionManagerTests
         consumed.Should().BeTrue();
         attributeIndex.Should().Be(5);
     }
+
+    [Fact]
+    public void SetSession_with_version_zero_is_consumable_with_version_zero()
+    {
+        var sut = CreateSut();
+
+        sut.SetSession("test.cs", 0, 2);
+        var consumed = sut.TryConsume("test.cs", 0, out var attributeIndex);
+
+        consumed.Should().BeTrue();
+        attributeIndex.Should().Be(2);
+    }
+
+    [Fact]
+    public void TryConsume_with_different_uri_returns_false()
+    {
+        var sut = CreateSut();
+
+        sut.SetSession("file-a.cs", 1, 10);
+        var consumed = sut.TryConsume("file-b.cs", 1, out _);
+
+        consumed.Should().BeFalse();
+    }
 }
