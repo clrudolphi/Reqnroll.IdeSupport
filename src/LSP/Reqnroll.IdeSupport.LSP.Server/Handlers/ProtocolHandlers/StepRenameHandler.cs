@@ -192,12 +192,20 @@ public sealed class StepRenameHandler
 
         if (pendingAttributeIndex.HasValue)
         {
-            // Find the binding by enumerating bindings at the method location
-            bindingsAtLocation = registry.StepDefinitions
-                .Where(b => b.Implementation.SourceLocation != null &&
-                            string.Equals(b.Implementation.SourceLocation.SourceFile, path, StringComparison.OrdinalIgnoreCase) &&
-                            Math.Abs(b.Implementation.SourceLocation.SourceFileLine - line) <= 5)
-                .ToList();
+            if (path.EndsWith(".feature", StringComparison.OrdinalIgnoreCase))
+            {
+                // For feature files, resolve bindings from the match cache
+                bindingsAtLocation = FindBindingsAtFeatureStep(uri, path, position: request.Position);
+            }
+            else
+            {
+                // For C# files, find bindings at the method location in the registry
+                bindingsAtLocation = registry.StepDefinitions
+                    .Where(b => b.Implementation.SourceLocation != null &&
+                                string.Equals(b.Implementation.SourceLocation.SourceFile, path, StringComparison.OrdinalIgnoreCase) &&
+                                Math.Abs(b.Implementation.SourceLocation.SourceFileLine - line) <= 5)
+                    .ToList();
+            }
 
             if (pendingAttributeIndex.Value >= 0 && pendingAttributeIndex.Value < bindingsAtLocation.Count)
             {
@@ -207,6 +215,13 @@ public sealed class StepRenameHandler
         }
 
         // Fall back to position-based resolution (single-binding case)
+        if (binding == null && path.EndsWith(".feature", StringComparison.OrdinalIgnoreCase))
+        {
+            var featureBindings = FindBindingsAtFeatureStep(uri, path, position: request.Position);
+            binding = featureBindings.FirstOrDefault();
+            if (binding != null)
+                _logger.LogVerbose($"StepRenameHandler: resolved binding via feature match cache: '{binding.Expression}'");
+        }
         binding ??= FindBindingAtLocation(registry, new SourceLocation(path, line, column));
         if (binding == null)
         {
@@ -304,18 +319,32 @@ public sealed class StepRenameHandler
         var uri  = request.TextDocument.Uri;
         var path = uri.GetFileSystemPath();
 
-        if (string.IsNullOrEmpty(path) || !path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrEmpty(path))
             return null;
 
-        var line   = request.Position.Line + 1;
+        if (path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+        {
+            return await HandleRenameTargetsFromCSharpAsync(uri, path, request.Position, cancellationToken);
+        }
+
+        if (path.EndsWith(".feature", StringComparison.OrdinalIgnoreCase))
+        {
+            return await HandleRenameTargetsFromFeatureAsync(uri, path, request.Position, cancellationToken);
+        }
+
+        return null;
+    }
+
+    private async Task<RenameTargetsResponse?> HandleRenameTargetsFromCSharpAsync(
+        DocumentUri uri, string path, Position position, CancellationToken cancellationToken)
+    {
+        var line = position.Line + 1;
 
         var registry = _registryLookup.GetRegistryForUri(uri);
         if (registry == ProjectBindingRegistry.Invalid)
             return new RenameTargetsResponse();
 
         // Collect all bindings at this method location (heuristic: within 5 lines)
-        // Do NOT DistinctBy expression — multiple methods can share the same expression
-        // with different Scope attributes (e.g. [Scope(Tag="tag1")] + [Given("text")]).
         var allBindings = registry.StepDefinitions
             .Where(b => b.Implementation.SourceLocation != null &&
                         string.Equals(b.Implementation.SourceLocation.SourceFile, path, StringComparison.OrdinalIgnoreCase) &&
@@ -329,12 +358,10 @@ public sealed class StepRenameHandler
         int idx = 0;
         foreach (var b in allBindings)
         {
-            // Prefer the live source expression (preserves Cucumber parameter types) for both the
-            // display label and the dialog seed; fall back to the registry expression projection.
+            // Prefer the live source expression (preserves Cucumber parameter types)
             var sourceLiteral = await FindAttributeLiteralAsync(uri, b);
             var expression = sourceLiteral?.Token.ValueText ?? b.Expression ?? "(unknown)";
 
-            // Include scope tag in label to disambiguate methods sharing the same expression
             var scopeTag = b.Scope?.Tag?.ToString();
             var scopeSuffix = !string.IsNullOrEmpty(scopeTag) ? $" [@{scopeTag}]" : "";
             response.Targets.Add(new RenameTargetItem
@@ -351,6 +378,78 @@ public sealed class StepRenameHandler
         }
 
         return response;
+    }
+
+    private async Task<RenameTargetsResponse?> HandleRenameTargetsFromFeatureAsync(
+        DocumentUri uri, string path, Position position, CancellationToken cancellationToken)
+    {
+        var matchedBindings = FindBindingsAtFeatureStep(uri, path, position: position);
+        if (matchedBindings.Count == 0)
+            return new RenameTargetsResponse();
+
+        var response = new RenameTargetsResponse();
+        int idx = 0;
+        foreach (var b in matchedBindings)
+        {
+            response.Targets.Add(new RenameTargetItem
+            {
+                Label = $"{b.StepDefinitionType} {b.Expression ?? "(unknown)"}",
+                Expression = b.Expression ?? "",
+                AttributeIndex = idx,
+                StartLine = 0, StartChar = 0, EndLine = 0, EndChar = 200
+            });
+            idx++;
+        }
+
+        return response;
+    }
+
+    /// <summary>
+    /// Finds all bindings that match the feature step at the given cursor position
+    /// by querying the binding match cache for the owning projects.
+    /// </summary>
+    private List<ProjectStepDefinitionBinding> FindBindingsAtFeatureStep(
+        DocumentUri uri, string path, Position position)
+    {
+        var uriStr = uri.ToString();
+        var owners = _scopeManager.ResolveOwners(uri);
+        if (owners.Count == 0)
+            return new List<ProjectStepDefinitionBinding>();
+
+        var matchedBindings = new HashSet<ProjectStepDefinitionBinding>();
+
+        foreach (var owner in owners)
+        {
+            var key = new MatchSetKey(uriStr, new ProjectOwner(owner.ProjectFullName, owner.TargetFrameworkMoniker));
+            if (!_matchService.TryGet(key, out var matchSet))
+                continue;
+
+            foreach (var step in matchSet.Steps)
+            {
+                if (step.Result is null || !step.Result.HasDefined)
+                    continue;
+
+                // Check if cursor falls within the step's range
+                var startPos = step.Range.StartLinePosition;
+                var endPos   = step.Range.EndLinePosition;
+                if (position.Line >= startPos.Line &&
+                    position.Line <= endPos.Line)
+                {
+                    var stepStartChar = (position.Line == startPos.Line) ? startPos.Character : 0;
+                    var stepEndChar   = (position.Line == endPos.Line)   ? endPos.Character   : int.MaxValue;
+                    if (position.Character >= stepStartChar && position.Character <= stepEndChar)
+                    {
+                        foreach (var item in step.Result.Items)
+                        {
+                            if (item.MatchedStepDefinition != null)
+                                matchedBindings.Add(item.MatchedStepDefinition);
+                        }
+                    }
+                }
+            }
+        }
+
+        return matchedBindings.ToList();
     }
 
     /// <summary>
