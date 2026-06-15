@@ -255,6 +255,56 @@ public class BindingRegistryChangedHandlerTests : IDisposable
         _scopeManager.DidNotReceive().GetIndexedFeatureFiles(Arg.Any<LspReqnrollProject>());
     }
 
+    // ── workspace/codeLens/refresh — correct client guard ─────────────────────
+
+    [Fact]
+    public async Task Handle_fullReplacement_sends_codeLens_refresh_for_non_vs_client()
+    {
+        var nonVsIde = new ClientIdeContext("vscode");
+        var sut = new BindingRegistryChangedHandler(
+            _bufferService, _taggerService, _scopeManager, _languageServer, nonVsIde, _mediator, _logger);
+
+        _scopeManager.HasBaselineForProject(_project).Returns(true);
+        _scopeManager.GetIndexedFeatureFiles(_project).Returns(Array.Empty<string>());
+
+        await sut.Handle(
+            new BindingRegistryChangedNotification(_project, IsFullReplacement: true),
+            CancellationToken.None);
+
+        _languageServer.Client.Received(1).SendRequest("workspace/codeLens/refresh");
+    }
+
+    [Fact]
+    public async Task Handle_fullReplacement_does_not_send_codeLens_refresh_for_vs_client()
+    {
+        // _clientIde is constructed with "visualstudio" in the test fixture
+        _scopeManager.HasBaselineForProject(_project).Returns(true);
+        _scopeManager.GetIndexedFeatureFiles(_project).Returns(Array.Empty<string>());
+
+        await CreateSut().Handle(
+            new BindingRegistryChangedNotification(_project, IsFullReplacement: true),
+            CancellationToken.None);
+
+        _languageServer.Client.DidNotReceive().SendRequest("workspace/codeLens/refresh");
+    }
+
+    [Fact]
+    public async Task Handle_incremental_does_not_send_codeLens_refresh_even_for_non_vs_client()
+    {
+        var nonVsIde = new ClientIdeContext("vscode");
+        var sut = new BindingRegistryChangedHandler(
+            _bufferService, _taggerService, _scopeManager, _languageServer, nonVsIde, _mediator, _logger);
+
+        _scopeManager.HasBaselineForProject(_project).Returns(true);
+        _scopeManager.GetIndexedFeatureFiles(_project).Returns(Array.Empty<string>());
+
+        await sut.Handle(
+            new BindingRegistryChangedNotification(_project, IsFullReplacement: false),
+            CancellationToken.None);
+
+        _languageServer.Client.DidNotReceive().SendRequest("workspace/codeLens/refresh");
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static bool FilePathMatches(DocumentUri uri, string expected)
