@@ -67,10 +67,16 @@ internal sealed class CodeLensRefreshInterceptor : ILspMessageInterceptor
         _lastFileUri       = uri;
         _lastInvalidation  = now;
 
-        // Invalidate code lenses for this file.  The interceptor runs on the
-        // send-pump thread; the Invalidate() call is safe from any thread and
-        // VS will re-call GetLabelAsync on its own paint cycle.
-        _state.InvalidateLensesForFile(uri);
+        // Invalidate code lenses for this file.  Must run on the UI thread — CodeLens.Invalidate()
+        // in the VS Extensibility SDK sets an internal dirty flag that only takes effect when
+        // called from the main thread.
+        var jtf = Microsoft.VisualStudio.Shell.ThreadHelper.JoinableTaskFactory;
+        _ = jtf.RunAsync(async () =>
+        {
+            await jtf.SwitchToMainThreadAsync();
+            _state.InvalidateLensesForFile(uri);
+        });
+
         _traceSource.TraceInformation(
             "CodeLensRefreshInterceptor: invalidated lenses for '{0}'", uri);
 
