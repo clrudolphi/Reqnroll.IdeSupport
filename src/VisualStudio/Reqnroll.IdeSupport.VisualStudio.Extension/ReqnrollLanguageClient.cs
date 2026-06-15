@@ -215,7 +215,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
             _goToDefinitionState.Service            = new GoToDefinitionService(_interceptingPipe, _traceSource);
             _stepCodeLensState.Service              = new StepCodeLensService(_interceptingPipe, _traceSource);
             _commentToggleState.Service             = new CommentToggleService(_interceptingPipe, _traceSource);
-            _renameStepState.Service                 = new RenameStepService(_interceptingPipe);
+            _renameStepState.Service                 = new RenameStepService(_interceptingPipe, _traceSource);
 
             // Set the VSSDK command filter redirect so the keyboard shortcut interception
             // for Edit.CommentSelection/UncommentSelection/ToggleLineComment calls our service.

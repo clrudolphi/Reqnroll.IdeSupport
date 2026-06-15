@@ -177,25 +177,15 @@ internal sealed class RenameStepCommand : Command
 
             _fileLogger.LogInfo($"RenameStepCommand: user entered new text '{newStepText}'.");
 
-            // ── Step 5: Send textDocument/rename via the pipe ──────────────
-            var renameParams = BuildRenameParams(fileUri, lineNum, charNum, newStepText);
-            _fileLogger.LogInfo($"RenameStepCommand: sending {RenameMethod} with params={renameParams}");
-
-            var pipe = GetPipe(service);
-            if (pipe is null)
-            {
-                _fileLogger.LogWarning("RenameStepCommand: LspInterceptingPipe not available.");
-                VsUtils.ShowStatusBarMessage("Reqnroll: Could not access LSP pipe to execute rename.");
-                return;
-            }
-
-            var result = await pipe
-                .SendRequestToServerAsync(RenameMethod, renameParams, cancellationToken)
+            // ── Step 5: Send textDocument/rename via the service ────────────
+            var result = await service.SendRenameRequestAsync(
+                fileUri, lineNum, charNum, newStepText, cancellationToken)
                 .ConfigureAwait(false);
 
             if (result is null)
             {
-                _fileLogger.LogWarning("RenameStepCommand: server returned null from rename.");
+                _traceSource.TraceInformation(
+                    "RenameStepCommand: server returned null from rename.");
                 VsUtils.ShowStatusBarMessage("Reqnroll: Rename failed — the step definition could not be renamed.");
                 return;
             }
@@ -215,27 +205,6 @@ internal sealed class RenameStepCommand : Command
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
-
-    private static string BuildRenameParams(string fileUri, int line0, int char0, string newName)
-    {
-        var escapedUri = Newtonsoft.Json.JsonConvert.ToString(fileUri);
-        var escapedNewName = Newtonsoft.Json.JsonConvert.ToString(newName);
-        return $"{{" +
-               $"\"textDocument\":{{\"uri\":{escapedUri}}}," +
-               $"\"position\":{{\"line\":{line0},\"character\":{char0}}}," +
-               $"\"newName\":{escapedNewName}" +
-               $"}}";
-    }
-
-    private static LspInterception.LspInterceptingPipe? GetPipe(RenameStepService service)
-    {
-        // The pipe is accessed via a field on the service. Since we can't inject the pipe
-        // directly into the command (it's created after server init), the service holds it.
-        // Use reflection to get the private _pipe field.
-        var field = typeof(RenameStepService).GetField("_pipe",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        return field?.GetValue(service) as LspInterception.LspInterceptingPipe;
-    }
 
     private async Task ApplyWorkspaceEditAsync(JToken result, CancellationToken cancellationToken)
     {
@@ -337,18 +306,8 @@ internal sealed class RenameStepCommand : Command
             // that subsequent operations (e.g. Find All References) return fresh data.
             if (localPath.EndsWith(".feature", StringComparison.OrdinalIgnoreCase))
             {
-                var didChangePipe = GetPipe(_state.Service!);
-                if (didChangePipe is not null)
-                {
-                    var escapedContent = Newtonsoft.Json.JsonConvert.ToString(newContent);
-                    var featureUri = "file:///" + localPath.Replace('\\', '/');
-                    var didChangeParams = $"{{\"textDocument\":{{\"uri\":\"{featureUri}\",\"version\":1}},\"contentChanges\":[{{\"text\":{escapedContent}}}]}}";
-                    _ = didChangePipe.SendNotificationToServerAsync(
-                        "textDocument/didChange",
-                        didChangeParams,
-                        cancellationToken);
-                    _fileLogger.LogInfo($"RenameStepCommand: sent didChange for '{localPath}'.");
-                }
+                _ = _state.Service!.SendDidChangeAsync(localPath, newContent, cancellationToken);
+                _fileLogger.LogInfo($"RenameStepCommand: sent didChange for '{localPath}'.");
             }
         }
 
