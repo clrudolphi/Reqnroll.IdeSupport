@@ -45,7 +45,9 @@ internal sealed class RenameStepCommand : Command
     public override CommandConfiguration CommandConfiguration => new("Rename Step")
     {
         Icon = new CommandIconConfiguration(ImageMoniker.Custom("ReqnrollIcon"), IconSettings.IconAndText),
-        VisibleWhen = ActivationConstraint.EditorContentType("CSharp"),
+        VisibleWhen = ActivationConstraint.Or(
+            ActivationConstraint.EditorContentType("CSharp"),
+            ActivationConstraint.EditorContentType("reqnroll-gherkin")),
         Placements =
         [
             CommandPlacement.VsctParent(GuidSHLMainMenu, id: IDG_VS_CODEWIN_NAVIGATETOLOCATION, priority: 0x0100),
