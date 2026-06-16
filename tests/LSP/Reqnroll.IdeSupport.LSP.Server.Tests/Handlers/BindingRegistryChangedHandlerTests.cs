@@ -5,6 +5,7 @@ using Reqnroll.IdeSupport.LSP.Server;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Handlers.InternalHandlers;
 using Reqnroll.IdeSupport.LSP.Server.Notifications;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Services;
 using Reqnroll.IdeSupport.LSP.Server.Tests.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
@@ -67,7 +68,10 @@ public class BindingRegistryChangedHandlerTests : IDisposable
     }
 
     private BindingRegistryChangedHandler CreateSut()
-        => new(_bufferService, _taggerService, _scopeManager, _languageServer, _clientIde, _mediator, _csharpDiscovery, _logger);
+        => CreateSut(_clientIde);
+
+    private BindingRegistryChangedHandler CreateSut(ClientIdeContext clientIde)
+        => new(_bufferService, _taggerService, _scopeManager, _languageServer, clientIde, _mediator, _csharpDiscovery, _logger);
 
     // ── Closed-file scanning — index-driven (baseline received) ───────────────
 
@@ -419,6 +423,51 @@ public class BindingRegistryChangedHandlerTests : IDisposable
             Arg.Any<LspReqnrollProject>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
 
         project.Dispose();
+    }
+
+    // ── Code-lens refresh signal after full replacement ──────────────────────
+
+    [Fact]
+    public async Task FullReplacement_pushes_reqnroll_refreshCodeLens_for_visual_studio()
+    {
+        _scopeManager.HasBaselineForProject(_project).Returns(true);
+        _scopeManager.GetIndexedFeatureFiles(_project).Returns(Array.Empty<string>());
+
+        await CreateSut().Handle(
+            new BindingRegistryChangedNotification(_project, IsFullReplacement: true),
+            CancellationToken.None);
+
+        _languageServer.Received(1).SendNotification(
+            "reqnroll/refreshCodeLens",
+            Arg.Is<RefreshCodeLensParams>(p => p.ProjectName == _project.ProjectName));
+    }
+
+    [Fact]
+    public async Task Incremental_change_does_not_push_refreshCodeLens()
+    {
+        _scopeManager.HasBaselineForProject(_project).Returns(true);
+
+        await CreateSut().Handle(
+            new BindingRegistryChangedNotification(_project, IsFullReplacement: false),
+            CancellationToken.None);
+
+        _languageServer.DidNotReceive().SendNotification(
+            "reqnroll/refreshCodeLens", Arg.Any<RefreshCodeLensParams>());
+    }
+
+    [Fact]
+    public async Task FullReplacement_does_not_push_refreshCodeLens_for_non_visual_studio()
+    {
+        _scopeManager.HasBaselineForProject(_project).Returns(true);
+        _scopeManager.GetIndexedFeatureFiles(_project).Returns(Array.Empty<string>());
+
+        // VS Code / Rider use the standard workspace/codeLens/refresh request instead.
+        await CreateSut(new ClientIdeContext("vscode")).Handle(
+            new BindingRegistryChangedNotification(_project, IsFullReplacement: true),
+            CancellationToken.None);
+
+        _languageServer.DidNotReceive().SendNotification(
+            "reqnroll/refreshCodeLens", Arg.Any<RefreshCodeLensParams>());
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

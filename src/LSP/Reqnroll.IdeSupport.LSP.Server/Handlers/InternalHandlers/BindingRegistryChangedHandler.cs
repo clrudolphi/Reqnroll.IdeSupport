@@ -4,6 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Notifications;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Services;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
@@ -84,27 +85,51 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
 
         // Q23 Piece 2b: after the binding registry is populated (Connector run complete),
         // ask the client to refresh its code lens. Without this, a .cs file that was the
-        // foreground editor at startup never receives updated code lens counts.
-        // NOTE: this uses the standard LSP workspace/codeLens/refresh mechanism, which works
-        // for VS Code / Rider but NOT for Visual Studio's custom pipe-based code lens
-        // (StepCodeLensService uses the LspInterceptingPipe directly, not VS's built-in
-        // LSP code lens infrastructure, so VS cannot route this request to our provider).
-        if (notification.IsFullReplacement && !_clientIde.IsVisualStudio)
+        // foreground editor at startup keeps the (count-less) code lenses it rendered before the
+        // server was ready, until the user navigates away and back to re-realize the view.
+        if (notification.IsFullReplacement)
+            await RequestCodeLensRefreshAsync(notification.Project).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Asks the client to re-pull C# step code lenses after a full registry replacement.
+    /// Visual Studio cannot route the standard <c>workspace/codeLens/refresh</c> request to our
+    /// pipe-based code-lens provider (the VS client's <c>StepCodeLensService</c> uses the
+    /// <c>LspInterceptingPipe</c> directly, not VS's built-in LSP code-lens infrastructure), so for
+    /// VS we push a custom <c>reqnroll/refreshCodeLens</c> notification the client intercepts to
+    /// invalidate its rendered lenses. VS Code / Rider use the standard request.
+    /// </summary>
+    private async Task RequestCodeLensRefreshAsync(LspReqnrollProject project)
+    {
+        if (_clientIde.IsVisualStudio)
         {
             _logger.LogInfo(
-                "BindingRegistryChanged: sending workspace/codeLens/refresh for project '{0}'.",
-                notification.Project.ProjectName);
+                $"BindingRegistryChanged: sending reqnroll/refreshCodeLens for project '{project.ProjectName}'.");
             try
             {
-                await _languageServer.Client
-                    .SendRequest("workspace/codeLens/refresh")
-                    .ReturningVoid(CancellationToken.None)
-                    .ConfigureAwait(false);
+                _languageServer.SendNotification(
+                    "reqnroll/refreshCodeLens",
+                    new RefreshCodeLensParams { ProjectName = project.ProjectName });
             }
             catch (Exception ex)
             {
-                _logger.LogWarning($"workspace/codeLens/refresh failed: {ex.Message}");
+                _logger.LogWarning($"reqnroll/refreshCodeLens failed: {ex.Message}");
             }
+            return;
+        }
+
+        _logger.LogInfo(
+            $"BindingRegistryChanged: sending workspace/codeLens/refresh for project '{project.ProjectName}'.");
+        try
+        {
+            await _languageServer.Client
+                .SendRequest("workspace/codeLens/refresh")
+                .ReturningVoid(CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning($"workspace/codeLens/refresh failed: {ex.Message}");
         }
     }
 

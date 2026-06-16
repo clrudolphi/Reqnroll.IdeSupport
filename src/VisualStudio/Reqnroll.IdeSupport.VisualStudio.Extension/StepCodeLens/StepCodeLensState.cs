@@ -109,4 +109,23 @@ internal sealed class StepCodeLensState
             _lensesByFile[fileUri] = alive;
         }
     }
+
+    /// <summary>
+    /// Invalidates every tracked code lens across all files, causing VS to re-call
+    /// <see cref="StepCodeLens.GetLabelAsync"/> for each. Used when the server signals a full
+    /// binding-registry replacement (e.g. startup connector discovery): the lenses for any open
+    /// <c>.cs</c> file were rendered before the server had usage counts, so they all need a re-pull.
+    /// Safe to call from any thread.
+    /// </summary>
+    internal void InvalidateAllTrackedLenses()
+    {
+        List<string> fileUris;
+        lock (_lensesLock)
+        {
+            fileUris = _lensesByFile.Keys.ToList();
+        }
+
+        foreach (var fileUri in fileUris)
+            InvalidateLensesForFile(fileUri);
+    }
 }

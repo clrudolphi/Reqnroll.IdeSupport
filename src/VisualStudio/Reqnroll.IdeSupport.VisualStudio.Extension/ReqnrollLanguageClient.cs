@@ -165,9 +165,11 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
                 _stepCodeLensState, _traceSource);
 
             // Send pipeline:   VS → [logger, semanticTokens, scaffold, codeLensRefresh] → Server
-            // Receive pipeline: Server → [logger, semanticTokens, scaffold] → VS
+            // Receive pipeline: Server → [logger, semanticTokens, scaffold, codeLensRefresh] → VS
+            // codeLensRefresh is on both pipelines: send watches .cs didChange; receive watches the
+            // server's reqnroll/refreshCodeLens push after a full registry replacement.
             var sendInterceptors    = new ILspMessageInterceptor[] { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor, codeLensRefreshInterceptor };
-            var receiveInterceptors = new ILspMessageInterceptor[] { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor };
+            var receiveInterceptors = new ILspMessageInterceptor[] { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor, codeLensRefreshInterceptor };
 
             _interceptingPipe = new LspInterceptingPipe(rawPipe, sendInterceptors, receiveInterceptors, _traceSource);
             // Pass CancellationToken.None: the pumps must live for the entire connection
