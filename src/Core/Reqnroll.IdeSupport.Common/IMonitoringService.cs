@@ -31,8 +31,6 @@ public interface IMonitoringService
     void MonitorCommandAddReqnrollConfigFile(ProjectSettings projectSettings);
     //void MonitorCommandRenameStepExecuted(RenameStepCommandContext ctx);
 
-    //void MonitorReqnrollDiscovery(bool isFailed, string errorMessage, int stepDefinitionCount, ProjectSettings projectSettings, string connectorType);
-
     //void MonitorReqnrollGeneration(bool isFailed, ProjectSettings projectSettings);
 
     void MonitorError(Exception exception, bool? isFatal = null);

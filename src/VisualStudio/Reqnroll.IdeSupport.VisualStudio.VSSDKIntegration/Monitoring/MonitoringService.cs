@@ -86,71 +86,6 @@ public class MonitoringService : IMonitoringService
 
     //COMMAND
 
-    //public void MonitorCommandCommentUncomment()
-    //{
-    //    _analyticsTransmitter.TransmitEvent(new GenericEvent("CommentUncomment command executed"));
-    //}
-
-    //public void MonitorCommandDefineSteps(CreateStepDefinitionsDialogResult action, int snippetCount)
-    //{
-    //    _analyticsTransmitter.TransmitEvent(new GenericEvent("DefineSteps command executed",
-    //        new Dictionary<string, object>
-    //        {
-    //            {"Action", action},
-    //            {"SnippetCount", snippetCount}
-    //        }));
-    //}
-
-    //public void MonitorCommandFindStepDefinitionUsages(int usagesCount, bool isCancelled)
-    //{
-    //    _analyticsTransmitter.TransmitEvent(new GenericEvent("FindStepDefinitionUsages command executed",
-    //        new Dictionary<string, object>
-    //        {
-    //            {"UsagesFound", usagesCount},
-    //            {"IsCancelled", isCancelled}
-    //        }));
-    //}
-
-    //public void MonitorCommandFindUnusedStepDefinitions(int unusedStepDefinitions, int scannedFeatureFiles, bool isCancelled)
-    //{
-    //    _analyticsTransmitter.TransmitEvent(new GenericEvent("FindUnusedStepDefinitions command executed",
-    //        new Dictionary<string, object>
-    //        {
-    //            {"UnusedStepDefinitions", unusedStepDefinitions},
-    //            {"ScannedFeatureFiles", scannedFeatureFiles},
-    //            {"IsCancelled", isCancelled}
-    //        }));
-    //}
-
-    //public void MonitorCommandGoToStepDefinition(bool generateSnippet)
-    //{
-    //    _analyticsTransmitter.TransmitEvent(new GenericEvent("GoToStepDefinition command executed",
-    //        new Dictionary<string, object>
-    //        {
-    //            {"GenerateSnippet", generateSnippet}
-    //        }));
-    //}
-
-    //public void MonitorCommandGoToHook()
-    //{
-    //    _analyticsTransmitter.TransmitEvent(new GenericEvent("GoToHook command executed"));
-    //}
-
-    //public void MonitorCommandAutoFormatTable()
-    //{
-    //    //TODO: re-enable tracking for real command based triggering (not by character type)
-    //    //nop
-    //}
-
-    //public void MonitorCommandAutoFormatDocument(bool isSelectionFormatting)
-    //{
-    //    _analyticsTransmitter.TransmitEvent(new GenericEvent("AutoFormatDocument command executed",
-    //        new Dictionary<string, object>
-    //        {
-    //            {"IsSelectionFormatting", isSelectionFormatting}
-    //        }));
-    //}
-
     public void MonitorCommandAddFeatureFile(ProjectSettings settings)
     {
         _analyticsTransmitter.TransmitEvent(new GenericEvent("Feature file added",
@@ -163,35 +98,7 @@ public class MonitoringService : IMonitoringService
             GetProjectSettingsProps(settings)));
     }
 
-    //public void MonitorCommandRenameStepExecuted(RenameStepCommandContext ctx)
-    //{
-    //    _analyticsTransmitter.TransmitEvent(new GenericEvent("Rename step command executed",
-    //        new Dictionary<string, object>
-    //        {
-    //            {"Erroneous", ctx.IsErroneous}
-    //        }));
-    //}
-
     //REQNROLL
-
-    public void MonitorReqnrollDiscovery(bool isFailed, string errorMessage, int stepDefinitionCount, ProjectSettings projectSettings, string connectorType)
-    {
-        if (isFailed && !string.IsNullOrWhiteSpace(errorMessage))
-        {
-            var discoveryException = new Exception(errorMessage);
-            _analyticsTransmitter.TransmitExceptionEvent(discoveryException, GetProjectSettingsProps(projectSettings));
-        }
-
-        var additionalProps = new Dictionary<string, object>
-        {
-            {"IsFailed", isFailed},
-            {"StepDefinitionCount", stepDefinitionCount}
-        };
-        if (!string.IsNullOrEmpty(connectorType))
-            additionalProps.Add("ConnectorType", connectorType);
-        _analyticsTransmitter.TransmitEvent(new GenericEvent("Reqnroll Discovery executed",
-            GetProjectSettingsProps(projectSettings, additionalProps)));
-    }
 
     public void MonitorReqnrollGeneration(bool isFailed, ProjectSettings projectSettings)
     {
@@ -299,11 +206,4 @@ public class MonitoringService : IMonitoringService
             props.Add("LegacySpecFlow", true);
         return props;
     }
-
-    //private Dictionary<string, object> GetNotificationProps(NotificationData notification) =>
-    //    new()
-    //    {
-    //        {"NotificationId", notification.Id},
-    //        {"URL", notification.LinkUrl}
-    //    };
 }

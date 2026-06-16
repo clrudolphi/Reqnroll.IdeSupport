@@ -38,13 +38,15 @@ public sealed class StepRenameHandler
     private readonly IDeveroomLogger               _logger;
     private readonly IDocumentBufferService        _documentBuffer;
     private readonly RenameSessionManager          _sessionManager;
+    private readonly ILspTelemetryService?         _telemetryService;
 
     public StepRenameHandler(
         IBindingMatchService          matchService,
         ILspWorkspaceScopeManager     scopeManager,
         IProjectBindingRegistryLookup registryLookup,
         IDeveroomLogger               logger,
-        IDocumentBufferService        documentBuffer)
+        IDocumentBufferService        documentBuffer,
+        ILspTelemetryService?         telemetryService = null)
     {
         _matchService    = matchService;
         _scopeManager    = scopeManager;
@@ -52,6 +54,7 @@ public sealed class StepRenameHandler
         _logger          = logger;
         _documentBuffer  = documentBuffer;
         _sessionManager  = new RenameSessionManager();
+        _telemetryService = telemetryService;
     }
 
     // ── textDocument/prepareRename ──────────────────────────────────────────────
@@ -333,6 +336,12 @@ public sealed class StepRenameHandler
                 _logger.LogVerbose($"StepRenameHandler: invalidated match cache for '{changedUri}'");
             }
         }
+
+        // Telemetry
+        _telemetryService?.SendEvent("Rename step command executed", new()
+        {
+            ["Erroneous"] = false,
+        });
 
         return new WorkspaceEdit
         {

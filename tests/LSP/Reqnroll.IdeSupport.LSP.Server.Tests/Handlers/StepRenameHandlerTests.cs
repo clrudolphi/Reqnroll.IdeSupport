@@ -39,6 +39,9 @@ public class StepRenameHandlerTests
     private StepRenameHandler CreateSut() =>
         new(_matchService, _scopeManager, _registryLookup, _logger, _documentBuffer);
 
+    private StepRenameHandler CreateSutWithTelemetry(ILspTelemetryService telemetry) =>
+        new(_matchService, _scopeManager, _registryLookup, _logger, _documentBuffer, telemetry);
+
     private void SetupBuffer(string csText)
     {
         _documentBuffer
@@ -671,5 +674,48 @@ public class StepRenameHandlerTests
         csEdit.Should().ContainSingle();
         csEdit[0].NewText.Should().Be("\"something changed\"");
         csEdit[0].Range.Start.Line.Should().Be(6, "the [When] attribute literal is on 0-based line 6");
+    }
+
+    // ── Telemetry ───────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task HandleRenameAsync_emits_rename_telemetry_on_success()
+    {
+        // Arrange — set up a minimal rename that produces an edit
+        const string csText = """
+            using Reqnroll;
+            namespace S;
+            class C
+            {
+                [When("something")]
+                void M() { }
+            }
+            """;
+        var binding = new ProjectStepDefinitionBinding(
+            ScenarioBlock.When,
+            new Regex("^something$"),
+            null,
+            new ProjectBindingImplementation("C.M", null, new SourceLocation(CsPath, 5, 1)),
+            "something");
+        var registry = ProjectBindingRegistry.FromBindings(new[] { binding });
+        _registryLookup.GetRegistryForUri(CsUri).Returns(registry);
+        SetupBuffer(csText);
+
+        var telemetry = Substitute.For<ILspTelemetryService>();
+        var sut = CreateSutWithTelemetry(telemetry);
+
+        var result = await sut.HandleRenameAsync(
+            new RenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = CsUri },
+                Position = new Position(4, 0),
+                NewName = "something changed"
+            },
+            CancellationToken.None);
+
+        result.Should().NotBeNull();
+        telemetry.Received(1).SendEvent(
+            "Rename step command executed",
+            Arg.Is<Dictionary<string, object?>>(d => false.Equals(d["Erroneous"])));
     }
 }

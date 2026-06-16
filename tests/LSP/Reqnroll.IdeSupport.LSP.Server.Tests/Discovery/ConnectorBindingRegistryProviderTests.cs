@@ -3,6 +3,7 @@ using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.LSP.Core.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
+using Reqnroll.IdeSupport.LSP.Server.Services;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Discovery;
@@ -24,6 +25,9 @@ public class ConnectorBindingRegistryProviderTests : IDisposable
     public void Dispose() => _project.Dispose();
 
     private ConnectorBindingRegistryProvider CreateSut() => new(_project, _discovery, _logger);
+
+    private ConnectorBindingRegistryProvider CreateSutWithTelemetry(ILspTelemetryService telemetry) =>
+        new(_project, _discovery, _logger, telemetry);
 
     private static ProjectBindingRegistry NonInvalidRegistry(int hash) => new(
         ImmutableArray<ProjectStepDefinitionBinding>.Empty,
@@ -189,5 +193,93 @@ namespace S
         await Task.Delay(1000);
 
         raised.Should().BeFalse();
+    }
+
+    // ── Telemetry ────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task TriggerRefresh_emits_discovery_telemetry_on_new_result()
+    {
+        var newRegistry = NonInvalidRegistry(hash: 42);
+        GivenDiscoveryReturns(newRegistry, "hash-1");
+        var telemetry = Substitute.For<ILspTelemetryService>();
+
+        var sut = CreateSutWithTelemetry(telemetry);
+        var changed = new TaskCompletionSource();
+        sut.BindingRegistryChanged += (_, _) => changed.TrySetResult();
+
+        sut.TriggerRefresh();
+        await Task.WhenAny(changed.Task, Task.Delay(5000));
+
+        telemetry.Received(1).SendEvent(
+            "Reqnroll Discovery executed",
+            Arg.Is<Dictionary<string, object?>>(d =>
+                "Connector".Equals(d["DiscoverySource"]) &&
+                "projectLoad".Equals(d["TriggerContext"]) &&
+                false.Equals(d["IsFailed"]) &&
+                0.Equals(d["StepDefinitionCount"])));
+    }
+
+    [Fact]
+    public async Task TriggerRefresh_emits_hash_noop_telemetry_when_hash_unchanged()
+    {
+        GivenDiscoveryReturns(ProjectBindingRegistry.Invalid, string.Empty);
+        var telemetry = Substitute.For<ILspTelemetryService>();
+
+        var sut = CreateSutWithTelemetry(telemetry);
+        sut.TriggerRefresh();
+        await Task.Delay(1200);
+
+        telemetry.Received(1).SendEvent(
+            "Reqnroll Discovery executed",
+            Arg.Is<Dictionary<string, object?>>(d =>
+                "Connector".Equals(d["DiscoverySource"]) &&
+                true.Equals(d["HashMatched"])));
+    }
+
+    [Fact]
+    public async Task TriggerRefresh_sets_triggerContext_to_build_on_second_run()
+    {
+        var newRegistry = NonInvalidRegistry(hash: 42);
+        GivenDiscoveryReturns(newRegistry, "hash-1");
+        var telemetry = Substitute.For<ILspTelemetryService>();
+
+        var sut = CreateSutWithTelemetry(telemetry);
+
+        // First run — should be projectLoad
+        var changed = new TaskCompletionSource();
+        sut.BindingRegistryChanged += (_, _) => changed.TrySetResult();
+        sut.TriggerRefresh();
+        await Task.WhenAny(changed.Task, Task.Delay(5000));
+
+        // Second run with different hash — should be build
+        var newRegistry2 = NonInvalidRegistry(hash: 43);
+        GivenDiscoveryReturns(newRegistry2, "hash-2");
+        changed = new TaskCompletionSource();
+        sut.BindingRegistryChanged += (_, _) => changed.TrySetResult();
+        sut.TriggerRefresh();
+        await Task.WhenAny(changed.Task, Task.Delay(5000));
+
+        telemetry.Received(1).SendEvent(
+            "Reqnroll Discovery executed",
+            Arg.Is<Dictionary<string, object?>>(d => "projectLoad".Equals(d["TriggerContext"])));
+        telemetry.Received(1).SendEvent(
+            "Reqnroll Discovery executed",
+            Arg.Is<Dictionary<string, object?>>(d => "build".Equals(d["TriggerContext"])));
+    }
+
+    [Fact]
+    public async Task TriggerRefresh_does_not_throw_when_telemetry_service_is_null()
+    {
+        var newRegistry = NonInvalidRegistry(hash: 42);
+        GivenDiscoveryReturns(newRegistry, "hash-1");
+
+        var sut = CreateSut(); // no telemetry
+        var changed = new TaskCompletionSource();
+        sut.BindingRegistryChanged += (_, _) => changed.TrySetResult();
+
+        sut.TriggerRefresh();
+        var completed = await Task.WhenAny(changed.Task, Task.Delay(5000));
+        completed.Should().BeSameAs(changed.Task, "discovery should still complete without telemetry");
     }
 }

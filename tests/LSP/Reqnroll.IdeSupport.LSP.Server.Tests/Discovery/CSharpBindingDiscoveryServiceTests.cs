@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
+using Reqnroll.IdeSupport.LSP.Server.Services;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Discovery;
@@ -38,6 +39,9 @@ public class CSharpBindingDiscoveryServiceTests : IDisposable
 
     private CSharpBindingDiscoveryService CreateSut() => new(_scopeManager, _logger);
 
+    private CSharpBindingDiscoveryService CreateSutWithTelemetry(ILspTelemetryService telemetry) =>
+        new(_scopeManager, _logger, telemetry);
+
     // ── I2 unowned gate ───────────────────────────────────────────────────────
 
     [Fact]
@@ -48,7 +52,7 @@ public class CSharpBindingDiscoveryServiceTests : IDisposable
         _scopeManager.GetMembershipState(Arg.Any<DocumentUri>())
             .Returns(MembershipState.Unowned);
 
-        await CreateSut().UpdateFromSourceAsync(CsUri, string.Empty, CancellationToken.None);
+        await CreateSut().UpdateFromSourceAsync(CsUri, string.Empty, false, CancellationToken.None);
 
         // LogVerbose is a static extension method — verify via the underlying Log() call.
         _logger.Received().Log(Arg.Is<LogMessage>(m =>
@@ -64,7 +68,7 @@ public class CSharpBindingDiscoveryServiceTests : IDisposable
         _scopeManager.GetMembershipState(Arg.Any<DocumentUri>())
             .Returns(MembershipState.Pending);
 
-        await CreateSut().UpdateFromSourceAsync(CsUri, string.Empty, CancellationToken.None);
+        await CreateSut().UpdateFromSourceAsync(CsUri, string.Empty, false, CancellationToken.None);
 
         _logger.Received().Log(Arg.Is<LogMessage>(m =>
             m.Level == TraceLevel.Verbose &&
@@ -79,7 +83,7 @@ public class CSharpBindingDiscoveryServiceTests : IDisposable
         _scopeManager.ResolveOwners(Arg.Any<DocumentUri>())
             .Returns(new[] { project });
 
-        await CreateSut().UpdateFromSourceAsync(CsUri, string.Empty, CancellationToken.None);
+        await CreateSut().UpdateFromSourceAsync(CsUri, string.Empty, false, CancellationToken.None);
 
         _logger.Received().Log(Arg.Is<LogMessage>(m =>
             m.Level == TraceLevel.Verbose && m.Message.Contains("no binding provider")));
@@ -112,7 +116,7 @@ public class CSharpBindingDiscoveryServiceTests : IDisposable
         // A URI that GetFileSystemPath() returns a non-empty value for.
         var csUri = DocumentUri.FromFileSystemPath(Path.Combine(_root1, "Steps.cs"));
 
-        await CreateSut().UpdateFromSourceAsync(csUri, string.Empty, CancellationToken.None);
+        await CreateSut().UpdateFromSourceAsync(csUri, string.Empty, false, CancellationToken.None);
 
         changed1.Should().BeTrue("provider1 should be updated for project1");
         changed2.Should().BeTrue("provider2 should be updated for project2");
@@ -145,7 +149,7 @@ public class CSharpBindingDiscoveryServiceTests : IDisposable
 
         var csUri = DocumentUri.FromFileSystemPath(Path.Combine(_root1, "Steps.cs"));
 
-        await CreateSut().UpdateFromSourceAsync(csUri, string.Empty, CancellationToken.None);
+        await CreateSut().UpdateFromSourceAsync(csUri, string.Empty, false, CancellationToken.None);
 
         changed1.Should().BeTrue("project1's provider should be updated");
         changed2.Should().BeFalse("project2's provider must not be updated — it doesn't own the file");
@@ -154,5 +158,72 @@ public class CSharpBindingDiscoveryServiceTests : IDisposable
         provider2.Dispose();
         project1.Dispose();
         project2.Dispose();
+    }
+
+    // ── Telemetry ────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task UpdateFromSourceAsync_emits_roslyn_discovery_telemetry()
+    {
+        var project = DiscoveryTestSupport.MakeProject(_ideScope, _root1);
+        var provider = new ConnectorBindingRegistryProvider(project, _logger);
+        project.Properties[typeof(ConnectorBindingRegistryProvider)] = provider;
+        _scopeManager.ResolveOwners(Arg.Any<DocumentUri>())
+            .Returns(new[] { project });
+
+        var telemetry = Substitute.For<ILspTelemetryService>();
+        var sut = CreateSutWithTelemetry(telemetry);
+        var csUri = DocumentUri.FromFileSystemPath(Path.Combine(_root1, "Steps.cs"));
+
+        await sut.UpdateFromSourceAsync(csUri, "class C {}", false, CancellationToken.None);
+
+        telemetry.Received(1).SendEvent(
+            "Reqnroll Discovery executed",
+            Arg.Is<Dictionary<string, object?>>(d =>
+                "Roslyn".Equals(d["DiscoverySource"]) &&
+                "csEdit".Equals(d["TriggerContext"]) &&
+                false.Equals(d["IsFailed"])));
+        provider.Dispose();
+        project.Dispose();
+    }
+
+    [Fact]
+    public async Task UpdateFromSourceAsync_sets_csOpen_trigger_when_isOpen_true()
+    {
+        var project = DiscoveryTestSupport.MakeProject(_ideScope, _root1);
+        var provider = new ConnectorBindingRegistryProvider(project, _logger);
+        project.Properties[typeof(ConnectorBindingRegistryProvider)] = provider;
+        _scopeManager.ResolveOwners(Arg.Any<DocumentUri>())
+            .Returns(new[] { project });
+
+        var telemetry = Substitute.For<ILspTelemetryService>();
+        var sut = CreateSutWithTelemetry(telemetry);
+        var csUri = DocumentUri.FromFileSystemPath(Path.Combine(_root1, "Steps.cs"));
+
+        await sut.UpdateFromSourceAsync(csUri, "class C {}", true, CancellationToken.None);
+
+        telemetry.Received(1).SendEvent(
+            "Reqnroll Discovery executed",
+            Arg.Is<Dictionary<string, object?>>(d =>
+                "Roslyn".Equals(d["DiscoverySource"]) &&
+                "csOpen".Equals(d["TriggerContext"])));
+        provider.Dispose();
+        project.Dispose();
+    }
+
+    [Fact]
+    public async Task UpdateFromSourceAsync_skips_telemetry_when_owners_is_empty()
+    {
+        _scopeManager.ResolveOwners(Arg.Any<DocumentUri>())
+            .Returns(Array.Empty<LspReqnrollProject>());
+        _scopeManager.GetMembershipState(Arg.Any<DocumentUri>())
+            .Returns(MembershipState.Pending);
+
+        var telemetry = Substitute.For<ILspTelemetryService>();
+        var sut = CreateSutWithTelemetry(telemetry);
+
+        await sut.UpdateFromSourceAsync(CsUri, string.Empty, false, CancellationToken.None);
+
+        telemetry.DidNotReceiveWithAnyArgs().SendEvent(default!, default!);
     }
 }

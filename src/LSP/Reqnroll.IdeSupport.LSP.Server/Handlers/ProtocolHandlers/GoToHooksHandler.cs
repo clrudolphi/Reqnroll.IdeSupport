@@ -55,15 +55,18 @@ public sealed class GoToHooksHandler
     private readonly IDocumentBufferService        _bufferService;
     private readonly IProjectBindingRegistryLookup _registryLookup;
     private readonly IDeveroomLogger               _logger;
+    private readonly ILspTelemetryService?          _telemetryService;
 
     public GoToHooksHandler(
         IDocumentBufferService        bufferService,
         IProjectBindingRegistryLookup registryLookup,
-        IDeveroomLogger               logger)
+        IDeveroomLogger               logger,
+        ILspTelemetryService?         telemetryService = null)
     {
         _bufferService  = bufferService;
         _registryLookup = registryLookup;
         _logger         = logger;
+        _telemetryService = telemetryService;
     }
 
     public Task<GoToHooksResponse> HandleAsync(
@@ -127,6 +130,9 @@ public sealed class GoToHooksHandler
             if (loc is not null)
                 locations.Add(loc);
         }
+
+        // Telemetry
+        _telemetryService?.SendEvent("GoToHook command executed", new());
 
         return Task.FromResult(new GoToHooksResponse { Hooks = locations });
     }

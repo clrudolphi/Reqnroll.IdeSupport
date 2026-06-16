@@ -15,5 +15,8 @@ public interface ICSharpBindingDiscoveryService
     /// project's binding registry. No-ops when the document has no owning project or the project
     /// has no binding provider yet.
     /// </summary>
-    Task UpdateFromSourceAsync(DocumentUri uri, string text, CancellationToken cancellationToken);
+    /// <param name="isOpen"><see langword="true"/> when triggered by a <c>textDocument/didOpen</c>
+    /// event; <see langword="false"/> when triggered by <c>textDocument/didChange</c>. Used for
+    /// telemetry to distinguish <c>csOpen</c> from <c>csEdit</c> trigger contexts.</param>
+    Task UpdateFromSourceAsync(DocumentUri uri, string text, bool isOpen, CancellationToken cancellationToken);
 }

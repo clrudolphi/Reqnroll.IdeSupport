@@ -4,6 +4,7 @@ using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Discovery;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Notifications;
+using Reqnroll.IdeSupport.LSP.Server.Services;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
@@ -44,6 +45,7 @@ public sealed class BindingRegistryProviderRouter : IProjectBindingRegistryLooku
     private readonly IMediator                 _mediator;
     private readonly IBindingMatchService      _matchService;
     private readonly IDeveroomLogger            _logger;
+    private readonly ILspTelemetryService?     _telemetryService;
 
     // Store (provider, handler) together so Dispose can unsubscribe by the exact delegate
     // that was passed to += in OnProjectDiscovered.
@@ -56,12 +58,14 @@ public sealed class BindingRegistryProviderRouter : IProjectBindingRegistryLooku
         ILspWorkspaceScopeManager scopeManager,
         IMediator mediator,
         IBindingMatchService matchService,
-        IDeveroomLogger logger)
+        IDeveroomLogger logger,
+        ILspTelemetryService? telemetryService = null)
     {
         _scopeManager = scopeManager;
         _mediator     = mediator;
         _matchService = matchService;
         _logger       = logger;
+        _telemetryService = telemetryService;
 
         scopeManager.ProjectDiscovered += OnProjectDiscovered;
         scopeManager.ProjectRemoved    += OnProjectRemoved;
@@ -145,6 +149,16 @@ public sealed class BindingRegistryProviderRouter : IProjectBindingRegistryLooku
     private void OnProjectDiscovered(LspReqnrollProject project)
     {
         var provider = new ConnectorBindingRegistryProvider(project, _logger);
+
+        // If we have an ILspTelemetryService, create a provider that can emit telemetry.
+        if (_telemetryService is not null)
+        {
+            provider = new ConnectorBindingRegistryProvider(
+                project,
+                new ConnectorDiscoveryService(_logger, new OutProcReqnrollConnectorFactory(_logger)),
+                _logger,
+                _telemetryService);
+        }
 
         // Capture project in a named local so the closure below can reference it.
         // Store the delegate so Dispose can unsubscribe by identity.

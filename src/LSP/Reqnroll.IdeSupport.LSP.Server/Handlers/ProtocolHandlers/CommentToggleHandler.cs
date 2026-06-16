@@ -26,17 +26,20 @@ public sealed class CommentToggleHandler : IExecuteCommandHandler
     private readonly ICommentToggleService     _toggleService;
     private readonly ILanguageServerFacade     _languageServer;
     private readonly IDeveroomLogger           _logger;
+    private readonly ILspTelemetryService?     _telemetryService;
 
     public CommentToggleHandler(
         IDocumentBufferService documentBufferService,
         ICommentToggleService toggleService,
         ILanguageServerFacade languageServer,
-        IDeveroomLogger logger)
+        IDeveroomLogger logger,
+        ILspTelemetryService? telemetryService = null)
     {
         _documentBufferService = documentBufferService;
         _toggleService         = toggleService;
         _languageServer        = languageServer;
         _logger                = logger;
+        _telemetryService      = telemetryService;
     }
 
     public ExecuteCommandRegistrationOptions GetRegistrationOptions(
@@ -88,6 +91,9 @@ public sealed class CommentToggleHandler : IExecuteCommandHandler
 
         var edit = BuildWorkspaceEdit(uri, result, lines);
         _logger.LogInfo($"F13 reqnroll.toggleComment: {uri} lines [{startLine}..{endLine}] → {result.Edits.Count} change(s)");
+
+        // Telemetry
+        _telemetryService?.SendEvent("CommentUncomment command executed", new());
 
         _languageServer.SendNotification("workspace/applyEdit", edit);
 

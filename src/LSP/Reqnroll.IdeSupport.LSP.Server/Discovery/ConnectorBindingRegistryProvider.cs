@@ -1,5 +1,6 @@
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Discovery;
+using Reqnroll.IdeSupport.LSP.Server.Services;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
@@ -28,10 +29,12 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
     private readonly LspReqnrollProject _project;
     private readonly IConnectorDiscoveryService _discoveryService;
     private readonly IDeveroomLogger _logger;
+    private readonly ILspTelemetryService? _telemetryService;
 
     // Last-good state.  Volatile so readers always see the latest write.
     private volatile ProjectBindingRegistry _current = ProjectBindingRegistry.Invalid;
     private string _lastHash = string.Empty;
+    private bool _isFirstRun = true;
 
     // In-flight run guard.
     private readonly object _cts_lock = new();
@@ -45,7 +48,7 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
     /// (generic/custom connector selected per project configuration).
     /// </summary>
     public ConnectorBindingRegistryProvider(LspReqnrollProject project, IDeveroomLogger logger)
-        : this(project, new ConnectorDiscoveryService(logger, new OutProcReqnrollConnectorFactory(logger)), logger)
+        : this(project, new ConnectorDiscoveryService(logger, new OutProcReqnrollConnectorFactory(logger)), logger, null)
     {
     }
 
@@ -58,10 +61,23 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
         LspReqnrollProject project,
         IConnectorDiscoveryService discoveryService,
         IDeveroomLogger logger)
+        : this(project, discoveryService, logger, null)
+    {
+    }
+
+    /// <summary>
+    /// Creates a provider backed by a caller-supplied discovery service and telemetry service.
+    /// </summary>
+    public ConnectorBindingRegistryProvider(
+        LspReqnrollProject project,
+        IConnectorDiscoveryService discoveryService,
+        IDeveroomLogger logger,
+        ILspTelemetryService? telemetryService)
     {
         _project          = project;
         _logger           = logger;
         _discoveryService = discoveryService;
+        _telemetryService = telemetryService;
     }
 
     // ── IBindingRegistryProvider ──────────────────────────────────────────────
@@ -154,10 +170,32 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
 
             // Skip the swap if nothing changed (hash matches means RunDiscovery returned lastGood).
             if (newHash == _lastHash)
+            {
+                // Lightweight telemetry: connector hash-noop rate (design doc Q17 §4.2).
+                _telemetryService?.SendEvent("Reqnroll Discovery executed", new()
+                {
+                    ["DiscoverySource"] = "Connector",
+                    ["HashMatched"] = true,
+                    ["TriggerContext"] = _isFirstRun ? "projectLoad" : "build",
+                });
+                if (_isFirstRun) _isFirstRun = false;
                 return;
+            }
 
             _lastHash = newHash;
             _current  = newRegistry;
+
+            // Telemetry: connector discovery event (design doc Q17 §2.2).
+            var triggerContext = _isFirstRun ? "projectLoad" : "build";
+            _isFirstRun = false;
+            _telemetryService?.SendEvent("Reqnroll Discovery executed", new()
+            {
+                ["DiscoverySource"] = "Connector",
+                ["TriggerContext"] = triggerContext,
+                ["IsFailed"] = false,
+                ["StepDefinitionCount"] = newRegistry.StepDefinitions.Length,
+                ["ProjectTargetFramework"] = _project.TargetFrameworkMonikers,
+            });
 
             _bindingRegistryChanged?.Invoke(this, true);
         }

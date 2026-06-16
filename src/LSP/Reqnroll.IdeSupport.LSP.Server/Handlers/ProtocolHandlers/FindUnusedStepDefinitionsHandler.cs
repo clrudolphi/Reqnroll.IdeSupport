@@ -10,6 +10,7 @@ using Reqnroll.IdeSupport.LSP.Core.Discovery;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
+using Reqnroll.IdeSupport.LSP.Server.Services;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Handlers.ProtocolHandlers;
 
@@ -33,15 +34,18 @@ public sealed class FindUnusedStepDefinitionsHandler
     private readonly IProjectBindingRegistryLookup _registryLookup;
     private readonly IBindingMatchService           _matchService;
     private readonly IDeveroomLogger                _logger;
+    private readonly ILspTelemetryService?          _telemetryService;
 
     public FindUnusedStepDefinitionsHandler(
         IProjectBindingRegistryLookup registryLookup,
         IBindingMatchService          matchService,
-        IDeveroomLogger               logger)
+        IDeveroomLogger               logger,
+        ILspTelemetryService?         telemetryService = null)
     {
         _registryLookup = registryLookup;
         _matchService   = matchService;
         _logger         = logger;
+        _telemetryService = telemetryService;
     }
 
     /// <summary>Finds all step-definition binding expressions with zero usages across the workspace.</summary>
@@ -121,6 +125,14 @@ public sealed class FindUnusedStepDefinitionsHandler
 
         _logger.LogVerbose(
             $"FindUnusedStepDefinitionsHandler: found {items.Count} unused step definition(s)");
+
+        // Telemetry
+        _telemetryService?.SendEvent("FindUnusedStepDefinitions command executed", new()
+        {
+            ["UnusedStepDefinitions"] = items.Count,
+            ["ScannedFeatureFiles"] = allRegistries.Count,
+            ["IsCancellationRequested"] = false,
+        });
 
         return Task.FromResult(new FindUnusedStepDefinitionsResponse { Items = items });
     }

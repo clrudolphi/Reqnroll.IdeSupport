@@ -26,6 +26,9 @@ public class CommentToggleHandlerTests
     private CommentToggleHandler CreateSut() =>
         new(_bufferService, _toggleService, _languageServer, _logger);
 
+    private CommentToggleHandler CreateSutWithTelemetry(ILspTelemetryService telemetry) =>
+        new(_bufferService, _toggleService, _languageServer, _logger, telemetry);
+
     private static ExecuteCommandParams MakeParams(string command, params object[] args)
         => new()
         {
@@ -184,5 +187,33 @@ public class CommentToggleHandlerTests
                 p.Edit.DocumentChanges!
                     .First().TextDocumentEdit!.Edits
                     .First().Range.End.Character == expectedEndChar));
+    }
+
+    // ── Telemetry ───────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Handle_emits_command_telemetry()
+    {
+        SetupBuffer(FeatureUri, "Feature: F\nScenario: S\n    Given a step\n");
+        _toggleService.ToggleComment(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>())
+            .Returns(new GherkinCommentToggleResult(new List<GherkinCommentEdit>()));
+
+        var telemetry = Substitute.For<ILspTelemetryService>();
+        await CreateSutWithTelemetry(telemetry).Handle(
+            MakeParams("reqnroll.toggleComment", FeatureUri.ToString(), 0, 0),
+            CancellationToken.None);
+
+        telemetry.Received(1).SendEvent("CommentUncomment command executed", Arg.Any<Dictionary<string, object?>>());
+    }
+
+    [Fact]
+    public async Task Handle_does_not_emit_telemetry_on_wrong_command()
+    {
+        var telemetry = Substitute.For<ILspTelemetryService>();
+        await CreateSutWithTelemetry(telemetry).Handle(
+            MakeParams("reqnroll.unknownCommand"),
+            CancellationToken.None);
+
+        telemetry.DidNotReceiveWithAnyArgs().SendEvent(default!, default!);
     }
 }

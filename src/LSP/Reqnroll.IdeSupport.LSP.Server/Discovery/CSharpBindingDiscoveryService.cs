@@ -2,6 +2,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Discovery;
+using Reqnroll.IdeSupport.LSP.Server.Services;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
@@ -24,14 +25,19 @@ public sealed class CSharpBindingDiscoveryService : ICSharpBindingDiscoveryServi
 {
     private readonly ILspWorkspaceScopeManager _scopeManager;
     private readonly IDeveroomLogger _logger;
+    private readonly ILspTelemetryService? _telemetryService;
 
-    public CSharpBindingDiscoveryService(ILspWorkspaceScopeManager scopeManager, IDeveroomLogger logger)
+    public CSharpBindingDiscoveryService(
+        ILspWorkspaceScopeManager scopeManager,
+        IDeveroomLogger logger,
+        ILspTelemetryService? telemetryService = null)
     {
         _scopeManager = scopeManager;
         _logger = logger;
+        _telemetryService = telemetryService;
     }
 
-    public async Task UpdateFromSourceAsync(DocumentUri uri, string text, CancellationToken cancellationToken)
+    public async Task UpdateFromSourceAsync(DocumentUri uri, string text, bool isOpen, CancellationToken cancellationToken)
     {
         var owners = _scopeManager.ResolveOwners(uri);
 
@@ -74,5 +80,18 @@ public sealed class CSharpBindingDiscoveryService : ICSharpBindingDiscoveryServi
                 $"[Roslyn] Re-discovered bindings for '{Path.GetFileName(filePath)}' " +
                 $"in project '{project.ProjectName}': {newCount} step definition(s) ({deltaStr}).");
         }
+
+        // Telemetry: Roslyn discovery event (design doc Q17 §2.3).
+        var fileName = Path.GetFileName(filePath);
+        var triggerContext = isOpen ? "csOpen" : "csEdit";
+        _telemetryService?.SendEvent("Reqnroll Discovery executed", new()
+        {
+            ["DiscoverySource"] = "Roslyn",
+            ["TriggerContext"] = triggerContext,
+            ["IsFailed"] = false,
+            ["AffectedFile"] = fileName,
+            ["ProjectCount"] = owners.Count,
+            ["ProjectTargetFramework"] = owners.FirstOrDefault()?.TargetFrameworkMonikers,
+        });
     }
 }

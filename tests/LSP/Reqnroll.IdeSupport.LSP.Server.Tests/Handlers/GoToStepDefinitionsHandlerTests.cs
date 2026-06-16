@@ -47,6 +47,9 @@ public class GoToStepDefinitionsHandlerTests
     private GoToStepDefinitionsHandler CreateSut() =>
         new(_matchService, _bufferService, _scopeManager, _logger);
 
+    private GoToStepDefinitionsHandler CreateSutWithTelemetry(ILspTelemetryService telemetry) =>
+        new(_matchService, _bufferService, _scopeManager, _logger, telemetry);
+
     private static TextDocumentPositionParams RequestAt(DocumentUri uri, int line, int character) =>
         new()
         {
@@ -294,5 +297,48 @@ public class GoToStepDefinitionsHandlerTests
 
         paths.Should().Contain("/workspace/StepsA.cs");
         paths.Should().Contain("/workspace/StepsB.cs");
+    }
+
+    // ── Telemetry ───────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task HandleAsync_emits_command_telemetry_on_success()
+    {
+        var step = MakeMatch("CalculatorSteps.GivenAStep", ScenarioBlock.Given,
+                             "/workspace/Steps.cs", csLine: 10, csCol: 5);
+        _matchService.Store(new FeatureBindingMatchSet(
+            FeatureUri.ToString(), ProjectOwner.Unknown, 1, 1,
+            new List<StepBindingMatch> { step }));
+
+        var telemetry = Substitute.For<ILspTelemetryService>();
+        var result = await CreateSutWithTelemetry(telemetry).HandleAsync(
+            RequestAt(FeatureUri, 2, 10), CancellationToken.None);
+
+        result.StepDefinitions.Should().NotBeEmpty();
+        telemetry.Received(1).SendEvent(
+            "GoToStepDefinition command executed",
+            Arg.Is<Dictionary<string, object?>>(d => false.Equals(d["GenerateSnippet"])));
+    }
+
+    [Fact]
+    public async Task HandleAsync_does_not_emit_telemetry_on_non_feature_file()
+    {
+        var telemetry = Substitute.For<ILspTelemetryService>();
+        await CreateSutWithTelemetry(telemetry).HandleAsync(
+            RequestAt(CsUri, 0, 0), CancellationToken.None);
+
+        telemetry.DidNotReceiveWithAnyArgs().SendEvent(default!, default!);
+    }
+
+    [Fact]
+    public async Task HandleAsync_does_not_emit_telemetry_when_no_document_buffer()
+    {
+        var telemetry = Substitute.For<ILspTelemetryService>();
+        var unknownUri = DocumentUri.FromFileSystemPath("/workspace/unknown.feature");
+        var result = await CreateSutWithTelemetry(telemetry).HandleAsync(
+            RequestAt(unknownUri, 0, 0), CancellationToken.None);
+
+        result.StepDefinitions.Should().BeEmpty();
+        telemetry.DidNotReceiveWithAnyArgs().SendEvent(default!, default!);
     }
 }

@@ -65,6 +65,9 @@ public class GoToHooksHandlerTests
     private GoToHooksHandler CreateSut() =>
         new(_bufferService, _registryLookup, _logger);
 
+    private GoToHooksHandler CreateSutWithTelemetry(ILspTelemetryService telemetry) =>
+        new(_bufferService, _registryLookup, _logger, telemetry);
+
     private static TextDocumentPositionParams RequestAt(DocumentUri uri, int line, int character) =>
         new()
         {
@@ -343,5 +346,21 @@ public class GoToHooksHandlerTests
         result.Hooks[0].HookType.Should().Be("BeforeFeature");
         result.Hooks[1].HookOrder.Should().Be(100);    // BeforeScenario order:100 before order:200
         result.Hooks[2].HookOrder.Should().Be(200);
+    }
+
+    // ── Telemetry ───────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task HandleAsync_emits_command_telemetry()
+    {
+        SetupBuffer(FeatureUri, FeatureText, AllTags);
+        _registryLookup.GetRegistryForUri(FeatureUri)
+            .Returns(RegistryWith(MakeHook(HookType.BeforeScenario)));
+
+        var telemetry = Substitute.For<ILspTelemetryService>();
+        var result = await CreateSutWithTelemetry(telemetry).HandleAsync(
+            RequestAt(FeatureUri, 1, 4), CancellationToken.None);
+
+        telemetry.Received(1).SendEvent("GoToHook command executed", Arg.Any<Dictionary<string, object?>>());
     }
 }

@@ -3,11 +3,13 @@ using System.IO;
 using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.LanguageServer;
 using Microsoft.VisualStudio.RpcContracts.LanguageServerProvider;
 using Microsoft.VisualStudio.Shell;
 using Nerdbank.Streams;
+using Reqnroll.IdeSupport.Common.Analytics;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.Classification;
 using Reqnroll.IdeSupport.VisualStudio.Extension.CommentToggle;
@@ -40,6 +42,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
     private LspInterceptingPipe? _interceptingPipe;
     private ChildProcessJob? _childJob;
     private VsProjectEventMonitor? _projectMonitor;
+    private IAnalyticsTransmitter? _analyticsTransmitter;
 
     public ReqnrollLanguageClient(
         ExtensionCore container,
@@ -160,9 +163,14 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
                 () => _projectMonitor, _traceSource);
 
             // Send pipeline:   VS → [logger, semanticTokens, scaffold] → Server
-            // Receive pipeline: Server → [logger, semanticTokens, scaffold] → VS
+            // Receive pipeline: Server → [logger, semanticTokens, scaffold, telemetry] → VS
             var sendInterceptors    = new ILspMessageInterceptor[] { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor };
-            var receiveInterceptors = new ILspMessageInterceptor[] { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor };
+
+            // Telemetry interceptor: lazy reference because _analyticsTransmitter is resolved
+            // from MEF on the main thread during OnServerInitializationResultAsync.
+            var telemetryInterceptor = new TelemetryEventInterceptor(() => _analyticsTransmitter, _traceSource);
+            var receiveInterceptors = new ILspMessageInterceptor[]
+                { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor, telemetryInterceptor };
 
             _interceptingPipe = new LspInterceptingPipe(rawPipe, sendInterceptors, receiveInterceptors, _traceSource);
             // Pass CancellationToken.None: the pumps must live for the entire connection
@@ -230,6 +238,10 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
                     .SwitchToMainThreadAsync(cancellationToken);
 
                 var serviceProvider = ServiceProvider.GlobalProvider;
+                _analyticsTransmitter = ResolveMefService<IAnalyticsTransmitter>(serviceProvider);
+                _traceSource.TraceInformation(
+                    "ReqnrollLanguageClient: IAnalyticsTransmitter resolved: {0}",
+                    _analyticsTransmitter is not null ? "yes" : "no");
                 _findStepUsagesState.Renderer            = new FindStepUsagesRenderer(serviceProvider, _traceSource);
                 _findUnusedStepDefinitionsState.Renderer = new FindUnusedStepDefinitionsRenderer(serviceProvider, _traceSource);
 
@@ -301,5 +313,26 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
         }
 
         base.Dispose(isDisposing);
+    }
+
+    // ── MEF resolution helper ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Resolves a MEF-exported service from the VS component model.
+    /// </summary>
+    private static T? ResolveMefService<T>(IServiceProvider serviceProvider) where T : class
+    {
+        try
+        {
+            var componentModel = (IComponentModel)serviceProvider.GetService(typeof(SComponentModel));
+            return componentModel?.GetService<T>();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                "ReqnrollLanguageClient: Failed to resolve MEF service {0}: {1}",
+                typeof(T).Name, ex.Message);
+            return null;
+        }
     }
 }

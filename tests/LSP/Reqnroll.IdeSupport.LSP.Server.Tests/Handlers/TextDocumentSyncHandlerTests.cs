@@ -207,7 +207,7 @@ public class TextDocumentSyncHandlerTests
         // .cs files are not parsed into the Gherkin document buffer.
         _bufferService.TryGet(CsUri, out _).Should().BeFalse();
         await _csharpDiscoveryService.Received(1)
-            .UpdateFromSourceAsync(CsUri, source, Arg.Any<CancellationToken>());
+            .UpdateFromSourceAsync(CsUri, source, true, Arg.Any<CancellationToken>());
         await _mediator.DidNotReceiveWithAnyArgs().Publish(default!, default);
     }
 
@@ -226,7 +226,7 @@ public class TextDocumentSyncHandlerTests
         await sut.Handle(request, CancellationToken.None);
 
         await _csharpDiscoveryService.Received(1)
-            .UpdateFromSourceAsync(CsUri, source, Arg.Any<CancellationToken>());
+            .UpdateFromSourceAsync(CsUri, source, false, Arg.Any<CancellationToken>());
         _bufferService.TryGet(CsUri, out _).Should().BeFalse();
     }
 

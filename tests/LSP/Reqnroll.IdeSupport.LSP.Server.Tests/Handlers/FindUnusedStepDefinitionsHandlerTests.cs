@@ -7,6 +7,7 @@ using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Document;
 using Reqnroll.IdeSupport.LSP.Server.Handlers.ProtocolHandlers;
+using Reqnroll.IdeSupport.LSP.Server.Services;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Handlers;
 
@@ -21,6 +22,9 @@ public class FindUnusedStepDefinitionsHandlerTests
 
     private FindUnusedStepDefinitionsHandler CreateSut() =>
         new(_registryLookup, _matchService, _logger);
+
+    private FindUnusedStepDefinitionsHandler CreateSutWithTelemetry(ILspTelemetryService telemetry) =>
+        new(_registryLookup, _matchService, _logger, telemetry);
 
     // ── Helper factory methods ─────────────────────────────────────────────────
 
@@ -506,5 +510,26 @@ public class FindUnusedStepDefinitionsHandlerTests
         result.Items.Select(i => i.BindingExpression)
               .Should().BeEquivalentTo(
                   new[] { "unused expr A1", "unused expr A2", "unused expr B2" });
+    }
+
+    // ── Telemetry ───────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task HandleAsync_emits_command_telemetry_with_counts()
+    {
+        var unused = MakeBinding("/workspace/Steps.cs", expression: "unused step");
+        var registry = ProjectBindingRegistry.FromBindings(new[] { unused });
+        _registryLookup.GetAllRegistries()
+            .Returns(new[] { ("TestProject", new ProjectOwner("", ""), registry) });
+
+        var telemetry = Substitute.For<ILspTelemetryService>();
+        await CreateSutWithTelemetry(telemetry).HandleAsync(CancellationToken.None);
+
+        telemetry.Received(1).SendEvent(
+            "FindUnusedStepDefinitions command executed",
+            Arg.Is<Dictionary<string, object?>>(d =>
+                1.Equals(d["UnusedStepDefinitions"]) &&
+                1.Equals(d["ScannedFeatureFiles"]) &&
+                false.Equals(d["IsCancellationRequested"])));
     }
 }

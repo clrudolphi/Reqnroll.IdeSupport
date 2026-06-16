@@ -33,17 +33,20 @@ public sealed class GoToStepDefinitionsHandler
     private readonly IDocumentBufferService    _bufferService;
     private readonly ILspWorkspaceScopeManager _scopeManager;
     private readonly IDeveroomLogger           _logger;
+    private readonly ILspTelemetryService?     _telemetryService;
 
     public GoToStepDefinitionsHandler(
         IBindingMatchService      matchService,
         IDocumentBufferService    bufferService,
         ILspWorkspaceScopeManager scopeManager,
-        IDeveroomLogger           logger)
+        IDeveroomLogger           logger,
+        ILspTelemetryService?     telemetryService = null)
     {
         _matchService  = matchService;
         _bufferService = bufferService;
         _scopeManager  = scopeManager;
         _logger        = logger;
+        _telemetryService = telemetryService;
     }
 
     public Task<GoToStepDefinitionsResponse> HandleAsync(
@@ -107,6 +110,12 @@ public sealed class GoToStepDefinitionsHandler
 
         _logger.LogVerbose(
             $"GoToStepDefinitionsHandler: {response.StepDefinitions.Count} binding(s) for step at offset {offset} in {uri}");
+
+        // Telemetry
+        _telemetryService?.SendEvent("GoToStepDefinition command executed", new()
+        {
+            ["GenerateSnippet"] = step.Result.Items.Any(i => i.Type == MatchResultType.Undefined),
+        });
 
         return Task.FromResult(response);
     }

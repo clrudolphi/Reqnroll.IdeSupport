@@ -39,6 +39,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IDeveroomLogger, LspDeveroomLogger>()
             .AddSingleton<IIdeScope, LspIdeScope>()
             .AddSingleton<IMonitoringService>(sp => NullMonitoringService.Instance)
+            .AddSingleton<ILspTelemetryService, LspTelemetryService>()
             .AddSingleton<IDeveroomConfigurationProvider, ProjectSystemDeveroomConfigurationProvider>()
             .AddSingleton<IEditorConfigOptionsProvider>(sp =>
                 new FileSystemEditorConfigOptionsProvider(sp.GetRequiredService<IIdeScope>().FileSystem));

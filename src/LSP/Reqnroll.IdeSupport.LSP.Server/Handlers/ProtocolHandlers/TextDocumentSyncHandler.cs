@@ -77,7 +77,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         if (IsCSharp(uri))
         {
             _logger.LogInfo($"C# document opened: {uri} (version {version})");
-            await _csharpDiscoveryService.UpdateFromSourceAsync(uri, text, cancellationToken).ConfigureAwait(false);
+            await _csharpDiscoveryService.UpdateFromSourceAsync(uri, text, true, cancellationToken).ConfigureAwait(false);
             return Unit.Value;
         }
 
@@ -99,7 +99,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         if (IsCSharp(uri))
         {
             _logger.LogInfo($"C# document changed: {uri} (version {version})");
-            await _csharpDiscoveryService.UpdateFromSourceAsync(uri, text, cancellationToken).ConfigureAwait(false);
+            await _csharpDiscoveryService.UpdateFromSourceAsync(uri, text, false, cancellationToken).ConfigureAwait(false);
             return Unit.Value;
         }
 
