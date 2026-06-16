@@ -1,4 +1,5 @@
 using OmniSharp.Extensions.LanguageServer.Protocol;
+using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
 
@@ -14,9 +15,17 @@ public interface ICSharpBindingDiscoveryService
     /// <c>.cs</c> document at <paramref name="uri"/>) and replaces that file's entries in its
     /// project's binding registry. No-ops when the document has no owning project or the project
     /// has no binding provider yet.
-    /// </summary>
     /// <param name="isOpen"><see langword="true"/> when triggered by a <c>textDocument/didOpen</c>
     /// event; <see langword="false"/> when triggered by <c>textDocument/didChange</c>. Used for
     /// telemetry to distinguish <c>csOpen</c> from <c>csEdit</c> trigger contexts.</param>
+    /// </summary>
     Task UpdateFromSourceAsync(DocumentUri uri, string text, bool isOpen, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Applies a Roslyn source-level binding update for a single <c>.cs</c> file, targeting
+    /// a specific project directly — bypassing the membership-index owner resolution.
+    /// Used during startup full-replacement reconciliation (<see cref="BindingRegistryChangedHandler.RediscoverCsFilesAsync"/>)
+    /// when the baseline may not have arrived yet.
+    /// </summary>
+    Task UpdateFromSourceForProjectAsync(LspReqnrollProject project, string filePath, string text, CancellationToken cancellationToken);
 }
