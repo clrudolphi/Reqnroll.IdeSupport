@@ -2,9 +2,7 @@ using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
-using Reqnroll.IdeSupport.LSP.Server.Notifications;
-
-namespace Reqnroll.IdeSupport.LSP.Server.Handlers.InternalHandlers;
+namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 
 /// <summary>
 /// Handles <see cref="MatchCacheChangedNotification"/> by asking the LSP client

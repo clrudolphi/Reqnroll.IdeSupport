@@ -1,7 +1,7 @@
 using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Notifications;
+namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 
 /// <summary>
 /// Published after a feature document has been (re)parsed and its binding matches recomputed
@@ -12,7 +12,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Notifications;
 /// <remarks>
 /// This is the <c>MatchCacheChangedNotification</c> of section 3 / section 6 of the LSP IDE
 /// Support design. Consumers re-read the current tags / match set rather than receiving them
-/// on the notification: <see cref="Handlers.InternalHandlers.SemanticTokensRefreshHandler"/>
+/// <see cref="Pipeline.SemanticTokensRefreshHandler"/>
 /// asks the client to refresh semantic tokens, and the (future) diagnostics aggregator pushes
 /// <c>textDocument/publishDiagnostics</c>.
 /// </remarks>

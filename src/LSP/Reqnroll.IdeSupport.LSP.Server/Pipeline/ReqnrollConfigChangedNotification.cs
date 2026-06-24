@@ -1,6 +1,6 @@
 using MediatR;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Notifications;
+namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 
 /// <summary>
 /// Published internally when a <c>reqnroll.json</c> file is created, changed, or deleted

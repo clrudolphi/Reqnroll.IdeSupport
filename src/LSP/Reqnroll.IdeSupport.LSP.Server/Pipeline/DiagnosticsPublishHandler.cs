@@ -7,12 +7,10 @@ using Reqnroll.IdeSupport.LSP.Core.Discovery;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Document;
-using Reqnroll.IdeSupport.LSP.Server.Notifications;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Services;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
-
-namespace Reqnroll.IdeSupport.LSP.Server.Handlers.InternalHandlers;
+namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 
 /// <summary>
 /// Handles <see cref="MatchCacheChangedNotification"/> by aggregating the current parse-error

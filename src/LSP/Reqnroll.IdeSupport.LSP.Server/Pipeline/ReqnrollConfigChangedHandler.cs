@@ -1,10 +1,8 @@
 using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common.Diagnostics;
-using Reqnroll.IdeSupport.LSP.Server.Notifications;
 using Reqnroll.IdeSupport.LSP.Server.Services;
-
-namespace Reqnroll.IdeSupport.LSP.Server.Handlers.InternalHandlers;
+namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 
 /// <summary>
 /// Handles <see cref="ReqnrollConfigChangedNotification"/> by re-parsing every open

@@ -1,7 +1,7 @@
 using MediatR;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Notifications;
+namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 
 /// <summary>
 /// Published when a project's <see cref="Reqnroll.IdeSupport.LSP.Core.Discovery.ProjectBindingRegistry"/>

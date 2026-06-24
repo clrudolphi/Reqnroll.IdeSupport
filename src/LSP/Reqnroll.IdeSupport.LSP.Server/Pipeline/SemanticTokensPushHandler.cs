@@ -2,11 +2,9 @@ using System.Linq;
 using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
-using Reqnroll.IdeSupport.LSP.Server.Notifications;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Services;
-
-namespace Reqnroll.IdeSupport.LSP.Server.Handlers.InternalHandlers;
+namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 
 /// <summary>
 /// Pushes encoded semantic tokens to the Visual Studio client whenever a feature file's match
