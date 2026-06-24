@@ -1,4 +1,4 @@
-namespace Reqnroll.IdeSupport.LSP.Core.Document;
+namespace Reqnroll.IdeSupport.LSP.Core.Documents;
 
 /// <summary>
 /// VS-free, immutable, versioned document snapshot.

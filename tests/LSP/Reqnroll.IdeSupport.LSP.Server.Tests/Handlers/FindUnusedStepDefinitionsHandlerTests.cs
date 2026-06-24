@@ -95,7 +95,7 @@ public class FindUnusedStepDefinitionsHandlerTests
         var snapshot = new LspTextSnapshot(
             "file:///any.feature", 1,
             "Feature: F\nScenario: S\n    Given x\n");
-        var range  = Reqnroll.IdeSupport.LSP.Core.Document.GherkinRange.FromPoint(snapshot, 33, 1);
+        var range  = Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange.FromPoint(snapshot, 33, 1);
         var item   = MatchResultItem.CreateMatch(binding, ParameterMatch.NotMatch);
         var result = MatchResult.CreateMultiMatch(new[] { item });
         return new StepBindingMatch("file:///any.feature", range, result);

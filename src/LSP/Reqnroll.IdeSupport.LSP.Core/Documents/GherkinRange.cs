@@ -1,4 +1,4 @@
-namespace Reqnroll.IdeSupport.LSP.Core.Document;
+namespace Reqnroll.IdeSupport.LSP.Core.Documents;
 
 public class GherkinRange : IEquatable<GherkinRange>
 {

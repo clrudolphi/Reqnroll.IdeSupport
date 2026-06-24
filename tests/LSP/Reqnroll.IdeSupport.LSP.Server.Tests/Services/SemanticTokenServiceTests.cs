@@ -1,7 +1,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Classification;
 using Reqnroll.IdeSupport.Common.Diagnostics;
-using Reqnroll.IdeSupport.LSP.Core.Document;
+using Reqnroll.IdeSupport.LSP.Core.Documents;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
 using Reqnroll.IdeSupport.LSP.Server.Services;
 
@@ -118,7 +118,7 @@ public class SemanticTokenServiceTests
     // ── Helper ────────────────────────────────────────────────────────────────
 
     /// <summary>Minimal IGherkinTextSnapshot backed by a plain string.</summary>
-    private sealed class TestGherkinSnapshot : Reqnroll.IdeSupport.LSP.Core.Document.IGherkinTextSnapshot
+    private sealed class TestGherkinSnapshot : Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshot
     {
         private readonly string _text;
         private readonly string[] _lines;
@@ -135,10 +135,10 @@ public class SemanticTokenServiceTests
         public int LineCount => _lines.Length;
         public string GetText() => _text;
 
-        public Reqnroll.IdeSupport.LSP.Core.Document.IGherkinTextSnapshotLine GetLineFromLineNumber(int lineNumber)
+        public Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshotLine GetLineFromLineNumber(int lineNumber)
             => new Line(_lines, lineNumber);
 
-        private sealed class Line : Reqnroll.IdeSupport.LSP.Core.Document.IGherkinTextSnapshotLine
+        private sealed class Line : Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshotLine
         {
             private readonly string[] _lines;
             private readonly int _lineNumber;
