@@ -2,7 +2,7 @@ using Gherkin.Ast;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 using Reqnroll.IdeSupport.LSP.Core.Discovery;
-using Reqnroll.IdeSupport.LSP.Core.Document;
+using Reqnroll.IdeSupport.LSP.Core.Documents;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Threading;
