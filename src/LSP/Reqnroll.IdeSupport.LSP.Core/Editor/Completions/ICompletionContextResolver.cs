@@ -1,4 +1,4 @@
-using Reqnroll.IdeSupport.LSP.Core.Discovery;
+using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Core.Document;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Editor.Completions;
