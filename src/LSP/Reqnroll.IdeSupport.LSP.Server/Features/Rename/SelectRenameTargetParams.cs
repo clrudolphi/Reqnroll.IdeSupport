@@ -2,7 +2,7 @@
 
 using Newtonsoft.Json;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Protocol;
+namespace Reqnroll.IdeSupport.LSP.Server.Features.Rename;
 
 /// <summary>Parameters for reqnroll/selectRenameTarget notification (F16).</summary>
 public sealed class SelectRenameTargetParams

@@ -3,7 +3,7 @@
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Protocol;
+namespace Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs;
 
 /// <summary>Response DTO for the custom <c>reqnroll/findUnusedStepDefinitions</c> request (F15).</summary>
 public sealed class FindUnusedStepDefinitionsResponse

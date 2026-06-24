@@ -4,7 +4,7 @@ using GherkinLocation = Gherkin.Ast.Location;
 using NSubstitute;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
-using Reqnroll.IdeSupport.LSP.Core.Document;
+using Reqnroll.IdeSupport.LSP.Core.Documents;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Completions;
 using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
 

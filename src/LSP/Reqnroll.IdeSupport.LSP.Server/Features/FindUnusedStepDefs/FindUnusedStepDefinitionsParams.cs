@@ -1,4 +1,4 @@
-namespace Reqnroll.IdeSupport.LSP.Server.Protocol;
+namespace Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs;
 
 /// <summary>
 /// Empty params for the custom <c>reqnroll/findUnusedStepDefinitions</c> request (F15).

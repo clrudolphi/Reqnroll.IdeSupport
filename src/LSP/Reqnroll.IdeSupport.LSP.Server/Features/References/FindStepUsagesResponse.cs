@@ -3,7 +3,7 @@
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Protocol;
+namespace Reqnroll.IdeSupport.LSP.Server.Features.References;
 
 /// <summary>
 /// Response DTO for the custom <c>reqnroll/findStepUsages</c> request (F14 P2b).

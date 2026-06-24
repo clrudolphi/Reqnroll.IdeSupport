@@ -16,16 +16,18 @@ using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Handlers.ProtocolHandlers;
+namespace Reqnroll.IdeSupport.LSP.Server.Features.CodeLens;
 
 /// <summary>
 /// Handles the standard <c>textDocument/codeLens</c> request for C# files (F18 — Step Code Lens).
-/// Returns one <see cref="CodeLens"/> per step-binding attribute found in the file, annotated
+/// Returns one lens per step-binding attribute found in the file, annotated
 /// with the number of matching feature steps.
 /// </summary>
 /// <remarks>
 /// Registered manually (same pattern as semantic tokens / find step usages) to avoid dynamic
 /// registration ambiguity with the C# language server on .cs files.
+/// NOTE: Uses global:: qualification for <c>OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeLens</c>
+/// to disambiguate from the enclosing Features.CodeLens namespace.
 /// </remarks>
 public sealed class StepCodeLensHandler
 {
@@ -52,25 +54,25 @@ public sealed class StepCodeLensHandler
     /// Returns <see langword="null"/> for non-.cs files (falls through to the built-in C# server).
     /// Returns an empty array when the file has no discovered step definitions yet.
     /// </summary>
-    public Task<CodeLens[]?> HandleAsync(CodeLensParams request, CancellationToken cancellationToken)
+    public Task<global::OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeLens[]?> HandleAsync(CodeLensParams request, CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
 
         if (!IsCSharp(uri))
         {
             _logger.LogVerbose($"StepCodeLensHandler: ignoring non-.cs URI {uri}");
-            return Task.FromResult<CodeLens[]?>(Array.Empty<CodeLens>());
+            return Task.FromResult<global::OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeLens[]?>(Array.Empty<global::OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeLens>());
         }
 
         var filePath = uri.GetFileSystemPath();
         if (string.IsNullOrEmpty(filePath))
-            return Task.FromResult<CodeLens[]?>(Array.Empty<CodeLens>());
+            return Task.FromResult<global::OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeLens[]?>(Array.Empty<global::OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeLens>());
 
         var registry = _registryLookup.GetRegistryForUri(uri);
         if (registry == ProjectBindingRegistry.Invalid || registry.StepDefinitions.IsEmpty)
         {
             _logger.LogVerbose($"StepCodeLensHandler: no registry or no step definitions for {uri}");
-            return Task.FromResult<CodeLens[]?>(Array.Empty<CodeLens>());
+            return Task.FromResult<global::OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeLens[]?>(Array.Empty<global::OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeLens>());
         }
 
         // Restrict usage search to the projects that own this .cs file (Q18 2B).
@@ -80,7 +82,7 @@ public sealed class StepCodeLensHandler
                     .ToArray()
             : null;
 
-        var lenses = new List<CodeLens>();
+        var lenses = new List<global::OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeLens>();
         // Deduplicate: the same attribute location may appear in multiple registries (linked files).
         var seen = new HashSet<(int line, int col)>();
 
@@ -103,7 +105,7 @@ public sealed class StepCodeLensHandler
             var line = src.SourceFileLine   - 1;
             var col  = src.SourceFileColumn - 1;
 
-            lenses.Add(new CodeLens
+            lenses.Add(new global::OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeLens
             {
                 Range = new LspRange(new Position(line, col), new Position(line, col)),
                 Command = new Command
@@ -118,7 +120,7 @@ public sealed class StepCodeLensHandler
         }
 
         _logger.LogVerbose($"StepCodeLensHandler: {lenses.Count} lens(es) for {uri}");
-        return Task.FromResult<CodeLens[]?>(lenses.ToArray());
+        return Task.FromResult<global::OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeLens[]?>(lenses.ToArray());
     }
 
     private static bool IsCSharp(DocumentUri uri) =>

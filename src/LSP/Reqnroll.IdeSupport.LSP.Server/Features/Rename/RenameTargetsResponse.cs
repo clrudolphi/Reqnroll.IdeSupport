@@ -3,7 +3,7 @@
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Protocol;
+namespace Reqnroll.IdeSupport.LSP.Server.Features.Rename;
 
 /// <summary>Response DTO for the custom reqnroll/renameTargets request (F16).</summary>
 public sealed class RenameTargetsResponse
