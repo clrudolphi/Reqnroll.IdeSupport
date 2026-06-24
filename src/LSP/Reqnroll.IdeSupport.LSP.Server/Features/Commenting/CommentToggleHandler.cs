@@ -11,7 +11,7 @@ using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Services;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Handlers.ProtocolHandlers;
+namespace Reqnroll.IdeSupport.LSP.Server.Features.Commenting;
 
 /// <summary>
 /// Handles <c>workspace/executeCommand</c> for <c>reqnroll.toggleComment</c> (F13 — Comment/Uncomment).

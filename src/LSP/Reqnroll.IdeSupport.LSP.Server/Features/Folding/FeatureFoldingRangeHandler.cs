@@ -5,7 +5,7 @@ using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Folding;
 using Reqnroll.IdeSupport.LSP.Server.Services;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Handlers.ProtocolHandlers;
+namespace Reqnroll.IdeSupport.LSP.Server.Features.Folding;
 
 /// <summary>
 /// Handles <c>textDocument/foldingRange</c> for <c>.feature</c> files (F10 — Code Folding).
