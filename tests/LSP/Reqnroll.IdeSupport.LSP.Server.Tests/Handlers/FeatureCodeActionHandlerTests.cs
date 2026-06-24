@@ -15,7 +15,7 @@ using Reqnroll.IdeSupport.LSP.Core.Editor.Scaffolding;
 using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Document;
-using Reqnroll.IdeSupport.LSP.Server.Handlers.ProtocolHandlers;
+using Reqnroll.IdeSupport.LSP.Server.Features.CodeActions;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 using AwesomeAssertions;
 using Xunit;

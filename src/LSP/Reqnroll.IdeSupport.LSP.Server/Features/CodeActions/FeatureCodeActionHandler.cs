@@ -13,7 +13,7 @@ using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Handlers.ProtocolHandlers;
+namespace Reqnroll.IdeSupport.LSP.Server.Features.CodeActions;
 
 /// <summary>
 /// Handles <c>textDocument/codeAction</c> requests for <c>*.feature</c> files (F6 — Define Steps).

@@ -7,7 +7,7 @@ using Reqnroll.IdeSupport.LSP.Server.Document;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 using Reqnroll.IdeSupport.LSP.Server.Services;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Handlers.ProtocolHandlers;
+namespace Reqnroll.IdeSupport.LSP.Server.Features.DocumentOutline;
 
 /// <summary>
 /// Handles <c>textDocument/documentSymbol</c> for <c>.feature</c> files (F9 — Document Outline).
