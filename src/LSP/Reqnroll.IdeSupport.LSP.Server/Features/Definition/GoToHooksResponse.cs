@@ -3,7 +3,7 @@
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Protocol;
+namespace Reqnroll.IdeSupport.LSP.Server.Features.Definition;
 
 /// <summary>
 /// Response DTO for the custom <c>reqnroll/goToHooks</c> request (F17 — Hook Navigation).
