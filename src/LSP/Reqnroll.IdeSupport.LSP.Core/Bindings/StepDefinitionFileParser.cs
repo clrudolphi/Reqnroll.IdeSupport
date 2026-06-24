@@ -5,8 +5,8 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
-using Reqnroll.IdeSupport.LSP.Core.Bindings.TagExpressions;
-using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
+using Reqnroll.IdeSupport.LSP.Core.Discovery.TagExpressions;
+using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
 using System.Text;
 using System.Threading.Tasks;
 
