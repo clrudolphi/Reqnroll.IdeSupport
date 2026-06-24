@@ -5,6 +5,9 @@ using Reqnroll.IdeSupport.LSP.Core.Bindings.TagExpressions;
 using Reqnroll.IdeSupport.LSP.Core.Discovery.TagExpressions;
 
 using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
+
+using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
+
 using Reqnroll.IdeSupport.LSP.Connector.Models;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Bindings;

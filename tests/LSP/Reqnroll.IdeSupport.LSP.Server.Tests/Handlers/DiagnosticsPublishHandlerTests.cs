@@ -6,6 +6,7 @@ using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Core.Documents;
 
 using Reqnroll.IdeSupport.LSP.Core.Discovery;
+
 using Reqnroll.IdeSupport.LSP.Core.Document;
 
 using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;

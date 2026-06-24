@@ -26,6 +26,9 @@ global using Reqnroll.IdeSupport.LSP.Core.Discovery;
 global using Reqnroll.IdeSupport.LSP.Core.Discovery.TagExpressions;
 
 global using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
+
+global using Reqnroll.IdeSupport.LSP.Core.Editor.Services.Parsing.GherkinDocuments;
+
 global using Reqnroll.IdeSupport.LSP.Connector.Models;
 // Reqnroll.IdeSupport.VisualStudio.Analytics excluded from global using to avoid ambiguity with Common.Analytics
 // Reqnroll.IdeSupport.VisualStudio.Diagnostics excluded from global using to avoid ambiguity with Common.Diagnostics

@@ -4,6 +4,9 @@ using Reqnroll;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Core.Documents;
 
+using Reqnroll.IdeSupport.LSP.Core.Document;
+
+
 namespace Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
 
 public record DeveroomTag(string Type, GherkinRange Range, object Data = null) : IGherkinDocumentContext
