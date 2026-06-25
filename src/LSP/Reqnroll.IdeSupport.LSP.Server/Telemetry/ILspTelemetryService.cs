@@ -2,7 +2,7 @@
 
 using System.Collections.Generic;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Services;
+namespace Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
 /// <summary>
 /// Allows LSP server components to emit telemetry/event notifications to the client

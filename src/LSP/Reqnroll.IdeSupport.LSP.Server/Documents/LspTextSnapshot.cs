@@ -1,6 +1,6 @@
 using Reqnroll.IdeSupport.LSP.Core.Documents;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Document;
+namespace Reqnroll.IdeSupport.LSP.Server.Documents;
 
 public class LspTextSnapshot : IGherkinTextSnapshot
 {

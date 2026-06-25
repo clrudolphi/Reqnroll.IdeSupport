@@ -1,5 +1,4 @@
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
-using Reqnroll.IdeSupport.LSP.Server.Services;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Services;
 

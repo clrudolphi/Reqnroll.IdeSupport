@@ -5,7 +5,6 @@ using Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens;
 
 
 
-using Reqnroll.IdeSupport.LSP.Server.Services;
 
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Services;

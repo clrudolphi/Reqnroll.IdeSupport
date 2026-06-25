@@ -6,7 +6,6 @@ using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
-using Reqnroll.IdeSupport.LSP.Server.Services;
 namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 
 /// <summary>

@@ -2,7 +2,7 @@ using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.LSP.Core.Documents;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Document;
+namespace Reqnroll.IdeSupport.LSP.Server.Documents;
 
 /// <summary>
 /// Converts <see cref="GherkinRange"/> and <see cref="IGherkinTextSnapshot"/> positions to

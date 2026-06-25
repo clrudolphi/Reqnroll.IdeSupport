@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Services;
+namespace Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
 /// <summary>
 /// Sends <c>telemetry/event</c> notifications to the LSP client via
