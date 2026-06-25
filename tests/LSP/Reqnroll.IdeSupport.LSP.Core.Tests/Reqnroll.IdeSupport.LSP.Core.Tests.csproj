@@ -15,9 +15,9 @@
 
   <ItemGroup Label="Deferred - depends on VS connector not yet ported">
     <!-- ProjectBindingRegistryCache depends on connector discovery pipeline -->
-    <Compile Remove="Discovery\ProjectBindingRegistryCacheTests.cs" />
+    <Compile Remove="Bindings\ProjectBindingRegistryCacheTests.cs" />
     <!-- MockableDiscoveryService / StubIdeScope used in Reprocess tests depend on connector + WPF stubs -->
-    <Compile Remove="Discovery\ReprocessStepDefinitionFileTests.cs" />
+    <Compile Remove="Bindings\ReprocessStepDefinitionFileTests.cs" />
   </ItemGroup>
 
   <ItemGroup>
