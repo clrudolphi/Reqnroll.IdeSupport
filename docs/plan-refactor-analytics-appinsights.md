@@ -1,413 +1,315 @@
-# Plan: Refactor Telemetry Subsystem
+# Refactor Analytics: Replace Custom AppInsights Client with Standard SDK
 
 ## Objective
 
-Replace the current hand-rolled Application Insights client (using the VS SDK's
+Replace the current hand-rolled Application Insights telemetry client (using the VS SDK's
 `Microsoft.VisualStudio.ApplicationInsights` namespace) with the standard
-`Microsoft.ApplicationInsights` NuGet package **v2.23.0**. The entire subsystem
-lives in `Reqnroll.IdeSupport.Common` (netstandard2.0) so it can be consumed by
-the Visual Studio extension, future VS Code extensions, and future Rider
-extensions alike.
+`Microsoft.ApplicationInsights` NuGet package (v3.x). The goal is to use a
+prepackaged, maintained SDK rather than rolling our own client plumbing.
 
-Architecture principle: **the IDE client owns the analytics dependency**. The LSP
-server has no reference to `Microsoft.ApplicationInsights`. Instead, server-side
-events flow to the client via the LSP `telemetry/event` notification, where they
-are merged with IDE-originated events into a single `TelemetryClient` instance.
-
-### Why 2.23.0 instead of 3.1.2
-
-| Factor | 3.1.2 | 2.23.0 |
-|--------|-------|--------|
-| Dependency tree | 5+ packages (OpenTelemetry stack) | **1** (`System.Diagnostics.DiagnosticSource`) |
-| `TelemetryConfiguration.Active` | Removed | **Available** |
-| `InstrumentationKey` | Removed (requires ConnectionString) | **Available** — bare GUID works |
-| `IContextInitializer` / `ITelemetryInitializer` | Removed (use `GlobalProperties`) | **Available** (or set `Context.Properties` directly) |
-| `FlushAndTransmitAsync` | Removed (auto-flush) | `Flush()` / `FlushAsync()` |
-| .NET Framework fidelity | OpenTelemetry stack unproven on net481 | **146M+ downloads**, proven |
-| API alignment with current code | Substantially different | **Near-identical** — mostly a namespace swap |
-
-`Microsoft.ApplicationInsights.WorkerService` (both 2.x and 3.x) is not used.
-It targets netstandard2.0 but pulls in 7+ collector/logging/DependencyInjection
-packages we don't need — we wire `TelemetryClient` manually.
-
-The base `Microsoft.ApplicationInsights` 2.23.0 gives us everything we need.
+**Note:** `Microsoft.ApplicationInsights.WorkerService` (v3.1.2) requires
+`net8.0+` and is **incompatible** with the current target (`net481`). This plan
+uses the base `Microsoft.ApplicationInsights` package (v3.1.2), which targets
+`net462` — compatible with both `net481` and `netstandard2.0`.
 
 ---
 
-## 1. Data Flow (Target Architecture)
+## 1. Current Architecture (Inventory)
+
+### 1.1 Source files in `src/Core/Reqnroll.IdeSupport.Common/Analytics/`
+
+| File | Purpose | Touched by refactor? |
+|------|---------|---------------------|
+| `IAnalyticsEvent.cs` | Event contract: `EventName` + `Properties` | No — abstraction stays |
+| `IAnalyticsTransmitter.cs` | Transmit event / exception / fatal-exception | No — abstraction stays |
+| `IAnalyticsTransmitterSink.cs` | Transport abstraction (sink pattern) | **Removed** — replaced by direct `TelemetryClient` |
+| `AnalyticsTransmitter.cs` | Gateway: checks enable, delegates to sink | **Yes** — route events to injected `TelemetryClient` instead of sink |
+| `GenericEvent.cs` | Simple named event record | No — stays |
+| `DiscoveryResultEvent.cs` | Commented out, LSP result event | No |
+| `IEnableAnalyticsChecker.cs` | Opt-out via `REQNROLL_TELEMETRY_ENABLED` env var | No — stays |
+| `EnableAnalyticsChecker` | (inline in same file) | No — stays |
+| `IUserUniqueIdStore.cs` | User identity abstraction | No — stays |
+| `IRegistryManager.cs` | Read/write install status from registry | No |
+| `ReqnrollInstallationStatus.cs` | Install/usage tracking model | No |
+| `GuidanceConfiguration.cs` | Usage milestone definitions | No |
+| `GuidanceStep.cs` | Step model for guidance notifications | No |
+| `GuidanceNotification.cs` | Enum for notification levels | No |
+| `IGuidanceConfiguration.cs` | Guidance configuration interface | No |
+| `InstrumentationKey.txt` | Embedded resource with instrumentation key | **Updated in place** — connection-string format |
+
+### 1.2 Source files in `src/VisualStudio/.../VSSDKIntegration/Analytics/`
+
+| File | Purpose | Touched by refactor? |
+|------|---------|---------------------|
+| `AppInsightsAnalyticsTransmitterSink.cs` | **Key file** — implements `IAnalyticsTransmitterSink` using VS SDK `TelemetryClient` | **Removed** |
+| `ApplicationInsightsConfigurationHolder.cs` | Reads key from embedded resource, sets `TelemetryConfiguration.Active` (global static) | **Removed** — v3.x removes `TelemetryConfiguration.Active` |
+| `ReqnrollTelemetryContextInitializer.cs` | Adds IDE/version/user properties to every telemetry item | **Removed** — replaced by `TelemetryClient.Context.GlobalProperties` at creation time |
+| `AnalyticsTransmitter.cs` | Thin MEF export wrapper over `Core.AnalyticsTransmitter` | **Rewritten** — creates/manages `TelemetryClient`, sets Context/GlobalProperties, implements `IAsyncDisposable` |
+| `IEnableAnalyticsChecker.cs` | Thin MEF export wrapper | No |
+| `FileUserIdStore.cs` | Persists userId to `%APPDATA%\Reqnroll\userid` | No — stays, consumed by VS `AnalyticsTransmitter` |
+
+### 1.3 Related files
+
+| File | Location | Touched? |
+|------|----------|---------|
+| `MonitoringService.cs` | `.../Monitoring/MonitoringService.cs` | **Yes** — remove `ITelemetryConfigurationHolder` dependency |
+| `IMonitoringService.cs` | `Core/.../IMonitoringService.cs` | No |
+| `NullMonitoringService.cs` | `LSP/.../Workspace/` | No |
+| `VsWizardTelemetry.cs` | `Wizards/VsIntegration/` | No — consumes `IMonitoringService`, not `IAnalyticsTransmitter` directly |
+| `StubAnalyticsTransmitter.cs` | `tests/.../VsxStubs/` | No — implements `IAnalyticsTransmitter`, not the sink |
+| `AnalyticsTransmitterTests.cs` | `tests/.../Common.Tests/Analytics/` | **Rewritten** — substitute `TelemetryClient` instead of sink |
+| `ITelemetryConfigurationHolder.cs` | `Core/.../ITelemetryConfigurationHolder.cs` | **Removed** |
+| `StubIdeScope.cs` | `tests/.../VsxStubs/` | **Yes** — remove `ITelemetryConfigurationHolder` substitute |
+
+### 1.4 Current data flow (simplified)
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│ LSP Server (out-of-proc)                                                │
-│  No AppInsights reference.                                              │
-│  Fires telemetry as LSP notifications.                                  │
-│                                                                         │
-│  ┌──────────────┐     LSP wire     ┌────────────────────┐              │
-│  │ Discovery    │   telemetry/     │ IDictionary<str,…> │              │
-│  │ Parser       │   event notify   │ → event name       │              │
-│  │ Connector    │  ─────────────→  │ → properties       │              │
-│  │ Generation   │                  └────────────────────┘              │
-│  └──────────────┘                                                      │
-└─────────────────────────────────────────────────────────────────────────┘
-         ↕ (stdin/stdout — already connected)
-┌─────────────────────────────────────────────────────────────────────────┐
-│ IDE Client Process (VS / VS Code / Rider)                               │
-│  Owns the analytics subsystem. Single TelemetryClient per process.     │
-│                                                                         │
-│  ┌──────────────────────────────┐                                       │
-│  │ telemetry/event handler       │                                       │
-│  │  → deserialize to IAnalytics…│                                       │
-│  │  → add IDE context properties│                                       │
-│  │  → AnalyticsTransmitter       │                                       │
-│  └──────────┬───────────────────┘                                       │
-│             │                                                           │
-│  ┌──────────▼───────────────────┐   ┌───────────────────────────────┐  │
-│  │ MonitoringService (IDE-scope)│   │ NullMonitoringService         │  │
-│  │  → MonitorOpenProject        │   │ (no-op for headless/testing)  │  │
-│  │  → MonitorExtensionInstalled │   └───────────────────────────────┘  │
-│  │  → MonitorError              │                                       │
-│  │  → MonitorWizard...          │                                       │
-│  └──────────┬───────────────────┘                                       │
-│             │                                                           │
-│  ┌──────────▼──────────────────────────────────────────────────────┐   │
-│  │ AnalyticsTransmitter  (in Reqnroll.IdeSupport.Common)           │   │
-│  │  ┌──────────────────────────────────────────────────────────┐  │   │
-│  │  │ Microsoft.ApplicationInsights.TelemetryClient  (2.23.0)  │  │   │
-│  │  │  → TrackEvent / TrackException / FlushAsync              │  │   │
-│  │  │  → Context.User.Id = from IUserUniqueIdStore             │  │   │
-│  │  │  → Context.Properties["Ide"] = "Microsoft Visual Studio" │  │   │
-│  │  │  → Context.Properties["IdeVersion"] = …                  │  │   │
-│  │  │  → Context.Properties["ExtensionVersion"] = …            │  │   │
-│  │  └──────────────────────────────────────────────────────────┘  │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-│  ┌──────────────────────────────────────┐                               │
-│  │ IEnableAnalyticsChecker               │                               │
-│  │  → Environment variable opt-out       │                               │
-│  │    REQNROLL_TELEMETRY_ENABLED=0       │                               │
-│  │  → Gates all events (LSP + IDE)       │                               │
-│  └──────────────────────────────────────┘                               │
-└─────────────────────────────────────────────────────────────────────────┘
+MonitoringService
+  → IAnalyticsTransmitter (Core.AnalyticsTransmitter)
+    → IEnableAnalyticsChecker (opt-out gate)
+    → IAnalyticsTransmitterSink (AppInsightsAnalyticsTransmitterSink)
+      → VS SDK TelemetryClient (Microsoft.VisualStudio.ApplicationInsights)
+        → EventTelemetry / ExceptionTelemetry
+        → Manual FlushAndTransmitAsync after each event
+        → TelemetryConfiguration.Active (global singleton, key from embedded resource)
+        → ReqnrollTelemetryContextInitializer (IContextInitializer on Active)
 ```
 
-Two telemetry sources converge into a single pipeline:
-
-| Source | How it arrives | Examples |
-|--------|---------------|---------|
-| **LSP server** | `telemetry/event` notification → deserialized by LSP client handler → forwarded to `AnalyticsTransmitter` | discovery result, parser event, generation result |
-| **IDE code** | Direct call from `MonitoringService` → `AnalyticsTransmitter` | extension loaded/installed/upgraded, project opened, feature file opened, errors, wizard events |
-
 ---
 
-## 2. Current Architecture (Inventory)
+## 2. Target Architecture
 
-### 2.1 Files in `src/Core/Reqnroll.IdeSupport.Common/Analytics/`
+### 2.1 Data flow (post-refactor)
 
-| File | Purpose | Fate |
-|------|---------|------|
-| `IAnalyticsEvent.cs` | Event contract: EventName + Properties | **Stays** |
-| `IAnalyticsTransmitter.cs` | Send event / exception / fatal-exception | **Stays** |
-| `IAnalyticsTransmitterSink.cs` | Transport abstraction (current sink pattern) | **Removed** — replaced by direct TelemetryClient |
-| `AnalyticsTransmitter.cs` | Gateway: checks enable, delegates to sink | **Rewritten** — owns TelemetryClient directly |
-| `GenericEvent.cs` | Simple named event record | **Stays** |
-| `DiscoveryResultEvent.cs` | Commented-out LSP result event | **Stays** (or removed during cleanup) |
-| `IEnableAnalyticsChecker.cs` | Opt-out via env var | **Stays** |
-| `EnableAnalyticsChecker` (inline) | Opt-out implementation | **Stays** |
-| `IUserUniqueIdStore.cs` | User identity abstraction | **Stays** (TelemetryClient reads via this) |
-| `IRegistryManager.cs` | Registry read/write for install status | **Stays** |
-| `ReqnrollInstallationStatus.cs` | Install/usage tracking model | **Stays** |
-| `GuidanceConfiguration.cs` | Usage milestone definitions | **Stays** |
-| `GuidanceStep.cs` | Step model for guidance notifications | **Stays** |
-| `GuidanceNotification.cs` | Enum for notification levels | **Stays** |
-| `InstrumentationKey.txt` | Embedded resource with instrumentation key GUID | **Stays** — 2.x supports bare GUID; key format unchanged |
-
-### 2.2 Files in `src/VisualStudio/.../Analytics/`
-
-| File | Purpose | Fate |
-|------|---------|------|
-| `AppInsightsAnalyticsTransmitterSink.cs` | Sink using VS SDK TelemetryClient | **Removed** — replaced by Core's AnalyticsTransmitter |
-| `ApplicationInsightsConfigurationHolder.cs` | Reads key from embedded resource, sets `TelemetryConfiguration.Active` | **Removed** — config moves to VS-level AnalyticsTransmitter |
-| `ReqnrollTelemetryContextInitializer.cs` | Adds IDE/version/user props via `IContextInitializer` | **Removed** — same logic set directly on `TelemetryClient.Context.Properties` |
-| `AnalyticsTransmitter.cs` | Thin MEF export wrapper over Core | **Simplified** — creates TelemetryClient, wires deps, inherits Core |
-| `IEnableAnalyticsChecker.cs` | Thin MEF export wrapper | **Removed** — EnableAnalyticsChecker is already in Core, MEF-export from there |
-| `FileUserIdStore.cs` | Persists userId to `%APPDATA%\Reqnroll\userid` | **Stays** — implements IUserUniqueIdStore |
-
-### 2.3 Related files
-
-| File | Fate |
-|------|------|
-| `Monitor/MonitoringService.cs` | **Minimal change** — remove `ITelemetryConfigurationHolder` dependency |
-| `ITelemetryConfigurationHolder.cs` (Core) | **Removed** — no longer needed |
-| `NullMonitoringService.cs` (LSP Server) | **Stays** — LSP server uses no-op; events go via telemetry/event instead |
-| `VsWizardTelemetry.cs` (Wizards) | **Stays** — depends on IMonitoringService only |
-| `StubAnalyticsTransmitter.cs` (tests) | **Stays** — test double for IAnalyticsTransmitter |
-
-### 2.4 LSP Server files (new telemetry/event handler needed)
-
-| File | Fate |
-|------|------|
-| `LSP/.../Workspace/NullMonitoringService.cs` | **Stays** — LSP server doesn't use IMonitoringService for analytics |
-| (none yet) — need to add `telemetry/event` emission in server | **New** — wire server events as LSP telemetry notifications |
-
----
-
-## 3. Build Inventory (Net Changes)
-
-### 3.1 NuGet package
-
-| Project | Package | Version | Action |
-|---------|---------|---------|--------|
-| `Reqnroll.IdeSupport.Common.csproj` (netstandard2.0) | `Microsoft.ApplicationInsights` | **2.23.0** | **Add** |
-| `Reqnroll.IdeSupport.VisualStudio.VSSDKIntegration.csproj` (net481) | (transitive only via Common) | — | **None** |
-
-**Dependency footprint:** `Microsoft.ApplicationInsights` 2.23.0 depends on
-`System.Diagnostics.DiagnosticSource` ≥ 5.0.0 — and nothing else.
-
-### 3.2 Files to Remove
-
-| # | File | Reason |
-|---|------|--------|
-| 1 | `src/VS/.../Analytics/AppInsightsAnalyticsTransmitterSink.cs` | Sink pattern eliminated; TelemetryClient lives in Core |
-| 2 | `src/VS/.../Analytics/ApplicationInsightsConfigurationHolder.cs` | Config moves to the VS-level AnalyticsTransmitter MEF export |
-| 3 | `src/VS/.../Analytics/ReqnrollTelemetryContextInitializer.cs` | Properties set directly on TelemetryClient.Context at creation |
-| 4 | `src/VS/.../Analytics/IEnableAnalyticsChecker.cs` | Thin MEF export — Core's EnableAnalyticsChecker already exists |
-| 5 | `src/Core/.../Analytics/IAnalyticsTransmitterSink.cs` | Sink abstraction no longer needed |
-| 6 | `src/Core/.../ITelemetryConfigurationHolder.cs` | Configuration holder pattern eliminated |
-
-### 3.3 Files to Create or Modify
-
-| Action | File | What changes |
-|--------|------|-------------|
-| **Modify** | `Core/Analytics/AnalyticsTransmitter.cs` | Accept `TelemetryClient` + `IUserUniqueIdStore` + `IEnableAnalyticsChecker`. Route events to `TelemetryClient.TrackEvent`/`TrackException`. Set `Context.User.Id` and `Context.Properties` at init (from IUserUniqueIdStore + config). Implement `IDisposable` → `Flush()`. Preserve `IsNormalError` classification. Preserve `ANALYTICS_DEBUG` conditional logging. |
-| **Modify** | `Core/Reqnroll.IdeSupport.Common.csproj` | Add `<PackageReference Include="Microsoft.ApplicationInsights" Version="2.23.0" />` |
-| **Modify** | `VS/Analytics/AnalyticsTransmitter.cs` (MEF) | Create `TelemetryConfiguration` instance, set `InstrumentationKey` (read from embedded resource), create `TelemetryClient(config)`, set `Context.User.Id` and `Context.Properties` for IDE metadata, inject into base `AnalyticsTransmitter` |
-| **Modify** | `VS/Monitoring/MonitoringService.cs` | Remove `ITelemetryConfigurationHolder telemetryConfigurationHolder` parameter |
-| **New** | `LSP/.../Workspace/LspTelemetryService.cs` (or similar) | In LSP server, emit `telemetry/event` notifications for discovery, parser, generation events |
-| **New** | `.../LspClient/TelemetryEventHandler.cs` (or similar) | In LSP client, handle `telemetry/event`, deserialize to `GenericEvent`, forward to `IAnalyticsTransmitter` |
-
-### 3.4 Configuration approach (2.x) — channel and flush strategy
-
-The channel is **InMemoryChannel** with sensible defaults tuned for a VS
-extension. No `ServerTelemetryChannel` (disk-backed) is needed — telemetry loss
-on crash is acceptable and matches current behaviour.
-
-**Key change from today:** the current code calls `FlushAndTransmitAsync()`
-after **every single event** with a 1-second timeout, defeating batching. The
-new approach lets the channel batch naturally and only flushes explicitly on
-shutdown.
-
-```csharp
-// In VS project's AnalyticsTransmitter MEF export (constructor):
-var channel = new InMemoryChannel
-{
-    SendingInterval = TimeSpan.FromSeconds(30),
-    MaxTelemetryBufferCapacity = 250
-};
-
-var config = new TelemetryConfiguration
-{
-    InstrumentationKey = keyFromEmbeddedResource,
-    TelemetryChannel = channel
-};
-
-var client = new TelemetryClient(config);
-client.Context.User.Id = userStore.GetUserId();
-client.Context.Properties["Ide"] = "Microsoft Visual Studio";
-client.Context.Properties["IdeVersion"] = versionProvider.GetVsVersion();
-client.Context.Properties["ExtensionVersion"] = versionProvider.GetExtensionVersion();
-
-// Pass client into base:
-var transmitter = new AnalyticsTransmitter(client, userStore, enableChecker, logger);
+```
+MonitoringService
+  → IAnalyticsTransmitter (Core.AnalyticsTransmitter)
+    → IEnableAnalyticsChecker (opt-out gate)
+    → Microsoft.ApplicationInsights.TelemetryClient
+      → TrackEvent / TrackException
+      → Auto-flush via SDK channel (~30s)
+      → Explicit Flush() on DisposeAsync()
+      → TelemetryConfiguration (instance, not global singleton)
+        → ConnectionString from embedded resource (in Core)
+        → Context.User.Id + AccountId from IUserUniqueIdStore
+        → GlobalProperties set at creation time by VS AnalyticsTransmitter
 ```
 
-No global `TelemetryConfiguration.Active`. No `IContextInitializer`. Each IDE
-creates its own `TelemetryClient` with its own config and context properties.
+### 2.2 Key changes
+
+| Current (VS SDK) | Target (Standard SDK) |
+|-------------------|----------------------|
+| `using Microsoft.VisualStudio.ApplicationInsights.*` | `using Microsoft.ApplicationInsights.*` |
+| `TelemetryConfiguration.Active` (global static) | `TelemetryConfiguration.CreateDefault()` (instance) |
+| `Active.InstrumentationKey = "..."` | `config.ConnectionString = "InstrumentationKey=...;"` |
+| `Active.TelemetryChannel = new InMemoryChannel()` | Channel managed by SDK (auto-flush, ~30s) |
+| `Active.ContextInitializers.Add(...)` | `client.Context.GlobalProperties["key"] = "value"` |
+| `new TelemetryClient()` (parameterless) | `new TelemetryClient(config)` (requires config) |
+| `client.FlushAndTransmitAsync(cancellationToken)` | `client.Flush()` (synchronous, explicit shutdown) + auto-flush |
+| `EventTelemetry` / `ExceptionTelemetry` → `ISupportProperties` | Same API shape, different namespace |
+| `IAnalyticsTransmitterSink` + `ITelemetryConfigurationHolder` + `IReqnrollContextInitializer` | No intermediate abstractions — `AnalyticsTransmitter` owns `TelemetryClient` |
+| Per-event fire-and-forget `FlushAndTransmitAsync` | SDK auto-flush (~30s) + lifecycle `Flush()` on `DisposeAsync()` |
+
+### 2.3 NuGet package changes
+
+| Project | Current | Add | Remove |
+|---------|---------|-----|--------|
+| `Reqnroll.IdeSupport.Common.csproj` (netstandard2.0) | (none) | `Microsoft.ApplicationInsights` v3.1.2 | — |
+| `VSSDKIntegration.csproj` (net481) | (no explicit AppInsights dependency — comes transitively from VS SDK) | `Microsoft.ApplicationInsights` v3.1.2 | — |
+
+Both need the package. `AnalyticsTransmitter` in Core uses `TelemetryClient` directly; the VS MEF export creates and configures it. The package targets `net462`, compatible with both `netstandard2.0` and `net481`.
 
 ---
 
-## 4. Implementation Phases
+## 3. Build Inventory (Files to Add / Remove / Modify)
 
-### Phase 1 — Core library changes
+### 3.1 Add
 
-1. Add `Microsoft.ApplicationInsights` **2.23.0** NuGet reference to
-   `Reqnroll.IdeSupport.Common.csproj`
-2. Rewrite `AnalyticsTransmitter` to accept `TelemetryClient` + `IUserUniqueIdStore` +
-   `IEnableAnalyticsChecker` (remove `IAnalyticsTransmitterSink`)
-3. Route events:
-   - `TransmitEvent(IAnalyticsEvent)` → `_telemetryClient.TrackEvent(EventTelemetry)` with
-     `IAnalyticsEvent.Properties` mapped via `ISupportProperties`
-   - `TransmitExceptionEvent` / `TransmitFatalExceptionEvent` →
-     `_telemetryClient.TrackException(ExceptionTelemetry)` with additional props
-4. Preserve `IsNormalError` classification (normal → TrackException; fatal → TrackException
-   with `"IsFatal"` property)
-5. Preserve `ANALYTICS_DEBUG` conditional logging
-6. Set `TelemetryClient.Context.User.Id` and `Context.Properties` from injected sources
-7. Implement `IDisposable` → `FlushAsync(CancellationToken.None)` or `Flush()`
-8. Remove `IAnalyticsTransmitterSink.cs`
-9. Remove `ITelemetryConfigurationHolder.cs`
+| File | Description |
+|------|-------------|
+| (none — all changes are modifications of existing files; the `TelemetryClient` creation lives in the rewritten VS `AnalyticsTransmitter`) |
 
-### Phase 2 — VS layer cleanup
+### 3.2 Remove
 
-1. Remove `AppInsightsAnalyticsTransmitterSink.cs`
-2. Remove `ApplicationInsightsConfigurationHolder.cs`
-3. Remove `ReqnrollTelemetryContextInitializer.cs`
-4. Remove VS-level `IEnableAnalyticsChecker.cs` (MEF-export Core's version directly)
-5. Update VS `AnalyticsTransmitter.cs` (MEF export):
-   - Read `InstrumentationKey` from embedded resource `InstrumentationKey.txt` (same resource,
-     no format change)
-   - Create `InMemoryChannel` with `SendingInterval = 30s`, `MaxTelemetryBufferCapacity = 250`
-   - Create `new TelemetryConfiguration { InstrumentationKey = key, TelemetryChannel = channel }`
-   - Create `new TelemetryClient(config)`
-   - Set `Context.User.Id` from `FileUserIdStore`
-   - Set `Context.Properties["Ide"]`, `["IdeVersion"]`, `["ExtensionVersion"]` from `IVersionProvider`
-   - Pass client + deps to base `AnalyticsTransmitter`
-6. Update `MonitoringService.cs` — remove `ITelemetryConfigurationHolder` parameter
+| File | Reason |
+|------|--------|
+| `VS/.../Analytics/AppInsightsAnalyticsTransmitterSink.cs` | Replaced by direct `TelemetryClient` usage |
+| `VS/.../Analytics/ApplicationInsightsConfigurationHolder.cs` | Config pattern changed; no global `TelemetryConfiguration.Active` |
+| `VS/.../Analytics/ReqnrollTelemetryContextInitializer.cs` | Replaced by `TelemetryClient.Context.GlobalProperties` set in VS `AnalyticsTransmitter` |
+| `Core/.../ITelemetryConfigurationHolder.cs` | No longer needed — no configuration holder abstraction |
+| `Core/.../IAnalyticsTransmitterSink.cs` | No longer needed — `TelemetryClient` is the sink |
 
-### Phase 3 — LSP telemetry/event wiring
+### 3.3 Modify
 
-1. **LSP Server side:** Add a service that emits `telemetry/event` notifications.
-   The notification body is a `Dictionary<string, object?>` with at minimum an
-   `"eventName"` key and `"properties"` key. Example notification params:
+| File | What changes |
+|------|-------------|
+| `Core/.../Analytics/AnalyticsTransmitter.cs` | Remove `IAnalyticsTransmitterSink` dependency. Accept injected `TelemetryClient` + `IEnableAnalyticsChecker`. Route events to `TelemetryClient.TrackEvent()` / `TrackException()`. Implement `IAsyncDisposable` for `Flush()` + `Dispose()`. Preserve `IsNormalError`, `ANALYTICS_DEBUG`, catch-all safety. |
+| `Core/.../Reqnroll.IdeSupport.Common.csproj` | Add `<PackageReference Include="Microsoft.ApplicationInsights" Version="3.1.2" />`. Keep `EmbeddedResource` for `InstrumentationKey.txt` (updated in place). |
+| `Core/.../Analytics/InstrumentationKey.txt` | Change content from bare GUID to `InstrumentationKey=3fd018ff-819d-4685-a6e1-6f09bc98d20b` |
+| `VS/.../Analytics/AnalyticsTransmitter.cs` | **Rewritten.** No longer inheriting by passing sink. Now: imports `IUserUniqueIdStore`, `IVersionProvider`, `IEnableAnalyticsChecker` via MEF; creates `TelemetryClient` with config, Context.User.Id/AccountId, and GlobalProperties; passes to base; implements `IAsyncDisposable`. |
+| `VS/.../Monitoring/MonitoringService.cs` | Remove `ITelemetryConfigurationHolder` from constructor and field. The config holder's `ApplyConfiguration()` call is removed — replaced by instance-based config in the VS `AnalyticsTransmitter`. |
+| `VS/.../VSSDKIntegration.csproj` | Add `<PackageReference Include="Microsoft.ApplicationInsights" Version="3.1.2" />` |
+| `tests/.../Common.Tests/Analytics/AnalyticsTransmitterTests.cs` | **Rewritten.** Substitute `TelemetryClient` instead of `IAnalyticsTransmitterSink`. Assert `TrackEvent`/`TrackException`/`Flush` calls. Same test-case semantics. |
+| `tests/.../VsxStubs/StubIdeScope.cs` | Remove `Substitute.For<ITelemetryConfigurationHolder>()` from `MonitoringService` construction. |
 
+---
+
+## 4. Implementation Plan (Phased)
+
+### Phase A — Core changes (AnalyticsTransmitter in Core)
+
+1. **Add NuGet package** `Microsoft.ApplicationInsights` v3.1.2 to `Reqnroll.IdeSupport.Common.csproj`
+2. **Remove `IAnalyticsTransmitterSink.cs`** from Core
+3. **Remove `ITelemetryConfigurationHolder.cs`** from Core
+4. **Rewrite `AnalyticsTransmitter.cs`** in Core:
+   - Constructor: `(TelemetryClient telemetryClient, IEnableAnalyticsChecker enableAnalyticsChecker, IDeveroomLogger? logger = null)`
+   - `TransmitEvent` → `_telemetryClient.TrackEvent(new EventTelemetry(analyticsEvent.EventName) { ... })`, copy `Properties` via `ISupportProperties`
+   - `TransmitException` → `_telemetryClient.TrackException(new ExceptionTelemetry(exception) { ... })`
+   - Preserve `IsNormalError` classification logic
+   - Preserve `[Conditional("ANALYTICS_DEBUG")]` dump methods
+   - Preserve catch-all safety (`try/catch` around every transmit)
+   - Implement `IAsyncDisposable`:
+     ```csharp
+     public async ValueTask DisposeAsync()
+     {
+         _telemetryClient.Flush();
+         await Task.Delay(1000); // allow in-flight transmission
+         _telemetryClient.Dispose();
+     }
+     ```
+5. **Update `InstrumentationKey.txt`** content to connection-string format
+
+### Phase B — VS layer cleanup
+
+1. **Remove** `AppInsightsAnalyticsTransmitterSink.cs`
+2. **Remove** `ApplicationInsightsConfigurationHolder.cs`
+3. **Remove** `ReqnrollTelemetryContextInitializer.cs`
+4. **Add NuGet package** `Microsoft.ApplicationInsights` v3.1.2 to `VSSDKIntegration.csproj`
+5. **Rewrite VS `AnalyticsTransmitter.cs`** (MEF export in VSSDKIntegration):
+   ```csharp
+   [Export(typeof(IAnalyticsTransmitter))]
+   public class AnalyticsTransmitter : CoreAnalyticsTransmitter, IAsyncDisposable
+   {
+       [ImportingConstructor]
+       public AnalyticsTransmitter(
+           IEnableAnalyticsChecker enableAnalyticsChecker,
+           IUserUniqueIdStore userUniqueIdStore,
+           IVersionProvider versionProvider,
+           DeveroomCompositeLogger? logger = null)
+           : base(CreateClient(userUniqueIdStore, versionProvider), enableAnalyticsChecker, logger) { }
+
+       private static TelemetryClient CreateClient(
+           IUserUniqueIdStore userStore, IVersionProvider versionProvider)
+       {
+           var config = TelemetryConfiguration.CreateDefault();
+           var stream = typeof(CoreAnalyticsTransmitter).Assembly
+               .GetManifestResourceStream(
+                   "Reqnroll.IdeSupport.Common.Analytics.InstrumentationKey.txt");
+           using var reader = new StreamReader(stream!);
+           config.ConnectionString = reader.ReadLine()!;
+
+           var client = new TelemetryClient(config);
+           client.Context.User.Id = userStore.GetUserId();
+           client.Context.User.AccountId = userStore.GetUserId();
+           client.Context.GlobalProperties["Ide"] = "Microsoft Visual Studio";
+           client.Context.GlobalProperties["IdeVersion"] = versionProvider.GetVsVersion();
+           client.Context.GlobalProperties["ExtensionVersion"] = versionProvider.GetExtensionVersion();
+           return client;
+       }
+   }
    ```
-   { "eventName": "Reqnroll Discovery executed",
-     "properties": { "IsFailed": false, "StepDefinitionCount": 12,
-                     "ConnectorType": "Process" } }
+6. **Update `MonitoringService`** — remove `ITelemetryConfigurationHolder telemetryConfigurationHolder` from constructor; remove `telemetryConfigurationHolder.ApplyConfiguration()` call body
+7. **Update `StubIdeScope`** — replace `Substitute.For<ITelemetryConfigurationHolder>()` with nothing; change to `new MonitoringService(AnalyticsTransmitter)`
+
+### Phase C — Configuration
+
+1. Update `InstrumentationKey.txt` content:
    ```
+   InstrumentationKey=3fd018ff-819d-4685-a6e1-6f09bc98d20b
+   ```
+2. The resource stays in the Core project as an embedded resource (no move). The VS layer reads it via `typeof(AnalyticsTransmitter).Assembly.GetManifestResourceStream(...)`.
 
-2. **LSP Client side:** Add a handler for `telemetry/event` in the VS LSP client
-   that:
-   - Receives the notification params dict
-   - Extracts `eventName` and `properties`
-   - Constructs a `GenericEvent(eventName, properties)`
-   - Calls `_analyticsTransmitter.TransmitEvent(...)`
+### Phase D — Tests
 
-   (Future VS Code and Rider LSP clients will add equivalent handlers.)
+1. **Rewrite `AnalyticsTransmitterTests.cs`**:
+   - `CreateSut()` creates `Substitute.For<TelemetryClient>()` instead of `Substitute.For<IAnalyticsTransmitterSink>()`
+   - Same test cases: disable → `DidNotReceive().TrackEvent(...)`, enable → `Received().TrackEvent(...)`, event name passthrough
+   - Add new tests:
+     - `Should_FlushOnDispose` — verify `Flush()` is called during `DisposeAsync()`
+     - `Should_NotThrow_WhenAppInsightsFails` — verify catch-all safety net
+   - The assertion shape (`Received`, `DidNotReceive`) stays identical because `TelemetryClient` has virtual `TrackEvent`/`TrackException`/`Flush` methods
 
-3. **Server events to wire** (currently hard-skipped in `NullMonitoringService`):
-   - Discovery result
-   - Parser events
-   - Generation events
+2. **Verify `StubAnalyticsTransmitter` compiles** — it implements `IAnalyticsTransmitter`, not the sink; no change needed.
 
-### Phase 4 — Testing
+### Phase E — Cleanup / Polish
 
-1. **Rewrite `AnalyticsTransmitterTests`** — swap test double from
-   `IAnalyticsTransmitterSink` to `TelemetryClient`. Assert `TrackEvent` /
-   `TrackException` were called (or not). Verify `Context.User.Id` and
-   `Context.Properties` are populated.
-
-2. **New unit tests:**
-   - Enable/disable gate still works
-   - `IsNormalError` classification (normal vs fatal exceptions)
-   - `FlushAsync()` on `Dispose()`
-   - `ANALYTICS_DEBUG` conditional logging
-   - No exception thrown when AppInsights transmission fails (catch-all)
-
-3. **Check existing stubs compile:**
-   - `StubAnalyticsTransmitter` (implements `IAnalyticsTransmitter`) — unchanged
-   - `NullMonitoringService` — unchanged
-
-### Phase 5 — Cleanup
-
-1. Remove unused `using` statements (especially `Microsoft.VisualStudio.ApplicationInsights.*`)
-2. Ensure `TelemetryClient` disposal is wired to VS package shutdown
-3. Verify `REQNROLL_TELEMETRY_ENABLED=0` suppresses all telemetry (LSP + IDE)
-4. Verify no exceptions escape the telemetry path
+1. Remove unused `using` statements
+2. Verify `StubIdeScope` compiles with removed `ITelemetryConfigurationHolder`
+3. Verify VS package shutdown calls `DisposeAsync()` on the `MonitoringService` (which forwards to `AnalyticsTransmitter`)
+4. Verify the `IsNormalError` classification logic is preserved in Core
+5. Verify the `ANALYTICS_DEBUG` conditional logging is preserved
 
 ---
 
 ## 5. Testing Plan
 
-### 5.1 Existing tests — unchanged
+### 5.1 Existing tests that must still pass
 
-| Test file | Scope |
-|-----------|-------|
-| `tests/.../Common.Tests/Analytics/AnalyticsTransmitterTests.cs` | Refactored to test against `TelemetryClient` substitute instead of `IAnalyticsTransmitterSink` — same test cases, same assertions shape |
+| Test file | Scope | Expected change |
+|-----------|-------|-----------------|
+| `tests/.../Common.Tests/Analytics/AnalyticsTransmitterTests.cs` | Gateway logic: enable/disable gate, event forwarding | **Rewritten** — substitute `TelemetryClient` instead of `IAnalyticsTransmitterSink`; same test case semantics |
+| `tests/.../VsxStubs/StubAnalyticsTransmitter.cs` | Test double for `IAnalyticsTransmitter` | No change — implements `IAnalyticsTransmitter`, not sink |
 
-### 5.2 Existing test doubles — unchanged
+### 5.2 Existing call sites / stubs — review needed
 
-| File | Why it compiles |
-|------|----------------|
-| `tests/.../VsxStubs/StubAnalyticsTransmitter.cs` | Implements `IAnalyticsTransmitter`, not `IAnalyticsTransmitterSink` |
-| `LSP/.../NullMonitoringService.cs` | Implements `IMonitoringService` |
+| File | Will it compile? | Fix needed? |
+|------|-----------------|-------------|
+| `tests/.../VsxStubs/StubIdeScope.cs` | **No** — constructs `MonitoringService` with `Substitute.For<ITelemetryConfigurationHolder>()` | **Yes** — remove the substitute param |
+| `tests/.../VsxStubs/StubAnalyticsTransmitter.cs` | Yes — implements `IAnalyticsTransmitter` | No |
+| `LSP/.../NullMonitoringService.cs` | Yes — implements `IMonitoringService` | No |
 
-### 5.3 New / updated unit tests in Common.Tests
+### 5.3 New tests needed
 
 | Test | What it covers |
 |------|---------------|
-| `Should_NotSendAnalytics_WhenDisabled` | Verifies no TrackEvent/TrackException calls when checker returns false |
-| `Should_SendAnalytics_WhenEnabled` | Verifies TrackEvent/TrackException calls when checker returns true |
-| `Should_SetUserId_OnContext` | Verifies `TelemetryClient.Context.User.Id` is set from `IUserUniqueIdStore` |
-| `Should_SetContextProperties` | Verifies IDE metadata appears in `Context.Properties` |
-| `Should_ClassifyNormalErrors` | `TimeoutException`, `TaskCanceledException`, `HttpRequestException` → still tracked |
-| `Should_ClassifyFatalExceptions` | Unknown exception types → tracked with `IsFatal` property |
-| `Should_FlushOnDispose` | `Dispose()` → calls `FlushAsync()` |
-| `Should_NotThrow_WhenTransmissionFails` | Catch-all safety net (existing behaviour) |
-| `Should_LogInDebugMode` | `ANALYTICS_DEBUG` conditional logging (existing behaviour) |
+| `AnalyticsTransmitterTests.Should_FlushOnDispose` | Verify `Flush()` is called during `DisposeAsync()` |
+| `AnalyticsTransmitterTests.Should_NotThrow_WhenAppInsightsFails` | Verify existing catch-all safety net still works |
+| (Existing tests already cover enable/disable gate and event name passthrough — same assertions, new substitute) |
 
 ### 5.4 Manual / integration tests
 
-| Test | How |
-|------|-----|
-| Events appear in App Insights | Launch VS extension, trigger scenarios, verify in Azure portal |
-| Opt-out works | Set `REQNROLL_TELEMETRY_ENABLED=0`, launch, verify no events |
-| LSP telemetry arrives | Trigger discovery, verify event appears from telemetry/event handler |
-| Safe on failure | Mock transmission failure, verify no crash |
-| Shutdown flushes | Close VS, verify no lost events in final flush window |
+- Launch VS extension, verify telemetry appears in App Insights resource
+- Test with `REQNROLL_TELEMETRY_ENABLED=0` set — verify no telemetry sent
+- Test exception scenarios — verify `TrackException` is called with correct properties
+- Verify no exceptions thrown during telemetry transmission (catch-all safety)
+- Verify flush on VS extension shutdown (check that no events are lost on close)
 
 ---
 
-## 6. Key Design Decisions
-
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Package | `Microsoft.ApplicationInsights` **2.23.0** | Tried-and-tested on netstandard2.0/net481; minimal deps (one transitive); near-identical API to current VS SDK wrapper |
-| Where does `TelemetryClient` live? | `Reqnroll.IdeSupport.Common` (netstandard2.0) | Shared across all IDE extensions; VS Code / Rider can reuse without duplication |
-| Who owns the NuGet dependency? | Only `Reqnroll.IdeSupport.Common.csproj` | Single point of truth; VS gets it transitively |
-| How do LSP events reach AppInsights? | `telemetry/event` LSP notification → client deserializes → forwards to `AnalyticsTransmitter` | Protocol-conformant; server stays clean; single pipeline with IDE events |
-| `WorkerService` package? | Not used | Pulls in 7+ collector/DependencyInjection packages we don't need |
-| Telemetry channel | `InMemoryChannel` | Same channel as current code; no behavioural regression. `SendingInterval=30s`, `MaxTelemetryBufferCapacity=250`. No disk-backed `ServerTelemetryChannel` needed. |
-| `TelemetryConfiguration.Active`? | **Not used** | Instance-based `TelemetryConfiguration` per IDE; no global state |
-| `IContextInitializer`? | **Not used** | Properties set directly on `TelemetryClient.Context.Properties` at creation |
-| Flush strategy | `Dispose()` calls `FlushAsync()`; channel auto-flushes every 30s during runtime | Manual flush-after-each-event defeated batching — now let the channel batch naturally |
-| Instrumentation key storage | Embedded resource `InstrumentationKey.txt` (bare GUID) | No format change required; 2.x accepts bare `InstrumentationKey` |
-| Namespace to remove | `Microsoft.VisualStudio.ApplicationInsights.*` | Replaced by `Microsoft.ApplicationInsights.*` |
-
----
-
-## 7. Risk Assessment
+## 6. Risk Assessment
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| Some API names differ between VS SDK AppInsights and standard 2.x | Low | Core APIs (`TelemetryClient`, `EventTelemetry`, `ExceptionTelemetry`) are identical; `IContextInitializer` → replaced by direct `Context.Properties`; `FlushAndTransmitAsync` → `FlushAsync` |
-| `TelemetryConfiguration.Active` use eliminated | Low | Instance-based `TelemetryConfiguration` is cleaner for multi-IDE scenario; each IDE creates its own |
-| `IContextInitializer.Initialize(TelemetryContext)` needs porting | Low | Logic is trivial (set 4 string properties); move into VS `AnalyticsTransmitter` creation |
-| Embedded `InstrumentationKey.txt` format stays? | None | Bare GUID works in 2.x; no format change needed |
-| `TelemetryClient` disposal vs singleton lifetime | Low | Dispose on VS package close; 2.x auto-flush handles runtime |
-| LSP `telemetry/event` handler not yet implemented | Low | Straightforward: receive `IDictionary<string, object?>`, construct `GenericEvent`, forward to `IAnalyticsTransmitter` |
-| `Microsoft.ApplicationInsights` 2.23.0 deprecated status | Low | v2.23.0 is the latest non-deprecated 2.x release; stable, 146M+ downloads; migration to 3.x can happen later if/when needed |
+| `Microsoft.ApplicationInsights` v3.x API differs significantly from VS SDK AppInsights | High | Review migration guidance; API similar at the `TelemetryClient.TrackEvent/TrackException` level |
+| `TelemetryConfiguration.Active` removed in v3.x | Medium | Use `TelemetryConfiguration.CreateDefault()` + instance-based config |
+| `IContextInitializer` pattern removed in v3.x | Low | Use `TelemetryClient.Context.GlobalProperties` instead |
+| Connection string is required in v3.x (throws if missing) | Medium | Must provide valid connection string; embedded resource updated to connection-string format |
+| `TelemetryClient` disposal conflicts with singleton usage | Low | Managed via `IAsyncDisposable` on VS `AnalyticsTransmitter`, forwarded through `MonitoringService` |
+| `WorkerService` package cannot be used (net8+ requirement) | Low | Use base `Microsoft.ApplicationInsights` package instead |
+| Adding `Microsoft.ApplicationInsights` to `netstandard2.0` project may surface dependency conflicts | Medium | Verify the package targets `net462` and has no incompatible transitive deps for `netstandard2.0` usage |
+| VS `AnalyticsTransmitter` needs `StreamReader` — currently no `using System.IO` in that file | Low | Add the using directive (minor) |
 
 ---
 
-## 8. Open Questions
+## 7. Resolved Design Decisions
 
-1. **Where in the VS extension lifecycle should `TelemetryClient.FlushAsync()` be called?**
-   The package `OnClose()` method is the obvious hook. The `TelemetryClient` instance should
-   live as long as the VS extension process.
-
-2. **`TelemetryClient` as a dependency** — injected via constructor (testable, recommended) or
-   created internally in `AnalyticsTransmitter`? Constructor injection is cleaner — the VS
-   MEF export creates the real client and injects it; tests inject a substitute.
-
-3. **LSP `telemetry/event` schema** — what keys go in the notification params dictionary?
-   Minimum: `eventName` (string) + `properties` (dictionary). Non-string property values must
-   be serialisable safely.
-
-4. **Should the server send telemetry before client connection?** For discovery/parser events,
-   this is never an issue (they happen on request, after client is connected). A guard
-   ("skip if no client") is easy to add.
-
-5. **Deprecation concern: 2.x vs 3.x** — v2.23.0 is the last non-deprecated 2.x release.
-   Microsoft has not deprecated it (unlike 2.20.0–2.22.0). If/when Microsoft eventually
-   deprecates the 2.x line, migrating to 3.x is a future concern. For now, 2.23.0 is the
-   safe and proven choice.
+| Question | Decision |
+|----------|----------|
+| Where should `TelemetryClient` be created? | In the VS project (VSSDKIntegration), inside the MEF-exported `AnalyticsTransmitter`. Injected into Core's `AnalyticsTransmitter` via constructor. |
+| Does Core get an AppInsights dependency? | **Yes** — `Microsoft.ApplicationInsights` v3.1.2 is added to `Common.csproj`. The `AnalyticsTransmitter` in Core accepts/injects `TelemetryClient`. |
+| Who owns GlobalProperties and User.Id setup? | The VS `AnalyticsTransmitter` creates the `TelemetryClient` and sets `Context.User.Id`, `AccountId`, and all `GlobalProperties` from MEF-injected `IUserUniqueIdStore` and `IVersionProvider`. |
+| Should `AccountId` be preserved? | **Yes** — set to `User.Id` value (same as current sink did). |
+| Flush strategy? | **Both** — SDK auto-flush (~30s via `InMemoryChannel`) + explicit `Flush()` + 1s delay on `DisposeAsync()`. No per-event fire-and-forget. |
+| Where does `InstrumentationKey.txt` live? | Stays in Core as an embedded resource. VS reads it via `typeof(AnalyticsTransmitter).Assembly.GetManifestResourceStream(...)`. |
+| Connection string format? | Embedded resource content changes from bare GUID to `InstrumentationKey=3fd018ff-819d-4685-a6e1-6f09bc98d20b`. |
+| Scope of this plan? | Expanded to cover `StubIdeScope`, VS package lifecycle disposal, and all test impacts. |
