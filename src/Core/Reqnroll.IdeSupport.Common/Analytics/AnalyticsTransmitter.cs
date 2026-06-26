@@ -8,19 +8,21 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Microsoft.ApplicationInsights;
+using Microsoft.ApplicationInsights.DataContracts;
 
 namespace Reqnroll.IdeSupport.Common.Analytics;
 
-public class AnalyticsTransmitter : IAnalyticsTransmitter
+public class AnalyticsTransmitter : IAnalyticsTransmitter, IAsyncDisposable
 {
-    private readonly IAnalyticsTransmitterSink _analyticsTransmitterSink;
+    private readonly TelemetryClient _telemetryClient;
     private readonly IEnableAnalyticsChecker _enableAnalyticsChecker;
     private readonly IDeveroomLogger? _logger;
 
-    public AnalyticsTransmitter(IAnalyticsTransmitterSink analyticsTransmitterSink,
-        IEnableAnalyticsChecker enableAnalyticsChecker, DeveroomCompositeLogger? logger = null)
+    public AnalyticsTransmitter(TelemetryClient telemetryClient,
+        IEnableAnalyticsChecker enableAnalyticsChecker, IDeveroomLogger? logger = null)
     {
-        _analyticsTransmitterSink = analyticsTransmitterSink;
+        _telemetryClient = telemetryClient;
         _enableAnalyticsChecker = enableAnalyticsChecker;
         _logger = logger;
     }
@@ -32,7 +34,12 @@ public class AnalyticsTransmitter : IAnalyticsTransmitter
             DumpAnalyticsEvent(analyticsEvent);
             if (!_enableAnalyticsChecker.IsEnabled()) return;
 
-            _analyticsTransmitterSink.TransmitEvent(analyticsEvent);
+            var eventTelemetry = new EventTelemetry(analyticsEvent.EventName) { Timestamp = DateTime.UtcNow };
+            foreach (var property in analyticsEvent.Properties)
+            {
+                eventTelemetry.Properties.Add(property.Key, property.Value?.ToString() ?? string.Empty);
+            }
+            _telemetryClient.TrackEvent(eventTelemetry);
         }
         catch (Exception ex)
         {
@@ -64,7 +71,13 @@ public class AnalyticsTransmitter : IAnalyticsTransmitter
         {
             var additionalPropsArray = additionalProps.ToArray();
             DumpAnalyticsException(exception, additionalPropsArray);
-            _analyticsTransmitterSink.TransmitException(exception, additionalPropsArray);
+
+            var exceptionTelemetry = new ExceptionTelemetry(exception) { Timestamp = DateTime.UtcNow };
+            foreach (var prop in additionalPropsArray)
+            {
+                exceptionTelemetry.Properties.Add(prop.Key, prop.Value?.ToString() ?? string.Empty);
+            }
+            _telemetryClient.TrackException(exceptionTelemetry);
         }
         catch (Exception ex)
         {
@@ -95,5 +108,11 @@ public class AnalyticsTransmitter : IAnalyticsTransmitter
             exception is TaskCanceledException ||
             exception is OperationCanceledException ||
             exception is HttpRequestException;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _telemetryClient.Flush();
+        await Task.Delay(1000);
     }
 }

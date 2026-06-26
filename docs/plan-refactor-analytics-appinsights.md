@@ -237,12 +237,11 @@ Both need the package. `AnalyticsTransmitter` in Core uses `TelemetryClient` dir
 ### Phase D — Tests
 
 1. **Rewrite `AnalyticsTransmitterTests.cs`**:
-   - `CreateSut()` creates `Substitute.For<TelemetryClient>()` instead of `Substitute.For<IAnalyticsTransmitterSink>()`
-   - Same test cases: disable → `DidNotReceive().TrackEvent(...)`, enable → `Received().TrackEvent(...)`, event name passthrough
+   - `CreateSut()` creates `Substitute.For<TelemetryClient>()` — `TrackEvent`, `TrackException`, and `Flush` are all `virtual` on `TelemetryClient`, so NSubstitute can intercept them without any stub channel setup.
+   - Existing test cases carry over unchanged in shape: disable → `DidNotReceive().TrackEvent(...)`, enable → `Received().TrackEvent(...)`, event name passthrough.
    - Add new tests:
      - `Should_FlushOnDispose` — verify `Flush()` is called during `DisposeAsync()`
      - `Should_NotThrow_WhenAppInsightsFails` — verify catch-all safety net
-   - The assertion shape (`Received`, `DidNotReceive`) stays identical because `TelemetryClient` has virtual `TrackEvent`/`TrackException`/`Flush` methods
 
 2. **Verify `StubAnalyticsTransmitter` compiles** — it implements `IAnalyticsTransmitter`, not the sink; no change needed.
 
@@ -250,7 +249,37 @@ Both need the package. `AnalyticsTransmitter` in Core uses `TelemetryClient` dir
 
 1. Remove unused `using` statements
 2. Verify `StubIdeScope` compiles with removed `ITelemetryConfigurationHolder`
-3. Verify VS package shutdown calls `DisposeAsync()` on the `MonitoringService` (which forwards to `AnalyticsTransmitter`)
+3. **Wire `DisposeAsync()` from `ReqnrollPluginPackage`.**
+   MEF does not manage `IAsyncDisposable` — nothing in the container calls `DisposeAsync()` on its parts. The package must hold a typed reference and call it explicitly.
+
+   - In `InitializeAsync`, after `base.InitializeAsync`, resolve and store the transmitter as a field:
+     ```csharp
+     private IAnalyticsTransmitter? _analyticsTransmitter;
+
+     protected override async Task InitializeAsync(
+         CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
+     {
+         await base.InitializeAsync(cancellationToken, progress);
+         // Resolve early — before the 7s welcome delay — so disposal is always wired.
+         var sp = await GetServiceAsync(typeof(SComponentModel)) as IServiceProvider;
+         _analyticsTransmitter = VsUtils.ResolveMefDependency<IAnalyticsTransmitter>(sp);
+         // ... rest of existing init
+     }
+     ```
+   - Override `Dispose(bool)` to flush before the package tears down:
+     ```csharp
+     protected override void Dispose(bool disposing)
+     {
+         if (disposing && _analyticsTransmitter is IAsyncDisposable d)
+         {
+             // JoinableTaskFactory.Run marshals the async flush onto the
+             // JTF thread safely without deadlocking the VS UI thread.
+             ThreadHelper.JoinableTaskFactory.Run(() => d.DisposeAsync().AsTask());
+         }
+         base.Dispose(disposing);
+     }
+     ```
+   The 1-second `Task.Delay` inside `DisposeAsync` (which lets in-flight HTTP complete) runs within the `JoinableTaskFactory.Run` block, so it blocks the package dispose as intended without deadlocking VS.
 4. Verify the `IsNormalError` classification logic is preserved in Core
 5. Verify the `ANALYTICS_DEBUG` conditional logging is preserved
 
@@ -278,8 +307,7 @@ Both need the package. `AnalyticsTransmitter` in Core uses `TelemetryClient` dir
 | Test | What it covers |
 |------|---------------|
 | `AnalyticsTransmitterTests.Should_FlushOnDispose` | Verify `Flush()` is called during `DisposeAsync()` |
-| `AnalyticsTransmitterTests.Should_NotThrow_WhenAppInsightsFails` | Verify existing catch-all safety net still works |
-| (Existing tests already cover enable/disable gate and event name passthrough — same assertions, new substitute) |
+| `AnalyticsTransmitterTests.Should_NotThrow_WhenAppInsightsFails` | Verify catch-all safety net — `TelemetryClient.TrackEvent` throws, no exception escapes `AnalyticsTransmitter` |
 
 ### 5.4 Manual / integration tests
 
@@ -298,7 +326,7 @@ Both need the package. `AnalyticsTransmitter` in Core uses `TelemetryClient` dir
 | `Microsoft.ApplicationInsights` v2.x API differs from VS SDK AppInsights | Medium | API is near-identical at the `TelemetryClient.TrackEvent/TrackException` level; same namespace structure |
 | `TelemetryConfiguration.Active` deprecated but still present in v2.x | Low | We're deliberately moving away from it to instance-based config, not because it's removed |
 | Connection string is required (throws if missing) | Medium | Must provide valid connection string; embedded resource updated to connection-string format |
-| `TelemetryClient` disposal must be managed | Low | Implement `IAsyncDisposable` on VS `AnalyticsTransmitter`, forwarded through `MonitoringService` |
+| `TelemetryClient` disposal must be managed | Low | `IAsyncDisposable` implemented on Core `AnalyticsTransmitter`; `ReqnrollPluginPackage` holds a typed `IAnalyticsTransmitter` field and calls `DisposeAsync()` from its `Dispose(bool)` override via `ThreadHelper.JoinableTaskFactory.Run()` — see Phase E step 3 |
 | Adding `Microsoft.ApplicationInsights` v2.23.0 to `netstandard2.0` project | Low | v2.23.0 targets `netstandard2.0` natively; only dependency is `System.Diagnostics.DiagnosticSource` ≥ 5.0.0 (already present) |
 | VS `AnalyticsTransmitter` needs `StreamReader` — currently no `using System.IO` in that file | Low | Add the using directive (minor) |
 
@@ -317,3 +345,5 @@ Both need the package. `AnalyticsTransmitter` in Core uses `TelemetryClient` dir
 | Where does `InstrumentationKey.txt` live? | Stays in Core as an embedded resource. VS reads it via `typeof(AnalyticsTransmitter).Assembly.GetManifestResourceStream(...)`. |
 | Connection string format? | Embedded resource content changes from bare GUID to `InstrumentationKey=3fd018ff-819d-4685-a6e1-6f09bc98d20b`. |
 | Scope of this plan? | Expanded to cover `StubIdeScope`, VS package lifecycle disposal, and all test impacts. |
+| Should analytics move to VS.Extensibility DI? | **No — analytics stays in MEF.** Reqnroll Wizards cannot move to VS.Extensibility (VS.E does not support the VSSDK wizard interface). Wizards consume `IMonitoringService` via MEF `[ImportingConstructor]`, and `MonitoringService` in turn consumes `IAnalyticsTransmitter` the same way. Moving `IAnalyticsTransmitter` to VS.E DI exclusively would break MEF composition of `MonitoringService` for all wizard callers. Dual registration (MEF + DI) risks two `TelemetryClient` instances and duplicate events. Analytics therefore remains a MEF-exported singleton in VSSDKIntegration. |
+| `ResolveMefService` bridge in `ReqnrollLanguageClient` | **Intentional — keep as-is.** `ReqnrollLanguageClient` is a VS.Extensibility class that needs `IAnalyticsTransmitter`, which legitimately lives in the MEF graph. The `ResolveMefService<IAnalyticsTransmitter>(serviceProvider)` call via `IComponentModel` is the correct adapter between the two composition systems. It is not a smell to eliminate; it is the standard VS pattern for VS.E components consuming MEF services. |

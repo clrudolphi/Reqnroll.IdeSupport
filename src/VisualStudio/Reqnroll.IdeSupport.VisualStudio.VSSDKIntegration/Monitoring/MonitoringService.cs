@@ -14,14 +14,9 @@ public class MonitoringService : IMonitoringService
     //private readonly IWelcomeService _welcomeService;
 
     [ImportingConstructor]
-    public MonitoringService(IAnalyticsTransmitter analyticsTransmitter, 
-        //IWelcomeService welcomeService,
-        ITelemetryConfigurationHolder telemetryConfigurationHolder)
+    public MonitoringService(IAnalyticsTransmitter analyticsTransmitter)
     {
         _analyticsTransmitter = analyticsTransmitter;
-        //_welcomeService = welcomeService;
-
-        telemetryConfigurationHolder.ApplyConfiguration();
     }
 
     // OPEN

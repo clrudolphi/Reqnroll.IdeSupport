@@ -5,10 +5,9 @@ public class StubIdeScope : IIdeScope, IDisposable
     public StubIdeScope(ITestOutputHelper testOutputHelper)
     {
         AnalyticsTransmitter = new StubAnalyticsTransmitter(Logger);
-    MonitoringService =
-        new MonitoringService(
-            AnalyticsTransmitter,
-            Substitute.For<ITelemetryConfigurationHolder>());
+        MonitoringService =
+            new MonitoringService(
+                AnalyticsTransmitter);
 
         CompositeLogger.Add(new DeveroomXUnitLogger(testOutputHelper));
         CompositeLogger.Add(StubLogger);
