@@ -14,8 +14,9 @@ using Reqnroll.IdeSupport.LSP.Server.Benchmarks.Scenarios;
 namespace Reqnroll.IdeSupport.LSP.Server.Benchmarks;
 
 /// <summary>
-/// Drives the §9 Layer 2 interactive benchmark suite against the committed corpus and reports
-/// per-operation latency percentiles. Absolute §9 thresholds are asserted only on a designated
+/// Drives the Performance Verification Layer 2 interactive benchmark suite against the committed
+/// corpus and reports per-operation latency percentiles. Absolute performance thresholds are
+/// asserted only on a designated
 /// reference machine (or with <c>--assert</c>); elsewhere the run is report-only and exits 0.
 /// </summary>
 public static class BenchmarkRunner
@@ -83,10 +84,10 @@ public static class BenchmarkRunner
             Console.WriteLine($"Wrote results JSON to {outPath}");
         }
 
-        // §9 gating: fail the process only on a designated reference machine.
+        // Performance gating: fail the process only on a designated reference machine.
         if (gate.AssertThresholds && !report.AllPassed)
         {
-            Console.Error.WriteLine("FAIL: one or more §9 targets missed on the reference machine.");
+            Console.Error.WriteLine("FAIL: one or more performance targets missed on the reference machine.");
             return 1;
         }
 

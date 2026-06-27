@@ -8,7 +8,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Benchmarks.Latency;
 
 /// <summary>
 /// Collects per-invocation latency samples for one operation and computes summary percentiles.
-/// Bespoke (not BenchmarkDotNet) because the §9 interactive targets are percentile-of-latency
+/// Bespoke (not BenchmarkDotNet) because the interactive performance targets are percentile-of-latency
 /// over a stateful async server, not throughput of an isolated micro-op — see the implementation
 /// plan, A1.
 /// </summary>

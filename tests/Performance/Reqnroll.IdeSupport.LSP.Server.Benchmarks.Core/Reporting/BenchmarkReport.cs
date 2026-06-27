@@ -24,7 +24,7 @@ public sealed record BenchmarkReport(
     IReadOnlyList<OperationResult> Results,
     IReadOnlyList<SkippedBatchScenario>? Skipped = null)
 {
-    /// <summary>True when every asserted operation met its §9 target.</summary>
+    /// <summary>True when every asserted operation met its performance target.</summary>
     public bool AllPassed => Results.All(r => r.MeetsTarget);
 
     public string ToConsoleTable() => ConsoleReporter.Render(this);
@@ -41,7 +41,7 @@ public static class ConsoleReporter
         sb.AppendLine($"Performance benchmark — {report.MachineName} — {report.TimestampUtc:u}");
         sb.AppendLine($"Corpus: {report.CorpusDescription}");
         sb.AppendLine(report.AssertThresholds
-            ? "Mode: ASSERT (reference machine — absolute §9 thresholds enforced)"
+            ? "Mode: ASSERT (reference machine — absolute performance thresholds enforced)"
             : "Mode: REPORT-ONLY (not a reference machine — numbers informational, exit 0)");
         sb.AppendLine();
         sb.AppendLine($"{"Operation",-40} {"Target",9} {"Stat",6} {"P50",9} {"P95",9} {"P99",9} {"Max",9}  Verdict");

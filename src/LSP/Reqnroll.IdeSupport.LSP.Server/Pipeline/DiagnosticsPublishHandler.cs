@@ -66,7 +66,7 @@ public sealed class DiagnosticsPublishHandler : INotificationHandler<MatchCacheC
     {
         var uri = notification.Uri;
 
-        // §9 Layer 4: time the diagnostics aggregate-and-push (match-cache change → push sent).
+        // Performance Verification (Layer 4): time the diagnostics aggregate-and-push (match-cache change → push sent).
         using var _perf = _recorder.Measure(LspMethodNames.TextDocumentPublishDiagnostics, uri);
 
         if (!_documentBufferService.TryGet(uri, out var buffer) || buffer?.Tags is null)

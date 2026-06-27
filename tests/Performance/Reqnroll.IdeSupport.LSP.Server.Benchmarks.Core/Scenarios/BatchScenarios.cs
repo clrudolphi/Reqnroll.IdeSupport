@@ -14,7 +14,7 @@ using Reqnroll.IdeSupport.LSP.Server.Benchmarks.Latency;
 namespace Reqnroll.IdeSupport.LSP.Server.Benchmarks.Scenarios;
 
 /// <summary>
-/// The §9 batch / throughput scenarios, confirmed with wall-clock timing (these targets are coarse
+/// The batch / throughput performance scenarios, confirmed with wall-clock timing (these targets are coarse
 /// enough not to need protocol-boundary percentiles). Cold start is measured by spinning up fresh
 /// in-process servers; the binding-discovery scenarios are measured only when a built corpus
 /// assembly is supplied (otherwise they are reported as skipped, never faked).

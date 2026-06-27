@@ -20,7 +20,7 @@ using Reqnroll.IdeSupport.LSP.Server.Workspace;
 namespace Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus;
 
 /// <summary>
-/// The structural fingerprint of a benchmark corpus (§9 Performance Verification, T2). Captures
+/// The structural fingerprint of a benchmark corpus (Performance Verification, T2). Captures
 /// the corpus's <em>size and shape</em> — counts and the bound/unbound/ambiguous match mix — which
 /// is what matters for benchmark validity, rather than the exact step wording.
 /// </summary>

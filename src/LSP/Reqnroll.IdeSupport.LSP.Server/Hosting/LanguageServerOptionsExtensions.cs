@@ -92,7 +92,7 @@ public static class LanguageServerOptionsExtensions
             (p, ct) => resolver!.Get<ILspWorkspaceScopeManager>().HandleProjectFilesAsync(p, ct));
 
         // ── Manual request routing to bypass dynamic registration limitations ─────────
-        // semanticTokens/full is a §9 interactive perf target; wrap it (and its delta sibling)
+        // semanticTokens/full is an interactive performance target; wrap it (and its delta sibling)
         // through MeasuredAsync(...) so Layer 4 field instrumentation times the manual-route handler
         // at one site. The same helper can wrap the other manual routes below as needed.
         options.OnRequest<SemanticTokensParams, SemanticTokens?>(

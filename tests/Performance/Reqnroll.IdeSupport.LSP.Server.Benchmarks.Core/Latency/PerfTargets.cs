@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Benchmarks.Latency;
 
-/// <summary>Whether a §9 target is an interactive round-trip (P95) or a batch op (wall-clock).</summary>
+/// <summary>Whether a performance target is an interactive round-trip (P95) or a batch op (wall-clock).</summary>
 public enum PerfTargetKind
 {
     /// <summary>Interactive: assert the P95 percentile against the threshold.</summary>
@@ -15,15 +15,15 @@ public enum PerfTargetKind
 }
 
 /// <summary>
-/// One §9 Performance Requirements latency target. <see cref="Operation"/> matches the operation
+/// One latency target from the architecture's Performance Requirements. <see cref="Operation"/> matches the operation
 /// label used by the benchmark scenarios and the Layer 4 recorder, so field and synthetic numbers
 /// line up.
 /// </summary>
 public sealed record PerfTarget(string Operation, double TargetMs, PerfTargetKind Kind, string Description);
 
 /// <summary>
-/// The §9 Performance Requirements table, as code. The single source of truth for what the
-/// benchmark asserts on the reference machine.
+/// The architecture's Performance Requirements table, as code (see LSP-IDE-Support-Architecture.md).
+/// The single source of truth for what the benchmark asserts on the reference machine.
 /// </summary>
 public static class PerfTargets
 {
@@ -51,7 +51,7 @@ public static class PerfTargets
     public static readonly PerfTarget ColdStartScan =
         new("workspace/cold-start-scan", 30000, PerfTargetKind.Batch, "Initial workspace scan, cold start");
 
-    /// <summary>All §9 targets, in table order.</summary>
+    /// <summary>All performance targets, in table order.</summary>
     public static readonly IReadOnlyList<PerfTarget> All = new[]
     {
         SemanticTokensFull, CompletionKeyword, CompletionStep, DefinitionCacheHit, PublishDiagnostics,

@@ -60,7 +60,7 @@ public sealed class FeatureDefinitionHandler : IDefinitionHandler
     {
         var uri = request.TextDocument.Uri;
 
-        // §9 Layer 4: time the cache-hit definition round-trip (the handler's own work).
+        // Performance Verification (Layer 4): time the cache-hit definition round-trip (the handler's own work).
         using var _perf = _recorder.Measure(LspMethodNames.TextDocumentDefinition, uri);
 
         if (!IsFeatureFile(uri))

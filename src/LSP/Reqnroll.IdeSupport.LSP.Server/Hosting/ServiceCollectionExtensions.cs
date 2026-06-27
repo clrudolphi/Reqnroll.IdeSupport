@@ -66,7 +66,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IDeveroomConfigurationProvider, ProjectSystemDeveroomConfigurationProvider>()
             .AddSingleton<IEditorConfigOptionsProvider>(sp =>
                 new FileSystemEditorConfigOptionsProvider(sp.GetRequiredService<IIdeScope>().FileSystem))
-            // §9 Performance Verification, Layer 4: field instrumentation. The recorder writes
+            // Performance Verification, Layer 4: field instrumentation. The recorder writes
             // PERF lines to the log and (when REQNROLL_PERF_TELEMETRY_SAMPLE is set) emits sampled
             // PerfSample telemetry. Singleton so the sampler's RNG is shared across handlers.
             .AddSingleton<IPerfTelemetrySampler>(_ => PerfTelemetrySampler.FromEnvironment())

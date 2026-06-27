@@ -16,7 +16,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Diagnostics.Performance;
 /// optionally emits a sampled <c>PerfSample</c> telemetry event for field P95 aggregation.
 /// </summary>
 /// <remarks>
-/// Privacy (§9): the log line may carry the document URI for local diagnosis, but the telemetry
+/// Privacy: the log line may carry the document URI for local diagnosis, but the telemetry
 /// event must not — it carries only the operation label, the duration, a coarse bucket and the
 /// IDE client, never a path or file content.
 /// </remarks>
@@ -53,7 +53,7 @@ public sealed class OperationDurationRecorder : IOperationDurationRecorder
             ? $"PERF op={operation} ms={elapsedMs:F1}"
             : $"PERF op={operation} ms={elapsedMs:F1} uri={uri}");
 
-        // Secondary sink: sampled telemetry metric — no URI/path (privacy, §9).
+        // Secondary sink: sampled telemetry metric — no URI/path (privacy).
         if (_telemetry is not null && _sampler.ShouldSample())
         {
             _telemetry.SendEvent(PerfSampleEventName, new Dictionary<string, object?>

@@ -8,7 +8,7 @@ using Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus;
 namespace Reqnroll.IdeSupport.LSP.Server.Benchmarks;
 
 /// <summary>
-/// Entry point for the §9 Performance Verification Layer 2 tooling.
+/// Entry point for the Performance Verification Layer 2 tooling.
 /// <list type="bullet">
 ///   <item><c>generate-corpus</c> — (re)generate the committed corpus and rewrite its manifest.</item>
 ///   <item>(default) — run the benchmark suite against the committed corpus.</item>
@@ -43,7 +43,7 @@ public static class Program
 
         var fingerprint = await CorpusFingerprint.ComputeAsync(corpusRoot).ConfigureAwait(false);
         var manifest = new CorpusManifest(
-            Description: "Synthetic benchmark corpus for §9 Performance Verification (Layer 2 / T2). " +
+            Description: "Synthetic benchmark corpus for Performance Verification (Layer 2 / T2). " +
                          "Pinned by the committed files; this manifest records the structural fingerprint.",
             Generator: new GeneratorParameters(
                 generator.FeatureFileCount, generator.UniquePatternCount, generator.ScenariosPerFeature),

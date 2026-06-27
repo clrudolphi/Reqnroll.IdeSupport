@@ -6,7 +6,7 @@ using Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus;
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Performance;
 
 /// <summary>
-/// Corpus drift test — the <b>pin</b> for the §9 Performance Verification corpus (T2).
+/// Corpus drift test — the <b>pin</b> for the Performance Verification corpus (T2).
 /// <para>
 /// Re-derives the structural fingerprint from the <b>committed</b> corpus (parse + binding
 /// discovery + match) and asserts it equals the fingerprint stored in <c>corpus.manifest.json</c>.
@@ -40,7 +40,7 @@ public class CorpusDriftTests
         var corpusRoot = CorpusLocator.FindCorpusRoot();
         var fp = await CorpusFingerprint.ComputeAsync(corpusRoot);
 
-        // §9 "typical workspace conditions": <=500 feature files, <=2,000 binding patterns.
+        // The architecture's "typical workspace conditions": <=500 feature files, <=2,000 binding patterns.
         fp.FeatureFileCount.Should().BeLessThanOrEqualTo(500);
         fp.StepDefinitionPatternCount.Should().BeLessThanOrEqualTo(2000);
 

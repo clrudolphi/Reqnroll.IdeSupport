@@ -46,7 +46,7 @@ public sealed class GherkinCompletionHandler : ICompletionHandler
     private readonly IDeveroomLogger               _logger;
     private readonly IOperationDurationRecorder    _recorder;
 
-    // §9 Layer 4 op labels. Keyword (F7, <50ms) and step (F8, <150ms) have distinct targets,
+    // Performance Verification (Layer 4) op labels. Keyword (F7, <50ms) and step (F8, <150ms) have distinct targets,
     // so they are recorded under distinct operation names.
     private const string KeywordCompletionOp = LspMethodNames.TextDocumentCompletion + "#keyword";
     private const string StepCompletionOp    = LspMethodNames.TextDocumentCompletion + "#step";
@@ -112,7 +112,7 @@ public sealed class GherkinCompletionHandler : ICompletionHandler
 
         var ctx = _contextResolver.Resolve(snapshot, cursorLine, cursorChar, registry, fallbackLanguage);
 
-        // §9 Layer 4: time the completion compute, recording under the kind-specific op label
+        // Performance Verification (Layer 4): time the completion compute, recording under the kind-specific op label
         // (keyword vs. step) so field P95 can be compared to the two distinct targets.
         var startTimestamp = Stopwatch.GetTimestamp();
         var (op, list) = ctx switch

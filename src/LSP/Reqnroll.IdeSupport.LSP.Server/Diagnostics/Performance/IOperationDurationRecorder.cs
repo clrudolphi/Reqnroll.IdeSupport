@@ -6,13 +6,13 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 namespace Reqnroll.IdeSupport.LSP.Server.Diagnostics.Performance;
 
 /// <summary>
-/// Records the wall-clock duration of an LSP protocol operation for the §9 Performance
+/// Records the wall-clock duration of an LSP protocol operation for the architecture's Performance
 /// Verification "Layer 4" field instrumentation: real-world P95 measured in the live server,
 /// emitted via the existing logging path and (optionally, sampled) as a telemetry metric.
 /// </summary>
 /// <remarks>
 /// This is the single cross-cutting sink invoked at each handler boundary. It exists because the
-/// four interactive §9 targets live on three different registration rails — manual
+/// four interactive performance targets live on three different registration rails — manual
 /// <c>OnRequest</c> delegates (<c>semanticTokens/full</c>), OmniSharp <c>AddHandler</c> handlers
 /// (<c>completion</c>, <c>definition</c>) and a MediatR notification push
 /// (<c>publishDiagnostics</c>) — so no single MediatR pipeline behavior can cover them all.

@@ -9,7 +9,7 @@ using System.Text;
 namespace Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus;
 
 /// <summary>
-/// Deterministic, index-driven generator for the benchmark corpus (§9 T2). Emits a
+/// Deterministic, index-driven generator for the benchmark corpus (Performance Verification, T2). Emits a
 /// <c>Bindings/</c> C# step-definition file, a tree of <c>Features/*.feature</c> files and a
 /// <c>reqnroll.json</c>. It is the corpus <b>re-pin tool</b>: the generated files are committed,
 /// and the pin is the committed tree + its <see cref="CorpusFingerprint"/>, not regeneration.

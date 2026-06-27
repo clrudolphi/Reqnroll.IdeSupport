@@ -14,7 +14,7 @@ using Reqnroll.IdeSupport.LSP.Server.Benchmarks.Latency;
 namespace Reqnroll.IdeSupport.LSP.Server.Benchmarks.Scenarios;
 
 /// <summary>
-/// The §9 interactive round-trip scenarios, measured end-to-end over the real LSP transport.
+/// The interactive round-trip performance scenarios, measured end-to-end over the real LSP transport.
 /// Each scenario warms the server, then collects per-invocation latency samples cycling across
 /// multiple corpus documents (so the numbers reflect the corpus, not one hot file).
 /// </summary>

@@ -5,7 +5,7 @@ using System;
 namespace Reqnroll.IdeSupport.LSP.Server.Benchmarks.Latency;
 
 /// <summary>
-/// Encapsulates the §9 rule that <b>absolute</b> latency thresholds are asserted only on a
+/// Encapsulates the Performance Verification rule that <b>absolute</b> latency thresholds are asserted only on a
 /// designated reference machine — shared CI runners are too noisy for absolute pass/fail. Everywhere
 /// else the suite reports numbers but always exits success.
 /// </summary>

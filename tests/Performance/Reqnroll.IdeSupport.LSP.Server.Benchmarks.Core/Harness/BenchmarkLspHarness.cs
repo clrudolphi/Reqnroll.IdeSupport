@@ -18,7 +18,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Benchmarks.Harness;
 /// <summary>
 /// Hosts the <em>real</em> Reqnroll LSP server in-process over an in-memory full-duplex pipe and
 /// connects an OmniSharp client, exposing timed request round-trips and timestamped server-push
-/// capture. This is the §9 Layer 2 benchmark driver — it generalises the spec suite's
+/// capture. This is the Performance Verification Layer 2 benchmark driver — it generalises the spec suite's
 /// <c>LspServerHarness</c> to measure latency at the protocol boundary (serialize → transport →
 /// handler → transport → deserialize), which is what the "from last didChange" targets require.
 /// </summary>
