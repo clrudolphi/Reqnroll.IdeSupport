@@ -14,6 +14,7 @@ public sealed class DiagnosticsAggregator : IDiagnosticsAggregator
 
     /// <summary>Hover message shown for every unmatched step.</summary>
     public const string UndefinedStepMessage = "Step definition not found.";
+    private const string AmbiguousStepMessage = "Ambiguous step definition.";
 
     /// <inheritdoc/>
     public IReadOnlyList<GherkinDiagnostic> Aggregate(
@@ -38,14 +39,22 @@ public sealed class DiagnosticsAggregator : IDiagnosticsAggregator
         }
 
         // F3 — binding mismatches: undefined steps from the binding match set.
-        // Ambiguous steps are intentionally excluded (aspiration, not yet in scope —
-        // see Non-Goals in §2 of the design doc).
         foreach (var step in matchSet.Undefined)
         {
             diagnostics.Add(new GherkinDiagnostic(
                 UndefinedStepMessage,
                 step.Range,
                 GherkinDiagnosticSeverity.Warning,
+                BindingSource));
+        }
+
+        // Ambiguous matches reported as errors
+        foreach (var step in matchSet.Ambiguous)
+        {
+            diagnostics.Add(new GherkinDiagnostic(
+                AmbiguousStepMessage,
+                step.Range,
+                GherkinDiagnosticSeverity.Error,
                 BindingSource));
         }
 

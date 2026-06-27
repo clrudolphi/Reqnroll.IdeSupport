@@ -211,6 +211,26 @@ public class DiagnosticsPublishHandlerTests
         diag.Message.Should().Be(DiagnosticsAggregator.UndefinedStepMessage);
     }
 
+    [Fact]
+    public async Task Error_with_BindingSource_forwards_source_and_message()
+    {
+        const string featureText = "Feature: F\n";
+        SetupBuffer(Array.Empty<DeveroomTag>());
+        SetupAggregator(MakeDiagnostic(featureText, 0, 7, GherkinDiagnosticSeverity.Error,
+            DiagnosticsAggregator.BindingSource, "Ambiguous step definition."));
+
+        PublishDiagnosticsParams? captured = null;
+        _facade.When(f => f.SendNotification("textDocument/publishDiagnostics", Arg.Any<PublishDiagnosticsParams>()))
+               .Do(ci => captured = ci.Arg<PublishDiagnosticsParams>());
+
+        await CreateSut().Handle(new MatchCacheChangedNotification(FeatureUri, 1), CancellationToken.None);
+
+        var diag = captured!.Diagnostics.Single();
+        diag.Severity.Should().Be(DiagnosticSeverity.Error);
+        diag.Source.Should().Be(DiagnosticsAggregator.BindingSource);
+        diag.Message.Should().Be("Ambiguous step definition.");
+    }
+
     // ── Range → LSP Position conversion ──────────────────────────────────────
 
     [Fact]

@@ -157,6 +157,49 @@ public class DiagnosticsAggregatorTests
         result.Should().AllSatisfy(d => d.Severity.Should().Be(GherkinDiagnosticSeverity.Warning));
     }
 
+    [Fact]
+    public void Ambiguous_step_produces_Error_diagnostic_with_correct_message_and_source()
+    {
+        var b1 = new ProjectStepDefinitionBinding(ScenarioBlock.Given,
+            new Regex("^ambiguous step$"), null,
+            new ProjectBindingImplementation("Method1", null, new SourceLocation("A.cs", 1, 1)));
+        var b2 = new ProjectStepDefinitionBinding(ScenarioBlock.Given,
+            new Regex("^ambiguous step$"), null,
+            new ProjectBindingImplementation("Method2", null, new SourceLocation("B.cs", 1, 1)));
+        var registry = RegistryWith(b1, b2);
+
+        const string feature = "Feature: F\nScenario: S\n  Given ambiguous step\n";
+        var matchSet = MatchSetFor(feature, registry);
+
+        var result = CreateSut().Aggregate(Array.Empty<DeveroomTag>(), matchSet);
+
+        result.Should().ContainSingle();
+        var diag = result[0];
+        diag.Severity.Should().Be(GherkinDiagnosticSeverity.Error);
+        diag.Source.Should().Be(DiagnosticsAggregator.BindingSource);
+        diag.Message.Should().Be("Ambiguous step definition.");
+    }
+
+    [Fact]
+    public void Multiple_ambiguous_steps_each_produce_an_Error_diagnostic()
+    {
+        var b1 = new ProjectStepDefinitionBinding(ScenarioBlock.Given,
+            new Regex("^ambiguous step$"), null,
+            new ProjectBindingImplementation("Method1", null, new SourceLocation("A.cs", 1, 1)));
+        var b2 = new ProjectStepDefinitionBinding(ScenarioBlock.Given,
+            new Regex("^ambiguous step$"), null,
+            new ProjectBindingImplementation("Method2", null, new SourceLocation("B.cs", 1, 1)));
+        var registry = RegistryWith(b1, b2);
+
+        const string feature = "Feature: F\nScenario: S\n  Given ambiguous step\n  And ambiguous step\n";
+        var matchSet = MatchSetFor(feature, registry);
+
+        var result = CreateSut().Aggregate(Array.Empty<DeveroomTag>(), matchSet);
+
+        result.Should().HaveCount(2);
+        result.Should().AllSatisfy(d => d.Severity.Should().Be(GherkinDiagnosticSeverity.Error));
+    }
+
     // ── Combined ──────────────────────────────────────────────────────────────
 
     [Fact]
@@ -173,6 +216,29 @@ public class DiagnosticsAggregatorTests
         result.Should().HaveCount(2);
         result.Should().Contain(d => d.Severity == GherkinDiagnosticSeverity.Error);
         result.Should().Contain(d => d.Severity == GherkinDiagnosticSeverity.Warning);
+    }
+
+    [Fact]
+    public void Parse_errors_and_ambiguous_steps_are_combined_in_a_single_list()
+    {
+        var snapshot = Snap("bad gherkin\n");
+        var errorTag = ParserErrorTag(snapshot, 0, 3, "parse error");
+
+        var b1 = new ProjectStepDefinitionBinding(ScenarioBlock.Given,
+            new Regex("^ambiguous step$"), null,
+            new ProjectBindingImplementation("Method1", null, new SourceLocation("A.cs", 1, 1)));
+        var b2 = new ProjectStepDefinitionBinding(ScenarioBlock.Given,
+            new Regex("^ambiguous step$"), null,
+            new ProjectBindingImplementation("Method2", null, new SourceLocation("B.cs", 1, 1)));
+        var registry = RegistryWith(b1, b2);
+
+        const string feature = "Feature: F\nScenario: S\n  Given ambiguous step\n";
+        var matchSet = MatchSetFor(feature, registry);
+
+        var result = CreateSut().Aggregate(new[] { errorTag }, matchSet);
+
+        result.Should().HaveCount(2);
+        result.Should().AllSatisfy(d => d.Severity.Should().Be(GherkinDiagnosticSeverity.Error));
     }
 
     // ── Empty / structural tags ───────────────────────────────────────────────
