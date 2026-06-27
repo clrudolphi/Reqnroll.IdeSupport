@@ -17,6 +17,7 @@ using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Core.Rename;
 using Reqnroll.IdeSupport.LSP.Server.Configuration;
+using Reqnroll.IdeSupport.LSP.Server.Diagnostics.Performance;
 using Reqnroll.IdeSupport.LSP.Server.Logging;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Pipeline;
@@ -64,7 +65,16 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<ITelemetryDebugLog>()))
             .AddSingleton<IDeveroomConfigurationProvider, ProjectSystemDeveroomConfigurationProvider>()
             .AddSingleton<IEditorConfigOptionsProvider>(sp =>
-                new FileSystemEditorConfigOptionsProvider(sp.GetRequiredService<IIdeScope>().FileSystem));
+                new FileSystemEditorConfigOptionsProvider(sp.GetRequiredService<IIdeScope>().FileSystem))
+            // §9 Performance Verification, Layer 4: field instrumentation. The recorder writes
+            // PERF lines to the log and (when REQNROLL_PERF_TELEMETRY_SAMPLE is set) emits sampled
+            // PerfSample telemetry. Singleton so the sampler's RNG is shared across handlers.
+            .AddSingleton<IPerfTelemetrySampler>(_ => PerfTelemetrySampler.FromEnvironment())
+            .AddSingleton<IOperationDurationRecorder>(sp => new OperationDurationRecorder(
+                sp.GetRequiredService<IDeveroomLogger>(),
+                sp.GetRequiredService<ClientIdeContext>(),
+                sp.GetRequiredService<ILspTelemetryService>(),
+                sp.GetRequiredService<IPerfTelemetrySampler>()));
     }
 
     /// <summary>

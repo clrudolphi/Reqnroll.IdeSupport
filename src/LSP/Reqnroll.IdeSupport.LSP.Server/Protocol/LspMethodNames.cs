@@ -23,6 +23,8 @@ public static class LspMethodNames
     // ── Standard LSP Methods ────────────────────────────────────────────────
     public const string TextDocumentSemanticTokensFull = "textDocument/semanticTokens/full";
     public const string TextDocumentSemanticTokensFullDelta = "textDocument/semanticTokens/full/delta";
+    public const string TextDocumentCompletion = "textDocument/completion";
+    public const string TextDocumentDefinition = "textDocument/definition";
     public const string TextDocumentReferences = "textDocument/references";
     public const string TextDocumentCodeLens = "textDocument/codeLens";
     public const string TextDocumentPrepareRename = "textDocument/prepareRename";

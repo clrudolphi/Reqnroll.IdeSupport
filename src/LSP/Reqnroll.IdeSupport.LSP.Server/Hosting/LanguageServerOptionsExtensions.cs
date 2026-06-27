@@ -16,8 +16,10 @@ using Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs;
 using Reqnroll.IdeSupport.LSP.Server.Features.References;
 using Reqnroll.IdeSupport.LSP.Server.Features.Rename;
 using Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens;
+using Reqnroll.IdeSupport.LSP.Server.Diagnostics.Performance;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
+using OmniSharp.Extensions.LanguageServer.Protocol;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Hosting;
 
@@ -90,13 +92,18 @@ public static class LanguageServerOptionsExtensions
             (p, ct) => resolver!.Get<ILspWorkspaceScopeManager>().HandleProjectFilesAsync(p, ct));
 
         // ── Manual request routing to bypass dynamic registration limitations ─────────
+        // semanticTokens/full is a §9 interactive perf target; wrap it (and its delta sibling)
+        // through MeasuredAsync(...) so Layer 4 field instrumentation times the manual-route handler
+        // at one site. The same helper can wrap the other manual routes below as needed.
         options.OnRequest<SemanticTokensParams, SemanticTokens?>(
             LspMethodNames.TextDocumentSemanticTokensFull,
-            (request, ct) => resolver!.Get<SemanticTokensHandler>().HandleAsync(request, ct));
+            (request, ct) => MeasuredAsync(resolver!, LspMethodNames.TextDocumentSemanticTokensFull,
+                request.TextDocument.Uri, () => resolver!.Get<SemanticTokensHandler>().HandleAsync(request, ct)));
 
         options.OnRequest<SemanticTokensDeltaParams, SemanticTokensFullOrDelta?>(
             LspMethodNames.TextDocumentSemanticTokensFullDelta,
-            (request, ct) => resolver!.Get<SemanticTokensHandler>().HandleAsync(request, ct));
+            (request, ct) => MeasuredAsync(resolver!, LspMethodNames.TextDocumentSemanticTokensFullDelta,
+                request.TextDocument.Uri, () => resolver!.Get<SemanticTokensHandler>().HandleAsync(request, ct)));
 
         options.OnRequest<ReferenceParams, LocationOrLocationLinks?>(
             LspMethodNames.TextDocumentReferences,
@@ -138,6 +145,17 @@ public static class LanguageServerOptionsExtensions
         options.OnNotification<SelectRenameTargetParams>(
             LspMethodNames.ReqnrollSelectRenameTarget,
             (request, ct) => resolver!.Get<StepRenameHandler>().HandleSelectRenameTargetAsync(request, ct));
+    }
+
+    /// <summary>
+    /// Times a manual-route handler invocation through the Layer 4
+    /// <see cref="IOperationDurationRecorder"/>, resolved from the running server's services.
+    /// </summary>
+    private static async Task<T> MeasuredAsync<T>(
+        LspHandlerResolver resolver, string operation, DocumentUri? uri, Func<Task<T>> body)
+    {
+        using var _ = resolver.Get<IOperationDurationRecorder>().Measure(operation, uri);
+        return await body().ConfigureAwait(false);
     }
 
     /// <summary>

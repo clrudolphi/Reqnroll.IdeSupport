@@ -15,11 +15,14 @@ using Reqnroll.IdeSupport.LSP.Core.Completions.Matching;
 
 
 using Reqnroll.IdeSupport.LSP.Core.Matching;
+using Reqnroll.IdeSupport.LSP.Server.Diagnostics.Performance;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
 using Reqnroll.IdeSupport.LSP.Server.Documents;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
+using System.Diagnostics;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Features.Completions;
@@ -41,6 +44,12 @@ public sealed class GherkinCompletionHandler : ICompletionHandler
     private readonly IProjectBindingRegistryLookup _registryLookup;
     private readonly ClientIdeContext              _clientIde;
     private readonly IDeveroomLogger               _logger;
+    private readonly IOperationDurationRecorder    _recorder;
+
+    // §9 Layer 4 op labels. Keyword (F7, <50ms) and step (F8, <150ms) have distinct targets,
+    // so they are recorded under distinct operation names.
+    private const string KeywordCompletionOp = LspMethodNames.TextDocumentCompletion + "#keyword";
+    private const string StepCompletionOp    = LspMethodNames.TextDocumentCompletion + "#step";
 
     public GherkinCompletionHandler(
         ICompletionContextResolver    contextResolver,
@@ -51,7 +60,8 @@ public sealed class GherkinCompletionHandler : ICompletionHandler
         ILspWorkspaceScopeManager     scopeManager,
         IProjectBindingRegistryLookup registryLookup,
         ClientIdeContext              clientIde,
-        IDeveroomLogger               logger)
+        IDeveroomLogger               logger,
+        IOperationDurationRecorder?   recorder = null)
     {
         _contextResolver   = contextResolver;
         _completionService = completionService;
@@ -62,6 +72,7 @@ public sealed class GherkinCompletionHandler : ICompletionHandler
         _registryLookup    = registryLookup;
         _clientIde         = clientIde;
         _logger            = logger;
+        _recorder          = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public CompletionRegistrationOptions GetRegistrationOptions(
@@ -101,12 +112,18 @@ public sealed class GherkinCompletionHandler : ICompletionHandler
 
         var ctx = _contextResolver.Resolve(snapshot, cursorLine, cursorChar, registry, fallbackLanguage);
 
-        return ctx switch
+        // §9 Layer 4: time the completion compute, recording under the kind-specific op label
+        // (keyword vs. step) so field P95 can be compared to the two distinct targets.
+        var startTimestamp = Stopwatch.GetTimestamp();
+        var (op, list) = ctx switch
         {
-            StepCompletionContext    s => Task.FromResult(HandleStep(s,    uri, cursorLine, snapshot)),
-            KeywordCompletionContext k => Task.FromResult(HandleKeyword(k, cursorLine, cursorChar, snapshot)),
-            _                         => Task.FromResult(new CompletionList())
+            StepCompletionContext    s => (StepCompletionOp,    HandleStep(s,    uri, cursorLine, snapshot)),
+            KeywordCompletionContext k => (KeywordCompletionOp, HandleKeyword(k, cursorLine, cursorChar, snapshot)),
+            _                          => (LspMethodNames.TextDocumentCompletion, new CompletionList())
         };
+        _recorder.Record(op, Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds, uri);
+
+        return Task.FromResult(list);
     }
 
     // ── F8 ────────────────────────────────────────────────────────────────────

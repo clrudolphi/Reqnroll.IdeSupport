@@ -161,6 +161,32 @@ hash, giving a build-churn signal without a full discovery payload.
   emit its own telemetry. If desired this belongs in the VS LSP **client** (the
   `ILanguageClient` restart callback), emitted host-side via `IAnalyticsTransmitter`. Deferred.
 
+### 4.4 `PerfSample` — ✅ implemented (Performance Verification, Layer 4)
+
+Field performance instrumentation. Every instrumented interactive handler records its duration
+through `IOperationDurationRecorder` (`Diagnostics/Performance`); the primary sink is a `PERF`
+line in the server log, and — when sampling is enabled — a **sampled** `PerfSample` telemetry
+event is emitted for real-world P95 aggregation. See
+[`Performance-Verification-Implementation-Plan.md`](Performance-Verification-Implementation-Plan.md)
+(Part B / T3) for the design.
+
+| Property | Example | Notes |
+|----------|---------|-------|
+| `Operation` | `textDocument/completion#step` | LSP method (completion split into `#keyword` / `#step` per the distinct §9 targets) |
+| `DurationMs` | `42` | rounded wall-clock ms |
+| `DurationBucket` | `<=50` | coarse band for cheap aggregation |
+| `IDEClient` | `visualstudio` | from `--ide`; enables per-IDE P95 breakdown |
+
+**Privacy:** the event carries **no URI, path, or file content** — only the operation label,
+duration, bucket and IDE client. (The `PERF` *log* line may include the URI for local diagnosis;
+the *telemetry* payload never does.) Covered by `OperationDurationRecorderTests`.
+
+**Sampling & opt-out:** emission is gated on `IPerfTelemetrySampler`, whose rate comes from the
+`REQNROLL_PERF_TELEMETRY_SAMPLE` env var (fraction in `[0,1]`, default **0** = opt-in). When a
+rate is set, sampled events still pass through the existing host-side opt-out gate
+(`IEnableAnalyticsChecker`) before transmission. Volume is bounded by the sample rate, unlike the
+rejected per-request "Completion inserted" idea in §4.1.
+
 ---
 
 ## 5. Build order — status

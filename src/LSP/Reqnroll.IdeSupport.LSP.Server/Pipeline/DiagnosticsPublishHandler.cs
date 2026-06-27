@@ -5,6 +5,7 @@ using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
+using Reqnroll.IdeSupport.LSP.Server.Diagnostics.Performance;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 using Reqnroll.IdeSupport.LSP.Server.Documents;
@@ -39,6 +40,7 @@ public sealed class DiagnosticsPublishHandler : INotificationHandler<MatchCacheC
     private readonly IDiagnosticsAggregator   _aggregator;
     private readonly ILanguageServerFacade    _languageServer;
     private readonly IDeveroomLogger           _logger;
+    private readonly IOperationDurationRecorder _recorder;
 
     public DiagnosticsPublishHandler(
         IDocumentBufferService    documentBufferService,
@@ -47,7 +49,8 @@ public sealed class DiagnosticsPublishHandler : INotificationHandler<MatchCacheC
         ILspWorkspaceScopeManager scopeManager,
         IDiagnosticsAggregator    aggregator,
         ILanguageServerFacade     languageServer,
-        IDeveroomLogger            logger)
+        IDeveroomLogger            logger,
+        IOperationDurationRecorder? recorder = null)
     {
         _documentBufferService = documentBufferService;
         _bindingMatchService   = bindingMatchService;
@@ -56,11 +59,15 @@ public sealed class DiagnosticsPublishHandler : INotificationHandler<MatchCacheC
         _aggregator            = aggregator;
         _languageServer        = languageServer;
         _logger                = logger;
+        _recorder              = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public Task Handle(MatchCacheChangedNotification notification, CancellationToken cancellationToken)
     {
         var uri = notification.Uri;
+
+        // §9 Layer 4: time the diagnostics aggregate-and-push (match-cache change → push sent).
+        using var _perf = _recorder.Measure(LspMethodNames.TextDocumentPublishDiagnostics, uri);
 
         if (!_documentBufferService.TryGet(uri, out var buffer) || buffer?.Tags is null)
         {

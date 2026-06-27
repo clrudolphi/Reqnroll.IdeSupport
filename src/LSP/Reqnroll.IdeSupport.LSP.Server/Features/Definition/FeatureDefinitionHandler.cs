@@ -6,8 +6,10 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
+using Reqnroll.IdeSupport.LSP.Server.Diagnostics.Performance;
 using Reqnroll.IdeSupport.LSP.Server.Documents;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Features.Definition;
@@ -27,17 +29,20 @@ public sealed class FeatureDefinitionHandler : IDefinitionHandler
     private readonly IDocumentBufferService    _bufferService;
     private readonly ILspWorkspaceScopeManager _scopeManager;
     private readonly IDeveroomLogger           _logger;
+    private readonly IOperationDurationRecorder _recorder;
 
     public FeatureDefinitionHandler(
         IBindingMatchService      matchService,
         IDocumentBufferService    bufferService,
         ILspWorkspaceScopeManager scopeManager,
-        IDeveroomLogger           logger)
+        IDeveroomLogger           logger,
+        IOperationDurationRecorder? recorder = null)
     {
         _matchService  = matchService;
         _bufferService = bufferService;
         _scopeManager  = scopeManager;
         _logger        = logger;
+        _recorder      = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public DefinitionRegistrationOptions GetRegistrationOptions(
@@ -54,6 +59,9 @@ public sealed class FeatureDefinitionHandler : IDefinitionHandler
         CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
+
+        // §9 Layer 4: time the cache-hit definition round-trip (the handler's own work).
+        using var _perf = _recorder.Measure(LspMethodNames.TextDocumentDefinition, uri);
 
         if (!IsFeatureFile(uri))
         {
