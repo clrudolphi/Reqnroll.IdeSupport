@@ -1,7 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- Shared benchmark support for §9 Performance Verification Layer 2 (T1/T2): corpus tooling
+       (generator, fingerprint, manifest, locator), the latency recorder + reporting, reference-
+       machine gating, and the in-process LSP benchmark harness. A plain library so it can be
+       referenced by BOTH the self-contained benchmark exe and the (non-self-contained) tests in
+       LSP.Server.Tests. -->
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
@@ -9,15 +13,8 @@
     <IsPackable>false</IsPackable>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>../../../reqnroll.snk</AssemblyOriginatorKeyFile>
-    <!-- Match the server's RID and self-contained flag so the ProjectReference to the
-         self-contained win-x64 server resolves cleanly (NETSDK1151) and the connector binaries
-         deploy alongside. -->
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <SelfContained>true</SelfContained>
-    <!-- VSTHRD103/VSTHRD002: a console benchmark tool legitimately uses synchronous Console
-         output and blocking waits; the vs-threading rules target UI apps, not CLI tooling. -->
-    <NoWarn>NU1701;VSTHRD200;VSTHRD103;VSTHRD002</NoWarn>
-    <RootNamespace>Reqnroll.IdeSupport.LSP.Server.Benchmarks</RootNamespace>
+    <PlatformTarget>x64</PlatformTarget>
+    <NoWarn>NU1701;VSTHRD200</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,7 +25,6 @@
 
   <ItemGroup>
     <ProjectReference Include="../../../src/LSP/Reqnroll.IdeSupport.LSP.Server/Reqnroll.IdeSupport.LSP.Server.csproj" />
-    <ProjectReference Include="../Reqnroll.IdeSupport.LSP.Server.Benchmarks.Core/Reqnroll.IdeSupport.LSP.Server.Benchmarks.Core.csproj" />
   </ItemGroup>
 
 </Project>

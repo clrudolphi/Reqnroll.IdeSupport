@@ -9,9 +9,11 @@
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>../../../reqnroll.snk</AssemblyOriginatorKeyFile>
     <PlatformTarget>x64</PlatformTarget>
-    <NoWarn>NU1701;VSTHRD200</NoWarn>
+    <NoWarn>NU1701;VSTHRD200;VSTHRD003</NoWarn>
     <!-- NU1701: .NET Framework packages (e.g., OmniSharp.Extensions.LanguageServer) are safe to use -->
     <!-- VSTHRD200: Test methods don't require "Async" suffix convention -->
+    <!-- VSTHRD003: surfaced by the OmniSharp LanguageClient analyzer (pulled in transitively via the
+         benchmark Core reference); the awaited Tasks in these tests are test-local and safe. -->
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,7 +32,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../../src/LSP/Reqnroll.IdeSupport.LSP.Server/Reqnroll.IdeSupport.LSP.Server.csproj" />
-    <ProjectReference Include="../../Performance/Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus/Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus.csproj" />
+    <ProjectReference Include="../../Performance/Reqnroll.IdeSupport.LSP.Server.Benchmarks.Core/Reqnroll.IdeSupport.LSP.Server.Benchmarks.Core.csproj" />
   </ItemGroup>
 
 </Project>
