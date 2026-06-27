@@ -31,4 +31,15 @@
     <ProjectReference Include="../Reqnroll.IdeSupport.LSP.Server.Benchmarks.Core/Reqnroll.IdeSupport.LSP.Server.Benchmarks.Core.csproj" />
   </ItemGroup>
 
+  <!-- Surface the committed benchmark corpus in the IDE. It lives in a sibling directory
+       (../Corpus), not under any project, so it is otherwise invisible in Solution Explorer.
+       Linked as <None> on purpose:
+         * NOT compiled — Bindings/*.cs are parsed as text by the syntax-only binding discovery
+           and reference Reqnroll, which this project does not; compiling them would fail.
+         * NOT copied to output — the corpus is located at runtime by walking up to the repo root.
+       This is display-only; it does not change the build or how the corpus is found. -->
+  <ItemGroup>
+    <None Include="..\Corpus\**\*" Link="Corpus\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>
