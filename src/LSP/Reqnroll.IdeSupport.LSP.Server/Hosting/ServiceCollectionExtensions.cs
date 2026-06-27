@@ -54,7 +54,14 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IDeveroomLogger, LspDeveroomLogger>()
             .AddSingleton<IIdeScope, LspIdeScope>()
             .AddSingleton<IMonitoringService>(sp => NullMonitoringService.Instance)
-            .AddSingleton<ILspTelemetryService, LspTelemetryService>()
+            // Telemetry: emit telemetry/event notifications, optionally mirrored to a local JSONL
+            // debug log (REQNROLL_TELEMETRY_DEBUG_LOG). The decorator wraps the real emitter; when
+            // the debug log is unconfigured the sink is a no-op and it simply forwards.
+            .AddSingleton<ITelemetryDebugLog>(_ => TelemetryDebugLog.FromEnvironment())
+            .AddSingleton<LspTelemetryService>()
+            .AddSingleton<ILspTelemetryService>(sp => new FileLoggingLspTelemetryService(
+                sp.GetRequiredService<LspTelemetryService>(),
+                sp.GetRequiredService<ITelemetryDebugLog>()))
             .AddSingleton<IDeveroomConfigurationProvider, ProjectSystemDeveroomConfigurationProvider>()
             .AddSingleton<IEditorConfigOptionsProvider>(sp =>
                 new FileSystemEditorConfigOptionsProvider(sp.GetRequiredService<IIdeScope>().FileSystem));

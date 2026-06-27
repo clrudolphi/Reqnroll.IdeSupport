@@ -217,7 +217,8 @@ namespace S
                 "Connector".Equals(d["DiscoverySource"]) &&
                 "projectLoad".Equals(d["TriggerContext"]) &&
                 false.Equals(d["IsFailed"]) &&
-                0.Equals(d["StepDefinitionCount"])));
+                0.Equals(d["StepDefinitionCount"]) &&
+                0.Equals(d["HookCount"])));
     }
 
     [Fact]
@@ -266,6 +267,51 @@ namespace S
         telemetry.Received(1).SendEvent(
             "Reqnroll Discovery executed",
             Arg.Is<Dictionary<string, object?>>(d => "build".Equals(d["TriggerContext"])));
+    }
+
+    [Fact]
+    public async Task TriggerRefresh_emits_failure_telemetry_when_discovery_throws()
+    {
+        _discovery.RunDiscovery(
+                Arg.Any<IProjectScope>(),
+                Arg.Any<ProjectBindingRegistry>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ => throw new InvalidOperationException("connector boom"));
+        var telemetry = Substitute.For<ILspTelemetryService>();
+
+        var sut = CreateSutWithTelemetry(telemetry);
+        sut.TriggerRefresh();
+        await Task.Delay(1200); // past the 500 ms debounce + run
+
+        telemetry.Received(1).SendEvent(
+            "Reqnroll Discovery executed",
+            Arg.Is<Dictionary<string, object?>>(d =>
+                "Connector".Equals(d["DiscoverySource"]) &&
+                "projectLoad".Equals(d["TriggerContext"]) &&
+                true.Equals(d["IsFailed"]) &&
+                "connector boom".Equals(d["ErrorMessage"])));
+    }
+
+    [Fact]
+    public async Task TriggerRefresh_does_not_emit_failure_telemetry_on_cancellation()
+    {
+        // A run cancelled by a newer trigger is normal, not a failure — no telemetry.
+        var newRegistry = NonInvalidRegistry(hash: 7);
+        GivenDiscoveryReturns(newRegistry, "hash-1");
+        var telemetry = Substitute.For<ILspTelemetryService>();
+
+        var sut = CreateSutWithTelemetry(telemetry);
+        var changed = new TaskCompletionSource();
+        sut.BindingRegistryChanged += (_, _) => changed.TrySetResult();
+
+        sut.TriggerRefresh();
+        sut.TriggerRefresh(); // cancels the first in-flight run
+        await Task.WhenAny(changed.Task, Task.Delay(5000));
+
+        telemetry.DidNotReceive().SendEvent(
+            "Reqnroll Discovery executed",
+            Arg.Is<Dictionary<string, object?>>(d => true.Equals(d["IsFailed"])));
     }
 
     [Fact]

@@ -1,0 +1,14 @@
+// Binding redirects for assemblies that the VSSDK build tooling excludes from the VSIX
+// (treating them as VS-provided) but that VS does not actually ship in a CLR-probing path.
+// Without these redirects the CLR rejects the version we ship because it does not match
+// the version the referencing assembly was compiled against.
+
+// Microsoft.ApplicationInsights 2.23.0 (net46 build) was compiled against
+// System.Diagnostics.DiagnosticSource 5.0.0.0, but the VS SDK forces 9.0.0.0.
+[$RootKey$\RuntimeConfiguration\dependentAssembly\bindingRedirection\{B8E77B3B-3E8A-4B2B-A36A-00E2D8D59E7A}]
+"name"="System.Diagnostics.DiagnosticSource"
+"publicKeyToken"="cc7b13ffcd2ddd51"
+"culture"="neutral"
+"oldVersion"="0.0.0.0-8.0.0.0"
+"newVersion"="9.0.0.0"
+"codeBase"="$PackageFolder$\System.Diagnostics.DiagnosticSource.dll"

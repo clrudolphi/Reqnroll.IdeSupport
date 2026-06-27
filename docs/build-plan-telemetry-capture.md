@@ -1,357 +1,289 @@
 # Build Plan: Telemetry Capture & Publication
 
+**Status: implemented (with documented exceptions).** This document records the as-built
+telemetry pipeline and the status of every capture point. For the analytics *transport*
+refactor (where the `TelemetryClient` lives, why, and how it is disposed) see the sibling
+document [`plan-refactor-analytics-appinsights.md`](plan-refactor-analytics-appinsights.md).
+
 ## Objective
 
-Wire a complete telemetry pipeline that covers both IDE-originated events and
-LSP-server events, with a richer event schema that captures discovery source,
-trigger context, and incremental results. All events flow through a single
-`Microsoft.ApplicationInsights` v2.23.0 `TelemetryClient` in the
-`Reqnroll.IdeSupport.Common` project (netstandard2.0).
+Wire a complete telemetry pipeline covering both IDE-originated events and LSP-server
+events, with an event schema that captures discovery source, trigger context, and command
+usage.
+
+Telemetry is **emitted** by the LSP server (where the work happens) and **transmitted** by
+the IDE host (where consent, identity, and the App Insights client live). There is one
+`Microsoft.ApplicationInsights` `TelemetryClient`, and it lives in the **VS host layer
+(`VSSDKIntegration`)** — *not* in `Common`. The cross-platform `net10.0` server carries no
+AppInsights dependency; see §0.
 
 ---
 
-## 1. Prerequisite: Refactor Analytics Infrastructure
+## 0. Pipeline (as built)
 
-Before any events can be wired, the plumbing must exist. This is covered in
-detail in the sibling document `plan-refactor-analytics-appinsights.md`; the
-high-level steps are summarised here.
+```
+LSP server component (handler / discovery provider)
+  → ILspTelemetryService.SendEvent(eventName, properties)        [Reqnroll.IdeSupport.LSP.Server.Telemetry]
+      → ILanguageServerFacade.SendNotification("telemetry/event", { eventName, properties })
+          ── LSP notification ──▶
+VS Extension: TelemetryEventInterceptor (Receive, method == "telemetry/event")
+  → IAnalyticsTransmitter.TransmitEvent(new GenericEvent(eventName, properties))
+      → VSSDKIntegration.AnalyticsTransmitter
+          → IEnableAnalyticsChecker (opt-out gate)
+          → Microsoft.ApplicationInsights.TelemetryClient.TrackEvent / TrackException
+              → flushed on ReqnrollPluginPackage dispose
+```
 
-### 1.1 Core library (Reqnroll.IdeSupport.Common)
+Key points:
 
-- Add `Microsoft.ApplicationInsights` 2.23.0 NuGet reference
-- Rewrite `AnalyticsTransmitter` to own a `TelemetryClient` directly (remove
-  `IAnalyticsTransmitterSink` + `ITelemetryConfigurationHolder`)
-- `AnalyticsTransmitter` accepts `TelemetryClient`, `IUserUniqueIdStore`,
-  `IEnableAnalyticsChecker`, sets `Context.User.Id` and `Context.Properties` at
-  init
-- Events → `TelemetryClient.TrackEvent(EventTelemetry)` with `IAnalyticsEvent` properties
-- Exceptions → `TelemetryClient.TrackException(ExceptionTelemetry)` with additional props
-- `IsNormalError` classification preserved
-- `ANALYTICS_DEBUG` conditional logging preserved
-- `IDisposable` → `FlushAsync()`
-
-### 1.2 VS layer (VSSDKIntegration)
-
-- Remove `AppInsightsAnalyticsTransmitterSink.cs`,
-  `ApplicationInsightsConfigurationHolder.cs`,
-  `ReqnrollTelemetryContextInitializer.cs`,
-  VS-level `IEnableAnalyticsChecker.cs`
-- Update VS `AnalyticsTransmitter` MEF export:
-  - Read `InstrumentationKey` from embedded resource
-  - Create `InMemoryChannel` (`SendingInterval=30s`, `MaxTelemetryBufferCapacity=250`)
-  - Create `TelemetryConfiguration { InstrumentationKey, TelemetryChannel }`
-  - Create `TelemetryClient(config)`
-  - Set `Context.User.Id`, `Context.Properties["Ide"]`,
-    `["IdeVersion"]`, `["ExtensionVersion"]`
-  - Inject into base `AnalyticsTransmitter`
-- Update `MonitoringService.cs` — remove `ITelemetryConfigurationHolder` dependency
-
-### 1.3 LSP client handler (new)
-
-- Add a handler for LSP `telemetry/event` notification in the VS LSP client
-  that deserialises the notification params to a `GenericEvent` and forwards to
-  `IAnalyticsTransmitter.TransmitEvent()`
+- **`ILspTelemetryService`** (`LspTelemetryService`) is registered as a singleton in
+  `ServiceCollectionExtensions.AddReqnrollLspCoreServices`. Server-side telemetry never
+  references App Insights — it only emits `telemetry/event` notifications.
+- Every emitting component takes an **optional** `ILspTelemetryService? = null` constructor
+  parameter. When null (unit tests, or a client with no telemetry sink) emission is a no-op,
+  so telemetry is non-intrusive to the feature logic.
+- The server's `IMonitoringService` is `NullMonitoringService` (no-op); telemetry is not
+  collected on the server side beyond emitting notifications.
 
 ---
 
-## 2. Event Schema: Discovery
+## 1. Infrastructure status (implemented)
 
-### 2.1 DiscoverySources
+| Piece | Location | Status |
+|-------|----------|--------|
+| `IAnalyticsTransmitter` + events (`IAnalyticsEvent`, `GenericEvent`) | `Common/Analytics` | ✅ contracts (no AppInsights) |
+| Concrete `AnalyticsTransmitter` + `TelemetryClient` | `VSSDKIntegration/Analytics` | ✅ host-side, MEF-exported |
+| `ILspTelemetryService` / `LspTelemetryService` | `LSP.Server/Telemetry` | ✅ emits `telemetry/event` |
+| DI registration of `ILspTelemetryService` | `LSP.Server/Hosting/ServiceCollectionExtensions` | ✅ singleton |
+| `telemetry/event` client handler | `VS Extension/LspInterception/TelemetryEventInterceptor` | ✅ forwards to `IAnalyticsTransmitter` |
+| Legacy `MonitorReqnrollDiscovery` | `MonitoringService` / `IMonitoringService` | ✅ removed |
 
-| Source | Description | TriggerContexts |
-|--------|-------------|-----------------|
-| `Connector` | Out-of-proc reflection discovery (build-based) | `projectLoad`, `build` |
-| `Roslyn` | In-process source-level discovery (file-based) | `csOpen`, `csEdit` |
+---
 
-### 2.2 Connector discovery event
+## 2. Event Schema: Discovery (implemented)
 
-Emitted by the LSP server when `ConnectorBindingRegistryProvider.RunDiscoveryAsync`
-completes (success or failure). Sent via `telemetry/event`.
+Emitted by the LSP server. All use event name **`Reqnroll Discovery executed`** with a
+`DiscoverySource` discriminator.
+
+### 2.1 Sources & triggers
+
+| Source | Where | TriggerContexts |
+|--------|-------|-----------------|
+| `Connector` | `ConnectorBindingRegistryProvider.RunDiscoveryAsync` (out-of-proc reflection) | `projectLoad`, `build` |
+| `Roslyn` | `CSharpBindingDiscoveryService.UpdateFromSourceAsync` (in-proc source-level) | `csOpen`, `csEdit` |
+
+`projectLoad` vs `build` is tracked by the `_isFirstRun` flag on the provider (first run after
+project-scope creation = `projectLoad`; subsequent `TriggerRefresh` runs = `build`).
+
+### 2.2 Connector discovery — three outcomes (all ✅)
+
+| Outcome | Properties emitted |
+|---------|--------------------|
+| **Success** (registry swapped) | `DiscoverySource=Connector`, `TriggerContext`, `IsFailed=false`, `StepDefinitionCount`, `HookCount`, `ProjectTargetFramework` |
+| **Hash no-op** (nothing changed) | `DiscoverySource=Connector`, `HashMatched=true`, `TriggerContext` |
+| **Failure** (discovery threw) | `DiscoverySource=Connector`, `TriggerContext`, `IsFailed=true`, `ErrorMessage`, `ProjectTargetFramework` |
+
+> **Counts reported.** `StepDefinitionCount` and `HookCount` come from
+> `newRegistry.StepDefinitions.Length` / `newRegistry.Hooks.Length`. The legacy
+> `Reqnroll.VisualStudio` extension reported only `StepDefinitionCount`; `HookCount` is new.
+> **StepArgumentTransformations are deliberately not reported:** the connector surfaces them
+> (`StepArgumentTransformationData`), but `ProjectBindingRegistry` does not model them, so there
+> is no count available at this site. Adding it would require carrying transformations through
+> the connector→registry import — out of scope for this telemetry work.
+
+The failure event is emitted from the `catch (Exception)` block; `OperationCanceledException`
+(a newer trigger cancelling an in-flight run) is treated as normal and emits nothing.
+`_isFirstRun` is not cleared on failure so a retry still reports `projectLoad`.
+
+### 2.3 Roslyn discovery (✅)
+
+`DiscoverySource=Roslyn`, `TriggerContext=csOpen|csEdit`, `IsFailed=false`, `AffectedFile`,
+`ProjectCount`, `ProjectTargetFramework`.
+
+> **Known simplification:** the per-file binding delta and post-update step count are computed
+> and logged inside `ApplyToProjectAsync` per owning project, but are not aggregated into the
+> telemetry event (the original `BindingDelta` / `StepDefinitionCount` schema fields). The event
+> fires once per `UpdateFromSourceAsync` call across all owners, so a single aggregate is
+> ambiguous when a file is linked into multiple projects. Left out deliberately rather than
+> emitting a misleading aggregate.
+
+---
+
+## 3. Event Schema: Commands (implemented)
+
+All emitted from the corresponding LSP server handler at its success exit point via
+`ILspTelemetryService`.
+
+| Event | Properties | Handler | Status |
+|-------|-----------|---------|--------|
+| `GoToStepDefinition command executed` | `GenerateSnippet: bool` | `GoToStepDefinitionsHandler` | ✅ |
+| `GoToHook command executed` | — | `GoToHooksHandler` | ✅ |
+| `FindUnusedStepDefinitions command executed` | `UnusedStepDefinitions`, `ScannedFeatureFiles`, `IsCancellationRequested` | `FindUnusedStepDefinitionsHandler` | ✅ |
+| `CommentUncomment command executed` | — | `CommentToggleHandler` | ✅ |
+| `Rename step command executed` | `Erroneous: bool` | `StepRenameHandler` | ✅ (see note) |
+
+> **Deviation from the original plan:** Rename was planned as a VS *client-side*
+> (`RenameStepService` → `IAnalyticsTransmitter`) capture. It is instead emitted **server-side**
+> from `StepRenameHandler.HandleRenameAsync`, consistent with the "server emits / host
+> transmits" pipeline and avoiding a second emission path. The event currently fires on the
+> success branch (`Erroneous=false`); the early-return validation-failure branches do not emit.
+
+**Deferred** (commands not present in the current extension): `DefineSteps`,
+`FindStepDefinitionUsages`, `AutoFormatTable` / `AutoFormatDocument`.
+
+---
+
+## 4. New Events
+
+### 4.1 Completion inserted — **deferred** (not server-observable)
+
+The original plan located this "in the LSP completion handler." That is not feasible:
+standard LSP gives the server no notification when a completion item is **accepted/inserted**
+— the client applies the `textEdit` locally (`GherkinCompletionHandler` even sets
+`ResolveProvider = false`, so there is no resolve round-trip either). Emitting on every
+`textDocument/completion` request would measure *offers*, not *insertions*, and would be very
+high-volume (fires per keystroke/trigger char).
+
+**Correct locus (future work):** a VS-client completion-commit handler in the extension,
+emitting `Completion inserted` directly via `IAnalyticsTransmitter` (low volume — only on
+actual acceptance, with `InsertedTextLength` / `Context` known at commit time). Out of scope
+for the server.
+
+### 4.2 Connector hash-noop rate — ✅ implemented
+
+See §2.2 (the `HashMatched=true` outcome). Emitted when `RunDiscovery` returns the unchanged
+hash, giving a build-churn signal without a full discovery payload.
+
+### 4.3 Error recovery — **partially addressed / deferred**
+
+- **Connector discovery failure** is captured (§2.2 failure outcome).
+- **Server crash / auto-restart** is *not* self-reported: a process that has crashed cannot
+  emit its own telemetry. If desired this belongs in the VS LSP **client** (the
+  `ILanguageClient` restart callback), emitted host-side via `IAnalyticsTransmitter`. Deferred.
+
+---
+
+## 5. Build order — status
+
+| Phase | Items | Status |
+|-------|-------|--------|
+| **A — Infrastructure** | AppInsights placement, transmitter, `telemetry/event` handler, `ILspTelemetryService` + DI | ✅ done (transmitter is host-side in VSSDKIntegration, not Common) |
+| **B — Discovery events** | connector + Roslyn events; remove legacy `MonitorReqnrollDiscovery` | ✅ done; failure event added |
+| **C — Command events** | GoToStepDef, GoToHook, FindUnused, CommentUncomment, Rename | ✅ done (Rename server-side) |
+| **D — New events** | hash-noop ✅; completion-inserted deferred (client-side); error-recovery partial | ◑ partial |
+| **E — Cleanup** | dead monitor methods removed; opt-out gate honored in transmitter | ✅ done |
+
+---
+
+## 6. Testing (as built)
+
+### 6.1 Transport (VS host)
+
+`tests/VisualStudio/Reqnroll.VisualStudio.Tests/Analytics/AnalyticsTransmitterTests.cs` —
+the `IAnalyticsTransmitter` sink: opt-out gate, event/exception forwarding, flush-on-dispose,
+catch-all safety. Uses a real `TelemetryClient` + in-memory channel (see the refactor doc §5).
+
+### 6.2 LSP emission
+
+All under `tests/LSP/Reqnroll.IdeSupport.LSP.Server.Tests/`:
+
+| Test file | Covers |
+|-----------|--------|
+| `Telemetry/LspTelemetryServiceTests.cs` | `SendEvent` calls `SendNotification("telemetry/event", …)` with name + properties |
+| `Discovery/ConnectorBindingRegistryProviderTests.cs` | discovery success, hash-noop, **failure**, projectLoad→build transition, null-telemetry safety, no-emit on cancellation |
+| `Discovery/CSharpBindingDiscoveryServiceTests.cs` | Roslyn discovery event |
+| `Features/Definition/GoToStepDefinitionsHandlerTests.cs` | `GenerateSnippet`; no-emit on non-feature / no-buffer |
+| `Features/Definition/GoToHooksHandlerTests.cs` | hook command event |
+| `Features/FindUnusedStepDefs/FindUnusedStepDefinitionsHandlerTests.cs` | unused-count properties |
+| `Features/Commenting/CommentToggleHandlerTests.cs` | comment command event |
+| `Features/Rename/StepRenameHandlerTests.cs` | rename command event |
+
+Pattern: a `CreateSutWithTelemetry(Substitute.For<ILspTelemetryService>())` overload asserts
+`telemetry.Received(1).SendEvent("…", Arg.Is<Dictionary<string,object?>>(d => …))`, with a
+companion `DidNotReceive` test on guard-rail paths. Full suite: **419 tests green**.
+
+### 6.3 Integration / manual
+
+| Check | How |
+|-------|-----|
+| Connector discovery event fires | Trigger build; verify in App Insights |
+| Roslyn discovery event fires | Open/edit a `.cs` step file; verify event |
+| Command events fire | Invoke GoToStepDefinition etc.; verify events |
+| Opt-out suppresses all | `REQNROLL_TELEMETRY_ENABLED=0`; verify no events (gate is in the host transmitter) |
+| Shutdown flushes | Close VS; verify no lost events |
+
+---
+
+## 7. Risk / notes
+
+| Item | Resolution |
+|------|------------|
+| OmniSharp support for `telemetry/event` | ✅ confirmed working via `ILanguageServerFacade.SendNotification`; covered by `LspTelemetryServiceTests` |
+| `telemetry/event` client handler | ✅ implemented (`TelemetryEventInterceptor`) |
+| Roslyn discovery fires per keystroke (volume) | Roslyn re-discovery is itself triggered per `.cs` edit; the telemetry event rides that frequency. If volume becomes a concern, coalesce at the emission site. Connector discovery is debounced (500 ms). |
+| Completion volume | Why §4.1 is deferred to a client-side commit hook rather than emitted per completion request |
+| Server crash cannot self-report | §4.3 — belongs in the VS LSP client restart callback if wanted |
+
+---
+
+## 8. Debugging: local telemetry mirror (implemented)
+
+A developer aid that persists every telemetry message to a local newline-delimited-JSON file for
+later review. **Off by default; independent of the opt-out gate** so you see what the system
+*produced* even when transmission is disabled or events are dropped downstream.
+
+### Toggle
+
+Environment variable `REQNROLL_TELEMETRY_DEBUG_LOG` (resolved by `Common.Diagnostics.TelemetryDebugLog`):
+
+| Value | Effect |
+|-------|--------|
+| unset / empty / `0` / `false` | disabled (no-op sink) |
+| `1` / `true` | enabled → `%LOCALAPPDATA%\Reqnroll\reqnroll-telemetry-{yyyyMMdd}.jsonl` |
+| any other value | enabled → treated as the target file path |
+
+Separate from `REQNROLL_TELEMETRY_ENABLED` (the transmission opt-out). The VS-launched LSP server
+is a child process and inherits the host's environment, so setting the variable once enables both
+sinks; with the default path they append to the **same** daily file and lines interleave,
+distinguished by the `source` field.
+
+### Two capture points
+
+- **Server** — `FileLoggingLspTelemetryService` decorates `ILspTelemetryService` (wired in
+  `ServiceCollectionExtensions`), mirroring every emitted event *before* forwarding. Cross-IDE
+  (lives in the shared server), independent of the host. Records `source="server"`.
+- **Host** — `VSSDKIntegration.AnalyticsTransmitter` records both events and exceptions:
+  - `TransmitEvent` records every event *before* the opt-out gate, capturing the outcome.
+    Covers host-only events (wizards, install/upgrade) the server never sees.
+  - `TransmitException` (the chokepoint for normal + fatal exception telemetry) records each
+    exception with `event="(exception) {Type}"`, the reported type/message and any extra props
+    (e.g. `IsFatal`) in `props`, and `enabled=null` — the exception path is **not** gated by the
+    opt-out checker, so the mirror reflects that it transmits regardless.
+
+Running both at once is the key diagnostic: an event present with `source="server"` but missing
+the matching `source="host"` line isolates a `TelemetryEventInterceptor`/wire fault from a
+server-emission fault.
+
+### Record schema (one JSON object per line)
 
 ```json
-{
-  "eventName": "Reqnroll Discovery executed",
-  "properties": {
-    "DiscoverySource": "Connector",
-    "ConnectorType": "Generic",
-    "TriggerContext": "build",
-    "IsFailed": false,
-    "ErrorMessage": null,
-    "StepDefinitionCount": 42,
-    "BindingDelta": null,
-    "AffectedFile": null,
-    "ProjectCount": null,
-    "ReqnrollVersion": "2.2.1",
-    "ProjectTargetFramework": "net8.0",
-    "SingleFileGeneratorUsed": false,
-    "ProgrammingLanguage": "C#",
-    "LegacySpecFlow": false
-  }
-}
+{"ts":"2026-06-27T14:02:11.314Z","source":"server","event":"Reqnroll Discovery executed","props":{"DiscoverySource":"Connector","StepDefinitionCount":42,"HookCount":7},"enabled":null,"transmitted":null,"error":null}
+{"ts":"2026-06-27T14:02:12.991Z","source":"host","event":"Welcome dialog dismissed","props":{},"enabled":false,"transmitted":false,"error":null}
+{"ts":"2026-06-27T14:02:13.402Z","source":"host","event":"(exception) DiscoveryException","props":{"ExceptionType":"...DiscoveryException","Message":"connector timed out","IsFatal":"True"},"enabled":null,"transmitted":true,"error":null}
 ```
 
-### 2.3 Roslyn discovery event
+`enabled`/`transmitted`/`error` are host-only (null on server lines). For exception records the
+reported exception's text lives in `props` (`ExceptionType`/`Message`); the top-level `error`
+field is reserved for a *transmission* failure (non-null only when `TrackException`/`TrackEvent`
+itself threw). Writes are append-only,
+lock-guarded within a process, and all I/O errors are swallowed — the mirror never affects the
+feature path. (Cross-process concurrent appends to the shared default file are best-effort; a
+dropped debug line under contention is acceptable. Use distinct paths per process if that matters.)
 
-Emitted by the LSP server when `CSharpBindingDiscoveryService.UpdateFromSourceAsync`
-completes. Sent via `telemetry/event`.
-
-```json
-{
-  "eventName": "Reqnroll Discovery executed",
-  "properties": {
-    "DiscoverySource": "Roslyn",
-    "ConnectorType": null,
-    "TriggerContext": "csEdit",
-    "IsFailed": false,
-    "ErrorMessage": null,
-    "StepDefinitionCount": 44,
-    "BindingDelta": "+2",
-    "AffectedFile": "MyStepDefs.cs",
-    "ProjectCount": 1,
-    "ReqnrollVersion": "2.2.1",
-    "ProjectTargetFramework": "net8.0",
-    "SingleFileGeneratorUsed": false,
-    "ProgrammingLanguage": "C#",
-    "LegacySpecFlow": false
-  }
-}
-```
-
-### 2.4 Implementation
-
-#### Step 2.4a — Inject telemetry service into LSP server
-
-Add a new service `ILspTelemetryService` to the LSP server project:
-
-```csharp
-public interface ILspTelemetryService
-{
-    void SendEvent(string eventName, Dictionary<string, object?> properties);
-}
-```
-
-Implementation uses `ILanguageServerFacade.SendNotification("telemetry/event", params)`.
-Registered as singleton in `ServiceCollectionExtensions.cs`.
-
-#### Step 2.4b — Wire connector discovery
-
-In `ConnectorBindingRegistryProvider.RunDiscoveryAsync()` (line ~140-170), after
-the discovery result is obtained and before/after the `_current` swap, call:
-
-```csharp
-_lspTelemetry.SendEvent("Reqnroll Discovery executed", new()
-{
-    ["DiscoverySource"] = "Connector",
-    ["ConnectorType"] = result.ConnectorType ?? _connectorDiscoveryService.GetConnectorType(project),
-    ["TriggerContext"] = "build", // or "projectLoad" for first run
-    ["IsFailed"] = isFailed,
-    ["ErrorMessage"] = errorMessage,
-    ["StepDefinitionCount"] = registry?.StepDefinitions.Length ?? 0,
-    ["BindingDelta"] = null,
-    ["ReqnrollVersion"] = project.ReqnrollVersion,
-    ["ProjectTargetFramework"] = project.TargetFrameworkMonikers,
-    // ... other project settings
-});
-```
-
-**Distinguish projectLoad vs build:** The first `RunDiscoveryAsync` after
-project scope creation is a project-load trigger. Subsequent runs from
-`TriggerRefresh()` are build triggers. Track this with a simple `_isFirstRun`
-bool flag on the provider.
-
-#### Step 2.4c — Wire Roslyn discovery
-
-In `CSharpBindingDiscoveryService.UpdateFromSourceAsync()`, after the loop
-completes (line ~68), call:
-
-```csharp
-_lspTelemetry.SendEvent("Reqnroll Discovery executed", new()
-{
-    ["DiscoverySource"] = "Roslyn",
-    ["ConnectorType"] = null,
-    ["TriggerContext"] = isOpen ? "csOpen" : "csEdit",
-    ["IsFailed"] = false,
-    ["StepDefinitionCount"] = newCount,
-    ["BindingDelta"] = deltaStr,
-    ["AffectedFile"] = Path.GetFileName(filePath),
-    ["ProjectCount"] = owners.Count,
-    // ... project settings (from first owner or shared)
-});
-```
-
-**Distinguish open vs edit:** The handler receives this via the call site
-(`DidOpenTextDocumentParams` vs `DidChangeTextDocumentParams`). Pass an
-`isOpen` flag through `UpdateFromSourceAsync`, or expose two methods
-(`UpdateFromOpenAsync` / `UpdateFromEditAsync`).
-
-#### Step 2.4d — Remove legacy MonitorReqnrollDiscovery
-
-Once the `telemetry/event` path is live, fully delete the `MonitorReqnrollDiscovery`
-method from `MonitoringService.cs` and remove its commented-out declaration from
-`IMonitoringService.cs`.
-
----
-
-## 3. Event Schema: Commands (revive from legacy)
-
-### 3.1 Event list
-
-| Event | Properties | Trigger |
-|-------|-----------|---------|
-| `CommentUncomment command executed` | — | LSP `workspace/executeCommand` `reqnroll.toggleComment` |
-| `GoToStepDefinition command executed` | `GenerateSnippet: bool` | LSP `reqnroll.goToStepDefinitions` handler |
-| `GoToHook command executed` | — | LSP `reqnroll.goToHooks` handler |
-| `FindUnusedStepDefinitions command executed` | `UnusedStepDefinitions: int`, `ScannedFeatureFiles: int`, `IsCancellationRequested: bool` | LSP `reqnroll.findUnusedStepDefinitions` handler |
-| `Rename step command executed` | `Erroneous: bool` | VS `RenameStepService` (client-side) |
-
-**Deferred** (commands not yet implemented in current extension):
-- `DefineSteps command executed` — not implemented; skip until feature is built
-- `FindStepDefinitionUsages command executed` — not implemented; skip
-- `AutoFormatTable / AutoFormatDocument command executed` — not implemented; skip
-
-### 3.2 Implementation
-
-For LSP commands, inject `ILspTelemetryService` into each handler and emit the
-event at the handler's exit point. This is a one-liner per handler.
-
-Example (`GoToStepDefinitionsHandler`):
-```csharp
-public async Task<GoToStepDefinitionsResponse> HandleAsync(...)
-{
-    var result = await ...;
-    _lspTelemetry.SendEvent("GoToStepDefinition command executed", new()
-    {
-        ["GenerateSnippet"] = result.MatchType == MatchResultType.Undefined
-    });
-    return result;
-}
-```
-
-For the VS client-side `RenameStepService`, inject `IAnalyticsTransmitter`
-directly (it's in the IDE process, no LSP round-trip needed).
-
----
-
-## 4. Event Schema: New Events
-
-### 4.1 Completion inserted
-
-Emitted when a user accepts a completion item from the LSP completion handler.
-
-| Property | Example |
-|----------|---------|
-| `InsertedTextLength` | 12 |
-| `Context` | `"stepDefinition"` \| `"keyword"` \| `"snippet"` |
-| `FileType` | `"feature"` |
-
-**Location:** After completion is resolved and applied in the LSP completion
-handler. Requires `ILspTelemetryService`.
-
-### 4.2 Connector hash-noop rate
-
-Emitted when `ConnectorDiscoveryService.RunDiscovery` returns the current hash
-unchanged (no new bindings). This is a lightweight signal to understand build
-churn.
-
-| Property | Example |
-|----------|---------|
-| `HashMatched` | true |
-| `ElapsedMs` | 1234 |
-
-**Location:** In `ConnectorBindingRegistryProvider.RunDiscoveryAsync()` where
-the hash comparison happens (line ~155). If hash matches, emit a lightweight
-`hashMatch` event; otherwise the full discovery event is sufficient.
-
-### 4.3 Error recovery / LSP crash
-
-Emitted when the LSP server auto-restarts or a connector failure is handled.
-
-| Property | Example |
-|----------|---------|
-| `ErrorType` | `"connectorTimeout"` \| `"serverCrash"` |
-| `RecoveryAction` | `"restarted"` \| `"retried"` |
-
-**Location:** Error-handling boundaries in `ConnectorDiscoveryService` and
-the LSP server startup.
-
----
-
-## 5. Build Order
-
-### Phase A — Infrastructure
-1. Add `Microsoft.ApplicationInsights` 2.23.0 to Common.csproj
-2. Rewrite `AnalyticsTransmitter` (remove sink pattern, own TelemetryClient)
-3. Create VS-level `AnalyticsTransmitter` MEF export (config, channel, client)
-4. Remove deprecated VS files (sink, config holder, context initializer)
-5. Update `MonitoringService` — remove `ITelemetryConfigurationHolder`
-6. Add `telemetry/event` handler in VS LSP client
-7. Create `ILspTelemetryService` in LSP server
-8. Register `ILspTelemetryService` in DI
-
-### Phase B — Discovery events
-9. Wire connector discovery event in `ConnectorBindingRegistryProvider`
-10. Wire Roslyn discovery event in `CSharpBindingDiscoveryService`
-11. Remove dead `MonitorReqnrollDiscovery` code
-
-### Phase C — Command events
-12. Wire `GoToStepDefinition command executed` in `GoToStepDefinitionsHandler`
-13. Wire `GoToHook command executed` in `GoToHooksHandler`
-14. Wire `FindUnusedStepDefinitions command executed` in handler
-15. Wire `CommentUncomment command executed` in `CommentToggleHandler`
-16. Wire `Rename step command executed` in `RenameStepService`
-
-### Phase D — New events
-17. Wire `Completion inserted` in completion handler
-18. Wire connector hash-noop event
-19. Wire error recovery events
-
-### Phase E — Cleanup
-20. Remove all commented-out monitor methods and `GenericEvent` emit lines
-21. Update `IMonitoringService` interface — remove methods that are now
-    `telemetry/event` only (keep IDE-only ones like wizard, dialog, error)
-22. Verify `REQNROLL_TELEMETRY_ENABLED=0` suppresses all event paths
-23. Update tests
-
----
-
-## 6. Testing Plan
-
-### 6.1 Unit tests (AnalyticsTransmitter in Common.Tests)
+### Tests
 
 | Test | Covers |
 |------|--------|
-| `Should_ForwardEventToTelemetryClient` | `TrackEvent` called when enabled |
-| `Should_SuppressEventWhenDisabled` | No `TrackEvent` when checker returns false |
-| `Should_ForwardExceptionWithIsFatal` | `TrackException` with `IsFatal` property |
-| `Should_FlushOnDispose` | `FlushAsync` called on `Dispose()` |
-| `Should_SetUserIdAndContextProperties` | `Context.User.Id` and `Context.Properties` populated |
-| `Should_NotThrowOnTransmissionFailure` | Catch-all safety |
-
-### 6.2 LSP telemetry/event tests
-
-- Unit test for `ILspTelemetryService` that verifies `SendNotification` is called
-- Unit test for LSP client handler that verifies `IAnalyticsTransmitter.TransmitEvent`
-  is called with deserialised event
-
-### 6.3 Integration / manual tests
-
-| Test | How |
-|------|-----|
-| Connector discovery event fires | Trigger build, verify event in AppInsights portal |
-| Roslyn discovery event fires | Open/edit .cs file, verify event arrives |
-| Command events fire | Invoke GoToStepDefinition, verify event |
-| Opt-out suppresses all | Set env var, verify no events |
-| Shutdown flushes | Close VS, verify no lost events |
-| Hash-noop not noisy | Consecutive builds with no code changes produce only hashMatch events |
-
----
-
-## 7. Risk Assessment
-
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| LSP `telemetry/event` not supported by the OmniSharp LSP library | Medium | Check OmniSharp docs; if unsupported, use a custom notification method |
-| `telemetry/event` handler not yet implemented in LSP client | Medium | Straightforward to add; just deserialise and forward |
-| Roslyn discovery fires on every keystroke (too many events) | Medium | Debounce in `CSharpBindingDiscoveryService` (the discovery is already debounced by the 500ms trigger in `ConnectorBindingRegistryProvider`; Roslyn discovery currently fires on every keystroke — may need a throttle or coalesce at the telemetry layer) |
-| Command handlers not yet instrumentable (no DI in some handlers) | Low | All LSP handlers go through DI; `ILspTelemetryService` is injectable |
-| Project settings not available in Roslyn discovery path | Low | The `CSharpBindingDiscoveryService` already resolves project owners via `ILspWorkspaceScopeManager` — project settings can be read from the scope |
+| `Common.Tests/Diagnostics/TelemetryDebugLogTests` | env-var parsing (on/off/path), JSONL round-trip, never-throws on bad path |
+| `LSP.Server.Tests/Telemetry/FileLoggingLspTelemetryServiceTests` | decorator mirrors `source="server"` and forwards unchanged; null-sink still forwards |
+| `Reqnroll.VisualStudio.Tests/Analytics/AnalyticsTransmitterTests` | host mirror records `enabled=false/transmitted=false` when opted out, `true/true` when sent, `error` when an event transmission throws; and exception telemetry with type/message/`IsFatal` in props (`enabled=null`), incl. the transmit-failure case |

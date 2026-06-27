@@ -188,12 +188,15 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
             // Telemetry: connector discovery event (design doc Q17 §2.2).
             var triggerContext = _isFirstRun ? "projectLoad" : "build";
             _isFirstRun = false;
+            // StepArgumentTransformations are not reported: the connector surfaces them, but
+            // ProjectBindingRegistry does not model them, so there is no count to emit here.
             _telemetryService?.SendEvent("Reqnroll Discovery executed", new()
             {
                 ["DiscoverySource"] = "Connector",
                 ["TriggerContext"] = triggerContext,
                 ["IsFailed"] = false,
                 ["StepDefinitionCount"] = newRegistry.StepDefinitions.Length,
+                ["HookCount"] = newRegistry.Hooks.Length,
                 ["ProjectTargetFramework"] = _project.TargetFrameworkMonikers,
             });
 
@@ -201,12 +204,24 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
         }
         catch (OperationCanceledException)
         {
-            // Normal: a newer TriggerRefresh cancelled this run.
+            // Normal: a newer TriggerRefresh cancelled this run. Not a failure — no telemetry.
         }
         catch (Exception ex)
         {
             _logger.LogWarning(
                 $"[{_project.ProjectName}] Unexpected error during binding discovery: {ex.Message}");
+
+            // Telemetry: connector discovery failure (design doc Q17 §2.2 IsFailed / §4.3 error recovery).
+            // _isFirstRun is intentionally NOT cleared here: a failed initial load is still a load,
+            // so a subsequent (hopefully successful) run continues to report "projectLoad".
+            _telemetryService?.SendEvent("Reqnroll Discovery executed", new()
+            {
+                ["DiscoverySource"] = "Connector",
+                ["TriggerContext"] = _isFirstRun ? "projectLoad" : "build",
+                ["IsFailed"] = true,
+                ["ErrorMessage"] = ex.Message,
+                ["ProjectTargetFramework"] = _project.TargetFrameworkMonikers,
+            });
         }
     }
 }
