@@ -35,6 +35,8 @@ public static class SessionRunner
         };
         var fileCount = IntArg(args, "--files", 10);
         var outPath = StringArg(args, "--out");
+        var outOfProcess = args.Contains("--out-of-process");
+        var serverExe = StringArg(args, "--server-exe") ?? (outOfProcess ? ServerExeLocator.Find() : null);
 
         var corpusRoot = CorpusLocator.FindCorpusRoot();
         var manifest = CorpusManifest.Load(CorpusLocator.ManifestPath(corpusRoot));
@@ -42,10 +44,21 @@ public static class SessionRunner
         Console.WriteLine($"Running editing-session benchmark against corpus at {corpusRoot}");
         Console.WriteLine($"  bursts={options.Bursts} warmup={options.Warmup} files={fileCount} " +
                           $"supersede-rate={options.SupersedeRate} think-ms={options.ThinkMs} " +
-                          $"typing-gap-ms={options.TypingGapMs}");
+                          $"typing-gap-ms={options.TypingGapMs} out-of-process={outOfProcess}");
 
         await using var harness = new BenchmarkLspHarness();
-        await harness.StartAsync(corpusRoot).ConfigureAwait(false);
+        string transport;
+        if (outOfProcess)
+        {
+            Console.WriteLine($"  spawning server exe over stdio: {serverExe}");
+            await harness.StartOutOfProcessAsync(corpusRoot, serverExe!).ConfigureAwait(false);
+            transport = "out-of-process (spawned exe over stdio)";
+        }
+        else
+        {
+            await harness.StartAsync(corpusRoot).ConfigureAwait(false);
+            transport = "in-process (in-memory pipe)";
+        }
 
         var features = await InteractiveScenarios.OpenFeaturesAsync(harness, corpusRoot, fileCount).ConfigureAwait(false);
         var session = new SessionScenario(harness, features, options);
@@ -61,7 +74,8 @@ public static class SessionRunner
                                $"{manifest.Fingerprint.StepCount} steps",
             Results: results,
             Skipped: null,
-            Session: result.Stats);
+            Session: result.Stats,
+            Transport: transport);
 
         Console.WriteLine();
         Console.WriteLine(report.ToConsoleTable());

@@ -3,6 +3,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Nerdbank.Streams;
@@ -16,16 +18,24 @@ using Reqnroll.IdeSupport.LSP.Server.Hosting;
 namespace Reqnroll.IdeSupport.LSP.Server.Benchmarks.Harness;
 
 /// <summary>
-/// Hosts the <em>real</em> Reqnroll LSP server in-process over an in-memory full-duplex pipe and
-/// connects an OmniSharp client, exposing timed request round-trips and timestamped server-push
-/// capture. This is the Performance Verification Layer 2 benchmark driver — it generalises the spec suite's
-/// <c>LspServerHarness</c> to measure latency at the protocol boundary (serialize → transport →
-/// handler → transport → deserialize), which is what the "from last didChange" targets require.
+/// Drives the <em>real</em> Reqnroll LSP server through an OmniSharp client, exposing timed request
+/// round-trips and timestamped server-push capture. Two transports:
+/// <list type="bullet">
+///   <item><see cref="StartAsync"/> — hosts the server <b>in-process</b> over an in-memory pipe
+///   (fast, reproducible; no process/stdio boundary).</item>
+///   <item><see cref="StartOutOfProcessAsync"/> — spawns the built server <b>exe</b> and talks to it
+///   over <b>stdio</b> (the production transport; includes the real process boundary).</item>
+/// </list>
+/// Either way, latency is measured at the protocol boundary (serialize → transport → handler →
+/// transport → deserialize), which is what the "from last didChange" targets require.
 /// </summary>
 public sealed class BenchmarkLspHarness : IAsyncDisposable
 {
     private IDisposable? _server;
     private ILanguageClient? _client;
+    private Process? _serverProcess;
+    private readonly StringBuilder _serverStderr = new();
+    private readonly object _stderrLock = new();
 
     private readonly object _diagLock = new();
     private readonly Dictionary<string, long> _lastDiagTimestamp = new(StringComparer.Ordinal);
@@ -33,6 +43,10 @@ public sealed class BenchmarkLspHarness : IAsyncDisposable
     public ILanguageClient Client =>
         _client ?? throw new InvalidOperationException("Harness not started.");
 
+    /// <summary>Anything the spawned server wrote to stderr (out-of-process mode), for diagnosis.</summary>
+    public string ServerStandardError { get { lock (_stderrLock) return _serverStderr.ToString(); } }
+
+    /// <summary>Hosts the server in-process over an in-memory full-duplex pipe.</summary>
     public async Task StartAsync(string workspaceFolder, string? ideId = null)
     {
         var (serverStream, clientStream) = FullDuplexStream.CreatePair();
@@ -43,9 +57,56 @@ public sealed class BenchmarkLspHarness : IAsyncDisposable
             Program.ConfigureServer(options, ideId);
         });
 
-        _client = await LanguageClient.From(options =>
+        _client = await CreateClientAsync(input: clientStream, output: clientStream, workspaceFolder)
+            .ConfigureAwait(false);
+        _server = await serverTask.ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Spawns the built server executable and connects over its stdio — the production transport,
+    /// including the real OS process boundary (no in-memory shortcut). Slower to start than
+    /// <see cref="StartAsync"/>, but the numbers include cross-process stdio and process isolation.
+    /// </summary>
+    public async Task StartOutOfProcessAsync(string workspaceFolder, string serverExePath, string? ideId = null)
+    {
+        var psi = new ProcessStartInfo
         {
-            options.WithInput(clientStream).WithOutput(clientStream);
+            FileName = serverExePath,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            WorkingDirectory = Path.GetDirectoryName(serverExePath) ?? Environment.CurrentDirectory,
+        };
+        if (!string.IsNullOrEmpty(ideId))
+        {
+            psi.ArgumentList.Add("--ide");
+            psi.ArgumentList.Add(ideId);
+        }
+
+        _serverProcess = Process.Start(psi)
+            ?? throw new InvalidOperationException($"Failed to start server process '{serverExePath}'.");
+
+        // Drain stderr so the server can't block on a full pipe, and keep it for diagnosis.
+        _serverProcess.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data is not null) lock (_stderrLock) _serverStderr.AppendLine(e.Data);
+        };
+        _serverProcess.BeginErrorReadLine();
+
+        // The client writes to the server's stdin and reads from its stdout; use the raw BaseStreams
+        // so JSON-RPC framing isn't mangled by text-mode StreamReader/Writer translation.
+        _client = await CreateClientAsync(
+            input: _serverProcess.StandardOutput.BaseStream,
+            output: _serverProcess.StandardInput.BaseStream,
+            workspaceFolder).ConfigureAwait(false);
+    }
+
+    private async Task<ILanguageClient> CreateClientAsync(Stream input, Stream output, string workspaceFolder) =>
+        await LanguageClient.From(options =>
+        {
+            options.WithInput(input).WithOutput(output);
             options.WithRootUri(DocumentUri.FromFileSystemPath(workspaceFolder));
             options.WithWorkspaceFolder(DocumentUri.FromFileSystemPath(workspaceFolder), "benchmark-workspace");
 
@@ -58,9 +119,6 @@ public sealed class BenchmarkLspHarness : IAsyncDisposable
                 return Task.CompletedTask;
             });
         }).ConfigureAwait(false);
-
-        _server = await serverTask.ConfigureAwait(false);
-    }
 
     // ── Document lifecycle ──────────────────────────────────────────────────────
 
@@ -163,6 +221,11 @@ public sealed class BenchmarkLspHarness : IAsyncDisposable
     {
         try { (_client as IDisposable)?.Dispose(); } catch { }
         try { _server?.Dispose(); } catch { }
+        if (_serverProcess is not null)
+        {
+            try { if (!_serverProcess.HasExited) _serverProcess.Kill(entireProcessTree: true); } catch { }
+            try { _serverProcess.Dispose(); } catch { }
+        }
         await Task.CompletedTask.ConfigureAwait(false);
     }
 }

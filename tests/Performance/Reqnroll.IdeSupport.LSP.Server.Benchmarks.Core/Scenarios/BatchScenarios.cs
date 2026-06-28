@@ -26,9 +26,11 @@ public static class BatchScenarios
     /// handshake, open every corpus feature file, and wait until the first file yields semantic
     /// tokens — i.e. the workspace is parsed and serviceable. Reports the wall-clock distribution.
     /// </summary>
-    public static async Task<LatencySummary> ColdStartScanAsync(string corpusRoot, int repetitions = 3)
+    public static async Task<LatencySummary> ColdStartScanAsync(
+        string corpusRoot, int repetitions = 3, bool outOfProcess = false, string? serverExePath = null)
     {
         var recorder = new LatencyRecorder(PerfTargets.ColdStartScan.Operation);
+        var exe = outOfProcess ? (serverExePath ?? ServerExeLocator.Find()) : null;
         var featurePaths = Directory
             .EnumerateFiles(Path.Combine(corpusRoot, "Features"), "*.feature", SearchOption.AllDirectories)
             .OrderBy(p => p, StringComparer.Ordinal)
@@ -36,10 +38,14 @@ public static class BatchScenarios
 
         for (var rep = 0; rep < repetitions; rep++)
         {
+            // Out-of-process cold start includes the real cost of launching the server exe.
             var start = Stopwatch.GetTimestamp();
 
             await using var harness = new BenchmarkLspHarness();
-            await harness.StartAsync(corpusRoot).ConfigureAwait(false);
+            if (outOfProcess)
+                await harness.StartOutOfProcessAsync(corpusRoot, exe!).ConfigureAwait(false);
+            else
+                await harness.StartAsync(corpusRoot).ConfigureAwait(false);
 
             DocumentUri? firstUri = null;
             foreach (var path in featurePaths)

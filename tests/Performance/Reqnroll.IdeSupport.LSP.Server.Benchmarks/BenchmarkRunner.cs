@@ -29,6 +29,8 @@ public static class BenchmarkRunner
         var outPath = StringArg(args, "--out");
         var corpusAssembly = StringArg(args, "--corpus-assembly");
         var includeBatch = !args.Contains("--no-batch");
+        var outOfProcess = args.Contains("--out-of-process");
+        var serverExe = StringArg(args, "--server-exe") ?? (outOfProcess ? ServerExeLocator.Find() : null);
         var gate = ReferenceMachine.FromEnvironment(args);
 
         var corpusRoot = CorpusLocator.FindCorpusRoot();
@@ -36,10 +38,21 @@ public static class BenchmarkRunner
 
         Console.WriteLine($"Running interactive benchmarks against corpus at {corpusRoot}");
         Console.WriteLine($"  warmup={warmup} iterations={measured} files={fileCount} " +
-                          $"assert={gate.AssertThresholds}");
+                          $"assert={gate.AssertThresholds} out-of-process={outOfProcess}");
 
         await using var harness = new BenchmarkLspHarness();
-        await harness.StartAsync(corpusRoot).ConfigureAwait(false);
+        string transport;
+        if (outOfProcess)
+        {
+            Console.WriteLine($"  spawning server exe over stdio: {serverExe}");
+            await harness.StartOutOfProcessAsync(corpusRoot, serverExe!).ConfigureAwait(false);
+            transport = "out-of-process (spawned exe over stdio)";
+        }
+        else
+        {
+            await harness.StartAsync(corpusRoot).ConfigureAwait(false);
+            transport = "in-process (in-memory pipe)";
+        }
 
         var features = await InteractiveScenarios.OpenFeaturesAsync(harness, corpusRoot, fileCount).ConfigureAwait(false);
         var scenarios = new InteractiveScenarios(harness, features, warmup, measured);
@@ -57,9 +70,10 @@ public static class BenchmarkRunner
         // via --no-batch for quick interactive-only runs.
         if (includeBatch)
         {
-            Console.WriteLine("Running batch scenarios (cold-start scan)...");
+            Console.WriteLine($"Running batch scenarios (cold-start scan, out-of-process={outOfProcess})...");
             summaries.Add((PerfTargets.ColdStartScan,
-                await BatchScenarios.ColdStartScanAsync(corpusRoot).ConfigureAwait(false)));
+                await BatchScenarios.ColdStartScanAsync(
+                    corpusRoot, outOfProcess: outOfProcess, serverExePath: serverExe).ConfigureAwait(false)));
         }
 
         var skipped = BatchScenarios.UnavailableDiscoveryScenarios(corpusAssembly);
@@ -73,7 +87,8 @@ public static class BenchmarkRunner
                                $"{manifest.Fingerprint.StepDefinitionPatternCount} patterns, " +
                                $"{manifest.Fingerprint.StepCount} steps",
             Results: results,
-            Skipped: skipped);
+            Skipped: skipped,
+            Transport: transport);
 
         Console.WriteLine();
         Console.WriteLine(report.ToConsoleTable());

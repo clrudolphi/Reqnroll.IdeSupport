@@ -23,7 +23,8 @@ public sealed record BenchmarkReport(
     string CorpusDescription,
     IReadOnlyList<OperationResult> Results,
     IReadOnlyList<SkippedBatchScenario>? Skipped = null,
-    SessionStats? Session = null)
+    SessionStats? Session = null,
+    string Transport = "in-process (in-memory pipe)")
 {
     /// <summary>True when every asserted operation met its performance target.</summary>
     public bool AllPassed => Results.All(r => r.MeetsTarget);
@@ -44,6 +45,7 @@ public static class ConsoleReporter
             ? $"Performance benchmark (under concurrent load) — {report.MachineName} — {report.TimestampUtc:u}"
             : $"Performance benchmark — {report.MachineName} — {report.TimestampUtc:u}");
         sb.AppendLine($"Corpus: {report.CorpusDescription}");
+        sb.AppendLine($"Transport: {report.Transport}");
         sb.AppendLine(report.AssertThresholds
             ? "Mode: ASSERT (reference machine — absolute performance thresholds enforced)"
             : underLoad

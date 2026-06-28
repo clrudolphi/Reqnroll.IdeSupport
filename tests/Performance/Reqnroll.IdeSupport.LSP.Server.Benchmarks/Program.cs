@@ -55,9 +55,11 @@ public static class Program
         Console.WriteLine($"""
             Reqnroll LSP performance benchmarks — Performance Verification, Layer 2.
 
-            Hosts the real LSP server in-process and measures per-operation latency against the
-            architecture's Performance Requirements, using the pinned corpus under
-            tests/Performance/Corpus.
+            Drives the real LSP server and measures per-operation latency against the architecture's
+            Performance Requirements, using the pinned corpus under tests/Performance/Corpus. By
+            default the server is hosted IN-PROCESS over an in-memory pipe (fast, reproducible, no
+            process/stdio boundary); pass --out-of-process to instead spawn the built server EXE and
+            talk to it over stdio — the production transport, including the real process boundary.
 
             USAGE
               {Invocation} <command> [options]
@@ -86,6 +88,11 @@ public static class Program
               --assert               Enforce the absolute targets and exit non-zero on any miss.
                                      Use ONLY on a designated reference machine — shared/CI
                                      hardware is too noisy for absolute pass/fail.
+              --out-of-process       Spawn the built server EXE and talk over stdio (the production
+                                     transport, real process boundary) instead of hosting in-process.
+                                     Slower; use it to gauge process/stdio overhead. Also makes the
+                                     cold-start scan measure the real exe-launch cost.
+              --server-exe <path>    Explicit server exe path (default: locate the built exe).
 
             'session' OPTIONS
               Models one user editing one active document: each edit fires a burst of requests
@@ -102,6 +109,8 @@ public static class Program
               --think-ms <n>         Pause between bursts (raise to model human pacing). (default 10)
               --navigate-every <n>   Fire go-to-definition every Nth burst.              (default 5)
               --out <path>           Write the results JSON (includes session activity stats).
+              --out-of-process       Spawn the server EXE over stdio instead of in-process (see 'run').
+              --server-exe <path>    Explicit server exe path (default: locate the built exe).
 
             ENVIRONMENT
               REQNROLL_PERF_REFERENCE_MACHINE=1   Marks this host as the reference machine; same
@@ -116,6 +125,7 @@ public static class Program
               {Invocation} run                      # isolated per-op numbers (contract check)
               {Invocation} run --files 25 --iterations 200 --out results.json
               {Invocation} run --assert             # enforce targets (reference machine)
+              {Invocation} run --out-of-process     # spawn the server exe over stdio (production transport)
               {Invocation} session                  # latency under realistic concurrent load
               {Invocation} session --think-ms 200 --supersede-rate 0.5   # slower, twitchier typist
               {Invocation} generate-corpus          # re-pin the corpus after a deliberate change
