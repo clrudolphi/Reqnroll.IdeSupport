@@ -68,12 +68,15 @@ public static class BenchmarkRunner
 
         // Batch scenarios (coarse wall-clock). Cold start spins up fresh servers, so it is opt-out
         // via --no-batch for quick interactive-only runs.
+        List<(double initMs, double parseMs)>? coldStartPhases = null;
         if (includeBatch)
         {
             Console.WriteLine($"Running batch scenarios (cold-start scan, out-of-process={outOfProcess})...");
+            coldStartPhases = new List<(double initMs, double parseMs)>();
             summaries.Add((PerfTargets.ColdStartScan,
                 await BatchScenarios.ColdStartScanAsync(
-                    corpusRoot, outOfProcess: outOfProcess, serverExePath: serverExe).ConfigureAwait(false)));
+                    corpusRoot, outOfProcess: outOfProcess, serverExePath: serverExe,
+                    phases: coldStartPhases).ConfigureAwait(false)));
         }
 
         var skipped = BatchScenarios.UnavailableDiscoveryScenarios(corpusAssembly);
@@ -92,6 +95,19 @@ public static class BenchmarkRunner
 
         Console.WriteLine();
         Console.WriteLine(report.ToConsoleTable());
+
+        // Phase breakdown for cold-start: shows how the total is split between the LSP initialize
+        // handshake (process spawn + CLR bootstrap + our DI init) and the workspace parse phase.
+        if (coldStartPhases is { Count: > 0 })
+        {
+            var avgInit  = coldStartPhases.Average(p => p.initMs);
+            var avgParse = coldStartPhases.Average(p => p.parseMs);
+            var avgTotal = avgInit + avgParse;
+            Console.WriteLine("Cold-start phase breakdown (averages across repetitions):");
+            Console.WriteLine($"  Process spawn + CLR boot + initialize handshake : {avgInit,7:F1} ms  ({avgInit / avgTotal * 100,4:F1}%)");
+            Console.WriteLine($"  Workspace parse (first tokens serviceable)       : {avgParse,7:F1} ms  ({avgParse / avgTotal * 100,4:F1}%)");
+            Console.WriteLine($"  Total                                            : {avgTotal,7:F1} ms");
+        }
 
         if (!string.IsNullOrEmpty(outPath))
         {

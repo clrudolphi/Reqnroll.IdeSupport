@@ -26,8 +26,14 @@ public static class BatchScenarios
     /// handshake, open every corpus feature file, and wait until the first file yields semantic
     /// tokens — i.e. the workspace is parsed and serviceable. Reports the wall-clock distribution.
     /// </summary>
+    /// <param name="phases">
+    /// When non-null, per-repetition phase timings are appended: <c>initMs</c> is the time from
+    /// exe-spawn (or stream-pair creation) through the LSP initialize handshake; <c>parseMs</c> is
+    /// the additional time until the first semantic-tokens response is non-empty.
+    /// </param>
     public static async Task<LatencySummary> ColdStartScanAsync(
-        string corpusRoot, int repetitions = 3, bool outOfProcess = false, string? serverExePath = null)
+        string corpusRoot, int repetitions = 3, bool outOfProcess = false, string? serverExePath = null,
+        List<(double initMs, double parseMs)>? phases = null)
     {
         var recorder = new LatencyRecorder(PerfTargets.ColdStartScan.Operation);
         var exe = outOfProcess ? (serverExePath ?? ServerExeLocator.Find()) : null;
@@ -46,6 +52,9 @@ public static class BatchScenarios
                 await harness.StartOutOfProcessAsync(corpusRoot, exe!).ConfigureAwait(false);
             else
                 await harness.StartAsync(corpusRoot).ConfigureAwait(false);
+
+            // Phase A ends here: process spawned + CLR bootstrapped + LSP initialize handshake done.
+            var initMs = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
 
             DocumentUri? firstUri = null;
             foreach (var path in featurePaths)
@@ -67,7 +76,10 @@ public static class BatchScenarios
                 await Task.Delay(25).ConfigureAwait(false);
             }
 
-            recorder.Add(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
+            var totalMs = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+            // Phase B: time spent after the initialize handshake until the workspace was serviceable.
+            phases?.Add((initMs, totalMs - initMs));
+            recorder.Add(totalMs);
         }
 
         return recorder.Summarize();
