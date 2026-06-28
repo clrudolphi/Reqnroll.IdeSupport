@@ -37,6 +37,8 @@ public static class Program
                 return await GenerateCorpusAsync(args).ConfigureAwait(false);
             case "run":
                 return await BenchmarkRunner.RunAsync(args).ConfigureAwait(false);
+            case "session":
+                return await SessionRunner.RunAsync(args).ConfigureAwait(false);
             default:
                 Console.Error.WriteLine($"Unknown command '{command}'. Run with --help for usage.");
                 return 2;
@@ -61,8 +63,12 @@ public static class Program
               {Invocation} <command> [options]
 
             COMMANDS
-              run                 Run the benchmark suite against the committed corpus (default
-                                  when no command is given).
+              run                 Run the ISOLATED benchmark suite against the committed corpus —
+                                  each operation measured on its own (the "contract check" against
+                                  the per-operation targets). Default when no command is given.
+              session             Run the MIXED editing-session benchmark — interactive latency
+                                  under realistic concurrent load (the "reality check"). See
+                                  "'session' OPTIONS" below. Always report-only.
               generate-corpus     Regenerate the committed corpus and rewrite its manifest
                                   (re-pin). See "REGENERATING THE CORPUS" below.
               --help, -h          Show this help.
@@ -81,6 +87,22 @@ public static class Program
                                      Use ONLY on a designated reference machine — shared/CI
                                      hardware is too noisy for absolute pass/fail.
 
+            'session' OPTIONS
+              Models one user editing one active document: each edit fires a burst of requests
+              (semantic tokens, outline, folding, completion) pipelined on the single connection
+              and racing the diagnostics push; a fraction of bursts are superseded (cancelled) to
+              exercise the $/cancelRequest path; think-time separates bursts. Per-op latency here
+              is measured UNDER LOAD, so it will be >= the isolated 'run' numbers — that is the
+              point. Report-only (the published targets are isolated-case references).
+              --warmup <n>           Unrecorded warm-up bursts.                          (default 5)
+              --bursts <n>           Measured edit bursts.                               (default 40)
+              --files <n>            Corpus feature files in rotation as the active doc. (default 10)
+              --supersede-rate <f>   Fraction of bursts cancelled mid-flight, 0..1.     (default 0.3)
+              --typing-gap-ms <n>    Delay before the superseding "keystroke" cancels.   (default 2)
+              --think-ms <n>         Pause between bursts (raise to model human pacing). (default 10)
+              --navigate-every <n>   Fire go-to-definition every Nth burst.              (default 5)
+              --out <path>           Write the results JSON (includes session activity stats).
+
             ENVIRONMENT
               REQNROLL_PERF_REFERENCE_MACHINE=1   Marks this host as the reference machine; same
                                                   effect as --assert. Leave unset elsewhere.
@@ -91,9 +113,11 @@ public static class Program
               2   unknown command
 
             EXAMPLES
-              {Invocation} run                      # report-only, quick local numbers
+              {Invocation} run                      # isolated per-op numbers (contract check)
               {Invocation} run --files 25 --iterations 200 --out results.json
               {Invocation} run --assert             # enforce targets (reference machine)
+              {Invocation} session                  # latency under realistic concurrent load
+              {Invocation} session --think-ms 200 --supersede-rate 0.5   # slower, twitchier typist
               {Invocation} generate-corpus          # re-pin the corpus after a deliberate change
 
             REGENERATING THE CORPUS

@@ -15,6 +15,9 @@ public sealed record OperationResult(PerfTarget Target, LatencySummary Summary)
     /// <summary>The name of the asserted statistic, for reporting.</summary>
     public string MeasuredStatistic => Target.Kind == PerfTargetKind.InteractiveP95 ? "P95" : "median";
 
-    /// <summary>True when the measured statistic is within the performance threshold.</summary>
-    public bool MeetsTarget => MeasuredMs <= Target.TargetMs;
+    /// <summary>
+    /// True when the measured statistic is within the performance threshold. A non-positive
+    /// <see cref="PerfTarget.TargetMs"/> means "no published target" (load-only op) and always passes.
+    /// </summary>
+    public bool MeetsTarget => Target.TargetMs <= 0 || MeasuredMs <= Target.TargetMs;
 }

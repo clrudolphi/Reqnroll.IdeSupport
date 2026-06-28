@@ -104,6 +104,38 @@ public sealed class BenchmarkLspHarness : IAsyncDisposable
     public Task<TResp> RequestAsync<TResp>(string method, object @params, CancellationToken ct = default) =>
         Client.SendRequest(method, @params).Returning<TResp>(ct);
 
+    // ── Typed request helpers (used by the editing-session scenario's bursts) ────
+    // Each takes a CancellationToken: cancelling it sends $/cancelRequest on the wire, modelling a
+    // client superseding an in-flight request when the user types again.
+
+    public Task<SemanticTokens?> RequestSemanticTokensAsync(DocumentUri uri, CancellationToken ct = default) =>
+        RequestAsync<SemanticTokens?>("textDocument/semanticTokens/full",
+            new SemanticTokensParams { TextDocument = new TextDocumentIdentifier { Uri = uri } }, ct);
+
+    public Task<CompletionList?> RequestCompletionAsync(DocumentUri uri, int line, int character, CancellationToken ct = default) =>
+        RequestAsync<CompletionList?>("textDocument/completion",
+            new CompletionParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = uri },
+                Position = new Position(line, character),
+            }, ct);
+
+    public Task<LocationOrLocationLinks?> RequestDefinitionAsync(DocumentUri uri, int line, int character, CancellationToken ct = default) =>
+        RequestAsync<LocationOrLocationLinks?>("textDocument/definition",
+            new DefinitionParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = uri },
+                Position = new Position(line, character),
+            }, ct);
+
+    public Task<SymbolInformationOrDocumentSymbolContainer?> RequestDocumentSymbolAsync(DocumentUri uri, CancellationToken ct = default) =>
+        RequestAsync<SymbolInformationOrDocumentSymbolContainer?>("textDocument/documentSymbol",
+            new DocumentSymbolParams { TextDocument = new TextDocumentIdentifier { Uri = uri } }, ct);
+
+    public Task<Container<FoldingRange>?> RequestFoldingRangeAsync(DocumentUri uri, CancellationToken ct = default) =>
+        RequestAsync<Container<FoldingRange>?>("textDocument/foldingRange",
+            new FoldingRangeRequestParam { TextDocument = new TextDocumentIdentifier { Uri = uri } }, ct);
+
     // ── Diagnostics push timing ─────────────────────────────────────────────────
 
     /// <summary>

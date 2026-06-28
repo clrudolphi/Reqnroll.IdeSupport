@@ -60,6 +60,38 @@ public class BenchmarkReportTests
     }
 
     [Fact]
+    public void Session_report_renders_under_load_header_no_target_dash_and_activity_block()
+    {
+        var report = new BenchmarkReport(
+            MachineName: "TESTBOX",
+            AssertThresholds: false,
+            TimestampUtc: DateTimeOffset.UnixEpoch,
+            CorpusDescription: "50 features",
+            Results: new List<OperationResult>
+            {
+                // A load-only op (TargetMs == 0) renders its target as "—".
+                new(PerfTargets.DocumentSymbol,
+                    new LatencySummary("textDocument/documentSymbol", 40, 1, 18, 17, 21, 27, 27)),
+            },
+            Skipped: null,
+            Session: new SessionStats(
+                SupersedeRate: 0.3, ThinkMs: 10, TypingGapMs: 2, Bursts: 40,
+                RequestsIssued: 160, RequestsCancelled: 12, CancellationRatePct: 7.5, MeanTimeToCancelMs: 3.1));
+
+        var table = report.ToConsoleTable();
+        table.Should().Contain("under concurrent load");
+        table.Should().Contain("Session activity");
+        table.Should().Contain("cancelled=12");
+        table.Should().Contain("—"); // no published target for documentSymbol
+    }
+
+    [Fact]
+    public void No_target_operation_always_meets_target()
+        => new OperationResult(PerfTargets.FoldingRange,
+                new LatencySummary("textDocument/foldingRange", 10, 1, 9, 9, 9999, 9999, 9999))
+            .MeetsTarget.Should().BeTrue();
+
+    [Fact]
     public void Console_table_lists_skipped_scenarios_with_their_reason()
     {
         var report = MakeReport(assert: false, definitionP95: 5) with

@@ -51,6 +51,15 @@ public static class PerfTargets
     public static readonly PerfTarget ColdStartScan =
         new("workspace/cold-start-scan", 30000, PerfTargetKind.Batch, "Initial workspace scan, cold start");
 
+    // Load-only operations: they participate in the editing-session burst to create realistic
+    // contention, but the Performance Requirements table publishes no threshold for them, so
+    // TargetMs is 0 (rendered "—", never asserted). Not part of <see cref="All"/>.
+    public static readonly PerfTarget DocumentSymbol =
+        new("textDocument/documentSymbol", 0, PerfTargetKind.InteractiveP95, "Document outline (session load)");
+
+    public static readonly PerfTarget FoldingRange =
+        new("textDocument/foldingRange", 0, PerfTargetKind.InteractiveP95, "Folding ranges (session load)");
+
     /// <summary>All performance targets, in table order.</summary>
     public static readonly IReadOnlyList<PerfTarget> All = new[]
     {

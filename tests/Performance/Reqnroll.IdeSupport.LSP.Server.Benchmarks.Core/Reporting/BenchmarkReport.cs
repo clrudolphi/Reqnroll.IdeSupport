@@ -22,7 +22,8 @@ public sealed record BenchmarkReport(
     DateTimeOffset TimestampUtc,
     string CorpusDescription,
     IReadOnlyList<OperationResult> Results,
-    IReadOnlyList<SkippedBatchScenario>? Skipped = null)
+    IReadOnlyList<SkippedBatchScenario>? Skipped = null,
+    SessionStats? Session = null)
 {
     /// <summary>True when every asserted operation met its performance target.</summary>
     public bool AllPassed => Results.All(r => r.MeetsTarget);
@@ -37,12 +38,17 @@ public static class ConsoleReporter
 {
     public static string Render(BenchmarkReport report)
     {
+        var underLoad = report.Session is not null;
         var sb = new StringBuilder();
-        sb.AppendLine($"Performance benchmark — {report.MachineName} — {report.TimestampUtc:u}");
+        sb.AppendLine(underLoad
+            ? $"Performance benchmark (under concurrent load) — {report.MachineName} — {report.TimestampUtc:u}"
+            : $"Performance benchmark — {report.MachineName} — {report.TimestampUtc:u}");
         sb.AppendLine($"Corpus: {report.CorpusDescription}");
         sb.AppendLine(report.AssertThresholds
             ? "Mode: ASSERT (reference machine — absolute performance thresholds enforced)"
-            : "Mode: REPORT-ONLY (not a reference machine — numbers informational, exit 0)");
+            : underLoad
+                ? "Mode: REPORT-ONLY (reality check — targets shown are isolated-case references, not a gate)"
+                : "Mode: REPORT-ONLY (not a reference machine — numbers informational, exit 0)");
         sb.AppendLine();
         sb.AppendLine($"{"Operation",-40} {"Target",9} {"Stat",6} {"P50",9} {"P95",9} {"P99",9} {"Max",9}  Verdict");
         sb.AppendLine(new string('-', 110));
@@ -50,10 +56,11 @@ public static class ConsoleReporter
         foreach (var r in report.Results)
         {
             var s = r.Summary;
+            var target = r.Target.TargetMs > 0 ? $"{r.Target.TargetMs,7:0}ms" : $"{"—",9}";
             var verdict = !report.AssertThresholds ? "—" : (r.MeetsTarget ? "PASS" : "FAIL");
             sb.AppendLine(
                 $"{Trunc(r.Target.Operation, 40),-40} " +
-                $"{r.Target.TargetMs,7:0}ms {r.MeasuredStatistic,6} " +
+                $"{target} {r.MeasuredStatistic,6} " +
                 $"{s.P50Ms,7:0.0}ms {s.P95Ms,7:0.0}ms {s.P99Ms,7:0.0}ms {s.MaxMs,7:0.0}ms  {verdict}");
         }
 
@@ -63,6 +70,16 @@ public static class ConsoleReporter
             sb.AppendLine("Skipped (not measured):");
             foreach (var s in report.Skipped)
                 sb.AppendLine($"  {s.Target.Operation,-40} — {s.Reason}");
+        }
+
+        if (report.Session is { } session)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Session activity (one active document; bursts pipelined, some superseded):");
+            sb.AppendLine($"  bursts={session.Bursts}  supersede-rate={session.SupersedeRate:0.##}  " +
+                          $"think={session.ThinkMs}ms  typing-gap={session.TypingGapMs}ms");
+            sb.AppendLine($"  requests issued={session.RequestsIssued}  cancelled={session.RequestsCancelled} " +
+                          $"({session.CancellationRatePct:0.0}%)  mean-time-to-cancel={session.MeanTimeToCancelMs:0.0}ms");
         }
 
         sb.AppendLine();
