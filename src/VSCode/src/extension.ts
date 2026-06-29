@@ -2,8 +2,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { LanguageClient, LanguageClientOptions, ServerOptions } from 'vscode-languageclient/node';
+import { ProjectManager } from './projectManager';
 
 let client: LanguageClient | undefined;
+let projectManager: ProjectManager | undefined;
 
 /**
  * Resolves the path to the Reqnroll LSP server binary.
@@ -75,7 +77,9 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   const clientOptions: LanguageClientOptions = {
-    documentSelector: [{ language: 'gherkin' }, { language: 'csharp', pattern: '**/*.cs' }],
+    documentSelector: [
+      { language: 'gherkin', pattern: '**/*.feature' },
+    ],
     synchronize: {
       fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{feature,cs}'),
     },
@@ -88,9 +92,18 @@ export function activate(context: vscode.ExtensionContext): void {
     clientOptions,
   );
 
-  void client.start();
+  // Start client and begin project discovery when ready
+  client
+    .start()
+    .then(() => {
+      projectManager = new ProjectManager(client!);
+    })
+    .catch((err: unknown) => {
+      console.error('Reqnroll LSP client failed to start:', err);
+    });
 }
 
 export function deactivate(): Thenable<void> | undefined {
+  projectManager?.dispose();
   return client?.stop();
 }
