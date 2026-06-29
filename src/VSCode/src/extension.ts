@@ -75,7 +75,7 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   const clientOptions: LanguageClientOptions = {
-    documentSelector: [{ language: 'gherkin' }, { language: 'csharp', pattern: '**/Steps/*.cs' }],
+    documentSelector: [{ language: 'gherkin' }, { language: 'csharp', pattern: '**/*.cs' }],
     synchronize: {
       fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{feature,cs}'),
     },
