@@ -1,8 +1,10 @@
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using Reqnroll.IdeSupport.LSP.Server.Features.References;
-using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Features.Definition;
+using Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs;
+using Reqnroll.IdeSupport.LSP.Server.Features.References;
+using Reqnroll.IdeSupport.LSP.Server.Features.Rename;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Specs.Support;
 
@@ -36,6 +38,17 @@ public sealed class LspScenarioContext
     public SymbolInformationOrDocumentSymbolContainer? LastDocumentSymbols { get; set; }
     public Container<FoldingRange>? LastFoldingRanges { get; set; }
     public ApplyWorkspaceEditParams? LastToggleEdit { get; set; }
+
+    // F5 — Go to Step Definition (custom reqnroll/goToStepDefinitions response)
+    public GoToStepDefinitionsResponse? LastGoToStepDefinitions { get; set; }
+
+    // F15 — Find Unused Step Definitions
+    public FindUnusedStepDefinitionsResponse? LastFindUnused { get; set; }
+
+    // F16 — Step Rename
+    public WorkspaceEdit? LastRenameEdit { get; set; }
+    public RenameTargetsResponse? LastRenameTargets { get; set; }
+    public OmniSharp.Extensions.LanguageServer.Protocol.Models.Range? LastPrepareRenameRange { get; set; }
 
     public DocumentUri UriFor(string relativeName)
         => DocumentUri.FromFileSystemPath(Path.Combine(WorkspaceFolder, relativeName));

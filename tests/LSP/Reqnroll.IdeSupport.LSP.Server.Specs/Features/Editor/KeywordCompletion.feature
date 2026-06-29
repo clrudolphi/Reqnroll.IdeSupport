@@ -40,6 +40,16 @@ Scenario: Completion at ScenarioLine returns Scenario keywords
     Then completions are returned
     And the completions include a keyword label "Scenario: "
 
+Scenario: Completion at ScenarioLine also returns Scenario Outline keyword
+    When the feature file "WithFeature.feature" is opened with
+        """
+        Feature: Calculator
+        Scen
+        """
+    And completions are requested at line 1 column 4 in "WithFeature.feature"
+    Then completions are returned
+    And the completions include a keyword label "Scenario Outline: "
+
 # ── StepLine ─────────────────────────────────────────────────────────────────
 
 Scenario: Completion at StepLine returns Given / When / Then keywords
@@ -82,6 +92,43 @@ Scenario: Completion inside a table row does not include keyword completions
         """
     And completions are requested at line 5 column 2 in "TableRow.feature"
     Then the completions do not include a label "@tag1 "
+
+# ── Language dialect: file-level language directive ─────────────────────────
+
+Scenario: Completion returns keywords for the dialect specified in the feature file
+    When the feature file "German.feature" is opened with
+        """
+        # language: de
+        Funk
+        """
+    And completions are requested at line 1 column 4 in "German.feature"
+    Then completions are returned
+    And the completions include a keyword label "Funktionalität: "
+
+# ── Tag keyword ────────────────────────────────────────────────────────────────
+
+Scenario: Completion on a blank feature file also returns the tag keyword
+    When the feature file "TagBlank.feature" is opened with
+        """
+
+        """
+    And completions are requested at line 0 column 0 in "TagBlank.feature"
+    Then completions are returned
+    And the completions include a keyword label "@tag1 "
+
+# ── Examples keyword ───────────────────────────────────────────────────────────
+
+Scenario: Completion at ScenarioOutlineLine returns Examples keyword
+    When the feature file "WithOutline.feature" is opened with
+        """
+        Feature: Calc
+        Scenario Outline: Add <n>
+            When I press <n>
+        Exam
+        """
+    And completions are requested at line 3 column 4 in "WithOutline.feature"
+    Then completions are returned
+    And the completions include a keyword label "Examples: "
 
 # ── Non-.feature file ─────────────────────────────────────────────────────────
 

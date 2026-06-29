@@ -2,9 +2,12 @@ using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using Reqnroll.IdeSupport.LSP.Server.Features.References;
-using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Features.Definition;
+using Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs;
+using Reqnroll.IdeSupport.LSP.Server.Features.References;
+using Reqnroll.IdeSupport.LSP.Server.Features.Rename;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
+using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Specs.Support;
 
@@ -227,4 +230,81 @@ public static class LspClientExtensions
         this ILanguageClient client, ExecuteCommandParams commandParams, CancellationToken ct = default)
         => client.SendRequest("workspace/executeCommand", commandParams)
             .Returning<Unit>(ct);
+
+    /// <summary>
+    /// Sends a <c>reqnroll/goToStepDefinitions</c> request (F5 — Go to Step Definition).
+    /// Returns step definition locations with type and method metadata for a cursor in a .feature file.
+    /// </summary>
+    public static Task<GoToStepDefinitionsResponse?> RequestGoToStepDefinitionsAsync(
+        this ILanguageClient client, DocumentUri uri, int line, int character, CancellationToken ct = default)
+        => client.SendRequest("reqnroll/goToStepDefinitions",
+                new TextDocumentPositionParams
+                {
+                    TextDocument = new TextDocumentIdentifier { Uri = uri },
+                    Position     = new Position(line, character)
+                })
+            .Returning<GoToStepDefinitionsResponse?>(ct);
+
+    /// <summary>
+    /// Sends a <c>reqnroll/findUnusedStepDefinitions</c> request (F15 — Find Unused).
+    /// Returns binding expressions with zero matching feature steps across the workspace.
+    /// </summary>
+    public static Task<FindUnusedStepDefinitionsResponse?> RequestFindUnusedStepDefinitionsAsync(
+        this ILanguageClient client, CancellationToken ct = default)
+        => client.SendRequest("reqnroll/findUnusedStepDefinitions",
+                new FindUnusedStepDefinitionsParams())
+            .Returning<FindUnusedStepDefinitionsResponse?>(ct);
+
+    /// <summary>
+    /// Sends a <c>textDocument/prepareRename</c> request (F16 — Step Rename).
+    /// Returns the range of the renameable text if the cursor is on a step binding, else null.
+    /// </summary>
+    public static Task<LspRange?> RequestPrepareRenameAsync(
+        this ILanguageClient client, DocumentUri uri, int line, int character, CancellationToken ct = default)
+        => client.SendRequest("textDocument/prepareRename",
+                new PrepareRenameParams
+                {
+                    TextDocument = new TextDocumentIdentifier { Uri = uri },
+                    Position     = new Position(line, character)
+                })
+            .Returning<LspRange?>(ct);
+
+    /// <summary>
+    /// Sends a <c>textDocument/rename</c> request (F16 — Step Rename).
+    /// Returns a WorkspaceEdit covering all .feature and .cs edits required to rename the step.
+    /// </summary>
+    public static Task<WorkspaceEdit?> RequestRenameAsync(
+        this ILanguageClient client, DocumentUri uri, int line, int character, string newName,
+        CancellationToken ct = default)
+        => client.SendRequest("textDocument/rename",
+                new RenameParams
+                {
+                    TextDocument = new TextDocumentIdentifier { Uri = uri },
+                    Position     = new Position(line, character),
+                    NewName      = newName
+                })
+            .Returning<WorkspaceEdit?>(ct);
+
+    /// <summary>
+    /// Sends a <c>reqnroll/renameTargets</c> request (F16 — multi-attribute picker).
+    /// Returns all renameable binding attributes at the cursor for the user to choose from.
+    /// </summary>
+    public static Task<RenameTargetsResponse?> RequestRenameTargetsAsync(
+        this ILanguageClient client, DocumentUri uri, int line, int character, CancellationToken ct = default)
+        => client.SendRequest("reqnroll/renameTargets",
+                new TextDocumentPositionParams
+                {
+                    TextDocument = new TextDocumentIdentifier { Uri = uri },
+                    Position     = new Position(line, character)
+                })
+            .Returning<RenameTargetsResponse?>(ct);
+
+    /// <summary>
+    /// Sends a <c>reqnroll/selectRenameTarget</c> notification (F16).
+    /// Pre-selects which attribute to rename before the next <c>textDocument/rename</c>.
+    /// </summary>
+    public static void SendSelectRenameTarget(
+        this ILanguageClient client, string uri, int version, int attributeIndex)
+        => client.SendNotification("reqnroll/selectRenameTarget",
+                new SelectRenameTargetParams { Uri = uri, Version = version, AttributeIndex = attributeIndex });
 }

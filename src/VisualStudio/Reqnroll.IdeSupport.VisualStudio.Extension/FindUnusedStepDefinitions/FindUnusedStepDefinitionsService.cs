@@ -46,23 +46,26 @@ internal sealed class FindUnusedStepDefinitionsService
             $"FindUnusedStepDefinitionsService: raw result = " +
             $"{(result is null ? "<null>" : result.ToString())}");
 
+        var mapped = MapResult(result);
+        _traceSource.TraceInformation(
+            "FindUnusedStepDefinitionsService: {0} unused step definition(s)", mapped.Items.Count);
+        return mapped;
+    }
+
+    /// <summary>
+    /// Pure mapping from a raw <c>reqnroll/findUnusedStepDefinitions</c> JSON result to an
+    /// <see cref="UnusedStepDefinitionsResult"/>. Separated from transport so it can be unit-tested.
+    /// A <c>null</c>, non-object, or missing-<c>items</c> result yields
+    /// <see cref="UnusedStepDefinitionsResult.Empty"/>.
+    /// </summary>
+    internal static UnusedStepDefinitionsResult MapResult(JToken? result)
+    {
         if (result is null || result.Type == JTokenType.Null)
-        {
-            _traceSource.TraceInformation(
-                "FindUnusedStepDefinitionsService: server returned null — empty result");
             return UnusedStepDefinitionsResult.Empty;
-        }
 
         if (result is JObject obj)
-        {
-            var items = ParseItems(obj["items"] as JArray ?? new JArray());
-            _traceSource.TraceInformation(
-                "FindUnusedStepDefinitionsService: {0} unused step definition(s)", items.Count);
-            return new UnusedStepDefinitionsResult(items);
-        }
+            return new UnusedStepDefinitionsResult(ParseItems(obj["items"] as JArray ?? new JArray()));
 
-        _traceSource.TraceInformation(
-            "FindUnusedStepDefinitionsService: unexpected token type {0}", result.Type);
         return UnusedStepDefinitionsResult.Empty;
     }
 

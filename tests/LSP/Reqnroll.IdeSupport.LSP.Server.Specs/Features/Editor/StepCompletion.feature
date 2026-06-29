@@ -62,3 +62,21 @@ Scenario: Given step completions do not include When or Then samples
     Then completions are returned
     And the completions do not include a label "I press add"
     And the completions do not include a label "the result is [int]"
+
+# ── Step completions do not include keyword labels ────────────────────────────
+
+Scenario: Step completions do not include Gherkin keyword labels
+    When completions are requested at line 2 column 10 in "Calculator.feature"
+    Then completions are returned
+    And the completions do not include a label "Feature: "
+    And the completions do not include a label "Scenario: "
+    And the completions do not include a label "Given "
+
+# ── Regex step definition presented as label ─────────────────────────────────
+
+Scenario: A regex step definition with capturing group is rendered with a placeholder
+    # The binding [Then("the result is (.*)")] is already in Background.
+    # Completions at the Then line should include the placeholder form.
+    When completions are requested at line 4 column 9 in "Calculator.feature"
+    Then completions are returned
+    And the completions include a step label "the result is [int]"

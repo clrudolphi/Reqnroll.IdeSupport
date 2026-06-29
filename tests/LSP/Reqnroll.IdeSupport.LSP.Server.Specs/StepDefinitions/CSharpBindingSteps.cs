@@ -33,6 +33,21 @@ public sealed class CSharpBindingSteps
         _ctx.Harness.Client.OpenCSharpDocument(uri, 1, content);
     }
 
+    /// <summary>
+    /// Opens the C# file via LSP AND writes it to the workspace folder on disk.
+    /// Required for features that need to read the file text from disk (e.g. rename
+    /// attribute literal resolution), since the LSP server's document buffer only tracks
+    /// feature files. Use this in place of "is opened with" when the spec exercises a
+    /// code path that reads the .cs file from the file system.
+    /// </summary>
+    [When(@"the C# step definition file ""(.*)"" is opened and saved to disk with")]
+    public async Task WhenTheCsharpFileIsOpenedAndSavedToDiskWith(string fileName, string content)
+    {
+        await WhenTheCsharpFileIsOpenedWith(fileName, content);
+        var path = Path.Combine(_ctx.WorkspaceFolder, fileName);
+        await File.WriteAllTextAsync(path, content);
+    }
+
     [When(@"the C# step definition file ""(.*)"" is changed to")]
     public void WhenTheCsharpFileIsChangedTo(string fileName, string content)
     {

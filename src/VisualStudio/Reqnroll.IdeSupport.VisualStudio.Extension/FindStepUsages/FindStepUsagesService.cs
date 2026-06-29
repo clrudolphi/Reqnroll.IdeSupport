@@ -74,37 +74,42 @@ internal sealed class FindStepUsagesService
         _fileLogger.LogInfo(
             $"FindStepUsagesService: raw server result = {(result is null ? "<null>" : result.ToString())}");
 
-        // The server returns {isBinding:false} when the caret is not on a binding.
-        // (Returning JSON null is avoided: OmniSharp's OnRequest framework sends an error response
-        //  rather than serialising null for custom response types.)
-        // Guard for null here anyway in case the server version is mismatched.
+        // Map transport result → three-state StepUsagesResult. The mapping is a pure function
+        // (MapResult) so it can be unit-tested without a live pipe.
+        var mapped = MapResult(result);
+        _traceSource.TraceInformation(
+            "FindStepUsagesService: {0}",
+            mapped.IsBinding ? $"{mapped.Locations.Count} location(s) returned" : "NotABinding (fall through)");
+        return mapped;
+    }
+
+    /// <summary>
+    /// Pure mapping from a raw <c>reqnroll/findStepUsages</c> JSON result to the three-state
+    /// <see cref="StepUsagesResult"/>. Separated from transport so it can be unit-tested.
+    /// <list type="bullet">
+    ///   <item>JSON <c>null</c> / non-object → <see cref="StepUsagesResult.NotABinding"/>.</item>
+    ///   <item><c>{"isBinding":false}</c> (or missing) → <see cref="StepUsagesResult.NotABinding"/>.</item>
+    ///   <item><c>{"isBinding":true,"locations":[...]}</c> → binding with parsed locations.</item>
+    /// </list>
+    /// (The server avoids serialising JSON <c>null</c> for custom response types — OmniSharp's
+    /// OnRequest framework sends an error response instead — but the null guard is kept in case
+    /// of a server-version mismatch.)
+    /// </summary>
+    internal static StepUsagesResult MapResult(JToken? result)
+    {
         if (result is null || result.Type == JTokenType.Null)
-        {
-            _traceSource.TraceInformation(
-                "FindStepUsagesService: server returned null (unexpected) — treating as NotABinding");
             return StepUsagesResult.NotABinding;
-        }
 
         if (result is JObject obj)
         {
             var isBinding = obj["isBinding"]?.Value<bool>() ?? false;
             if (!isBinding)
-            {
-                _traceSource.TraceInformation(
-                    "FindStepUsagesService: response has isBinding=false — NotABinding (fall through)");
                 return StepUsagesResult.NotABinding;
-            }
 
             var locationsArray = obj["locations"] as JArray ?? new JArray();
-            var locations = ParseLocations(locationsArray);
-            _traceSource.TraceInformation(
-                "FindStepUsagesService: {0} location(s) returned", locations.Count);
-            return new StepUsagesResult(locations);
+            return new StepUsagesResult(ParseLocations(locationsArray));
         }
 
-        _traceSource.TraceInformation(
-            "FindStepUsagesService: unexpected result token type {0} — NotABinding",
-            result.Type);
         return StepUsagesResult.NotABinding;
     }
 

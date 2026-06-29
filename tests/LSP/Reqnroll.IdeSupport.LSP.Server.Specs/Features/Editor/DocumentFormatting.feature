@@ -83,6 +83,34 @@ Scenario: Range formatting returns edits for the specified range
     And range formatting is requested for "Range.feature" from line 2 to line 4
     Then formatting edits are returned
 
+# ── Descriptions and comments are preserved ──────────────────────────────────
+
+Scenario: Feature description text is not removed by formatting
+    When the feature file "Desc.feature" is opened with
+        """
+        Feature: Description
+          This is a feature description
+          that spans multiple lines.
+
+        Scenario: S
+            Given a step
+        """
+    And the document "Desc.feature" is formatted
+    Then the formatted text contains "This is a feature description"
+
+Scenario: Comment lines are preserved verbatim by formatting
+    When the feature file "Comments.feature" is opened with
+        """
+        # Top-level comment
+        Feature: Comments
+        Scenario: S
+            # Step comment
+            Given a step
+        """
+    And the document "Comments.feature" is formatted
+    Then the formatted text contains "# Top-level comment"
+    And the formatted text contains "# Step comment"
+
 # ── Non-feature file ignored ─────────────────────────────────────────────────
 
 Scenario: Non-feature file returns no formatting edits

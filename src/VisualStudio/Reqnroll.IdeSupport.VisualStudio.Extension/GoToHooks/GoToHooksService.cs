@@ -58,22 +58,28 @@ internal sealed class GoToHooksService
         _fileLogger.LogInfo(
             $"GoToHooksService: raw server result = {(result is null ? "<null>" : result.ToString())}");
 
+        var mapped = MapResult(result);
+        _traceSource.TraceInformation("GoToHooksService: {0} hook(s) returned", mapped.Hooks.Count);
+        return mapped;
+    }
+
+    /// <summary>
+    /// Pure mapping from a raw <c>reqnroll/goToHooks</c> JSON result to a
+    /// <see cref="GoToHooksResult"/>. Separated from transport so it can be unit-tested.
+    /// A <c>null</c>, non-object, or missing-<c>hooks</c> result yields
+    /// <see cref="GoToHooksResult.Empty"/>.
+    /// </summary>
+    internal static GoToHooksResult MapResult(JToken? result)
+    {
         if (result is null || result.Type == JTokenType.Null)
-        {
-            _traceSource.TraceInformation("GoToHooksService: server returned null — no hooks");
             return GoToHooksResult.Empty;
-        }
 
         if (result is JObject obj)
         {
             var hooksArray = obj["hooks"] as JArray ?? new JArray();
-            var hooks      = ParseHooks(hooksArray);
-            _traceSource.TraceInformation("GoToHooksService: {0} hook(s) returned", hooks.Count);
-            return new GoToHooksResult(hooks);
+            return new GoToHooksResult(ParseHooks(hooksArray));
         }
 
-        _traceSource.TraceInformation(
-            "GoToHooksService: unexpected result token type {0}", result.Type);
         return GoToHooksResult.Empty;
     }
 

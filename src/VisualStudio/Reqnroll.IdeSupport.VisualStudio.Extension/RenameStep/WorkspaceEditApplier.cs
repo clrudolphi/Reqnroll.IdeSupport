@@ -121,10 +121,27 @@ internal sealed class WorkspaceEditApplier
         List<TextEditItem> textEdits,
         CancellationToken  cancellationToken)
     {
-        var fileText = System.IO.File.ReadAllText(localPath);
-        var lines    = fileText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+        var fileText   = System.IO.File.ReadAllText(localPath);
+        var newContent = ApplyEditsToText(fileText, textEdits);
+        System.IO.File.WriteAllText(localPath, newContent);
 
-        foreach (var edit in textEdits)
+        _logger.LogInfo($"WorkspaceEditApplier: wrote '{localPath}'.");
+        NotifyDidChange(localPath, newContent, cancellationToken);
+    }
+
+    /// <summary>
+    /// Applies <paramref name="edits"/> to <paramref name="fileText"/> and returns the new content.
+    /// Edits must be ordered bottom-to-top (descending start position) — as produced by
+    /// <see cref="RenameStepService.ParseWorkspaceEdit"/> — so an earlier edit never shifts the
+    /// line/character offsets of a later one. A multi-line edit collapses the spanned lines into
+    /// the start line. Edits whose start line is past the end of the document are skipped.
+    /// Pure (no I/O) so the splicing logic can be unit-tested directly.
+    /// </summary>
+    internal static string ApplyEditsToText(string fileText, IEnumerable<TextEditItem> edits)
+    {
+        var lines = fileText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+
+        foreach (var edit in edits)
         {
             if (edit.StartLine >= lines.Length) continue;
 
@@ -145,11 +162,7 @@ internal sealed class WorkspaceEditApplier
         }
 
         var resultLines = lines.Where(l => l != null).ToArray();
-        var newContent  = string.Join(Environment.NewLine, resultLines);
-        System.IO.File.WriteAllText(localPath, newContent);
-
-        _logger.LogInfo($"WorkspaceEditApplier: wrote {resultLines.Length} lines to '{localPath}'.");
-        NotifyDidChange(localPath, newContent, cancellationToken);
+        return string.Join(Environment.NewLine, resultLines);
     }
 
     private void NotifyDidChange(string localPath, string? newContent, CancellationToken cancellationToken)

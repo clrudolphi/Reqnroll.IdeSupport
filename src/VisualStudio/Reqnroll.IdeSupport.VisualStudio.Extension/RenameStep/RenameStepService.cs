@@ -48,42 +48,48 @@ internal sealed class RenameStepService
             .SendRequestToServerAsync(RenameTargetsMethod, paramsJson, cancellationToken)
             .ConfigureAwait(false);
 
-        if (result is JObject obj)
+        try
         {
-            try
-            {
-                var targets = obj["targets"] as JArray;
-                if (targets is null || targets.Count == 0)
-                {
-                    _traceSource.TraceInformation("RenameStepService: no targets returned");
-                    return null;
-                }
+            var mapped = MapTargets(result);
+            _traceSource.TraceInformation(
+                "RenameStepService: {0} target(s) returned", mapped?.Targets.Count ?? 0);
+            return mapped;
+        }
+        catch (System.Exception ex)
+        {
+            _traceSource.TraceEvent(TraceEventType.Warning, 0,
+                "RenameStepService: failed to parse targets: {0}", ex.Message);
+            return null;
+        }
+    }
 
-                var response = new RenameTargetsResult();
-                foreach (var t in targets)
-                {
-                    if (t is not JObject item) continue;
-                    response.Targets.Add(new RenameTargetItem
-                    {
-                        Label = item["label"]?.Value<string>() ?? "",
-                        Expression = item["expression"]?.Value<string>() ?? "",
-                        AttributeIndex = item["attributeIndex"]?.Value<int>() ?? 0
-                    });
-                }
+    /// <summary>
+    /// Pure mapping from a raw <c>reqnroll/renameTargets</c> JSON result to a
+    /// <see cref="RenameTargetsResult"/>. Separated from transport so it can be unit-tested.
+    /// Returns <c>null</c> when the result is not an object or carries no targets.
+    /// </summary>
+    internal static RenameTargetsResult? MapTargets(JToken? result)
+    {
+        if (result is not JObject obj)
+            return null;
 
-                _traceSource.TraceInformation(
-                    "RenameStepService: {0} target(s) returned", response.Targets.Count);
-                return response;
-            }
-            catch (System.Exception ex)
+        var targets = obj["targets"] as JArray;
+        if (targets is null || targets.Count == 0)
+            return null;
+
+        var response = new RenameTargetsResult();
+        foreach (var t in targets)
+        {
+            if (t is not JObject item) continue;
+            response.Targets.Add(new RenameTargetItem
             {
-                _traceSource.TraceEvent(TraceEventType.Warning, 0,
-                    "RenameStepService: failed to parse targets: {0}", ex.Message);
-            }
+                Label = item["label"]?.Value<string>() ?? "",
+                Expression = item["expression"]?.Value<string>() ?? "",
+                AttributeIndex = item["attributeIndex"]?.Value<int>() ?? 0
+            });
         }
 
-        _traceSource.TraceInformation("RenameStepService: no targets returned");
-        return null;
+        return response.Targets.Count > 0 ? response : null;
     }
 
     /// <summary>

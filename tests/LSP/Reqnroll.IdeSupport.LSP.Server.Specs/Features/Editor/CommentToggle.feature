@@ -62,3 +62,29 @@ Scenario: Only lines in the specified range are toggled
         """
     And the toggle comment command is executed for "PartialRange.feature" on lines 1 to 1
     Then the edit replaces line 1 with "# Scenario: S"
+
+# ── Mixed selection: not all commented → add hashes ──────────────────────────
+
+Scenario: Toggle on a selection with mixed commented and uncommented lines adds hashes to all
+    When the feature file "Mixed.feature" is opened with
+        """
+        # Feature: F
+        Scenario: S
+        """
+    And the toggle comment command is executed for "Mixed.feature" on lines 0 to 1
+    Then the edit replaces line 0 with "# # Feature: F"
+    And the edit replaces line 1 with "# Scenario: S"
+
+# ── Indented lines ────────────────────────────────────────────────────────────
+
+Scenario: Toggle comment on indented step lines adds hash at column 0
+    When the feature file "Indented.feature" is opened with
+        """
+        Feature: F
+        Scenario: S
+            Given a step
+            When another step
+        """
+    And the toggle comment command is executed for "Indented.feature" on lines 2 to 3
+    Then the edit replaces line 2 with "#     Given a step"
+    And the edit replaces line 3 with "#     When another step"

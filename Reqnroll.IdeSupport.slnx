@@ -19,7 +19,6 @@
     <Folder Name="/Tests/VisualStudio/">
         <Project Path="tests/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Wizards.Tests/Reqnroll.IdeSupport.VisualStudio.Wizards.Tests.csproj" />
         <Project Path="tests/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Wizards.UI.Tester/Reqnroll.IdeSupport.VisualStudio.Wizards.UI.Tester.csproj" />
-        <Project Path="tests/VisualStudio/Reqnroll.VisualStudio.Specs/Reqnroll.VisualStudio.Specs.csproj" />
         <Project Path="tests/VisualStudio/Reqnroll.VisualStudio.Tests/Reqnroll.VisualStudio.Tests.csproj" />
         <Project Path="tests/VisualStudio/Reqnroll.VisualStudio.VsxStubs/Reqnroll.VisualStudio.VsxStubs.csproj" />
     </Folder>
