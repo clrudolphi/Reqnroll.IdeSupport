@@ -1,16 +1,16 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
+import { evaluateProject } from './msbuildEvaluator';
 
 /**
  * Manages custom LSP notifications (reqnroll/projectLoaded, projectUnloaded)
  * for the VS Code extension.
  *
- * v1 approach: discovers `.csproj`/`.slnx`/`.sln` files in workspace folders
- * and sends projectLoaded with folder-prefix membership.  Output assembly
- * path, TFM, and package references are left empty (they require MSBuild
- * evaluation, which is v2 scope).  The server falls back to folder-prefix
- * file scanning when no projectFiles notification is received.
+ * v1: sends projectLoaded with empty assembly/TFM/package fields — server
+ *     falls back to folder-prefix file scanning.
+ * v2: runs `dotnet msbuild` to populate OutputAssemblyPath, TFM, and
+ *     package references, enabling reflection-based binding discovery.
  */
 export class ProjectManager {
   private readonly _client: LanguageClient;
@@ -77,24 +77,39 @@ export class ProjectManager {
 
   /**
    * Sends reqnroll/projectLoaded for the given project file.
+   * Runs dotnet msbuild to populate assembly path, TFM, and package refs (v2).
+   * Falls back to empty fields when msbuild is unavailable (v1 compat).
    * Duplicate-safe: skips if already registered.
    */
   private async registerProject(uri: vscode.Uri): Promise<void> {
     const projectFile = uri.fsPath;
     if (this._knownProjects.has(projectFile)) return;
 
+    // Only .csproj files get MSBuild evaluation; .slnx/.sln just mark as known
+    if (!projectFile.endsWith('.csproj')) {
+      this._knownProjects.add(projectFile);
+      return;
+    }
+
     const workspaceFolder = this.resolveWorkspaceFolder(projectFile);
     const projectFolder = path.dirname(projectFile);
+
+    // v2: evaluate via dotnet msbuild
+    const props = await evaluateProject(projectFile);
 
     const params = {
       workspaceFolder,
       projectFile,
       projectFolder,
-      // v1: these require MSBuild evaluation — leave empty for now
-      outputAssemblyPath: '',
-      targetFrameworkMoniker: '',
-      defaultNamespace: '',
-      packageReferences: [],
+      outputAssemblyPath: props?.outputAssemblyPath ?? '',
+      targetFrameworkMoniker: props?.targetFrameworkMoniker ?? '',
+      defaultNamespace: props?.defaultNamespace ?? '',
+      packageReferences:
+        props?.packageReferences.map((r) => ({
+          packageId: r.packageId,
+          version: r.version,
+          installPath: '',
+        })) ?? [],
     };
 
     try {
