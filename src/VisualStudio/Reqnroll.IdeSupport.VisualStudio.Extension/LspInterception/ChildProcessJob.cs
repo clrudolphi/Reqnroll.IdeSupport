@@ -12,6 +12,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 /// </summary>
 internal sealed class ChildProcessJob : IDisposable
 {
+    private readonly object _lock = new();
     private IntPtr _jobHandle;
     private bool   _disposed;
 
@@ -58,20 +59,26 @@ internal sealed class ChildProcessJob : IDisposable
     /// </summary>
     public void AddProcess(Process process)
     {
-        if (_disposed) return;
-        if (!NativeMethods.AssignProcessToJobObject(_jobHandle, process.Handle))
-            throw new InvalidOperationException(
-                $"AssignProcessToJobObject failed: {Marshal.GetLastWin32Error()}");
+        lock (_lock)
+        {
+            if (_disposed) return;
+            if (!NativeMethods.AssignProcessToJobObject(_jobHandle, process.Handle))
+                throw new InvalidOperationException(
+                    $"AssignProcessToJobObject failed: {Marshal.GetLastWin32Error()}");
+        }
     }
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
-        if (_jobHandle != IntPtr.Zero)
+        lock (_lock)
         {
-            NativeMethods.CloseHandle(_jobHandle);
-            _jobHandle = IntPtr.Zero;
+            if (_disposed) return;
+            _disposed = true;
+            if (_jobHandle != IntPtr.Zero)
+            {
+                NativeMethods.CloseHandle(_jobHandle);
+                _jobHandle = IntPtr.Zero;
+            }
         }
     }
 

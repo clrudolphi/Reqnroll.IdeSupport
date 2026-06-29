@@ -68,10 +68,10 @@ public class DeveroomConfigurationLoader
             return null;
         filePath = ExpandEnvironmentVariables(filePath);
         var fullPath = Path.GetFullPath(Path.Combine(config.ConfigurationBaseFolder, filePath));
-        if (!isFolder && !File.Exists(fullPath))
+        if (!isFolder && !_fileSystem.File.Exists(fullPath))
             throw new DeveroomConfigurationException(
                 $"Unable to access file '{fullPath}'. Please make sure you specify a path for an existing file for the {label} option.");
-        if (isFolder && !Directory.Exists(fullPath))
+        if (isFolder && !_fileSystem.Directory.Exists(fullPath))
             throw new DeveroomConfigurationException(
                 $"Unable to access directory '{fullPath}'. Please make sure you specify a path for an existing directory for the {label} option.");
         return fullPath;

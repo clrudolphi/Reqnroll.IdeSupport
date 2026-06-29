@@ -37,6 +37,7 @@ internal sealed class VsProjectEventMonitor : IDisposable
     private readonly BuildEvents    _buildEvents;
 
     private bool _disposed;
+    private readonly CancellationTokenSource _cts = new();
 
     public VsProjectEventMonitor(
         LspInterceptingPipe pipe,
@@ -154,17 +155,17 @@ internal sealed class VsProjectEventMonitor : IDisposable
     // ── DTE event handlers ────────────────────────────────────────────────────
 
     private void OnProjectAdded(Project project)
-        => FireAndForget(async () =>
+        => FireAndForget(async ct =>
         {
-            await TrySendProjectLoadedAsync(project, CancellationToken.None).ConfigureAwait(false);
-            await TrySendProjectFilesAsync(project, CancellationToken.None).ConfigureAwait(false);
+            await TrySendProjectLoadedAsync(project, ct).ConfigureAwait(false);
+            await TrySendProjectFilesAsync(project, ct).ConfigureAwait(false);
         });
 
     private void OnProjectRemoved(Project project)
-        => FireAndForget(() => TrySendProjectUnloadedAsync(project, CancellationToken.None));
+        => FireAndForget(ct => TrySendProjectUnloadedAsync(project, ct));
 
     private void OnSolutionOpened()
-        => FireAndForget(() => SendInitialProjectsAsync(CancellationToken.None));
+        => FireAndForget(ct => SendInitialProjectsAsync(ct));
 
     private void OnSolutionClosed()
     {
@@ -179,7 +180,7 @@ internal sealed class VsProjectEventMonitor : IDisposable
         if (action == vsBuildAction.vsBuildActionBuild ||
             action == vsBuildAction.vsBuildActionRebuildAll)
         {
-            FireAndForget(() => SendInitialProjectsAsync(CancellationToken.None));
+            FireAndForget(ct => SendInitialProjectsAsync(ct));
         }
     }
 
@@ -369,13 +370,18 @@ internal sealed class VsProjectEventMonitor : IDisposable
         }
     }
 
-    private void FireAndForget(Func<Task> action)
+    private void FireAndForget(Func<CancellationToken, Task> action)
     {
+        var ct = _cts.Token;
         _ = ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
         {
             try
             {
-                await action().ConfigureAwait(false);
+                await action(ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // normal shutdown
             }
             catch (Exception ex)
             {
@@ -392,6 +398,9 @@ internal sealed class VsProjectEventMonitor : IDisposable
         ThreadHelper.ThrowIfNotOnUIThread();
         if (_disposed) return;
         _disposed = true;
+
+        _cts.Cancel();
+        _cts.Dispose();
 
         _solutionEvents.ProjectAdded   -= OnProjectAdded;
         _solutionEvents.ProjectRemoved -= OnProjectRemoved;

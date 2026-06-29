@@ -300,9 +300,7 @@ internal sealed class LspInterceptingPipe : IDisposable
 
             foreach (var seg in slice)
             {
-                var arr = seg.ToArray();
-                foreach (var b in arr)
-                    accumulator.Add(b);
+                accumulator.AddRange(seg.ToArray());
             }
 
             reader.AdvanceTo(slice.End);
