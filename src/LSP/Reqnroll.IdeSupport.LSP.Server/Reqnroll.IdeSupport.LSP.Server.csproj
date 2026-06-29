@@ -7,8 +7,6 @@
     <Nullable>enable</Nullable>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <!-- Pre-compile IL to native code at publish time; cuts JIT cost on first launch. -->
-    <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
 
   <ItemGroup>
