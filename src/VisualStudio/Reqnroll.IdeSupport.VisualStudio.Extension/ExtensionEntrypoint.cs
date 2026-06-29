@@ -3,7 +3,6 @@ using Microsoft.VisualStudio.Extensibility;
 using Reqnroll.IdeSupport.VisualStudio.Extension.CommentToggle;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
-using Reqnroll.IdeSupport.VisualStudio.Extension.GoToDefinition;
 using Reqnroll.IdeSupport.VisualStudio.Extension.GoToHooks;
 using Reqnroll.IdeSupport.VisualStudio.Extension.RenameStep;
 using Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
@@ -36,7 +35,6 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension
             serviceCollection.AddSingleton<FindStepUsagesState>();
             serviceCollection.AddSingleton<FindUnusedStepDefinitionsState>();
             serviceCollection.AddSingleton<GoToHooksState>();
-            serviceCollection.AddSingleton<GoToDefinitionState>();
             serviceCollection.AddSingleton<StepCodeLensState>();
             serviceCollection.AddSingleton<CommentToggleState>();
             serviceCollection.AddSingleton<RenameStepState>();

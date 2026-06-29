@@ -15,7 +15,6 @@ using Reqnroll.IdeSupport.VisualStudio.Extension.Classification;
 using Reqnroll.IdeSupport.VisualStudio.Extension.CommentToggle;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
-using Reqnroll.IdeSupport.VisualStudio.Extension.GoToDefinition;
 using Reqnroll.IdeSupport.VisualStudio.Extension.GoToHooks;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 using Reqnroll.IdeSupport.VisualStudio.Extension.RenameStep;
@@ -33,7 +32,6 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
     private readonly FindStepUsagesState _findStepUsagesState;
     private readonly FindUnusedStepDefinitionsState _findUnusedStepDefinitionsState;
     private readonly GoToHooksState _goToHooksState;
-    private readonly GoToDefinitionState _goToDefinitionState;
     private readonly StepCodeLensState _stepCodeLensState;
     private readonly CommentToggleState _commentToggleState;
     private readonly RenameStepState _renameStepState;
@@ -51,7 +49,6 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
         FindStepUsagesState findStepUsagesState,
         FindUnusedStepDefinitionsState findUnusedStepDefinitionsState,
         GoToHooksState goToHooksState,
-        GoToDefinitionState goToDefinitionState,
         StepCodeLensState stepCodeLensState,
         CommentToggleState commentToggleState,
         RenameStepState renameStepState)
@@ -61,7 +58,6 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
         _findStepUsagesState            = findStepUsagesState;
         _findUnusedStepDefinitionsState = findUnusedStepDefinitionsState;
         _goToHooksState                 = goToHooksState;
-        _goToDefinitionState            = goToDefinitionState;
         _stepCodeLensState              = stepCodeLensState;
         _commentToggleState             = commentToggleState;
         _renameStepState                = renameStepState;
@@ -222,12 +218,11 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
         // Start monitoring VS project events and flush the current solution state.
         if (_interceptingPipe is not null)
         {
-            // GoToHooksService, GoToDefinitionService, and FindStepUsagesService use only
+            // GoToHooksService and FindStepUsagesService use only
             // LspInterceptingPipe + TraceSource — no COM, safe here.
             _findStepUsagesState.Service            = new FindStepUsagesService(_interceptingPipe, _traceSource);
             _findUnusedStepDefinitionsState.Service = new FindUnusedStepDefinitionsService(_interceptingPipe, _traceSource);
             _goToHooksState.Service                 = new GoToHooksService(_interceptingPipe, _traceSource);
-            _goToDefinitionState.Service            = new GoToDefinitionService(_interceptingPipe, _traceSource);
             _stepCodeLensState.Service              = new StepCodeLensService(_interceptingPipe, _traceSource);
             _commentToggleState.Service             = new CommentToggleService(_interceptingPipe, _traceSource);
             _renameStepState.Service                 = new RenameStepService(_interceptingPipe, _traceSource);
@@ -298,7 +293,6 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
             _findUnusedStepDefinitionsState.Service  = null;
             _findUnusedStepDefinitionsState.Renderer = null;
             _goToHooksState.Service                  = null;
-            _goToDefinitionState.Service  = null;
             _stepCodeLensState.Service           = null;
             _stepCodeLensState.FindUsagesService  = null;
             _stepCodeLensState.FindUsagesRenderer = null;
