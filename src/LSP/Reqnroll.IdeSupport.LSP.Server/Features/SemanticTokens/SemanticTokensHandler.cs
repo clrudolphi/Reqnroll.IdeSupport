@@ -5,6 +5,9 @@ using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 
+using LspSemanticTokens = OmniSharp.Extensions.LanguageServer.Protocol.Models.SemanticTokens;
+using LspSemanticTokensFullOrDelta = OmniSharp.Extensions.LanguageServer.Protocol.Models.SemanticTokensFullOrDelta;
+
 namespace Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens;
 
 /// <summary>
@@ -13,6 +16,11 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens;
 /// </summary>
 public class SemanticTokensHandler
 {
+    // OmniSharp's DelegatingRequestHandler serialises the response with JToken.FromObject(),
+    // which throws ArgumentNullException when passed null — even though LSP allows null.
+    // Return this instead of null whenever the service has no tokens yet.
+    private static readonly LspSemanticTokens EmptyTokens = new() { Data = [] };
+
     private readonly ISemanticTokenService _semanticTokenService;
     private readonly IDocumentBufferService _documentBufferService;
     private readonly IDeveroomLogger _logger;
@@ -29,29 +37,30 @@ public class SemanticTokensHandler
 
     // ── Full ──────────────────────────────────────────────────────────────────
 
-    public async Task<global::OmniSharp.Extensions.LanguageServer.Protocol.Models.SemanticTokens?> HandleAsync(
+    public async Task<LspSemanticTokens> HandleAsync(
         SemanticTokensParams request,
         CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
-        if (!IsFeatureFile(uri)) return null;
+        if (!IsFeatureFile(uri)) return EmptyTokens;
         var version = GetCurrentVersion(uri);
 
         _logger.LogVerbose($"SemanticTokens/full requested for {uri} (version {version})");
 
         return await _semanticTokenService.GetSemanticTokensAsync(uri, version, cancellationToken)
-                                          .ConfigureAwait(false);
+                                          .ConfigureAwait(false)
+               ?? EmptyTokens;
     }
 
     // ── Delta ─────────────────────────────────────────────────────────────────
     // We don't maintain delta state; return the full token set wrapped in SemanticTokensFullOrDelta.
 
-    public async Task<global::OmniSharp.Extensions.LanguageServer.Protocol.Models.SemanticTokensFullOrDelta?> HandleAsync(
+    public async Task<LspSemanticTokensFullOrDelta> HandleAsync(
         SemanticTokensDeltaParams request,
         CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
-        if (!IsFeatureFile(uri)) return null;
+        if (!IsFeatureFile(uri)) return new LspSemanticTokensFullOrDelta(EmptyTokens);
         var version = GetCurrentVersion(uri);
 
         _logger.LogVerbose($"SemanticTokens/full/delta requested for {uri} (version {version}), returning full tokens");
@@ -59,63 +68,26 @@ public class SemanticTokensHandler
         var tokens = await _semanticTokenService.GetSemanticTokensAsync(uri, version, cancellationToken)
                                                 .ConfigureAwait(false);
 
-        return tokens is null ? null : new global::OmniSharp.Extensions.LanguageServer.Protocol.Models.SemanticTokensFullOrDelta(tokens);
+        return new LspSemanticTokensFullOrDelta(tokens ?? EmptyTokens);
     }
 
     // ── Range ─────────────────────────────────────────────────────────────────
     // Return all tokens; the client will filter by range.
 
-    public async Task<global::OmniSharp.Extensions.LanguageServer.Protocol.Models.SemanticTokens?> HandleAsync(
+    public async Task<LspSemanticTokens> HandleAsync(
         SemanticTokensRangeParams request,
         CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
-        if (!IsFeatureFile(uri)) return null;
+        if (!IsFeatureFile(uri)) return EmptyTokens;
         var version = GetCurrentVersion(uri);
 
         _logger.LogVerbose($"SemanticTokens/range requested for {uri} (version {version})");
 
         return await _semanticTokenService.GetSemanticTokensAsync(uri, version, cancellationToken)
-                                          .ConfigureAwait(false);
+                                          .ConfigureAwait(false)
+               ?? EmptyTokens;
     }
-
-    // ── SemanticTokensHandlerBase abstract members ────────────────────────────
-    // These are used by the base-class builder pattern; we bypass it by overriding
-    // Handle directly, so these overloads are never called in practice.
-
-    //protected override Task Tokenize(
-    //    SemanticTokensBuilder builder,
-    //    ITextDocumentIdentifierParams identifier,
-    //    CancellationToken cancellationToken)
-    //    => Task.CompletedTask; // not used – Handle overrides bypass the builder
-
-    //protected override Task<SemanticTokensDocument> GetSemanticTokensDocument(
-    //    ITextDocumentIdentifierParams @params,
-    //    CancellationToken cancellationToken)
-    //    => Task.FromResult(new SemanticTokensDocument(_semanticTokenService.Legend));
-
-    //// ── Registration options ──────────────────────────────────────────────────
-
-    //protected override SemanticTokensRegistrationOptions CreateRegistrationOptions(
-    //    SemanticTokensCapability capability,
-    //    ClientCapabilities clientCapabilities)
-    //{
-    //    // Return options only if dynamic registration is NOT supported;
-    //    // static path is handled via OnInitialized
-    //    if (clientCapabilities.TextDocument?.SemanticTokens.Value?.DynamicRegistration == true)
-    //        return null!;
-
-    //    return new SemanticTokensRegistrationOptions
-    //    {
-
-    //        Id = "reqnroll-semantic-tokens",
-    //        DocumentSelector = new TextDocumentSelector(
-    //            new TextDocumentFilter { Pattern = "**/*.feature" }),
-    //        Legend = _semanticTokenService.Legend,
-    //        Full = new SemanticTokensCapabilityRequestFull { Delta = false },
-    //        Range = false
-    //    };
-    //}
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 

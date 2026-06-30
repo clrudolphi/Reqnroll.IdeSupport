@@ -43,7 +43,7 @@ public sealed class StepReferencesHandler
         _logger         = logger;
     }
 
-    public Task<LocationOrLocationLinks?> HandleAsync(
+    public Task<LocationOrLocationLinks> HandleAsync(
         ReferenceParams request,
         CancellationToken cancellationToken)
     {
@@ -52,12 +52,12 @@ public sealed class StepReferencesHandler
         if (!IsCSharp(uri))
         {
             _logger.LogVerbose($"StepReferencesHandler: ignoring non-.cs URI {uri}");
-            return Task.FromResult<LocationOrLocationLinks?>(null);
+            return Task.FromResult<LocationOrLocationLinks>(new LocationOrLocationLinks());
         }
 
         var filePath = uri.GetFileSystemPath();
         if (string.IsNullOrEmpty(filePath))
-            return Task.FromResult<LocationOrLocationLinks?>(null);
+            return Task.FromResult<LocationOrLocationLinks>(new LocationOrLocationLinks());
 
         // LSP positions are 0-based; SourceLocation is 1-based.
         var line   = request.Position.Line + 1;
@@ -91,7 +91,7 @@ public sealed class StepReferencesHandler
             else
                 _logger.LogVerbose(
                     $"StepReferencesHandler: binding at {filePath}:{line} has 0 usages");
-            return Task.FromResult<LocationOrLocationLinks?>(new LocationOrLocationLinks());
+            return Task.FromResult<LocationOrLocationLinks>(new LocationOrLocationLinks());
         }
 
         _logger.LogVerbose(
@@ -105,7 +105,7 @@ public sealed class StepReferencesHandler
             }))
             .ToArray();
 
-        return Task.FromResult<LocationOrLocationLinks?>(
+        return Task.FromResult<LocationOrLocationLinks>(
             new LocationOrLocationLinks(locations));
     }
 
