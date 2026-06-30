@@ -61,7 +61,7 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
         if (!IsFeatureFile(uri))
         {
             _logger.LogVerbose($"FeatureCodeActionHandler: ignoring non-.feature URI {uri}");
-            return Task.FromResult<CommandOrCodeActionContainer?>(null);
+            return Task.FromResult<CommandOrCodeActionContainer?>(new CommandOrCodeActionContainer());
         }
 
         // Resolve the match set for the feature file's primary owner.
@@ -77,7 +77,7 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
         if (allUndefined.Count == 0)
         {
             _logger.LogVerbose($"FeatureCodeActionHandler: no undefined steps for {uri}");
-            return Task.FromResult<CommandOrCodeActionContainer?>(null);
+            return Task.FromResult<CommandOrCodeActionContainer?>(new CommandOrCodeActionContainer());
         }
 
         // Read skeleton style from project config.

@@ -105,11 +105,11 @@ public static class LanguageServerOptionsExtensions
             (request, ct) => MeasuredAsync(resolver!, LspMethodNames.TextDocumentSemanticTokensFullDelta,
                 request.TextDocument.Uri, () => resolver!.Get<SemanticTokensHandler>().HandleAsync(request, ct)));
 
-        options.OnRequest<ReferenceParams, LocationOrLocationLinks?>(
+        options.OnRequest<ReferenceParams, LocationOrLocationLinks>(
             LspMethodNames.TextDocumentReferences,
             (request, ct) => resolver!.Get<StepReferencesHandler>().HandleAsync(request, ct));
 
-        options.OnRequest<ReferenceParams, FindStepUsagesResponse?>(
+        options.OnRequest<ReferenceParams, FindStepUsagesResponse>(
             LspMethodNames.ReqnrollFindStepUsages,
             (request, ct) => resolver!.Get<FindStepUsagesHandler>().HandleAsync(request, ct));
 
@@ -121,7 +121,7 @@ public static class LanguageServerOptionsExtensions
             LspMethodNames.ReqnrollGoToHooks,
             (request, ct) => resolver!.Get<GoToHooksHandler>().HandleAsync(request, ct));
 
-        options.OnRequest<CodeLensParams, CodeLens[]?>(
+        options.OnRequest<CodeLensParams, CodeLens[]>(
             LspMethodNames.TextDocumentCodeLens,
             (request, ct) => resolver!.Get<StepCodeLensHandler>().HandleAsync(request, ct));
 
@@ -130,17 +130,28 @@ public static class LanguageServerOptionsExtensions
             (_, ct) => resolver!.Get<FindUnusedStepDefinitionsHandler>().HandleAsync(ct));
 
         // ── F16 Step Rename ────────────────────────────────────────────────────
-        options.OnRequest<PrepareRenameParams, LspRange?>(
+        // prepareRename/rename handlers return null to signal "not applicable at this position".
+        // OmniSharp's DelegatingRequestHandler serialises via JToken.FromObject() which throws
+        // ArgumentNullException on null.  Null → throw so OmniSharp sends a JSON-RPC error
+        // (clients treat an error from prepareRename/rename as "not available" and suppress the UI).
+        // renameTargets null means "no targets found" → return an empty response instead.
+        options.OnRequest<PrepareRenameParams, LspRange>(
             LspMethodNames.TextDocumentPrepareRename,
-            (request, ct) => resolver!.Get<StepRenameHandler>().HandlePrepareRenameAsync(request, ct));
+            async (request, ct) =>
+                await resolver!.Get<StepRenameHandler>().HandlePrepareRenameAsync(request, ct)
+                ?? throw new InvalidOperationException("Rename is not available at this position."));
 
-        options.OnRequest<RenameParams, WorkspaceEdit?>(
+        options.OnRequest<RenameParams, WorkspaceEdit>(
             LspMethodNames.TextDocumentRename,
-            (request, ct) => resolver!.Get<StepRenameHandler>().HandleRenameAsync(request, ct));
+            async (request, ct) =>
+                await resolver!.Get<StepRenameHandler>().HandleRenameAsync(request, ct)
+                ?? throw new InvalidOperationException("Rename failed — no applicable binding found."));
 
-        options.OnRequest<TextDocumentPositionParams, RenameTargetsResponse?>(
+        options.OnRequest<TextDocumentPositionParams, RenameTargetsResponse>(
             LspMethodNames.ReqnrollRenameTargets,
-            (request, ct) => resolver!.Get<StepRenameHandler>().HandleRenameTargetsAsync(request, ct));
+            async (request, ct) =>
+                await resolver!.Get<StepRenameHandler>().HandleRenameTargetsAsync(request, ct)
+                ?? new RenameTargetsResponse());
 
         options.OnNotification<SelectRenameTargetParams>(
             LspMethodNames.ReqnrollSelectRenameTarget,

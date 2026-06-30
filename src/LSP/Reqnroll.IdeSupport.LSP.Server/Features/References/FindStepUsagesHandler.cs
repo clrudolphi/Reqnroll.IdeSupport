@@ -61,7 +61,7 @@ public sealed class FindStepUsagesHandler
     /// Handles a <c>reqnroll/findStepUsages</c> request.
     /// Request params are identical to <c>textDocument/references</c> (<see cref="ReferenceParams"/>).
     /// </summary>
-    public Task<FindStepUsagesResponse?> HandleAsync(
+    public Task<FindStepUsagesResponse> HandleAsync(
         ReferenceParams   request,
         CancellationToken cancellationToken)
     {
@@ -70,12 +70,12 @@ public sealed class FindStepUsagesHandler
         if (!IsCSharp(uri))
         {
             _logger.LogVerbose($"FindStepUsagesHandler: ignoring non-.cs URI {uri}");
-            return Task.FromResult<FindStepUsagesResponse?>(null);
+            return Task.FromResult<FindStepUsagesResponse>(new FindStepUsagesResponse { IsBinding = false });
         }
 
         var filePath = uri.GetFileSystemPath();
         if (string.IsNullOrEmpty(filePath))
-            return Task.FromResult<FindStepUsagesResponse?>(null);
+            return Task.FromResult<FindStepUsagesResponse>(new FindStepUsagesResponse { IsBinding = false });
 
         // LSP positions are 0-based; SourceLocation is 1-based.
         var line   = request.Position.Line + 1;
@@ -102,12 +102,12 @@ public sealed class FindStepUsagesHandler
                 // Return isBinding=false rather than null: OmniSharp's OnRequest framework does not
                 // serialise null gracefully for custom response types (sends an error response instead).
                 // The VS client checks IsBinding and treats false as "not a binding".
-                return Task.FromResult<FindStepUsagesResponse?>(new FindStepUsagesResponse { IsBinding = false });
+                return Task.FromResult<FindStepUsagesResponse>(new FindStepUsagesResponse { IsBinding = false });
             }
 
             _logger.LogVerbose(
                 $"FindStepUsagesHandler: binding at {filePath}:{line} has 0 usages");
-            return Task.FromResult<FindStepUsagesResponse?>(
+            return Task.FromResult<FindStepUsagesResponse>(
                 new FindStepUsagesResponse { IsBinding = true });
         }
 
@@ -118,7 +118,7 @@ public sealed class FindStepUsagesHandler
             .Select(match => ToItem(match))
             .ToList();
 
-        return Task.FromResult<FindStepUsagesResponse?>(
+        return Task.FromResult<FindStepUsagesResponse>(
             new FindStepUsagesResponse { IsBinding = true, Locations = items });
     }
 

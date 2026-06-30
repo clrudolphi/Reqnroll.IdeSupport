@@ -89,7 +89,7 @@ public sealed class GherkinFormattingHandler
         _logger.LogInfo($"F12 textDocument/onTypeFormatting: trigger='{request.Character}' {request.TextDocument.Uri}");
 
         if (!_documentBufferService.TryGet(request.TextDocument.Uri, out var buffer) || buffer is null)
-            return Task.FromResult<TextEditContainer?>(null);
+            return Task.FromResult<TextEditContainer?>(new TextEditContainer());
 
         var text = buffer.Text;
         var lineEnding = DetectLineEnding(text);
@@ -98,7 +98,7 @@ public sealed class GherkinFormattingHandler
 
         var tableRange = GherkinDocumentFormatter.FindTableLineRange(allLines, cursorLine);
         if (tableRange is null)
-            return Task.FromResult<TextEditContainer?>(null);
+            return Task.FromResult<TextEditContainer?>(new TextEditContainer());
 
         var configuration = _configurationProvider.GetConfiguration();
         var formatSettings = GherkinFormatSettings.FromLspOptions(
@@ -111,7 +111,7 @@ public sealed class GherkinFormattingHandler
         var gherkinDocument = ParseDocument(text);
         var tableNode = GherkinDocumentFormatter.FindTableAtLine(gherkinDocument, tableRange.Value.Start);
         if (tableNode is null)
-            return Task.FromResult<TextEditContainer?>(null);
+            return Task.FromResult<TextEditContainer?>(new TextEditContainer());
 
         // Preserve the actual indentation of the table rows rather than recomputing from AST levels.
         var firstRowLine = allLines[tableRange.Value.Start];
@@ -163,7 +163,7 @@ public sealed class GherkinFormattingHandler
         if (!_documentBufferService.TryGet(uri, out var buffer) || buffer is null)
         {
             _logger.LogWarning($"Formatting requested for unknown document: {uri}");
-            return Task.FromResult<TextEditContainer?>(null);
+            return Task.FromResult<TextEditContainer?>(new TextEditContainer());
         }
 
         var text = buffer.Text;
@@ -171,7 +171,7 @@ public sealed class GherkinFormattingHandler
         var allLines = SplitLines(text);
 
         if (allLines.Length == 0)
-            return Task.FromResult<TextEditContainer?>(null);
+            return Task.FromResult<TextEditContainer?>(new TextEditContainer());
 
         var configuration = _configurationProvider.GetConfiguration();
         var formatSettings = GherkinFormatSettings.FromLspOptions(
@@ -183,7 +183,7 @@ public sealed class GherkinFormattingHandler
 
         var gherkinDocument = ParseDocument(text);
         if (gherkinDocument?.Feature == null)
-            return Task.FromResult<TextEditContainer?>(null);
+            return Task.FromResult<TextEditContainer?>(new TextEditContainer());
 
         var editStart = startLine ?? 0;
         var editEnd = endLine ?? (allLines.Length - 1);

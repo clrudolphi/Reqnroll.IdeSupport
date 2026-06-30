@@ -89,44 +89,6 @@ public class SemanticTokensHandler
                ?? EmptyTokens;
     }
 
-    // ── SemanticTokensHandlerBase abstract members ────────────────────────────
-    // These are used by the base-class builder pattern; we bypass it by overriding
-    // Handle directly, so these overloads are never called in practice.
-
-    //protected override Task Tokenize(
-    //    SemanticTokensBuilder builder,
-    //    ITextDocumentIdentifierParams identifier,
-    //    CancellationToken cancellationToken)
-    //    => Task.CompletedTask; // not used – Handle overrides bypass the builder
-
-    //protected override Task<SemanticTokensDocument> GetSemanticTokensDocument(
-    //    ITextDocumentIdentifierParams @params,
-    //    CancellationToken cancellationToken)
-    //    => Task.FromResult(new SemanticTokensDocument(_semanticTokenService.Legend));
-
-    //// ── Registration options ──────────────────────────────────────────────────
-
-    //protected override SemanticTokensRegistrationOptions CreateRegistrationOptions(
-    //    SemanticTokensCapability capability,
-    //    ClientCapabilities clientCapabilities)
-    //{
-    //    // Return options only if dynamic registration is NOT supported;
-    //    // static path is handled via OnInitialized
-    //    if (clientCapabilities.TextDocument?.SemanticTokens.Value?.DynamicRegistration == true)
-    //        return null!;
-
-    //    return new SemanticTokensRegistrationOptions
-    //    {
-
-    //        Id = "reqnroll-semantic-tokens",
-    //        DocumentSelector = new TextDocumentSelector(
-    //            new TextDocumentFilter { Pattern = "**/*.feature" }),
-    //        Legend = _semanticTokenService.Legend,
-    //        Full = new SemanticTokensCapabilityRequestFull { Delta = false },
-    //        Range = false
-    //    };
-    //}
-
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static bool IsFeatureFile(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri uri)

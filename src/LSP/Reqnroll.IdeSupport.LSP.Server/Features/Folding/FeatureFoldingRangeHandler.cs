@@ -43,7 +43,7 @@ public sealed class FeatureFoldingRangeHandler : IFoldingRangeHandler
         _logger.LogInfo($"F10 textDocument/foldingRange: {request.TextDocument.Uri}");
 
         if (!_documentBufferService.TryGet(request.TextDocument.Uri, out var buffer) || buffer?.Tags is null)
-            return Task.FromResult<Container<FoldingRange>?>(null);
+            return Task.FromResult<Container<FoldingRange>?>(new Container<FoldingRange>());
 
         var ranges = _foldingService.BuildFoldingRanges(buffer.Tags);
         if (ranges.Count == 0)

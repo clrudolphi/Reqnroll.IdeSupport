@@ -42,11 +42,11 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
         _logger.LogInfo($"F9 textDocument/documentSymbol: {request.TextDocument.Uri}");
 
         if (!_documentBufferService.TryGet(request.TextDocument.Uri, out var buffer) || buffer?.Tags is null)
-            return Task.FromResult<SymbolInformationOrDocumentSymbolContainer?>(null);
+            return Task.FromResult<SymbolInformationOrDocumentSymbolContainer?>(new SymbolInformationOrDocumentSymbolContainer());
 
         var symbols = _symbolService.BuildSymbols(buffer.Tags);
         if (symbols.Count == 0)
-            return Task.FromResult<SymbolInformationOrDocumentSymbolContainer?>(null);
+            return Task.FromResult<SymbolInformationOrDocumentSymbolContainer?>(new SymbolInformationOrDocumentSymbolContainer());
 
         var container = new SymbolInformationOrDocumentSymbolContainer(
             symbols.Select(s => SymbolInformationOrDocumentSymbol.Create(ToDocumentSymbol(s))));
