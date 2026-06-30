@@ -4,10 +4,32 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 /**
- * A VS Code LogOutputChannel that simultaneously writes to the VS Code Output
- * panel and to a timestamped log file in the Reqnroll log directory.
+ * A VS Code LogOutputChannel that simultaneously writes LSP trace messages to
+ * the VS Code Output panel and to a timestamped log file in lsp-viewer format.
  *
- * File path convention (matches the Visual Studio extension):
+ * Why LogOutputChannel (not plain OutputChannel):
+ *   vscode-languageclient v10 types traceOutputChannel as LogOutputChannel and
+ *   reads its logLevel property at construction time to set the internal trace
+ *   level.  We always return LogLevel.Trace from logLevel so the client enables
+ *   tracing and routes messages to channel.trace().
+ *
+ * Why only trace() writes to file:
+ *   vscode-languageclient routes all LSP request/response/notification entries
+ *   through channel.trace().  debug()/info()/warn()/error() carry general client
+ *   diagnostics (connection state, errors) but not the per-message trace lines.
+ *   The lsp-viewer only needs the per-message entries, so those are the only ones
+ *   tee-d to the file.
+ *
+ * File format:
+ *   Each entry is written as:
+ *     [LSP - HH:MM:SS AM] <message text>\n\n
+ *   vscode-jsonrpc formats the message text as human-readable lines, e.g.:
+ *     Sending request 'textDocument/hover - (1)'.
+ *     Params: { ... }
+ *   The [LSP - HH:MM:SS AM] prefix is the delimiter the lampepfl lsp-viewer uses
+ *   to identify and separate entries (https://lampepfl.github.io/lsp-viewer/).
+ *
+ * File path convention:
  *   Windows : %LOCALAPPDATA%\Reqnroll\reqnroll-vscode-inspector-<ts>.log
  *   macOS   : ~/Library/Logs/Reqnroll/reqnroll-vscode-inspector-<ts>.log
  *   Linux   : ~/.local/share/Reqnroll/reqnroll-vscode-inspector-<ts>.log
@@ -24,8 +46,8 @@ class TeeLogOutputChannel implements vscode.LogOutputChannel {
   }
 
   get logLevel(): vscode.LogLevel {
-    // Always report Trace so vscode-languageclient's LogOutputChannelTracer
-    // doesn't gate-keep messages before calling trace()/debug()/info() on us.
+    // Always report Trace so vscode-languageclient enables tracing and routes
+    // all LSP messages to channel.trace() rather than suppressing them.
     return vscode.LogLevel.Trace;
   }
 
@@ -35,47 +57,19 @@ class TeeLogOutputChannel implements vscode.LogOutputChannel {
 
   trace(message: string, ...args: unknown[]): void {
     this._inner.trace(message, ...args);
-    this._file('TRACE', message, args);
+    this._writeLspEntry(message);
   }
 
-  debug(message: string, ...args: unknown[]): void {
-    this._inner.debug(message, ...args);
-    this._file('DEBUG', message, args);
-  }
+  // General client diagnostics — forward to panel only, not to the trace file.
+  debug(message: string, ...args: unknown[]): void { this._inner.debug(message, ...args); }
+  info(message: string, ...args: unknown[]): void { this._inner.info(message, ...args); }
+  warn(message: string, ...args: unknown[]): void { this._inner.warn(message, ...args); }
+  error(message: string | Error, ...args: unknown[]): void { this._inner.error(message, ...args); }
 
-  info(message: string, ...args: unknown[]): void {
-    this._inner.info(message, ...args);
-    this._file('INFO', message, args);
-  }
-
-  warn(message: string, ...args: unknown[]): void {
-    this._inner.warn(message, ...args);
-    this._file('WARN', message, args);
-  }
-
-  error(message: string | Error, ...args: unknown[]): void {
-    this._inner.error(message, ...args);
-    const text = message instanceof Error ? message.message : message;
-    this._file('ERROR', text, args);
-  }
-
-  append(value: string): void {
-    this._inner.append(value);
-    this._stream?.write(value);
-  }
-
-  appendLine(value: string): void {
-    this._inner.appendLine(value);
-    this._stream?.write(value + '\n');
-  }
-
-  replace(value: string): void {
-    this._inner.replace(value);
-  }
-
-  clear(): void {
-    this._inner.clear();
-  }
+  append(value: string): void { this._inner.append(value); }
+  appendLine(value: string): void { this._inner.appendLine(value); }
+  replace(value: string): void { this._inner.replace(value); }
+  clear(): void { this._inner.clear(); }
 
   show(preserveFocus?: boolean): void;
   show(column?: vscode.ViewColumn, preserveFocus?: boolean): void;
@@ -83,9 +77,7 @@ class TeeLogOutputChannel implements vscode.LogOutputChannel {
     this._inner.show();
   }
 
-  hide(): void {
-    this._inner.hide();
-  }
+  hide(): void { this._inner.hide(); }
 
   dispose(): void {
     this._inner.dispose();
@@ -93,11 +85,16 @@ class TeeLogOutputChannel implements vscode.LogOutputChannel {
     this._stream = undefined;
   }
 
-  private _file(level: string, message: string, args: unknown[]): void {
+  private _writeLspEntry(message: string): void {
     if (!this._stream) return;
-    const ts = new Date().toISOString();
-    const extra = args.length > 0 ? ' ' + args.map((a) => JSON.stringify(a)).join(' ') : '';
-    this._stream.write(`${ts} [${level}] ${message}${extra}\n`);
+    const time = new Date().toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+    // Blank line after each entry acts as the separator the lsp-viewer expects
+    // between consecutive [LSP - ...] blocks.
+    this._stream.write(`[LSP - ${time}] ${message}\n\n`);
   }
 }
 
@@ -107,7 +104,7 @@ class TeeLogOutputChannel implements vscode.LogOutputChannel {
  *
  * When the setting is not `off`, a log file is opened in the Reqnroll log
  * directory so that every JSON-RPC message captured by vscode-languageclient
- * is persisted alongside the VS Code Output panel entry.
+ * is persisted in lsp-viewer format alongside the VS Code Output panel entry.
  */
 export function createTraceChannel(): vscode.LogOutputChannel {
   const level = vscode.workspace.getConfiguration('reqnroll').get<string>('trace.server', 'off');
