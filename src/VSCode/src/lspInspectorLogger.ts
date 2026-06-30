@@ -60,15 +60,31 @@ class TeeLogOutputChannel implements vscode.LogOutputChannel {
   }
 
   // General client diagnostics — forward to panel only, not to the trace file.
-  debug(message: string, ...args: unknown[]): void { this._inner.debug(message, ...args); }
-  info(message: string, ...args: unknown[]): void { this._inner.info(message, ...args); }
-  warn(message: string, ...args: unknown[]): void { this._inner.warn(message, ...args); }
-  error(message: string | Error, ...args: unknown[]): void { this._inner.error(message, ...args); }
+  debug(message: string, ...args: unknown[]): void {
+    this._inner.debug(message, ...args);
+  }
+  info(message: string, ...args: unknown[]): void {
+    this._inner.info(message, ...args);
+  }
+  warn(message: string, ...args: unknown[]): void {
+    this._inner.warn(message, ...args);
+  }
+  error(message: string | Error, ...args: unknown[]): void {
+    this._inner.error(message, ...args);
+  }
 
-  append(value: string): void { this._inner.append(value); }
-  appendLine(value: string): void { this._inner.appendLine(value); }
-  replace(value: string): void { this._inner.replace(value); }
-  clear(): void { this._inner.clear(); }
+  append(value: string): void {
+    this._inner.append(value);
+  }
+  appendLine(value: string): void {
+    this._inner.appendLine(value);
+  }
+  replace(value: string): void {
+    this._inner.replace(value);
+  }
+  clear(): void {
+    this._inner.clear();
+  }
 
   show(preserveFocus?: boolean): void;
   show(column?: vscode.ViewColumn, preserveFocus?: boolean): void;
@@ -76,7 +92,9 @@ class TeeLogOutputChannel implements vscode.LogOutputChannel {
     this._inner.show();
   }
 
-  hide(): void { this._inner.hide(); }
+  hide(): void {
+    this._inner.hide();
+  }
 
   dispose(): void {
     this._inner.dispose();
@@ -98,9 +116,12 @@ class TeeLogOutputChannel implements vscode.LogOutputChannel {
 }
 
 type LspMessageType =
-  | 'send-request' | 'receive-request'
-  | 'send-response' | 'receive-response'
-  | 'send-notification' | 'receive-notification';
+  | 'send-request'
+  | 'receive-request'
+  | 'send-response'
+  | 'receive-response'
+  | 'send-notification'
+  | 'receive-notification';
 
 interface LspEntry {
   isLSPMessage: true;
@@ -120,7 +141,7 @@ interface LspEntry {
 function parseLspTraceMessage(text: string): LspEntry | undefined {
   const nl = text.indexOf('\n');
   const firstLine = nl >= 0 ? text.slice(0, nl) : text;
-  const bodyStr   = nl >= 0 ? text.slice(nl + 1) : '';
+  const bodyStr = nl >= 0 ? text.slice(nl + 1) : '';
 
   type ParsedHead = { type: LspMessageType; method?: string; id?: string };
 
@@ -128,27 +149,33 @@ function parseLspTraceMessage(text: string): LspEntry | undefined {
   let m: RegExpMatchArray | null;
 
   // Order matters: "response" patterns checked before catch-all "request" patterns.
-  (m = firstLine.match(/^Sending request '(.+?) - \((.+?)\)'\./))
-    && (head = { type: 'send-request', method: m[1], id: m[2] });
+  (m = firstLine.match(/^Sending request '(.+?) - \((.+?)\)'\./)) &&
+    (head = { type: 'send-request', method: m[1], id: m[2] });
 
-  head || (m = firstLine.match(/^Received request '(.+?) - \((.+?)\)'\./))
-    && (head = { type: 'receive-request', method: m[1], id: m[2] });
+  head ||
+    ((m = firstLine.match(/^Received request '(.+?) - \((.+?)\)'\./)) &&
+      (head = { type: 'receive-request', method: m[1], id: m[2] }));
 
-  head || (m = firstLine.match(/^Sending response '(.+?) - \((.+?)\)'\./))
-    && (head = { type: 'send-response', method: m[1], id: m[2] });
+  head ||
+    ((m = firstLine.match(/^Sending response '(.+?) - \((.+?)\)'\./)) &&
+      (head = { type: 'send-response', method: m[1], id: m[2] }));
 
-  head || (m = firstLine.match(/^Received response '(.+?) - \((.+?)\)' in \d+ms\./))
-    && (head = { type: 'receive-response', method: m[1], id: m[2] });
+  head ||
+    ((m = firstLine.match(/^Received response '(.+?) - \((.+?)\)' in \d+ms\./)) &&
+      (head = { type: 'receive-response', method: m[1], id: m[2] }));
 
   // "without active response promise" variant — no method available
-  head || (m = firstLine.match(/^Received response (\S+) without active response promise\./))
-    && (head = { type: 'receive-response', id: m[1] });
+  head ||
+    ((m = firstLine.match(/^Received response (\S+) without active response promise\./)) &&
+      (head = { type: 'receive-response', id: m[1] }));
 
-  head || (m = firstLine.match(/^Sending notification '(.+?)'\./))
-    && (head = { type: 'send-notification', method: m[1] });
+  head ||
+    ((m = firstLine.match(/^Sending notification '(.+?)'\./)) &&
+      (head = { type: 'send-notification', method: m[1] }));
 
-  head || (m = firstLine.match(/^Received notification '(.+?)'\./))
-    && (head = { type: 'receive-notification', method: m[1] });
+  head ||
+    ((m = firstLine.match(/^Received notification '(.+?)'\./)) &&
+      (head = { type: 'receive-notification', method: m[1] }));
 
   if (!head) return undefined;
 
@@ -170,9 +197,14 @@ function parseLspTraceMessage(text: string): LspEntry | undefined {
     if (bm) {
       try {
         const json = JSON.parse(bm[2]);
-        if (bm[1] === 'Params')      rpcMsg['params'] = json;
-        else if (bm[1] === 'Result') { rpcMsg['result'] = json; hasResultOrError = true; }
-        else                          { rpcMsg['error']  = { data: json }; hasResultOrError = true; }
+        if (bm[1] === 'Params') rpcMsg['params'] = json;
+        else if (bm[1] === 'Result') {
+          rpcMsg['result'] = json;
+          hasResultOrError = true;
+        } else {
+          rpcMsg['error'] = { data: json };
+          hasResultOrError = true;
+        }
       } catch {
         // Malformed JSON — omit the field rather than crashing
       }
@@ -206,7 +238,7 @@ export function createTraceChannel(): vscode.LogOutputChannel {
     const logDir = resolveLogDirectory();
     fs.mkdirSync(logDir, { recursive: true });
     const n = new Date();
-    const ts = `${n.getFullYear()}${String(n.getMonth()+1).padStart(2,'0')}${String(n.getDate()).padStart(2,'0')}-${String(n.getHours()).padStart(2,'0')}${String(n.getMinutes()).padStart(2,'0')}${String(n.getSeconds()).padStart(2,'0')}`;
+    const ts = `${n.getFullYear()}${String(n.getMonth() + 1).padStart(2, '0')}${String(n.getDate()).padStart(2, '0')}-${String(n.getHours()).padStart(2, '0')}${String(n.getMinutes()).padStart(2, '0')}${String(n.getSeconds()).padStart(2, '0')}`;
     const logPath = path.join(logDir, `reqnroll-vscode-inspector-${ts}.log`);
     stream = fs.createWriteStream(logPath, { flags: 'a' });
   } catch {

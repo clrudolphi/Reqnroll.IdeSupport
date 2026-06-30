@@ -40,14 +40,11 @@ export async function doFindStepUsages(
 ): Promise<void> {
   let response: FindStepUsagesResponse | null | undefined;
   try {
-    response = await client.sendRequest<FindStepUsagesResponse | null>(
-      'reqnroll/findStepUsages',
-      {
-        textDocument: { uri: uriStr },
-        position: { line, character: char },
-        context: { includeDeclaration: false },
-      },
-    );
+    response = await client.sendRequest<FindStepUsagesResponse | null>('reqnroll/findStepUsages', {
+      textDocument: { uri: uriStr },
+      position: { line, character: char },
+      context: { includeDeclaration: false },
+    });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     void vscode.window.showErrorMessage(`Reqnroll: Find Step Usages failed — ${msg}`);
@@ -84,11 +81,7 @@ export async function doFindStepUsages(
   });
   if (!picked) return;
 
-  await navigateTo(
-    vscode.Uri.parse(picked.loc.uri),
-    picked.loc.startLine,
-    picked.loc.startChar,
-  );
+  await navigateTo(vscode.Uri.parse(picked.loc.uri), picked.loc.startLine, picked.loc.startChar);
 }
 
 export async function doFindUnusedStepDefinitions(client: LanguageClient): Promise<void> {
@@ -108,9 +101,7 @@ export async function doFindUnusedStepDefinitions(client: LanguageClient): Promi
     );
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    void vscode.window.showErrorMessage(
-      `Reqnroll: Find Unused Step Definitions failed — ${msg}`,
-    );
+    void vscode.window.showErrorMessage(`Reqnroll: Find Unused Step Definitions failed — ${msg}`);
     return;
   }
 

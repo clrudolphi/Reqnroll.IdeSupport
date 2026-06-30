@@ -69,12 +69,6 @@ function resolveServerPath(context: vscode.ExtensionContext): string {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  const notReady = (label: string) => () => {
-    void vscode.window.showInformationMessage(
-      `Reqnroll: ${label} will be available once the LSP server is ready.`,
-    );
-  };
-
   const notReadyAsync = (label: string) => async () => {
     void vscode.window.showInformationMessage(
       `Reqnroll: ${label} will be available once the LSP server is ready.`,
@@ -89,14 +83,6 @@ export function activate(context: vscode.ExtensionContext): void {
     traceChannel,
 
     vscode.commands.registerCommand('reqnroll.showOutputChannel', () => outputChannel.show()),
-
-    // Not yet implemented
-    vscode.commands.registerCommand('reqnroll.defineSteps', notReady('Define Steps')),
-    vscode.commands.registerCommand(
-      'reqnroll.goToStepDefinition',
-      notReady('Go to Step Definition'),
-    ),
-    vscode.commands.registerCommand('reqnroll.renameStep', notReady('Rename Step')),
 
     // F13 — Comment/Uncomment (Ctrl+/ for gherkin files)
     vscode.commands.registerCommand('reqnroll.toggleComment', async () => {

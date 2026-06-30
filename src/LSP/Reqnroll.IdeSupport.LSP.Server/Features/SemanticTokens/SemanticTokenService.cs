@@ -25,6 +25,13 @@ public sealed class SemanticTokenService : ISemanticTokenService
     // key: (uri, version)  value: encoded token data
     private readonly ConcurrentDictionary<(DocumentUri, int), global::OmniSharp.Extensions.LanguageServer.Protocol.Models.SemanticTokens> _cache = new();
 
+    /// <summary>
+    /// Shared empty token set — returned instead of null so that OmniSharp's
+    /// DelegatingRequestHandler never receives a null response (which throws
+    /// ArgumentNullException from JToken.FromObject(null)).
+    /// </summary>
+    private static readonly global::OmniSharp.Extensions.LanguageServer.Protocol.Models.SemanticTokens EmptyTokens = new() { Data = [] };
+
     // ── ISemanticTokenService.Legend ──────────────────────────────────────────
     /// <inheritdoc/>
     public SemanticTokensLegend Legend => ReqnrollSemanticTokens.Legend;
@@ -52,7 +59,7 @@ public sealed class SemanticTokenService : ISemanticTokenService
         if (!_documentBufferService.TryGet(uri, out var buffer) || buffer?.Tags is not { } tags || tags.Count == 0)
         {
             _logger.LogVerbose($"SemanticTokenService: no tags available for {uri} v{version}");
-            return Task.FromResult<global::OmniSharp.Extensions.LanguageServer.Protocol.Models.SemanticTokens?>(null);
+            return Task.FromResult<global::OmniSharp.Extensions.LanguageServer.Protocol.Models.SemanticTokens?>(EmptyTokens);
         }
 
         var encoded = Encode(tags);

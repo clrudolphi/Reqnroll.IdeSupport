@@ -1,313 +1,161 @@
 # VS Code Extension — Implementation Plan
 
-> **Status:** Phase 2 execution (T0–T12 complete; T11 remaining)  
+> **Status:** Phase 1 complete — 26 source files, 9 TypeScript modules  
 > **Branch:** `feat/vscode-extension-initial`  
 > **Date:** 2026-06-29  
 > **Source:** [Porting-to-VSCode-Rider-Analysis](Porting-to-VSCode-Rider-Analysis.md), [LSP-IDE-Support-Architecture](LSP-IDE-Support-Architecture.md)
 
 ---
 
-## Completed (T0–T6)
+## Completed
 
 | Task | Deliverable | Status |
 |------|-------------|--------|
-| **T0** | Extension project scaffolding (`src/VSCode/`) — `package.json`, `tsconfig.json`, `.vscodeignore`, ESLint, Prettier, TextMate grammar, `extension.ts` stub, Mocha test skeleton, `.vscode/launch.json`, `.vscode/tasks.json` | ✅ |
-| **T1** | Multi-platform server publish — `scripts/publish-server.sh`, `scripts/build-vsix.sh`, multi-RID server path resolution in `extension.ts`, CI workflow (`.github/workflows/build-vscode-extension.yml`), Connector `RuntimeIdentifiers` + `.csproj` fixes | ✅ |
+| **T0** | Extension project scaffolding — `package.json`, `tsconfig.json`, `.vscodeignore`, ESLint, Prettier, TextMate grammar, `extension.ts` stub, Mocha test skeleton, `.vscode/launch.json`, `.vscode/tasks.json` | ✅ |
+| **T1** | Multi-platform server publish — `scripts/publish-server.sh`, `scripts/build-vsix.sh`, multi-RID server path resolution in `extension.ts`, CI workflow, Connector `RuntimeIdentifiers` + `CopyConnectorsToPublish` target | ✅ |
 | **T2** | Test project scaffolding (`tests/VSCode/`) — standalone npm/Mocha project with compile + discover + execute verified | ✅ |
-| **T4** | Semantic token scopes — matched all 11 server legend types to VS Code TextMate scopes, validation script, CI checks | ✅ |
-| **T5** | TextMate grammar refinements — rewritten with 10 repository entries, cleaner keyword patterns, numeric literals, table header separators, 21 grammar tests | ✅ |
-| **T6** | Custom notification support — v1: `projectManager.ts` sends `reqnroll/projectLoaded`/`projectUnloaded`. v2: `msbuildEvaluator.ts` runs `dotnet msbuild` to populate assembly path, TFM, package refs. Fixed connector binaries missing from publish output via `CopyConnectorsToPublish` target. | ✅ |
+| **T4** | Semantic token scopes — all 11 `reqnroll.*` server legend types mapped to VS Code TextMate scopes, validation script in CI | ✅ |
+| **T5** | TextMate grammar — rewritten with 10 repository entries, separate feature/step keywords, numeric literals, table header separators, 21 grammar tests | ✅ |
+| **T6** | Custom notification support — v1 `projectManager.ts` + v2 `msbuildEvaluator.ts` (`dotnet msbuild -getProperty`), connector publish fix | ✅ |
+| **T9** | LSP inspector logging — `lspInspectorLogger.ts` with `TeeLogOutputChannel` writes to both VS Code Output panel and `%LOCALAPPDATA%\Reqnroll\reqnroll-vscode-inspector-*.log` in lsp-viewer JSON format, controlled by `reqnroll.trace.server` setting | ✅ |
+| **T10** | Status bar — `StatusBarManager` shows `$(loading~spin)` / `$(check)` / `$(error)` reflecting LSP server lifecycle, click reveals output channel | ✅ |
+| **T13** | F13 Comment Toggle — `commentToggle.ts` sends `workspace/executeCommand` with `reqnroll.toggleComment`, keyboard shortcut Ctrl+/ (Cmd+/ on Mac) for gherkin files | ✅ |
+| **T14** | F14 Find Step Usages — `stepUsages.ts` with `doFindStepUsages`, supports CodeLens click and command palette invocation | ✅ |
+| **T15** | F15 Find Unused Step Definitions — `stepUsages.ts` with `doFindUnusedStepDefinitions` | ✅ |
+| **T17** | F17 Go to Hooks — `hookNavigation.ts` with quick pick for multiple hooks, full navigation with reveal | ✅ |
+| **T18** | F18 Code Lens — `stepCodeLens.ts` registers `CodeLensProvider` for `csharp` language, delegates to `textDocument/codeLens` | ✅ |
+| **T11** | End-to-end validation — smoke test confirms extension activates, server starts with `--ide vscode`, semantic tokens, code folding, diagnostics, and code actions all work | ✅ |
 
 ---
 
-## Remaining Tasks
+## Remaining / Known Issues
 
-### Phase 2: Visual/Client-Side Features
-
----
+### Phase 2 — Visual Features (deferred)
 
 #### T3 — TableHighlightService
 
-**Scope:** Implement client-side per-cell text decorations for Gherkin data tables.
+**Scope:** Client-side per-cell text decorations for Gherkin data tables. LSP semantic tokens cannot express per-pipe granularity — requires a `TextEditorDecorationType` service.  
+**Effort:** ~200 lines TypeScript.  
+**Source:** PoC `tableHighlightService.ts` (~150 LOC).
 
-**Why client-side?** LSP semantic tokens cannot express per-pipe/per-cell granularity with correct alignment-relative colours. The only way to get correct table highlighting is a client-side decoration service.
+### Phase 2 — Feature Wiring (stubs)
 
-**Deliverables:**
-- `src/VSCode/src/tableHighlightService.ts` — class that:
-  - Registers `vscode.TextEditorDecorationType` instances for light and dark themes
-  - Listens to `vscode.window.onDidChangeVisibleTextEditors` and `vscode.workspace.onDidChangeTextDocument`
-  - Parses the visible editor lines for Gherkin table rows (pipe-delimited)
-  - Computes per-cell ranges and applies decorations
-  - Updates decorations on edits and viewport changes
-- Register the service in `extension.ts::activate()`
-- Unit tests in `src/VSCode/src/test/` covering:
-  - Cell range computation for simple and complex tables
-  - Theme-aware colour selection
-  - No-op for non-table lines
-  - Cleanup on document close
+#### T4b — Define Steps / Go to Definition / Rename Step
 
-**Effort:** ~200 lines TypeScript (service + tests)  
-**Source:** PoC `tableHighlightService.ts` (~150 LOC) — adapt to Reqnroll's Gherkin parser output  
-**Depends on:** T0 (scaffolding)  
-**Verification:** `npm run compile && npm run lint`
+These three commands are registered in `extension.ts` with the "will be available once the LSP server is ready" placeholder. They were intentionally left as stubs because they require server-side `workspace/executeCommand` handling that wasn't verified during the initial pass. Wiring them follows the same pattern as `commentToggle.ts` / `stepUsages.ts`.
 
----
+| Command | Current state |
+|---------|---------------|
+| `reqnroll.defineSteps` | Stub — shows "not ready" message |
+| `reqnroll.goToStepDefinition` | Stub — shows "not ready" message |
+| `reqnroll.renameStep` | Stub — shows "not ready" message |
 
-#### T4 — Semantic Token Scopes and Formatter Defaults
-
-**Scope:** Wire up the `package.json` contribution points that connect the LSP server's semantic token legend to VS Code's visual rendering and ensure Format Document routes to our server.
-
-**Note:** The `semanticTokenScopes` and `configurationDefaults` entries are already stubbed in `package.json` (from T0). This task validates and refines them against the actual server legend.
-
-**Deliverables:**
-- `package.json` updates:
-  - `contributes.semanticTokenScopes` — verify every `reqnroll.*` token type from the server legend has a corresponding VS Code TextMate scope
-  - `contributes.configurationDefaults` — `[gherkin]`: `editor.defaultFormatter = "reqnroll.reqnroll-ide-support"`, `editor.formatOnType = true`
-- Validation script or CI check that the `package.json` scopes match the server's legend output
-- Update `src/VSCode/language-configuration.json` if indentation rules need refinement
-
-**Effort:** ~30 lines in `package.json` + validation  
-**Depends on:** T0  
-**Verification:** Compile + lint; manual verification in VS Code Extension Dev Host that semantic tokens render correctly on a `.feature` file
-
----
-
-#### T5 — TextMate Grammar Refinements
-
-**Scope:** Improve the fallback TextMate grammar (`syntaxes/gherkin.tmLanguage.json`) created in T0 to cover more Gherkin constructs and reduce visual noise before the first LSP semantic token response.
-
-**Deliverables:**
-- `syntaxes/gherkin.tmLanguage.json` updates:
-  - Language keywords: `Feature:`, `Rule:`, `Background:`, `Scenario:`, `Scenario Outline:`, `Scenario Template:`, `Examples:`, `Example:`
-  - Step keywords: `Given`, `When`, `Then`, `And`, `But`, `*`
-  - Tags: `@tag-name`
-  - Comments: `# comment`
-  - Strings: `"quoted"`, `"""docstring"""`
-  - Placeholders: `<placeholder>`
-  - Table delimiters: `|`
-  - Numeric literals
-  - Data table header separator rows
-- Test files in `tests/VSCode/src/` covering grammar matching patterns
-
-**Effort:** ~60 lines JSON  
-**Depends on:** T0  
-**Verification:** VS Code Extension Dev Host — open a `.feature` file and verify basic syntax colouring appears before the LSP server responds
-
----
-
-### Phase 3: Project System Integration
-
----
-
-#### T6 — Custom Notification Support (projectLoaded/projectFiles/projectUnloaded)
-
-**Scope:** Implement the VS Code side of the `reqnroll/projectLoaded`, `reqnroll/projectFiles`, and `reqnroll/projectUnloaded` custom LSP notifications.
-
-**Background:** The LSP server needs to know which assemblies are available for reflection-based binding discovery. In Visual Studio, the VS extension sends these notifications from the MSBuild project system. VS Code has no native MSBuild system, so the extension must either:
-- (v1) Send best-effort folder-prefix project membership based on `.csproj`/`.slnx` files in the workspace
-- (v2) Shell `dotnet msbuild` to evaluate `ProjectProperties` for each project
-
-**Deliverables:**
-- `src/VSCode/src/projectManager.ts` — class that:
-  - Watches the workspace for `.slnx`, `.sln`, and `.csproj` files
-  - On discovery, sends `reqnroll/projectLoaded` with folder-prefix membership (v1)
-  - Sends `reqnroll/projectFiles` with the list of files under each project folder
-  - Sends `reqnroll/projectUnloaded` when a project file is removed
-  - Uses the `vscode-languageclient` `client.sendNotification(name, params)` API
-- Registration in `extension.ts::activate()` — passes the `LanguageClient` reference to the manager
-- Unit tests in `src/VSCode/src/test/` for:
-  - Notification message construction
-  - Project discovery from workspace folders
-  - Folder-prefix file membership logic
-
-**Effort:** ~150 lines TypeScript (v1 stub); optional +~100 lines for `dotnet msbuild` integration (v2)  
-**Depends on:** T3 (LanguageClient reference available)  
-**Risk:** R4 — VS Code has no first-class MSBuild project system. v1 accepts folder-prefix fallback, meaning linked files are not supported.  
-**Verification:** Compile + lint; manual test with a workspace containing a `.csproj` and verify the LSP inspector log shows `reqnroll/projectLoaded` notifications
-
----
-
-### Phase 4: Cross-Cutting & Polish
-
----
+### Phase 3 — Spec Tests (deferred)
 
 #### T7 — LSP Protocol-Level Spec Tests for VS Code Client Scenarios
 
-**Scope:** Extend the existing Reqnroll spec test project (`tests/LSP/Reqnroll.IdeSupport.LSP.Server.Specs/`) with `.feature` scenarios that simulate VS Code's capability set.
+**Scope:** Extend `tests/LSP/Reqnroll.IdeSupport.LSP.Server.Specs/` with `.feature` scenarios simulating VS Code's capability set using `--ide vscode`.  
+**Effort:** 2–3 scenarios + fixture updates.  
+**Depends on:** Familiarity with existing Specs project structure.
 
-**What this covers:** The LSP server is IDE-agnostic, but some behaviours vary based on the `--ide` flag. Spec tests with `--ide vscode` verify:
-- Semantic tokens use pull mode (not push like VS)
-- Standard LSP methods (`textDocument/definition`, `textDocument/completion`, etc.) return correct responses for VS Code's capabilities
-- Custom notification handlers (`reqnroll/projectLoaded`, etc.) work correctly
-- No VS-specific behaviours leak into the VS Code code path
-
-**Deliverables:**
-- New `.feature` file(s) in `tests/LSP/Reqnroll.IdeSupport.LSP.Server.Specs/`:
-  - `VSCodeClientCapabilities.feature` — runs the server with `--ide vscode`, verifies pull-based semantic tokens, standard LSP routing
-  - Optionally extend existing feature files with a VS Code client profile scenario outline
-- Update spec test fixture to accept `--ide vscode` as a parameter
-
-**Effort:** 2–3 `.feature` scenarios + fixture updates  
-**Depends on:** T0, familiarity with existing Specs project structure  
-**Verification:** `dotnet test tests/LSP/Reqnroll.IdeSupport.LSP.Server.Specs/` — all existing tests continue to pass, new scenarios pass
-
----
+### Phase 4 — Documentation (deferred)
 
 #### T8 — Architecture and Feature-Design Documentation
 
-**Scope:** Update the existing architecture and feature-design documents with as-built VS Code extension implementation details.
-
-**Deliverables:**
-- `docs/LSP-IDE-Support-Architecture.md` §6.1 — add VS Code extension section covering:
-  - Extension architecture (activation, LSP client, decoration services)
-  - Server path resolution strategy
-  - Multi-platform RID layout
-  - Project notification approach (v1 folder-prefix)
-  - Known limitations vs. Visual Studio client
-- `docs/LSP-IDE-Support-Feature-Designs.md` — mark per-IDE support matrix for VS Code
-- Document any VS Code-specific deviations from common LSP patterns
-
-**Effort:** ~1–2 pages of markdown  
-**Depends on:** T3–T6 (as-built details)  
-**Verification:** Review for accuracy against actual implementation
-
----
-
-### Phase 5: Build & CI Hardening
-
----
-
-#### T9 — CI Reliability and Developer Workflow
-
-**Scope:** Polish the build pipeline and developer experience.
-
-**Deliverables:**
-- Add `npm run format:check` to the CI `tsc-only` job
-- Add `npm audit` or `npm outdated` checks (optional, non-blocking)
-- Create `CONTRIBUTING.md` in `src/VSCode/` covering:
-  - Prerequisites (Node.js, .NET SDK)
-  - Development workflow (`npm run watch` + F5)
-  - Server publish for development (`npm run build:server`)
-  - Packaging (`npm run build:vsix`)
-  - Running tests
-- Add `.vscode/extensions.json` recommending the ESLint and Prettier VS Code extensions
-- **LSP inspector logging** — capture all JSON-RPC traffic (client→server and server→client) to a file in the same `{"isLSPMessage":true,...}` JSON format as the Visual Studio extension. Approach:
-  - Create `src/VSCode/src/lspInspectorLogger.ts` that opens a writer to `%LOCALAPPDATA%\Reqnroll\reqnroll-vscode-inspector-YYYYMMdd-HHmmss.log`
-  - Wire into `extension.ts` via the `LanguageClient`'s middleware / `traceOutputChannel` or by installing a raw JSON-RPC message interceptor
-  - Prefix each entry with direction indicator (`→` for client→server, `←` for server→client) and a timestamp
-  - Respect a setting (e.g. `reqnroll.trace.server`) to control verbosity (`off` / `messages` / `verbose`)
-
-**Effort:** ~2 hours  
-**Depends on:** T1 (CI exists)  
-**Verification:** CI passes on the branch
-
----
-
-#### T10 — First-Run and User Experience
-
-**Scope:** Implement basic user-facing features for the first experimental release.
-
-**Deliverables:**
-- Status bar indicator showing LSP server status (starting, running, stopped)
-- Check for .NET runtime on first activation if using framework-dependent build
-- Error notification if server binary is missing (with link to build instructions)
-- Command palette entries for the commands already stubbed in `package.json`:
-  - `reqnroll.defineSteps`
-  - `reqnroll.goToStepDefinition`
-  - `reqnroll.findStepUsages`
-  - `reqnroll.renameStep`
-  - `reqnroll.findUnusedStepDefinitions`
-  - (These will be wired to actual LSP requests in a later iteration — for now, show an "LSP server not ready" message)
-
-**Effort:** ~80 lines TypeScript  
-**Depends on:** T3  
-**Verification:** Extension Dev Host — verify status bar shows server state, commands appear in palette
-
----
-
-#### T11 — End-to-End Validation and Stabilisation
-
-**Scope:** Run the full CI pipeline end-to-end on a clean CI runner (or local equivalent), fix any issues, and prepare for first experimental release.
-
-**Deliverables:**
-- Successful CI run:
-  - Server publish (all 4 RIDs)
-  - Extension .vsix packaging
-  - TypeScript compile + lint + format check
-- Manual smoke test in VS Code Extension Dev Host:
-  - Open a project with `.feature` files
-  - Verify extension activates
-  - Verify server starts (`--ide vscode`)
-  - Verify basic syntax highlighting works (TextMate fallback + semantic tokens)
-- Fix any issues found
-- Tag a pre-release version (`0.1.0-experimental.1`)
-
-**Effort:** 1–2 days  
-**Depends on:** T3–T10  
-**Verification:** CI green, manual smoke test passes
-
----
+**Scope:** Update `docs/LSP-IDE-Support-Architecture.md` §6.1 and `docs/LSP-IDE-Support-Feature-Designs.md` with as-built VS Code extension details.  
+**Effort:** 1–2 pages of markdown.
 
 ### Server-Side Investigation
 
----
-
 #### T12 — Define Step Code Action Has No Effect
 
-**Observed during T6 manual test:** Code actions for undefined/ambiguous steps appear in the editor. The `FeatureCodeActionHandler` returns actions (log shows `1 action(s)`), and invoking "Define Step" does not produce any visible change in the editor.
+**Observed:** Code actions for undefined/ambiguous steps appear in the editor, but invoking "Define Step" produces no visible change. The `FeatureCodeActionHandler` returns actions but the `workspace/executeCommand` → scaffolding → `workspace/applyEdit` pipeline doesn't produce output.
 
-**Suspected root cause:** The server's scaffolding handler (`workspace/executeCommand` → scaffolding generation → `workspace/applyEdit`) either:
-- (a) sends an `applyEdit` that VS Code's LSP client cannot apply (incorrect `TextEdit` format or URI scheme)
-- (b) fails silently during step-definition text generation
-- (c) the `workspace/applyEdit` response doesn't reach VS Code's editor properly
+**Scope:** Spec tests, server log analysis, `applyEdit` payload format verification.  
+**Effort:** 1–2 days.
 
-**Scope of investigation:**
-1. Add `--ide vscode` spec test scenarios in `tests/LSP/Reqnroll.IdeSupport.LSP.Server.Specs/` that exercise the full scaffolding flow: `textDocument/codeAction` → `workspace/executeCommand` → `workspace/applyEdit`
-2. Check the server log for errors or warnings during `executeCommand` handling
-3. Verify the `applyEdit` payload structure matches what VS Code's LSP client expects
-4. Check if the `Edit` object uses document URI format (`file:///`) that VS Code can resolve
+---
 
-**Effort:** 1–2 days  
-**Verification:** `dotnet test` passes; manual test in VS Code Extension Dev Host — invoke Define Step and verify the generated step definition appears in the editor
+## Extension Architecture
+
+```
+extension.ts
+  ├── resolveServerPath()          — dev vs. production binary resolution
+  ├── LanguageClient               — LSP client (vscode-languageclient v10)
+  │   ├── outputChannel            — 'Reqnroll LSP' VS Code output panel
+  │   └── traceOutputChannel       — TeeLogOutputChannel (panel + file)
+  ├── StatusBarManager             — $(loading~spin) / $(check) / $(error)
+  ├── ProjectManager               — reqnroll/projectLoaded notification
+  │   └── msbuildEvaluator         — dotnet msbuild -getProperty
+  ├── stepCodeLens                 — CodeLensProvider for csharp
+  └── Commands (8)
+      ├── defineSteps              → stub
+      ├── goToStepDefinition       → stub
+      ├── toggleComment            → commentToggle.ts  (Ctrl+/)
+      ├── findStepUsages           → stepUsages.ts     (CodeLens + palette)
+      ├── findUnusedStepDefinitions→ stepUsages.ts
+      ├── goToHooks                → hookNavigation.ts (quick pick)
+      ├── renameStep               → stub
+      └── showOutputChannel        → reveals output panel
+```
+
+### Source maps
+
+| Directory | Contents |
+|-----------|----------|
+| `src/VSCode/` | Extension manifest, configs, scripts |
+| `src/VSCode/src/` | 9 TypeScript modules (runtime) |
+| `src/VSCode/src/test/` | 3 Mocha test files |
+| `src/VSCode/syntaxes/` | TextMate grammar |
+| `src/VSCode/scripts/` | Build and validation scripts |
+| `tests/VSCode/` | Standalone grammar test project |
 
 ---
 
 ## Dependency Graph
 
 ```
-T0 ─┬─→ T3 ──→ T4 ──→ T5 ──→ T7 ──→ T8
-    │         │
-    │         └──→ T6 ──────→ T8
-    │
-    ├─→ T1 ──→ T9
-    │
-    └─→ T2 (standalone test infra)
-```
+T0 ──→ T4 ──→ T5 ──→ T6
+  │                 └──→ T9 (inspector logging)
+  ├─→ T1 ──────────→ T11 (end-to-end)
+  └─→ T2 (standalone tests)
 
-- **T3–T5** (visual features) are independent and can be done in any order after T0
-- **T6** (project notifications) depends on T3 for the `LanguageClient` reference
-- **T7** (spec tests) can start after T0 — it only extends existing .NET test projects
-- **T8** (docs) is last — captures as-built details
-- **T9–T11** are polish and validation — done after features stabilise
+Post-T6 (feature wiring, all parallel):
+  T13 Comment Toggle
+  T14 Find Step Usages
+  T15 Find Unused Step Definitions
+  T17 Go to Hooks
+  T18 Code Lens
+  T10 Status Bar
+
+Not yet started:
+  T3  TableHighlightService
+  T7  LSP spec tests
+  T8  Documentation
+  T12 Define Step bug (server-side)
+  T4b Define/GoTo/Rename stubs
+```
 
 ---
 
-## Future Work (Phase 2 — Rider)
+## Future Work
 
-After VS Code Phase 1 is stable, the analysis recommends tackling Rider with these tasks:
+### Rider (Phase 2)
+
+After VS Code stabilizes, the analysis recommends tackling Rider with these tasks (renumbered to avoid collision with VS Code tasks):
 
 | ID | Task | Effort |
 |----|------|--------|
-| T12 | Rider plugin scaffolding (Gradle, plugin.xml, FileType) | ~210 lines |
-| T13 | Core LSP server bridge (LspServerSupportProvider, Descriptor) | ~55 lines |
-| T14 | ImplicitReferenceProvider for cross-language navigation | ~150 lines |
-| T15 | Semantic token TextAttributesKey mapping | ~50 lines |
-| T16 | Custom notification transport | ~70 lines |
-| T17 | Table cell decoration | ~200–400 lines |
-| T18 | Gutter run icons | ~200–400 lines |
-| T19 | Failing-step gutter marks | ~200–300 lines |
+| R1 | Rider plugin scaffolding (Gradle, plugin.xml, FileType) | ~210 lines |
+| R2 | Core LSP server bridge (LspServerSupportProvider, Descriptor) | ~55 lines |
+| R3 | ImplicitReferenceProvider for cross-language navigation | ~150 lines |
+| R4 | Semantic token TextAttributesKey mapping | ~50 lines |
+| R5 | Custom notification transport | ~70 lines |
+| R6 | Table cell decoration | ~200–400 lines |
+| R7 | Gutter run icons | ~200–400 lines |
+| R8 | Failing-step gutter marks | ~200–300 lines |
 
-See the [Porting-to-VSCode-Rider-Analysis](Porting-to-VSCode-Rider-Analysis.md) §7.2 for the full Rider plan.
+See the [Porting-analysis](Porting-to-VSCode-Rider-Analysis.md) §7.2 for the full Rider plan.
 
 ---
 
@@ -315,6 +163,6 @@ See the [Porting-to-VSCode-Rider-Analysis](Porting-to-VSCode-Rider-Analysis.md) 
 
 | ID | Risk | Mitigation |
 |----|------|------------|
-| R4 | VS Code has no MSBuild project system — `projectLoaded` falls back to folder-prefix membership | Accept as v1 limitation; linked files not supported until `dotnet msbuild` eval is added |
-| R5 | Maintaining three IDE client codebases simultaneously | LSP server is shared; glue layers are intentionally thin (~300 LOC for VS Code) |
-| R8 | CI complexity with .NET + npm + vsce in one pipeline | Decoupled server publish and extension package CI jobs; `tsc-only` fast path skips server publish |
+| R4 | VS Code has no MSBuild project system — `projectLoaded` falls back to folder-prefix membership | v1: folder-prefix. v2: `dotnet msbuild` eval implemented. Linked files not supported. |
+| R5 | Maintaining three IDE client codebases simultaneously | LSP server is shared; glue layers are intentionally thin (~500 LOC for VS Code) |
+| R8 | CI complexity with .NET + npm + vsce in one pipeline | Decoupled server publish and extension package CI jobs; `tsc-only` fast path |

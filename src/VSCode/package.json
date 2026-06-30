@@ -51,24 +51,12 @@
     ],
     "commands": [
       {
-        "command": "reqnroll.defineSteps",
-        "title": "Reqnroll: Define Steps"
-      },
-      {
-        "command": "reqnroll.goToStepDefinition",
-        "title": "Reqnroll: Go to Step Definition"
-      },
-      {
         "command": "reqnroll.toggleComment",
         "title": "Reqnroll: Toggle Comment"
       },
       {
         "command": "reqnroll.findStepUsages",
         "title": "Reqnroll: Find Step Usages"
-      },
-      {
-        "command": "reqnroll.renameStep",
-        "title": "Reqnroll: Rename Step"
       },
       {
         "command": "reqnroll.findUnusedStepDefinitions",
