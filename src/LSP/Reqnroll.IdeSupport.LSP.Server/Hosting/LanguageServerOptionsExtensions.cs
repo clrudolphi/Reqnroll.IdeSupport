@@ -130,11 +130,11 @@ public static class LanguageServerOptionsExtensions
             (_, ct) => resolver!.Get<FindUnusedStepDefinitionsHandler>().HandleAsync(ct));
 
         // ── F16 Step Rename ────────────────────────────────────────────────────
-        // prepareRename/rename handlers return null to signal "not applicable at this position".
-        // OmniSharp's DelegatingRequestHandler serialises via JToken.FromObject() which throws
-        // ArgumentNullException on null.  Null → throw so OmniSharp sends a JSON-RPC error
-        // (clients treat an error from prepareRename/rename as "not available" and suppress the UI).
-        // renameTargets null means "no targets found" → return an empty response instead.
+        // prepareRename null → throw: VS Code treats a JSON-RPC error from prepareRename as
+        // "rename not available here" and suppresses the dialog with a quiet status-bar message.
+        // rename null → empty WorkspaceEdit: VS Code treats a JSON-RPC error from rename as
+        // "Internal Error" (confusing UX); returning an empty edit is a silent no-op fallback.
+        // renameTargets null → empty response.
         options.OnRequest<PrepareRenameParams, LspRange>(
             LspMethodNames.TextDocumentPrepareRename,
             async (request, ct) =>
@@ -145,7 +145,7 @@ public static class LanguageServerOptionsExtensions
             LspMethodNames.TextDocumentRename,
             async (request, ct) =>
                 await resolver!.Get<StepRenameHandler>().HandleRenameAsync(request, ct)
-                ?? throw new InvalidOperationException("Rename failed — no applicable binding found."));
+                ?? new WorkspaceEdit());
 
         options.OnRequest<TextDocumentPositionParams, RenameTargetsResponse>(
             LspMethodNames.ReqnrollRenameTargets,

@@ -76,18 +76,18 @@ public class FeatureCodeActionHandlerTests
 
         var result = await sut.Handle(RequestAt(csUri), CancellationToken.None);
 
-        result.Should().BeNull();
+        result.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task Returns_null_when_no_undefined_steps()
+    public async Task Returns_empty_when_no_undefined_steps()
     {
         // No match set registered → all steps appear undefined but the cache returns empty
         var sut    = CreateSut();
         var result = await sut.Handle(RequestAt(FeatureUri), CancellationToken.None);
 
         // Nothing in the match service → no actions
-        result.Should().BeNull();
+        result.Should().BeEmpty();
     }
 
     // ── With undefined steps ──────────────────────────────────────────────────

@@ -138,3 +138,34 @@ Scenario: Only unused expressions are returned when a method has multiple attrib
     And the unused step definitions include expression "I press multiply"
     And the unused step definitions include expression "I press equals"
     And the unused step definitions do not include expression "I press add"
+
+# ── Deleted C# source file is removed from the registry ──────────────────────
+
+Scenario: Deleting a C# source file removes its step definitions from Find Unused results
+    Given the LSP server is started
+    When the project is announced with output assembly "Sample.dll" for "Delete.feature"
+    And the C# step definition file "StepsToDelete.cs" is opened with
+        """
+        using Reqnroll;
+        namespace Sample
+        {
+            [Binding]
+            public class StepsToDelete
+            {
+                [When("I press delete")]
+                public void WhenIPressDelete() { }
+            }
+        }
+        """
+    And the feature file "Delete.feature" is opened with
+        """
+        Feature: Delete
+        Scenario: Delete
+            When this step has no binding
+        """
+    When unused step definitions are requested
+    Then 1 unused step definition is returned
+    And the unused step definitions include expression "I press delete"
+    When the C# step definition file "StepsToDelete.cs" is deleted
+    And unused step definitions are requested
+    Then 0 unused step definitions are returned

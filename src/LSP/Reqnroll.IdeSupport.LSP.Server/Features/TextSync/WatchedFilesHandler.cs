@@ -1,4 +1,5 @@
 using MediatR;
+using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
@@ -24,25 +25,32 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 ///   <item><term>Output assembly changes (<c>bin/**/*.dll</c>)</term>
 ///     <description>Trigger binding re-discovery for the project whose output path matches.</description>
 ///   </item>
+///   <item><term>C# source file deletions (<c>*.cs</c>)</term>
+///     <description>Remove the deleted file's step definitions from the binding registry so that
+///     stale entries do not appear in Find Unused Step Definitions results.</description>
+///   </item>
 /// </list>
 /// </summary>
 public class WatchedFilesHandler : IDidChangeWatchedFilesHandler
 {
-    private readonly ILspWorkspaceScopeManager  _scopeManager;
-    private readonly IMediator                  _mediator;
-    private readonly IDeveroomLogger             _logger;
+    private readonly ILspWorkspaceScopeManager    _scopeManager;
+    private readonly IMediator                    _mediator;
+    private readonly IDeveroomLogger              _logger;
     private readonly IEditorConfigOptionsProvider _editorConfigProvider;
+    private readonly ICSharpBindingDiscoveryService _csharpDiscoveryService;
 
     public WatchedFilesHandler(
         ILspWorkspaceScopeManager scopeManager,
         IMediator mediator,
         IDeveroomLogger logger,
-        IEditorConfigOptionsProvider editorConfigProvider)
+        IEditorConfigOptionsProvider editorConfigProvider,
+        ICSharpBindingDiscoveryService csharpDiscoveryService)
     {
-        _scopeManager         = scopeManager;
-        _mediator             = mediator;
-        _logger               = logger;
-        _editorConfigProvider = editorConfigProvider;
+        _scopeManager           = scopeManager;
+        _mediator               = mediator;
+        _logger                 = logger;
+        _editorConfigProvider   = editorConfigProvider;
+        _csharpDiscoveryService = csharpDiscoveryService;
     }
 
     public DidChangeWatchedFilesRegistrationOptions GetRegistrationOptions(
@@ -99,6 +107,11 @@ public class WatchedFilesHandler : IDidChangeWatchedFilesHandler
             {
                 HandleOutputAssemblyChange(filePath, changeType);
             }
+            else if (IsCsSource(filePath) && changeType == FileChangeType.Deleted)
+            {
+                await HandleCsSourceDeletedAsync(uri, filePath, cancellationToken)
+                    .ConfigureAwait(false);
+            }
         }
 
         return MediatR.Unit.Value;
@@ -107,7 +120,7 @@ public class WatchedFilesHandler : IDidChangeWatchedFilesHandler
     // ── reqnroll.json change ──────────────────────────────────────────────────
 
     private async Task HandleConfigChangeAsync(
-        OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri uri,
+        DocumentUri uri,
         string filePath,
         FileChangeType changeType,
         CancellationToken ct)
@@ -138,7 +151,7 @@ public class WatchedFilesHandler : IDidChangeWatchedFilesHandler
     // ── .editorconfig change ──────────────────────────────────────────────────
 
     private async Task HandleEditorConfigChangeAsync(
-        OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri uri,
+        DocumentUri uri,
         string filePath,
         FileChangeType changeType,
         CancellationToken ct)
@@ -188,6 +201,17 @@ public class WatchedFilesHandler : IDidChangeWatchedFilesHandler
         TriggerBindingDiscovery(project, "output assembly change");
     }
 
+    // ── C# source deletion ────────────────────────────────────────────────────
+
+    private async Task HandleCsSourceDeletedAsync(
+        DocumentUri uri,
+        string filePath,
+        CancellationToken ct)
+    {
+        _logger.LogInfo($"C# source deleted: removing bindings for '{filePath}'");
+        await _csharpDiscoveryService.RemoveFileAsync(uri, ct).ConfigureAwait(false);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static bool IsReqnrollConfig(string filePath)
@@ -197,6 +221,9 @@ public class WatchedFilesHandler : IDidChangeWatchedFilesHandler
     private static bool IsEditorConfig(string filePath)
         => Path.GetFileName(filePath).Equals(
             ".editorconfig", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsCsSource(string filePath)
+        => filePath.EndsWith(".cs", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsOutputAssembly(string filePath)
         => filePath.IndexOf(

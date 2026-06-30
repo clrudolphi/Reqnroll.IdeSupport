@@ -1,0 +1,87 @@
+import * as path from 'path';
+import * as vscode from 'vscode';
+import { LanguageClient } from 'vscode-languageclient/node';
+
+interface GoToStepDefinitionsResponse {
+  stepDefinitions: GoToStepDefinitionLocation[];
+}
+
+interface GoToStepDefinitionLocation {
+  uri: string;
+  startLine: number;
+  startChar: number;
+  stepType: string;
+  methodName: string;
+}
+
+export async function doGoToStepDefinition(client: LanguageClient): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) return;
+
+  const pos = editor.selection.active;
+  let response: GoToStepDefinitionsResponse;
+  try {
+    response = await client.sendRequest<GoToStepDefinitionsResponse>(
+      'reqnroll/goToStepDefinitions',
+      {
+        textDocument: { uri: editor.document.uri.toString() },
+        position: { line: pos.line, character: pos.character },
+      },
+    );
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    void vscode.window.showErrorMessage(`Reqnroll: Go to Step Definition failed — ${msg}`);
+    return;
+  }
+
+  if (!response.stepDefinitions || response.stepDefinitions.length === 0) {
+    void vscode.window.showInformationMessage(
+      'Reqnroll: No step definition found at this position.',
+    );
+    return;
+  }
+
+  if (response.stepDefinitions.length === 1) {
+    await navigateToStepDefinition(response.stepDefinitions[0]);
+    return;
+  }
+
+  const items = response.stepDefinitions.map((def) => ({
+    label: `$(symbol-method) ${def.methodName}`,
+    description: `[${def.stepType}]`,
+    detail: uriToRelativePath(def.uri),
+    def,
+  }));
+
+  const picked = await vscode.window.showQuickPick(items, {
+    placeHolder: `${response.stepDefinitions.length} step definitions found — select to navigate`,
+  });
+  if (!picked) return;
+  await navigateToStepDefinition(picked.def);
+}
+
+async function navigateToStepDefinition(def: GoToStepDefinitionLocation): Promise<void> {
+  const uri = vscode.Uri.parse(def.uri);
+  const pos = new vscode.Position(def.startLine, def.startChar);
+  const doc = await vscode.workspace.openTextDocument(uri);
+  const ed = await vscode.window.showTextDocument(doc);
+  ed.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+  ed.selection = new vscode.Selection(pos, pos);
+}
+
+function uriToRelativePath(uriStr: string): string {
+  try {
+    const uri = vscode.Uri.parse(uriStr);
+    const folders = vscode.workspace.workspaceFolders;
+    if (folders) {
+      for (const folder of folders) {
+        if (uri.fsPath.startsWith(folder.uri.fsPath)) {
+          return path.relative(folder.uri.fsPath, uri.fsPath);
+        }
+      }
+    }
+    return path.basename(uri.fsPath);
+  } catch {
+    return uriStr;
+  }
+}

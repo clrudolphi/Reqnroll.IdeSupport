@@ -8,6 +8,7 @@ import { StatusBarManager } from './statusBar';
 import { doToggleComment } from './commentToggle';
 import { doFindStepUsages, doFindUnusedStepDefinitions } from './stepUsages';
 import { doGoToHooks } from './hookNavigation';
+import { doGoToStepDefinition } from './stepNavigation';
 import { registerStepCodeLens } from './stepCodeLens';
 
 let client: LanguageClient | undefined;
@@ -142,6 +143,25 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
       await doGoToHooks(client);
+    }),
+
+    // F5 — Go to Step Definition (rich picker with method name + step type)
+    vscode.commands.registerCommand('reqnroll.goToStepDefinition', async () => {
+      if (!client) {
+        notReadyAsync('Go to Step Definition')();
+        return;
+      }
+      await doGoToStepDefinition(client);
+    }),
+
+    // F6 — Define Steps (delegates to VS Code's native code-action picker)
+    vscode.commands.registerCommand('reqnroll.defineSteps', async () => {
+      await vscode.commands.executeCommand('editor.action.quickFix');
+    }),
+
+    // F16 — Rename Step (delegates to VS Code's native rename; server handles textDocument/rename)
+    vscode.commands.registerCommand('reqnroll.renameStep', async () => {
+      await vscode.commands.executeCommand('editor.action.rename');
     }),
   );
 

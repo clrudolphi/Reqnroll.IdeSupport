@@ -50,7 +50,8 @@ public class FeatureFoldingRangeHandlerTests
 
         var result = await CreateSut().Handle(RequestFor(FeatureUri), CancellationToken.None);
 
-        result.Should().BeNull();
+        result.Should().NotBeNull();
+        result.Should().BeEmpty();
     }
 
     [Fact]
@@ -60,7 +61,8 @@ public class FeatureFoldingRangeHandlerTests
 
         var result = await CreateSut().Handle(RequestFor(FeatureUri), CancellationToken.None);
 
-        result.Should().BeNull();
+        result.Should().NotBeNull();
+        result.Should().BeEmpty();
     }
 
     [Fact]

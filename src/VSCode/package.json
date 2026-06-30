@@ -69,6 +69,18 @@
       {
         "command": "reqnroll.showOutputChannel",
         "title": "Reqnroll: Show Output Channel"
+      },
+      {
+        "command": "reqnroll.goToStepDefinition",
+        "title": "Reqnroll: Go to Step Definition"
+      },
+      {
+        "command": "reqnroll.defineSteps",
+        "title": "Reqnroll: Define Steps"
+      },
+      {
+        "command": "reqnroll.renameStep",
+        "title": "Reqnroll: Rename Step"
       }
     ],
     "keybindings": [
@@ -76,6 +88,16 @@
         "key": "ctrl+/",
         "mac": "cmd+/",
         "command": "reqnroll.toggleComment",
+        "when": "editorTextFocus && editorLangId == gherkin"
+      },
+      {
+        "key": "f12",
+        "command": "reqnroll.goToStepDefinition",
+        "when": "editorTextFocus && editorLangId == gherkin"
+      },
+      {
+        "key": "f2",
+        "command": "reqnroll.renameStep",
         "when": "editorTextFocus && editorLangId == gherkin"
       }
     ],
@@ -95,6 +117,16 @@
           "command": "reqnroll.findStepUsages",
           "when": "editorLangId == csharp",
           "group": "navigation@90"
+        },
+        {
+          "command": "reqnroll.defineSteps",
+          "when": "editorLangId == gherkin",
+          "group": "1_modification@10"
+        },
+        {
+          "command": "reqnroll.renameStep",
+          "when": "editorLangId == gherkin",
+          "group": "1_modification@20"
         }
       ],
       "commandPalette": [
@@ -109,6 +141,18 @@
         {
           "command": "reqnroll.findStepUsages",
           "when": "editorLangId == csharp"
+        },
+        {
+          "command": "reqnroll.goToStepDefinition",
+          "when": "editorLangId == gherkin"
+        },
+        {
+          "command": "reqnroll.defineSteps",
+          "when": "editorLangId == gherkin"
+        },
+        {
+          "command": "reqnroll.renameStep",
+          "when": "editorLangId == gherkin"
         }
       ]
     },

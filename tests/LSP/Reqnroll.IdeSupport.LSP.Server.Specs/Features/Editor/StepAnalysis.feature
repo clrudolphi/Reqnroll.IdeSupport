@@ -143,3 +143,35 @@ Scenario: Background steps are matched using the full scenario context
         """
     Then the feature step "the calculator is initialised" is reported as bound
     Then the feature step "I press add" is reported as bound
+
+# ── Re-analysis after textDocument/didChange ──────────────────────────────────
+
+Scenario: A step that becomes undefined after editing the feature file is re-annotated
+    When the project is announced with output assembly "Sample.dll" for "Editing.feature"
+    And the C# step definition file "Steps.cs" is opened with
+        """
+        using Reqnroll;
+        namespace Sample
+        {
+            [Binding]
+            public class Steps
+            {
+                [When("I press add")]
+                public void WhenIPressAdd() { }
+            }
+        }
+        """
+    And the feature file "Editing.feature" is opened with
+        """
+        Feature: Editing
+        Scenario: S
+            When I press add
+        """
+    Then the feature step "I press add" is reported as bound
+    When the feature file "Editing.feature" is changed to
+        """
+        Feature: Editing
+        Scenario: S
+            When I press something undefined
+        """
+    Then the feature step "I press something undefined" is reported as unbound

@@ -103,6 +103,62 @@ Scenario: Rename is not available when the cursor is not on a step binding
     When prepare rename is requested at line 0 column 0 in "Steps.cs"
     Then no prepare rename range is returned
 
+# ── Rename from the .feature side ─────────────────────────────────────────────
+
+Scenario: Renaming from a .feature file updates the attribute and all feature usages
+    Given the LSP server is started
+    When the project is announced with output assembly "Sample.dll" for "FeatureRename.feature"
+    # Use "opened and saved to disk with" so FindAttributeLiteralAsync can read the file from disk.
+    And the C# step definition file "Steps.cs" is opened and saved to disk with
+        """
+        using Reqnroll;
+        namespace Sample
+        {
+            [Binding]
+            public class Steps
+            {
+                [When("I press add")]
+                public void WhenIPressAdd() { }
+            }
+        }
+        """
+    And the feature file "FeatureRename.feature" is opened with
+        """
+        Feature: FeatureRename
+        Scenario: Add
+            When I press add
+        """
+    Then the feature step "I press add" is reported as bound
+    # Line 2 (0-based) is "    When I press add" — cursor at col 9 is within the step text
+    When rename is requested at line 2 column 9 in "FeatureRename.feature" with new name "I choose add"
+    Then a workspace edit is returned
+    And the workspace edit contains a change in "Steps.cs"
+    And the workspace edit contains a change in "FeatureRename.feature"
+    And the workspace edit changes to "Steps.cs" include new text "I choose add"
+    And the workspace edit changes to "FeatureRename.feature" include new text "I choose add"
+
+# ── prepareRename for .feature: undefined step must block dialog ───────────────
+
+Scenario: Rename is not available for an undefined step in a .feature file
+    Given the LSP server is started
+    When the project is announced with output assembly "Sample.dll" for "UndefinedRename.feature"
+    And the C# step definition file "EmptySteps.cs" is opened with
+        """
+        using Reqnroll;
+        namespace Sample { [Binding] public class EmptySteps { } }
+        """
+    And the feature file "UndefinedRename.feature" is opened with
+        """
+        Feature: UndefinedRename
+        Scenario: S
+            When this step has no binding
+        """
+    Then the feature step "this step has no binding" is reported as unbound
+    # Line 2 (0-based) is "    When this step has no binding" — undefined step
+    # prepareRename must return null so VS Code suppresses the rename dialog
+    When prepare rename is requested at line 2 column 9 in "UndefinedRename.feature"
+    Then no prepare rename range is returned
+
 # ── Multi-attribute method: rename targets picker ─────────────────────────────
 
 Scenario: A method with multiple step attributes returns one rename target per attribute

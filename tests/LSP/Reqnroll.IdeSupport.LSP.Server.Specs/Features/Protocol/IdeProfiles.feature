@@ -28,3 +28,28 @@ Examples:
 	| vscode       |
 	| rider        |
 	| unknown-ide  |
+
+# ── Per-IDE static capability advertisement ────────────────────────────────────
+#
+# textDocumentSync and renameProvider are gated on the client IDE identity because:
+#   - vscode-languageclient v10 silently ignores dynamic client/registerCapability for
+#     textDocument/didChange when the static textDocumentSync is absent from the
+#     InitializeResult, so non-VS clients need the static entry.
+#   - VS already handles dynamic-only textDocumentSync registration correctly, and
+#     advertising renameProvider to VS would cause its standard rename UI to appear
+#     alongside the custom reqnroll/renameTargets dialog.
+
+Scenario: Non-VS clients receive static textDocumentSync and renameProvider capabilities
+	Given the LSP server is started for IDE "vscode"
+	Then the server statically advertises textDocumentSync with full sync and openClose
+	And the server advertises renameProvider with prepareProvider
+
+# Note: a matching "VS client does not receive textDocumentSync" scenario is intentionally omitted.
+# The in-process OmniSharp spec client merges dynamic client/registerCapability into ServerSettings,
+# making static vs. dynamic textDocumentSync indistinguishable from the client side. The VS inspector
+# logs confirm the static entry is absent in the real wire protocol. The behavioral coverage for VS
+# textDocument/didChange is provided by the Handshake + DocumentLifecycle specs.
+
+Scenario: VS client does not receive static renameProvider capability
+	Given the LSP server is started for IDE "visualstudio"
+	Then the server does not advertise renameProvider

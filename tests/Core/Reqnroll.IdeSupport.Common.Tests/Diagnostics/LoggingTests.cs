@@ -13,7 +13,7 @@ public class LoggingTests
     {
         //arrange
         var fileSystem = new MockFileSystemForTests();
-        var logger = AsynchronousFileLogger.CreateInstance(fileSystem);
+        var logger = AsynchronousFileLogger.CreateInstance(fileSystem, "test", "test");
         Warmup(logger, fileSystem);
 
         //act
@@ -46,7 +46,7 @@ public class LoggingTests
     {
         //arrange
         var fileSystem = new MockFileSystemForTests();
-        var logger = AsynchronousFileLogger.CreateInstance(fileSystem);
+        var logger = AsynchronousFileLogger.CreateInstance(fileSystem, "test", "test");
         Warmup(logger, fileSystem);
 
         //act

@@ -106,11 +106,45 @@ public sealed class ProtocolSteps
         });
     }
 
-    // ── Then: handshake ─────────────────────────────────────────────────────────
+    // ── Then: handshake / capabilities ──────────────────────────────────────────
 
     [Then("the server advertises a semantic tokens provider")]
     public void ThenTheServerAdvertisesASemanticTokensProvider()
         => GetLegend().Should().NotBeNull();
+
+    [Then("the server statically advertises textDocumentSync with full sync and openClose")]
+    public void ThenTheServerStaticallyAdvertisesTextDocumentSync()
+    {
+        var ts = _ctx.Harness.ServerInitializeResult.Capabilities.TextDocumentSync;
+        ts.Should().NotBeNull(
+            "non-VS clients need a static textDocumentSync entry to bootstrap their " +
+            "DidChangeTextDocument infrastructure; without it, dynamic registration is silently ignored");
+        ts!.HasOptions.Should().BeTrue(
+            "the static entry must be TextDocumentSyncOptions (not just a kind enum) so that " +
+            "vscode-languageclient v10 recognises it and wires up its DidChangeTextDocument feature");
+        ts.Options!.OpenClose.Should().BeTrue(
+            "OpenClose=true is set explicitly in the static response — its presence in " +
+            "ServerSettings confirms the static entry was included in the InitializeResult");
+    }
+
+    [Then("the server advertises renameProvider with prepareProvider")]
+    public void ThenTheServerAdvertisesRenameProvider()
+    {
+        var rename = _ctx.Harness.ServerInitializeResult.Capabilities.RenameProvider;
+        rename.Should().NotBeNull(
+            "non-VS clients need a static renameProvider declaration to activate F2 rename");
+        rename!.IsValue.Should().BeTrue(
+            "renameProvider should be advertised with static options, not just a boolean flag");
+        rename.Value!.PrepareProvider.Should().BeTrue(
+            "prepareProvider=true is required so VS Code sends textDocument/prepareRename before rename");
+    }
+
+    [Then("the server does not advertise renameProvider")]
+    public void ThenTheServerDoesNotAdvertiseRenameProvider()
+        => _ctx.Harness.ServerInitializeResult.Capabilities.RenameProvider
+            .Should().BeNull(
+                "VS uses a custom intercepting-pipe rename flow; advertising renameProvider " +
+                "would cause VS's standard rename UI to appear alongside the custom dialog");
 
     [Then("the semantic tokens legend includes the token types")]
     public void ThenTheLegendIncludesTokenTypes(Table table)

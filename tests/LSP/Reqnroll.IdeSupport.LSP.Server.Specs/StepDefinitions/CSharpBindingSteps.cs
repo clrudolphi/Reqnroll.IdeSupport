@@ -57,6 +57,16 @@ public sealed class CSharpBindingSteps
         _ctx.Harness.Client.ChangeCSharpDocument(uri, version, content);
     }
 
+    [When(@"the C# step definition file ""(.*)"" is deleted")]
+    public async Task WhenTheCsharpFileIsDeleted(string fileName)
+    {
+        var uri = _ctx.UriFor(fileName);
+        _ctx.Harness.Client.NotifyCsFileDeleted(uri);
+        // Allow the server to process the workspace/didChangeWatchedFiles notification and
+        // update the binding registry before the next request.
+        await Task.Delay(300).ConfigureAwait(false);
+    }
+
     // ── Then ───────────────────────────────────────────────────────────────────
 
     [Then(@"the feature step ""(.*)"" is reported as unbound")]

@@ -28,4 +28,11 @@ public interface ICSharpBindingDiscoveryService
     /// when the baseline may not have arrived yet.
     /// </summary>
     Task UpdateFromSourceForProjectAsync(LspReqnrollProject project, string filePath, string text, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Removes all bindings declared in the <c>.cs</c> file at <paramref name="uri"/> from every
+    /// owning project's binding registry.  Called when the file is deleted on disk so the registry
+    /// does not retain stale step-definition entries.
+    /// </summary>
+    Task RemoveFileAsync(DocumentUri uri, CancellationToken cancellationToken);
 }

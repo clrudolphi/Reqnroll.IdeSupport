@@ -2,7 +2,7 @@
 
 > **Status:** Phase 1 complete — 26 source files, 9 TypeScript modules  
 > **Branch:** `feat/vscode-extension-initial`  
-> **Date:** 2026-06-29  
+> **Date:** 2026-06-30  
 > **Source:** [Porting-to-VSCode-Rider-Analysis](Porting-to-VSCode-Rider-Analysis.md), [LSP-IDE-Support-Architecture](LSP-IDE-Support-Architecture.md)
 
 ---
@@ -25,6 +25,18 @@
 | **T17** | F17 Go to Hooks — `hookNavigation.ts` with quick pick for multiple hooks, full navigation with reveal | ✅ |
 | **T18** | F18 Code Lens — `stepCodeLens.ts` registers `CodeLensProvider` for `csharp` language, delegates to `textDocument/codeLens` | ✅ |
 | **T11** | End-to-end validation — smoke test confirms extension activates, server starts with `--ide vscode`, semantic tokens, code folding, diagnostics, and code actions all work | ✅ |
+| **T4b** | Define Steps / Go to Step Definition / Rename Step — `reqnroll.goToStepDefinition` sends `reqnroll/goToStepDefinitions` with rich quick-pick picker; `reqnroll.defineSteps` delegates to `editor.action.quickFix`; `reqnroll.renameStep` delegates to `editor.action.rename`; F12 and F2 keybindings added for gherkin files | ✅ |
+
+---
+
+## Server-Side Bug Fixes (found during VS Code testing)
+
+These bugs were discovered by exercising the extension and fixed on `feat/vscode-extension-initial`.
+
+| Bug | Root cause | Fix | Tests added |
+|-----|-----------|-----|-------------|
+| **F2 Rename: "Internal Error" when step has no binding** | `StepRenameHandler.HandlePrepareRenameAsync` returned a range for any step in a `.feature` file without checking if the step was actually defined in the match cache; the rename handler's `null` return was converted to `throw new InvalidOperationException` | (1) `HandlePrepareRenameAsync` now calls `FindBindingsAtFeatureStep` for `.feature` files and returns `null` (→ "Rename not available here") when no defined binding exists. (2) The `rename` null-fallback now returns an empty `WorkspaceEdit` instead of throwing, so VS Code shows nothing rather than "Internal Error". | 2 new scenarios in `RenameSteps.feature` — feature-side rename roundtrip; `prepareRename` suppressed for undefined step |
+| **F15 Find Unused: deleted `.cs` file still appears; click throws** | `workspace/didChangeWatchedFiles` with `FileChangeType.Deleted` for `.cs` files was silently ignored by `WatchedFilesHandler`. The binding registry retained the deleted file's step definitions indefinitely. | Added `ICSharpBindingDiscoveryService.RemoveFileAsync`; implemented in `CSharpBindingDiscoveryService` (passes empty text to `ReplaceBindings`, which evicts the old entries and adds zero new ones); `WatchedFilesHandler` now calls `RemoveFileAsync` on `.cs` deletion events. VS Code's LSP client already sends these events via `synchronize.fileEvents: '**/*.{feature,cs}'`. | 1 new spec scenario in `FindUnusedStepDefinitions.feature`; 2 new unit tests in `WatchedFilesHandlerTests` |
 
 ---
 
@@ -37,18 +49,6 @@
 **Scope:** Client-side per-cell text decorations for Gherkin data tables. LSP semantic tokens cannot express per-pipe granularity — requires a `TextEditorDecorationType` service.  
 **Effort:** ~200 lines TypeScript.  
 **Source:** PoC `tableHighlightService.ts` (~150 LOC).
-
-### Phase 2 — Feature Wiring (stubs)
-
-#### T4b — Define Steps / Go to Definition / Rename Step
-
-These three commands are registered in `extension.ts` with the "will be available once the LSP server is ready" placeholder. They were intentionally left as stubs because they require server-side `workspace/executeCommand` handling that wasn't verified during the initial pass. Wiring them follows the same pattern as `commentToggle.ts` / `stepUsages.ts`.
-
-| Command | Current state |
-|---------|---------------|
-| `reqnroll.defineSteps` | Stub — shows "not ready" message |
-| `reqnroll.goToStepDefinition` | Stub — shows "not ready" message |
-| `reqnroll.renameStep` | Stub — shows "not ready" message |
 
 ### Phase 3 — Spec Tests (deferred)
 
@@ -89,13 +89,13 @@ extension.ts
   │   └── msbuildEvaluator         — dotnet msbuild -getProperty
   ├── stepCodeLens                 — CodeLensProvider for csharp
   └── Commands (8)
-      ├── defineSteps              → stub
-      ├── goToStepDefinition       → stub
-      ├── toggleComment            → commentToggle.ts  (Ctrl+/)
-      ├── findStepUsages           → stepUsages.ts     (CodeLens + palette)
+      ├── defineSteps              → editor.action.quickFix  (native code action picker)
+      ├── goToStepDefinition       → stepNavigation.ts   (F12; rich quick pick)
+      ├── toggleComment            → commentToggle.ts    (Ctrl+/)
+      ├── findStepUsages           → stepUsages.ts       (CodeLens + palette)
       ├── findUnusedStepDefinitions→ stepUsages.ts
-      ├── goToHooks                → hookNavigation.ts (quick pick)
-      ├── renameStep               → stub
+      ├── goToHooks                → hookNavigation.ts   (quick pick)
+      ├── renameStep               → editor.action.rename (F2; native rename)
       └── showOutputChannel        → reveals output panel
 ```
 
@@ -133,7 +133,6 @@ Not yet started:
   T7  LSP spec tests
   T8  Documentation
   T12 Define Step bug (server-side)
-  T4b Define/GoTo/Rename stubs
 ```
 
 ---

@@ -262,6 +262,18 @@ public static class LspClientExtensions
             .Returning<GoToStepDefinitionsResponse?>(ct);
 
     /// <summary>
+    /// Sends a <c>workspace/didChangeWatchedFiles</c> notification with a single Deleted event
+    /// for the given <c>.cs</c> URI, simulating what VS Code's LSP client sends when a source
+    /// file is removed from disk.
+    /// </summary>
+    public static void NotifyCsFileDeleted(this ILanguageClient client, DocumentUri uri)
+        => client.SendNotification("workspace/didChangeWatchedFiles", new DidChangeWatchedFilesParams
+        {
+            Changes = new Container<FileEvent>(
+                new FileEvent { Uri = uri, Type = FileChangeType.Deleted })
+        });
+
+    /// <summary>
     /// Sends a <c>reqnroll/findUnusedStepDefinitions</c> request (F15 — Find Unused).
     /// Returns binding expressions with zero matching feature steps across the workspace.
     /// </summary>

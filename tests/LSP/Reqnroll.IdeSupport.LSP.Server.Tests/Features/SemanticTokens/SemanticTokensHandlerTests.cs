@@ -32,7 +32,7 @@ public class SemanticTokensHandlerTests
     // ── Full ──────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task Handle_Full_returns_null_for_non_feature_file()
+    public async Task Handle_Full_returns_empty_for_non_feature_file()
     {
         var sut = CreateSut();
         var request = new SemanticTokensParams
@@ -40,7 +40,7 @@ public class SemanticTokensHandlerTests
             TextDocument = new TextDocumentIdentifier { Uri = NonFeatureUri }
         };
         var result = await sut.HandleAsync(request, CancellationToken.None);
-        result.Should().BeNull();
+        result.Data.Should().BeEmpty();
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public class SemanticTokensHandlerTests
     }
 
     [Fact]
-    public async Task Handle_Full_returns_null_when_service_returns_null()
+    public async Task Handle_Full_returns_empty_when_service_returns_null()
     {
         SetupBufferVersion(FeatureUri, 1);
         _tokenService.GetSemanticTokensAsync(FeatureUri, 1, Arg.Any<CancellationToken>())
@@ -73,13 +73,13 @@ public class SemanticTokensHandlerTests
             TextDocument = new TextDocumentIdentifier { Uri = FeatureUri }
         };
         var result = await sut.HandleAsync(request, CancellationToken.None);
-        result.Should().BeNull();
+        result.Data.Should().BeEmpty();
     }
 
     // ── Range ─────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task Handle_Range_returns_null_for_non_feature_file()
+    public async Task Handle_Range_returns_empty_for_non_feature_file()
     {
         var sut = CreateSut();
         var request = new SemanticTokensRangeParams
@@ -88,7 +88,7 @@ public class SemanticTokensHandlerTests
             Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(0, 0, 1, 0)
         };
         var result = await sut.HandleAsync(request, CancellationToken.None);
-        result.Should().BeNull();
+        result.Data.Should().BeEmpty();
     }
 
     [Fact]
@@ -112,7 +112,7 @@ public class SemanticTokensHandlerTests
     // ── Delta ─────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task Handle_Delta_returns_null_for_non_feature_file()
+    public async Task Handle_Delta_returns_empty_for_non_feature_file()
     {
         var sut = CreateSut();
         var request = new SemanticTokensDeltaParams
@@ -121,7 +121,7 @@ public class SemanticTokensHandlerTests
             PreviousResultId = "prev"
         };
         var result = await sut.HandleAsync(request, CancellationToken.None);
-        result.Should().BeNull();
+        result!.Full!.Data.Should().BeEmpty();
     }
 
     [Fact]

@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Server;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Diagnostics;
@@ -132,6 +133,38 @@ public class Program
                 Full = true,
                 Range = false
             };
+
+            // vscode-languageclient v10 (used by VS Code and Rider) does not wire its
+            // DidChangeTextDocumentFeature when textDocumentSync is absent from the static
+            // capabilities — dynamic client/registerCapability for textDocument/didChange is
+            // silently ignored and the client never sends content-change notifications.
+            // VS's LSP client handles dynamic-only registration correctly, so this static
+            // entry is only needed for non-VS clients.
+            // Fine-grained selector filtering (*.feature + *.cs) still comes from OmniSharp's
+            // dynamic registration once the feature infrastructure is activated.
+            if (!string.Equals(clientIde, "visualstudio", StringComparison.OrdinalIgnoreCase))
+            {
+                response.Capabilities.TextDocumentSync = new TextDocumentSyncOptions
+                {
+                    Change = TextDocumentSyncKind.Full,
+                    OpenClose = true
+                };
+            }
+
+            // textDocument/prepareRename and textDocument/rename are registered via OnRequest
+            // (manual routing) and therefore do NOT automatically populate server capabilities.
+            // Without renameProvider, vscode-languageclient never sets editorHasRenameProvider,
+            // F2 is inert, and no rename request reaches the server.
+            // VS does not need this: it invokes rename via the custom intercepting-pipe flow
+            // (reqnroll/renameTargets → reqnroll/selectRenameTarget) and advertising renameProvider
+            // to VS would cause its standard rename UI to appear alongside the custom dialog.
+            if (!string.Equals(clientIde, "visualstudio", StringComparison.OrdinalIgnoreCase))
+            {
+                response.Capabilities.RenameProvider = new RenameRegistrationOptions.StaticOptions
+                {
+                    PrepareProvider = true
+                };
+            }
 
             return Task.CompletedTask;
         });

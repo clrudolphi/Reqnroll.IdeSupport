@@ -71,7 +71,8 @@ public class FindStepUsagesHandlerTests
         var result = await CreateSut().HandleAsync(
             RequestAt(FeatureUri, 2, 0), CancellationToken.None);
 
-        result.Should().BeNull();
+        result.Should().NotBeNull();
+        result.Locations.Should().BeEmpty();
         _matchService.DidNotReceive()
                      .FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>());
     }

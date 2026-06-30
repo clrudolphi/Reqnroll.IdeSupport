@@ -2,6 +2,7 @@ using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
@@ -10,10 +11,11 @@ namespace Reqnroll.IdeSupport.LSP.Server.Tests.Features.TextSync;
 
 public class WatchedFilesHandlerTests : IDisposable
 {
-    private readonly ILspWorkspaceScopeManager    _scopeManager         = Substitute.For<ILspWorkspaceScopeManager>();
-    private readonly IMediator                    _mediator             = Substitute.For<IMediator>();
-    private readonly IDeveroomLogger               _logger               = Substitute.For<IDeveroomLogger>();
-    private readonly IEditorConfigOptionsProvider  _editorConfigProvider = Substitute.For<IEditorConfigOptionsProvider>();
+    private readonly ILspWorkspaceScopeManager      _scopeManager           = Substitute.For<ILspWorkspaceScopeManager>();
+    private readonly IMediator                      _mediator               = Substitute.For<IMediator>();
+    private readonly IDeveroomLogger                _logger                 = Substitute.For<IDeveroomLogger>();
+    private readonly IEditorConfigOptionsProvider   _editorConfigProvider   = Substitute.For<IEditorConfigOptionsProvider>();
+    private readonly ICSharpBindingDiscoveryService _csharpDiscoveryService = Substitute.For<ICSharpBindingDiscoveryService>();
     private readonly LspIdeScope _ideScope;
     private readonly string _projectFolder;
 
@@ -31,7 +33,7 @@ public class WatchedFilesHandlerTests : IDisposable
     }
 
     private WatchedFilesHandler CreateSut()
-        => new(_scopeManager, _mediator, _logger, _editorConfigProvider);
+        => new(_scopeManager, _mediator, _logger, _editorConfigProvider, _csharpDiscoveryService);
 
     private LspReqnrollProject MakeProject()
     {
@@ -200,5 +202,33 @@ public class WatchedFilesHandlerTests : IDisposable
         options.Watchers.Should().Contain(w =>
             w.GlobPattern.ToString()!.Contains("bin") &&
             w.GlobPattern.ToString()!.Contains(".dll"));
+    }
+
+    // ── C# source deletion ────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Handle_calls_RemoveFileAsync_when_cs_source_is_deleted()
+    {
+        var csPath = Path.Combine(_projectFolder, "Steps.cs");
+        var sut = CreateSut();
+        await sut.Handle(MakeParams(csPath, FileChangeType.Deleted), CancellationToken.None);
+
+        await _csharpDiscoveryService.Received(1)
+            .RemoveFileAsync(
+                Arg.Is<DocumentUri>(u => u.GetFileSystemPath()!.EndsWith("Steps.cs")),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_ignores_cs_source_create_and_change_events()
+    {
+        var csPath = Path.Combine(_projectFolder, "Steps.cs");
+        var sut = CreateSut();
+
+        await sut.Handle(MakeParams(csPath, FileChangeType.Created), CancellationToken.None);
+        await sut.Handle(MakeParams(csPath, FileChangeType.Changed), CancellationToken.None);
+
+        await _csharpDiscoveryService.DidNotReceiveWithAnyArgs()
+            .RemoveFileAsync(Arg.Any<DocumentUri>(), Arg.Any<CancellationToken>());
     }
 }

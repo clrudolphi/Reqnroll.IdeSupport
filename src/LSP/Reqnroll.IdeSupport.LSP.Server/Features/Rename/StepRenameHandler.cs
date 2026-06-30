@@ -138,9 +138,21 @@ public sealed class StepRenameHandler
             return Task.FromResult<LspRange?>(methodRange);
         }
 
-        // For .feature files: return the step text range (placeholder)
+        // For .feature files: only offer rename when the cursor is on a step that is
+        // actually defined in the match cache.  Returning null here tells VS Code
+        // "rename not available at this position" — same as prepareRename for a C# cursor
+        // not on a binding attribute — which suppresses the rename dialog cleanly.
+        // Without this check, prepareRename would succeed for undefined steps, and the
+        // subsequent textDocument/rename would fail with "Internal Error".
         if (path.EndsWith(".feature", StringComparison.OrdinalIgnoreCase))
         {
+            var featureBindings = FindBindingsAtFeatureStep(uri, path, request.Position);
+            if (featureBindings.Count == 0)
+            {
+                _logger.LogVerbose("StepRenameHandler: prepareRename — no defined binding at feature step position");
+                return Task.FromResult<LspRange?>(null);
+            }
+
             var line = request.Position.Line;
             return Task.FromResult<LspRange?>(new LspRange
             {

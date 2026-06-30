@@ -58,17 +58,18 @@ public class FeatureDocumentSymbolHandlerTests
 
         var result = await CreateSut().Handle(RequestFor(FeatureUri), CancellationToken.None);
 
-        result.Should().BeNull();
+        result.Should().NotBeNull();
+        result.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task Returns_null_when_tags_not_yet_computed_Async()
+    public async Task Returns_empty_when_tags_not_yet_computed_Async()
     {
         SetupBuffer(FeatureUri, "Feature: X\n", tags: null);
 
         var result = await CreateSut().Handle(RequestFor(FeatureUri), CancellationToken.None);
 
-        result.Should().BeNull();
+        result.Should().BeEmpty();
     }
 
     [Fact]
@@ -80,7 +81,7 @@ public class FeatureDocumentSymbolHandlerTests
 
         var result = await CreateSut().Handle(RequestFor(FeatureUri), CancellationToken.None);
 
-        result.Should().BeNull();
+        result.Should().BeEmpty();
     }
 
     // ── Happy path ────────────────────────────────────────────────────────────

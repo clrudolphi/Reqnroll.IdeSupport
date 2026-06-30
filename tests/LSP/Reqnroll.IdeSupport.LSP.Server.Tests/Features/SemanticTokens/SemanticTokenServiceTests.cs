@@ -63,7 +63,8 @@ public class SemanticTokenServiceTests
         SetupBuffer(null);
         var sut = CreateSut();
         var result = await sut.GetSemanticTokensAsync(FeatureUri, 1);
-        result.Should().BeNull();
+        result.Should().NotBeNull();
+        result!.Data.Should().BeEmpty();
     }
 
     [Fact]
@@ -73,7 +74,8 @@ public class SemanticTokenServiceTests
         SetupBuffer(buf);
         var sut = CreateSut();
         var result = await sut.GetSemanticTokensAsync(FeatureUri, 1);
-        result.Should().BeNull();
+        result.Should().NotBeNull();
+        result!.Data.Should().BeEmpty();
     }
 
     // ── With tags ─────────────────────────────────────────────────────────────

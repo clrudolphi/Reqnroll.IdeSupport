@@ -89,6 +89,28 @@ public sealed class CSharpBindingDiscoveryService : ICSharpBindingDiscoveryServi
         await ApplyToProjectAsync(project, filePath, text).ConfigureAwait(false);
     }
 
+    public async Task RemoveFileAsync(DocumentUri uri, CancellationToken cancellationToken)
+    {
+        var owners = _scopeManager.ResolveOwners(uri);
+        if (owners.Count == 0)
+        {
+            _logger.LogVerbose($"[Roslyn] No project owns '{uri}' for deletion; no binding removal needed.");
+            return;
+        }
+
+        var filePath = uri.GetFileSystemPath();
+        if (string.IsNullOrEmpty(filePath))
+            return;
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        foreach (var project in owners)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await ApplyToProjectAsync(project, filePath, string.Empty).ConfigureAwait(false);
+        }
+    }
+
     /// <summary>
     /// Parses <paramref name="text"/> and replaces <paramref name="filePath"/>'s entries in
     /// <paramref name="project"/>'s binding registry. Shared by the index-driven

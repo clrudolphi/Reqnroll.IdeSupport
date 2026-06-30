@@ -60,7 +60,7 @@ public class StepReferencesHandlerTests
         var result = await CreateSut().HandleAsync(
             RequestAt(FeatureUri, 2, 0), CancellationToken.None);
 
-        result.Should().BeNull();
+        result.Should().BeEmpty();
         _matchService.DidNotReceive().FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>());
     }
 
