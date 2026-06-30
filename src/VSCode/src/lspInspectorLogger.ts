@@ -21,13 +21,12 @@ import * as vscode from 'vscode';
  *   tee-d to the file.
  *
  * File format:
- *   Each entry is written as:
- *     [LSP - HH:MM:SS AM] <message text>\n\n
- *   vscode-jsonrpc formats the message text as human-readable lines, e.g.:
- *     Sending request 'textDocument/hover - (1)'.
- *     Params: { ... }
- *   The [LSP - HH:MM:SS AM] prefix is the delimiter the lampepfl lsp-viewer uses
- *   to identify and separate entries (https://lampepfl.github.io/lsp-viewer/).
+ *   Each entry is written as a single line:
+ *     [LSP   - HH:mm:ss] {"isLSPMessage":true,"type":"...","message":{...},"timestamp":ms}
+ *   This matches the format produced by the VS extension's LspInspectorLogger and
+ *   is the format expected by https://lampepfl.github.io/lsp-viewer/.
+ *   The message arriving at trace() is human-readable text (TraceFormat.Text),
+ *   so we parse it and reconstruct the JSON-RPC envelope ourselves.
  *
  * File path convention:
  *   Windows : %LOCALAPPDATA%\Reqnroll\reqnroll-vscode-inspector-<ts>.log
@@ -87,15 +86,95 @@ class TeeLogOutputChannel implements vscode.LogOutputChannel {
 
   private _writeLspEntry(message: string): void {
     if (!this._stream) return;
-    const time = new Date().toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-    // Blank line after each entry acts as the separator the lsp-viewer expects
-    // between consecutive [LSP - ...] blocks.
-    this._stream.write(`[LSP - ${time}] ${message}\n\n`);
+    const entry = parseLspTraceMessage(message);
+    if (!entry) return;
+    // 3 spaces between LSP and - matches VS extension LspInspectorLogger format
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const ss = String(now.getSeconds()).padStart(2, '0');
+    this._stream.write(`[LSP   - ${hh}:${mm}:${ss}] ${JSON.stringify(entry)}\n`);
   }
+}
+
+type LspMessageType =
+  | 'send-request' | 'receive-request'
+  | 'send-response' | 'receive-response'
+  | 'send-notification' | 'receive-notification';
+
+interface LspEntry {
+  isLSPMessage: true;
+  type: LspMessageType;
+  message: Record<string, unknown>;
+  timestamp: number;
+}
+
+/**
+ * Parses the human-readable text that vscode-jsonrpc produces under TraceFormat.Text
+ * and rebuilds the {"isLSPMessage":true,...} JSON object the lsp-viewer expects.
+ *
+ * vscode-jsonrpc passes two strings to the tracer: a summary line ("Sending request
+ * 'method - (id)'.") and optionally a body ("Params: {...}").  vscode-languageclient
+ * joins them with \n before calling channel.trace(), so we receive the combined text.
+ */
+function parseLspTraceMessage(text: string): LspEntry | undefined {
+  const nl = text.indexOf('\n');
+  const firstLine = nl >= 0 ? text.slice(0, nl) : text;
+  const bodyStr   = nl >= 0 ? text.slice(nl + 1) : '';
+
+  type ParsedHead = { type: LspMessageType; method?: string; id?: string };
+
+  let head: ParsedHead | undefined;
+  let m: RegExpMatchArray | null;
+
+  // Order matters: "response" patterns checked before catch-all "request" patterns.
+  (m = firstLine.match(/^Sending request '(.+?) - \((.+?)\)'\./))
+    && (head = { type: 'send-request', method: m[1], id: m[2] });
+
+  head || (m = firstLine.match(/^Received request '(.+?) - \((.+?)\)'\./))
+    && (head = { type: 'receive-request', method: m[1], id: m[2] });
+
+  head || (m = firstLine.match(/^Sending response '(.+?) - \((.+?)\)'\./))
+    && (head = { type: 'send-response', method: m[1], id: m[2] });
+
+  head || (m = firstLine.match(/^Received response '(.+?) - \((.+?)\)' in \d+ms\./))
+    && (head = { type: 'receive-response', method: m[1], id: m[2] });
+
+  // "without active response promise" variant — no method available
+  head || (m = firstLine.match(/^Received response (\S+) without active response promise\./))
+    && (head = { type: 'receive-response', id: m[1] });
+
+  head || (m = firstLine.match(/^Sending notification '(.+?)'\./))
+    && (head = { type: 'send-notification', method: m[1] });
+
+  head || (m = firstLine.match(/^Received notification '(.+?)'\./))
+    && (head = { type: 'receive-notification', method: m[1] });
+
+  if (!head) return undefined;
+
+  const rpcMsg: Record<string, unknown> = { jsonrpc: '2.0' };
+  if (head.method !== undefined) rpcMsg['method'] = head.method;
+  if (head.id !== undefined) {
+    const n = Number(head.id);
+    rpcMsg['id'] = isNaN(n) ? head.id : n;
+  }
+
+  if (bodyStr) {
+    // Body is "Params: <json>", "Result: <json>", or "Error data: <json>"
+    const bm = bodyStr.match(/^(Params|Result|Error data): ([\s\S]+)$/);
+    if (bm) {
+      try {
+        const json = JSON.parse(bm[2]);
+        if (bm[1] === 'Params')      rpcMsg['params'] = json;
+        else if (bm[1] === 'Result') rpcMsg['result'] = json;
+        else                          rpcMsg['error']  = { data: json };
+      } catch {
+        // Malformed JSON — omit the field rather than crashing
+      }
+    }
+  }
+
+  return { isLSPMessage: true, type: head.type, message: rpcMsg, timestamp: Date.now() };
 }
 
 /**
