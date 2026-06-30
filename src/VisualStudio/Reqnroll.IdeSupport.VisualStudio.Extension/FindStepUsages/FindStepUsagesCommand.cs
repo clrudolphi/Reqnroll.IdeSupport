@@ -22,7 +22,7 @@ internal sealed class FindStepUsagesCommand : Command
 {
     private readonly FindStepUsagesState _state;
     private readonly TraceSource _traceSource;
-    // VisualStudio.Extensibility's TraceSource is NOT routed to the shared reqnroll-vs-debug-*.log
+    // VisualStudio.Extensibility's TraceSource is NOT routed to the shared reqnroll-vs-ext-*.log
     // file, so command diagnostics would be invisible there.  Log through the same SynchronousFileLogger
     // the language client and LSP server use so a single run produces a complete diagnostic trail.
     private readonly IDeveroomLogger _fileLogger = new SynchronousFileLogger();

@@ -61,8 +61,14 @@ public class Program
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                     "Reqnroll");
                 Directory.CreateDirectory(logDir);
+                var idePrefix = ideId switch
+                {
+                    "visualstudio" => "vs",
+                    "vscode"       => "vscode",
+                    _              => "lsp",
+                };
                 var logPath = Path.Combine(logDir,
-                    $"lsp-server-crash-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
+                    $"reqnroll-{idePrefix}-crash-{DateTime.Now:yyyyMMdd-HHmmss}.log");
                 File.WriteAllText(logPath, ex.ToString());
             }
             catch { /* best-effort; never mask the original exception */ }

@@ -14,14 +14,14 @@ public class AsynchronousFileLogger : IDeveroomLogger, IDisposable
     private readonly IFileSystemForIDE _fileSystem;
     private readonly CancellationTokenSource _stopTokenSource;
 
-    protected AsynchronousFileLogger(IFileSystemForIDE fileSystem, TraceLevel level, string idePrefix = "vs")
+    protected AsynchronousFileLogger(IFileSystemForIDE fileSystem, TraceLevel level, string ide, string role)
     {
         _fileSystem = fileSystem;
         Level = level;
         // Unbounded so that bursts (e.g. 30+ concurrent spec scenarios) never silently drop messages.
         _channel = Channel.CreateUnbounded<LogMessage>();
         _stopTokenSource = new CancellationTokenSource();
-        LogFilePath = GetLogFile(idePrefix);
+        LogFilePath = GetLogFile(ide, role);
     }
 
     public string LogFilePath { get; private set; }
@@ -39,20 +39,20 @@ public class AsynchronousFileLogger : IDeveroomLogger, IDisposable
         GC.SuppressFinalize(this);
     }
 
-    internal static string GetLogFile(string idePrefix = "vs")
+    internal static string GetLogFile(string ide, string role)
     {
         return Path.Combine(Environment.GetFolderPath(
                 Environment.SpecialFolder.LocalApplicationData), "Reqnroll",
 #if DEBUG
-            $"reqnroll-{idePrefix}-debug-{DateTime.UtcNow:yyyyMMdd}.log");
+            $"reqnroll-{ide}-{role}-debug-{DateTime.UtcNow:yyyyMMdd}.log");
 #else
-            $"reqnroll-{idePrefix}-{DateTime.Now:yyyyMMdd}.log");
+            $"reqnroll-{ide}-{role}-{DateTime.Now:yyyyMMdd}.log");
 #endif
     }
 
-    public static AsynchronousFileLogger CreateInstance(IFileSystemForIDE fileSystem, string idePrefix = "vs")
+    public static AsynchronousFileLogger CreateInstance(IFileSystemForIDE fileSystem, string ide, string role)
     {
-        var fileLogger = new AsynchronousFileLogger(fileSystem, TraceLevel.Verbose, idePrefix);
+        var fileLogger = new AsynchronousFileLogger(fileSystem, TraceLevel.Verbose, ide, role);
         Task.Factory.StartNew(
             fileLogger.Start,
             fileLogger._stopTokenSource.Token,

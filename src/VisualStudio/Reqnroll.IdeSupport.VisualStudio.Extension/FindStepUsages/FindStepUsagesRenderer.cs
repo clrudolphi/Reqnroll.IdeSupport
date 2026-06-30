@@ -21,7 +21,7 @@ internal sealed class FindStepUsagesRenderer
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly TraceSource      _traceSource;
-    // TraceSource is not routed to the shared reqnroll-vs-debug-*.log; mirror the key
+    // TraceSource is not routed to the shared reqnroll-vs-ext-*.log; mirror the key
     // diagnostics there so a failure to open the window is visible in a single run.
     private readonly IDeveroomLogger  _fileLogger = new SynchronousFileLogger();
 

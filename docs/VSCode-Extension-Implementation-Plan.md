@@ -191,8 +191,8 @@
   - Packaging (`npm run build:vsix`)
   - Running tests
 - Add `.vscode/extensions.json` recommending the ESLint and Prettier VS Code extensions
-- **LSP inspector logging** — capture all JSON-RPC traffic (client→server and server→client) to a file, equivalent to the Visual Studio extension's `reqnroll-vs-inspector-*.log`. Approach:
-  - Create `src/VSCode/src/lspInspectorLogger.ts` that opens a `SynchronousFileLogger`-style writer to `%LOCALAPPDATA%\Reqnroll\reqnroll-vscode-inspector-*.log`
+- **LSP inspector logging** — capture all JSON-RPC traffic (client→server and server→client) to a file in the same `{"isLSPMessage":true,...}` JSON format as the Visual Studio extension. Approach:
+  - Create `src/VSCode/src/lspInspectorLogger.ts` that opens a writer to `%LOCALAPPDATA%\Reqnroll\reqnroll-vscode-inspector-YYYYMMdd-HHmmss.log`
   - Wire into `extension.ts` via the `LanguageClient`'s middleware / `traceOutputChannel` or by installing a raw JSON-RPC message interceptor
   - Prefix each entry with direction indicator (`→` for client→server, `←` for server→client) and a timestamp
   - Respect a setting (e.g. `reqnroll.trace.server`) to control verbosity (`off` / `messages` / `verbose`)

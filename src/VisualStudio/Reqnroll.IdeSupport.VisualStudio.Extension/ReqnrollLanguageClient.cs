@@ -141,7 +141,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
 
             // Build the LSP Inspector log file path, unique per session.
             var logDir     = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Reqnroll");
-            var logFile    = Path.Combine(logDir, $"lsp-inspector-{DateTime.Now:yyyyMMdd-HHmmss}.log");
+            var logFile    = Path.Combine(logDir, $"reqnroll-vs-inspector-{DateTime.Now:yyyyMMdd-HHmmss}.log");
             _fileLogger.LogInfo($"ReqnrollLanguageClient: Server process started (PID {_serverProcess.Id}). Inspector log: {logFile}");
             _inspectorLogger = new LspInspectorLogger(logFile, _traceSource);
 

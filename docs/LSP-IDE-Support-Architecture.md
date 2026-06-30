@@ -441,7 +441,7 @@ A TypeScript extension under `src/VSCode/` using `vscode-languageclient` v10. Ne
 | `src/projectManager.ts` | Watches `.csproj`/`.sln`/`.slnx` files; sends `reqnroll/projectLoaded` and `reqnroll/projectUnloaded` custom notifications; uses `msbuildEvaluator.ts` for MSBuild property evaluation (v2) |
 | `src/msbuildEvaluator.ts` | Shells `dotnet msbuild -getProperty` to populate `OutputAssemblyPath`, `TargetFrameworkMoniker`, `RootNamespace`, and package references from `project.assets.json` |
 | `src/statusBar.ts` | Status bar item (right-aligned) that reflects LSP server lifecycle state (`Starting` / `Running` / `Stopped`) via `client.onDidChangeState` |
-| `src/lspInspectorLogger.ts` | Creates a `LogOutputChannel` that also tees to a timestamped file when tracing is enabled (matches VS extension `reqnroll-vs-inspector-*.log` convention) |
+| `src/lspInspectorLogger.ts` | Creates a `LogOutputChannel` that tees to a timestamped `reqnroll-vscode-inspector-YYYYMMdd-HHmmss.log` file when tracing is enabled; produces the same `{"isLSPMessage":true,...}` JSON format as the VS extension inspector |
 | `syntaxes/gherkin.tmLanguage.json` | TextMate grammar — provides keyword/tag/comment colouring before LSP semantic tokens arrive |
 | `language-configuration.json` | Comment configuration, bracket pairs, and indentation rules for the `gherkin` language |
 
@@ -480,9 +480,9 @@ VS Code has no native MSBuild project system. The extension bridges this with a 
 When `reqnroll.trace.server` is set to `messages` or `verbose`, the `lspInspectorLogger.ts` module creates a `TeeLogOutputChannel` that:
 - Shows trace in the **Reqnroll LSP Trace** Output panel (via the standard `traceOutputChannel` mechanism)
 - Writes each entry to a timestamped file:
-  - Windows: `%LOCALAPPDATA%\Reqnroll\reqnroll-vscode-inspector-<ts>.log`
-  - macOS: `~/Library/Logs/Reqnroll/reqnroll-vscode-inspector-<ts>.log`
-  - Linux: `~/.local/share/Reqnroll/reqnroll-vscode-inspector-<ts>.log`
+  - Windows: `%LOCALAPPDATA%\Reqnroll\reqnroll-vscode-inspector-YYYYMMdd-HHmmss.log`
+  - macOS: `~/Library/Logs/Reqnroll/reqnroll-vscode-inspector-YYYYMMdd-HHmmss.log`
+  - Linux: `~/.local/share/Reqnroll/reqnroll-vscode-inspector-YYYYMMdd-HHmmss.log`
 
 #### Packaging and distribution
 

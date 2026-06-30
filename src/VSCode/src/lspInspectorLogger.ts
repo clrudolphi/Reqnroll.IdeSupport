@@ -29,9 +29,9 @@ import * as vscode from 'vscode';
  *   so we parse it and reconstruct the JSON-RPC envelope ourselves.
  *
  * File path convention:
- *   Windows : %LOCALAPPDATA%\Reqnroll\reqnroll-vscode-inspector-<ts>.log
- *   macOS   : ~/Library/Logs/Reqnroll/reqnroll-vscode-inspector-<ts>.log
- *   Linux   : ~/.local/share/Reqnroll/reqnroll-vscode-inspector-<ts>.log
+ *   Windows : %LOCALAPPDATA%\Reqnroll\reqnroll-vscode-inspector-YYYYMMdd-HHmmss.log
+ *   macOS   : ~/Library/Logs/Reqnroll/reqnroll-vscode-inspector-YYYYMMdd-HHmmss.log
+ *   Linux   : ~/.local/share/Reqnroll/reqnroll-vscode-inspector-YYYYMMdd-HHmmss.log
  */
 class TeeLogOutputChannel implements vscode.LogOutputChannel {
   readonly name: string;
@@ -196,7 +196,8 @@ export function createTraceChannel(): vscode.LogOutputChannel {
   try {
     const logDir = resolveLogDirectory();
     fs.mkdirSync(logDir, { recursive: true });
-    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const n = new Date();
+    const ts = `${n.getFullYear()}${String(n.getMonth()+1).padStart(2,'0')}${String(n.getDate()).padStart(2,'0')}-${String(n.getHours()).padStart(2,'0')}${String(n.getMinutes()).padStart(2,'0')}${String(n.getSeconds()).padStart(2,'0')}`;
     const logPath = path.join(logDir, `reqnroll-vscode-inspector-${ts}.log`);
     stream = fs.createWriteStream(logPath, { flags: 'a' });
   } catch {

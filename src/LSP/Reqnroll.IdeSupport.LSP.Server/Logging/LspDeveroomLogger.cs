@@ -28,7 +28,7 @@ public sealed class LspDeveroomLogger : IDeveroomLogger
         };
         _inner = new DeveroomCompositeLogger()
             .Add(new DeveroomDebugLogger())
-            .Add(new SynchronousFileLogger(idePrefix));
+            .Add(new SynchronousFileLogger(idePrefix, "server"));
 
         var version   = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
         var location  = Assembly.GetExecutingAssembly().Location;

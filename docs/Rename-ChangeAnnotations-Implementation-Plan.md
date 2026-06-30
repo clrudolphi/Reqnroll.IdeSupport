@@ -93,7 +93,7 @@ The match-cache invalidation pass (lines ~335–343) is unchanged and runs again
 
 Key points and risks specific to the VS.Extensibility client ([`ReqnrollLanguageClient`](../src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Extension/ReqnrollLanguageClient.cs)):
 
-1. **`DocumentChanges` must be honoured.** The VS LSP client must advertise `workspace.workspaceEdit.documentChanges` and `changeAnnotationSupport` in its `initialize` capabilities. **This must be verified against the actual `initialize` payload** — capture it from the existing `LspInspectorLogger` session log (`%LocalAppData%\Reqnroll\lsp-inspector-*.log`). If VS does not advertise `changeAnnotationSupport`, our negotiation gate makes the server emit the legacy `Changes` shape automatically, so rename keeps working with no preview.
+1. **`DocumentChanges` must be honoured.** The VS LSP client must advertise `workspace.workspaceEdit.documentChanges` and `changeAnnotationSupport` in its `initialize` capabilities. **This must be verified against the actual `initialize` payload** — capture it from the existing `LspInspectorLogger` session log (`%LocalAppData%\Reqnroll\reqnroll-vs-inspector-*.log`). If VS does not advertise `changeAnnotationSupport`, our negotiation gate makes the server emit the legacy `Changes` shape automatically, so rename keeps working with no preview.
 2. **`needsConfirmation` preview UI is client-rendered.** Even where VS accepts annotated edits, whether it surfaces the grouped-confirmation preview is a VS client behaviour we do not control. Treat the confirmation UX as best-effort; correctness of the edit must not depend on it. Default `NeedsConfirmation = false` avoids relying on a preview that may not appear.
 3. **The custom multi-attribute path is unaffected.** `reqnroll/renameTargets` / `reqnroll/selectRenameTarget` (handled by `RenameStepService` over the intercepting pipe) feed the *selection* before `textDocument/rename` runs; they do not carry edits and need no change.
 4. **`OptionalVersionedTextDocumentIdentifier.Version = null`** for closed feature files. VS must accept versionless document edits (it does for `Changes` today); confirm the same holds for `DocumentChanges` during verification.
@@ -134,7 +134,7 @@ If verification shows VS silently drops annotated edits (rather than applying th
 The whole feature hinges on the VS LSP client advertising annotation support; resolve this **before** writing code.
 
 - Launch the experimental VS instance against a multi-project solution with `.feature` files; trigger any rename.
-- From the inspector log (`%LocalAppData%\Reqnroll\lsp-inspector-*.log`) capture the client `initialize` capabilities and check:
+- From the inspector log (`%LocalAppData%\Reqnroll\reqnroll-vs-inspector-*.log`) capture the client `initialize` capabilities and check:
   - `capabilities.workspace.workspaceEdit.documentChanges == true`
   - `capabilities.workspace.workspaceEdit.changeAnnotationSupport != null`
 - **Decision rule:**

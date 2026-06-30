@@ -34,7 +34,7 @@ internal sealed class FindStepUsagesService
 
     private readonly LspInterceptingPipe _pipe;
     private readonly TraceSource         _traceSource;
-    // TraceSource is not routed to the shared reqnroll-vs-debug-*.log, and the injected
+    // TraceSource is not routed to the shared reqnroll-vs-ext-*.log, and the injected
     // request/response bypasses the inspector log (the response is consumed before the
     // interceptors run).  Mirror the raw server result here so the one signal that pins down
     // client-side vs server-side failure is visible in a single diagnostic run.
