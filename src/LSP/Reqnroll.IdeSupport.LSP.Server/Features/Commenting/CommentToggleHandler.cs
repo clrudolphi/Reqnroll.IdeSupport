@@ -18,7 +18,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.Commenting;
 /// Handles <c>workspace/executeCommand</c> for <c>reqnroll.toggleComment</c> (F13 — Comment/Uncomment).
 /// Toggles <c>#</c> comments on the selected line(s) of a <c>.feature</c> file.
 /// Arguments: <c>[uri, startLine, endLine]</c> (0-based, inclusive).
-/// Applies the resulting <see cref="WorkspaceEdit"/> via <c>workspace/applyEdit</c> notification.
+/// Applies the resulting <see cref="WorkspaceEdit"/> via <c>workspace/applyEdit</c> request.
 /// </summary>
 public sealed class CommentToggleHandler : IExecuteCommandHandler
 {
@@ -52,21 +52,21 @@ public sealed class CommentToggleHandler : IExecuteCommandHandler
             Commands = new Container<string>(ToggleCommentCommand)
         };
 
-    public Task<Unit> Handle(
+    public async Task<Unit> Handle(
         ExecuteCommandParams request,
         CancellationToken cancellationToken)
     {
         if (request.Command != ToggleCommentCommand)
         {
             _logger.LogVerbose($"CommentToggleHandler: unknown command '{request.Command}'");
-            return Task.FromResult(Unit.Value);
+            return Unit.Value;
         }
 
         var args = request.Arguments;
         if (args is null || args.Count < 3)
         {
             _logger.LogVerbose("CommentToggleHandler: missing arguments");
-            return Task.FromResult(Unit.Value);
+            return Unit.Value;
         }
 
         var uriStr    = args[0].Value<string>();
@@ -76,7 +76,7 @@ public sealed class CommentToggleHandler : IExecuteCommandHandler
         if (uriStr is null)
         {
             _logger.LogVerbose("CommentToggleHandler: null URI argument");
-            return Task.FromResult(Unit.Value);
+            return Unit.Value;
         }
 
         var uri = DocumentUri.Parse(uriStr);
@@ -84,7 +84,7 @@ public sealed class CommentToggleHandler : IExecuteCommandHandler
         if (!_documentBufferService.TryGet(uri, out var buffer) || buffer is null)
         {
             _logger.LogVerbose($"CommentToggleHandler: buffer not found for {uri}");
-            return Task.FromResult(Unit.Value);
+            return Unit.Value;
         }
 
         var text   = buffer.Text;
@@ -97,9 +97,10 @@ public sealed class CommentToggleHandler : IExecuteCommandHandler
         // Telemetry
         _telemetryService?.SendEvent("CommentUncomment command executed", new());
 
-        _languageServer.SendNotification(LspMethodNames.WorkspaceApplyEdit, edit);
+        await _languageServer.SendRequest(LspMethodNames.WorkspaceApplyEdit, edit)
+            .Returning<ApplyWorkspaceEditResponse>(cancellationToken);
 
-        return Task.FromResult(Unit.Value);
+        return Unit.Value;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────

@@ -95,12 +95,12 @@ public static class LanguageServerOptionsExtensions
         // semanticTokens/full is an interactive performance target; wrap it (and its delta sibling)
         // through MeasuredAsync(...) so Layer 4 field instrumentation times the manual-route handler
         // at one site. The same helper can wrap the other manual routes below as needed.
-        options.OnRequest<SemanticTokensParams, SemanticTokens?>(
+        options.OnRequest<SemanticTokensParams, SemanticTokens>(
             LspMethodNames.TextDocumentSemanticTokensFull,
             (request, ct) => MeasuredAsync(resolver!, LspMethodNames.TextDocumentSemanticTokensFull,
                 request.TextDocument.Uri, () => resolver!.Get<SemanticTokensHandler>().HandleAsync(request, ct)));
 
-        options.OnRequest<SemanticTokensDeltaParams, SemanticTokensFullOrDelta?>(
+        options.OnRequest<SemanticTokensDeltaParams, SemanticTokensFullOrDelta>(
             LspMethodNames.TextDocumentSemanticTokensFullDelta,
             (request, ct) => MeasuredAsync(resolver!, LspMethodNames.TextDocumentSemanticTokensFullDelta,
                 request.TextDocument.Uri, () => resolver!.Get<SemanticTokensHandler>().HandleAsync(request, ct)));

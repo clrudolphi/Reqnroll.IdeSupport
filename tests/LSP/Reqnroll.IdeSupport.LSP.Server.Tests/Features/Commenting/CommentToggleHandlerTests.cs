@@ -2,6 +2,7 @@
 
 using MediatR;
 using Newtonsoft.Json.Linq;
+using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
@@ -39,6 +40,15 @@ public class CommentToggleHandlerTests
             Arguments = new JArray(args)
         };
 
+    private void SetupApplyEditRequest()
+    {
+        var fakeReturns = Substitute.For<IResponseRouterReturns>();
+        fakeReturns.Returning<ApplyWorkspaceEditResponse>(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new ApplyWorkspaceEditResponse { Applied = true }));
+        _languageServer.SendRequest(Arg.Any<string>(), Arg.Any<ApplyWorkspaceEditParams>())
+            .Returns(fakeReturns);
+    }
+
     private void SetupBuffer(DocumentUri uri, string text)
     {
         var buf = new DocumentBuffer(uri, 1, text, Array.Empty<DeveroomTag>());
@@ -59,8 +69,8 @@ public class CommentToggleHandlerTests
         await CreateSut().Handle(
             MakeParams("unknown.command"), CancellationToken.None);
 
-        _languageServer.DidNotReceiveWithAnyArgs().SendNotification(
-            default(string)!, default(ApplyWorkspaceEditParams)!);
+        _languageServer.DidNotReceive().SendRequest(
+            Arg.Any<string>(), Arg.Any<ApplyWorkspaceEditParams>());
     }
 
     [Fact]
@@ -70,8 +80,8 @@ public class CommentToggleHandlerTests
             new ExecuteCommandParams { Command = "reqnroll.toggleComment" },
             CancellationToken.None);
 
-        _languageServer.DidNotReceiveWithAnyArgs().SendNotification(
-            default(string)!, default(ApplyWorkspaceEditParams)!);
+        _languageServer.DidNotReceive().SendRequest(
+            Arg.Any<string>(), Arg.Any<ApplyWorkspaceEditParams>());
     }
 
     [Fact]
@@ -84,16 +94,17 @@ public class CommentToggleHandlerTests
             MakeParams("reqnroll.toggleComment", FeatureUri.ToString(), 0, 0),
             CancellationToken.None);
 
-        _languageServer.DidNotReceiveWithAnyArgs().SendNotification(
-            default(string)!, default(ApplyWorkspaceEditParams)!);
+        _languageServer.DidNotReceive().SendRequest(
+            Arg.Any<string>(), Arg.Any<ApplyWorkspaceEditParams>());
     }
 
     // ── Happy path ────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task Sends_applyEdit_notification_Async()
+    public async Task Sends_applyEdit_request_Async()
     {
         SetupBuffer(FeatureUri, "Feature: F\n");
+        SetupApplyEditRequest();
         _toggleService.ToggleComment(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>())
             .Returns(new GherkinCommentToggleResult(new[]
             {
@@ -104,7 +115,7 @@ public class CommentToggleHandlerTests
             MakeParams("reqnroll.toggleComment", FeatureUri.ToString(), 0, 0),
             CancellationToken.None);
 
-        _languageServer.Received(1).SendNotification("workspace/applyEdit",
+        _languageServer.Received(1).SendRequest("workspace/applyEdit",
             Arg.Any<ApplyWorkspaceEditParams>());
     }
 
@@ -112,6 +123,7 @@ public class CommentToggleHandlerTests
     public async Task ApplyEdit_contains_correct_uri_Async()
     {
         SetupBuffer(FeatureUri, "Feature: F\n");
+        SetupApplyEditRequest();
         _toggleService.ToggleComment("Feature: F\n", 0, 0)
             .Returns(new GherkinCommentToggleResult(new[]
             {
@@ -122,7 +134,7 @@ public class CommentToggleHandlerTests
             MakeParams("reqnroll.toggleComment", FeatureUri.ToString(), 0, 0),
             CancellationToken.None);
 
-        _languageServer.Received(1).SendNotification("workspace/applyEdit",
+        _languageServer.Received(1).SendRequest("workspace/applyEdit",
             Arg.Is<ApplyWorkspaceEditParams>(p =>
                 p.Edit.DocumentChanges!.First().TextDocumentEdit!.TextDocument.Uri == FeatureUri));
     }
@@ -131,6 +143,7 @@ public class CommentToggleHandlerTests
     public async Task Toggle_called_with_correct_parameters_Async()
     {
         SetupBuffer(FeatureUri, "Given a step\nWhen step2\n");
+        SetupApplyEditRequest();
         _toggleService.ToggleComment(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>())
             .Returns(new GherkinCommentToggleResult(Array.Empty<GherkinCommentEdit>()));
 
@@ -149,6 +162,7 @@ public class CommentToggleHandlerTests
         // replacing it, duplicating the existing line content (regression guard).
         const string lineContent = "Feature: F";
         SetupBuffer(FeatureUri, lineContent + "\n");
+        SetupApplyEditRequest();
         _toggleService.ToggleComment(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>())
             .Returns(new GherkinCommentToggleResult(new[]
             {
@@ -159,7 +173,7 @@ public class CommentToggleHandlerTests
             MakeParams("reqnroll.toggleComment", FeatureUri.ToString(), 0, 0),
             CancellationToken.None);
 
-        _languageServer.Received(1).SendNotification("workspace/applyEdit",
+        _languageServer.Received(1).SendRequest("workspace/applyEdit",
             Arg.Is<ApplyWorkspaceEditParams>(p =>
                 p.Edit.DocumentChanges!
                     .First().TextDocumentEdit!.Edits
@@ -175,6 +189,7 @@ public class CommentToggleHandlerTests
         // whether the file uses LF or CRLF line endings.
         const int expectedEndChar = 10; // "Feature: F".Length
         SetupBuffer(FeatureUri, documentText);
+        SetupApplyEditRequest();
         _toggleService.ToggleComment(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>())
             .Returns(new GherkinCommentToggleResult(new[]
             {
@@ -185,7 +200,7 @@ public class CommentToggleHandlerTests
             MakeParams("reqnroll.toggleComment", FeatureUri.ToString(), 0, 0),
             CancellationToken.None);
 
-        _languageServer.Received(1).SendNotification("workspace/applyEdit",
+        _languageServer.Received(1).SendRequest("workspace/applyEdit",
             Arg.Is<ApplyWorkspaceEditParams>(p =>
                 p.Edit.DocumentChanges!
                     .First().TextDocumentEdit!.Edits
@@ -198,6 +213,7 @@ public class CommentToggleHandlerTests
     public async Task Handle_emits_command_telemetry()
     {
         SetupBuffer(FeatureUri, "Feature: F\nScenario: S\n    Given a step\n");
+        SetupApplyEditRequest();
         _toggleService.ToggleComment(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>())
             .Returns(new GherkinCommentToggleResult(new List<GherkinCommentEdit>()));
 

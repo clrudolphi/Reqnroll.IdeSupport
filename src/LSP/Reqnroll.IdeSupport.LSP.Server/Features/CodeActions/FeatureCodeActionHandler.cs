@@ -1,6 +1,7 @@
 #nullable enable
 
 using System.IO;
+using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
@@ -213,6 +214,14 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
             Title       = title,
             Kind        = CodeActionKind.QuickFix,
             Edit        = edit,
+            // VS Code executes this command after applying the edit, opening the new file.
+            // Other clients receive an unknown command they can safely ignore.
+            Command     = new Command
+            {
+                Title     = "Open step definition file",
+                Name      = "vscode.open",
+                Arguments = new JArray(targetUri.ToString())
+            },
             IsPreferred = true
         };
     }

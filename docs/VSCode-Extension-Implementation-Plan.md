@@ -1,19 +1,22 @@
 # VS Code Extension — Implementation Plan
 
-> **Status:** Phase 1 execution (T0–T2 complete)  
+> **Status:** Phase 2 execution (T0–T12 complete; T11 remaining)  
 > **Branch:** `feat/vscode-extension-initial`  
 > **Date:** 2026-06-29  
 > **Source:** [Porting-to-VSCode-Rider-Analysis](Porting-to-VSCode-Rider-Analysis.md), [LSP-IDE-Support-Architecture](LSP-IDE-Support-Architecture.md)
 
 ---
 
-## Completed (T0–T2)
+## Completed (T0–T6)
 
 | Task | Deliverable | Status |
 |------|-------------|--------|
 | **T0** | Extension project scaffolding (`src/VSCode/`) — `package.json`, `tsconfig.json`, `.vscodeignore`, ESLint, Prettier, TextMate grammar, `extension.ts` stub, Mocha test skeleton, `.vscode/launch.json`, `.vscode/tasks.json` | ✅ |
 | **T1** | Multi-platform server publish — `scripts/publish-server.sh`, `scripts/build-vsix.sh`, multi-RID server path resolution in `extension.ts`, CI workflow (`.github/workflows/build-vscode-extension.yml`), Connector `RuntimeIdentifiers` + `.csproj` fixes | ✅ |
 | **T2** | Test project scaffolding (`tests/VSCode/`) — standalone npm/Mocha project with compile + discover + execute verified | ✅ |
+| **T4** | Semantic token scopes — matched all 11 server legend types to VS Code TextMate scopes, validation script, CI checks | ✅ |
+| **T5** | TextMate grammar refinements — rewritten with 10 repository entries, cleaner keyword patterns, numeric literals, table header separators, 21 grammar tests | ✅ |
+| **T6** | Custom notification support — v1: `projectManager.ts` sends `reqnroll/projectLoaded`/`projectUnloaded`. v2: `msbuildEvaluator.ts` runs `dotnet msbuild` to populate assembly path, TFM, package refs. Fixed connector binaries missing from publish output via `CopyConnectorsToPublish` target. | ✅ |
 
 ---
 
@@ -188,8 +191,13 @@
   - Packaging (`npm run build:vsix`)
   - Running tests
 - Add `.vscode/extensions.json` recommending the ESLint and Prettier VS Code extensions
+- **LSP inspector logging** — capture all JSON-RPC traffic (client→server and server→client) to a file, equivalent to the Visual Studio extension's `reqnroll-vs-inspector-*.log`. Approach:
+  - Create `src/VSCode/src/lspInspectorLogger.ts` that opens a `SynchronousFileLogger`-style writer to `%LOCALAPPDATA%\Reqnroll\reqnroll-vscode-inspector-*.log`
+  - Wire into `extension.ts` via the `LanguageClient`'s middleware / `traceOutputChannel` or by installing a raw JSON-RPC message interceptor
+  - Prefix each entry with direction indicator (`→` for client→server, `←` for server→client) and a timestamp
+  - Respect a setting (e.g. `reqnroll.trace.server`) to control verbosity (`off` / `messages` / `verbose`)
 
-**Effort:** ~1 hour  
+**Effort:** ~2 hours  
 **Depends on:** T1 (CI exists)  
 **Verification:** CI passes on the branch
 
@@ -237,6 +245,30 @@
 **Effort:** 1–2 days  
 **Depends on:** T3–T10  
 **Verification:** CI green, manual smoke test passes
+
+---
+
+### Server-Side Investigation
+
+---
+
+#### T12 — Define Step Code Action Has No Effect
+
+**Observed during T6 manual test:** Code actions for undefined/ambiguous steps appear in the editor. The `FeatureCodeActionHandler` returns actions (log shows `1 action(s)`), and invoking "Define Step" does not produce any visible change in the editor.
+
+**Suspected root cause:** The server's scaffolding handler (`workspace/executeCommand` → scaffolding generation → `workspace/applyEdit`) either:
+- (a) sends an `applyEdit` that VS Code's LSP client cannot apply (incorrect `TextEdit` format or URI scheme)
+- (b) fails silently during step-definition text generation
+- (c) the `workspace/applyEdit` response doesn't reach VS Code's editor properly
+
+**Scope of investigation:**
+1. Add `--ide vscode` spec test scenarios in `tests/LSP/Reqnroll.IdeSupport.LSP.Server.Specs/` that exercise the full scaffolding flow: `textDocument/codeAction` → `workspace/executeCommand` → `workspace/applyEdit`
+2. Check the server log for errors or warnings during `executeCommand` handling
+3. Verify the `applyEdit` payload structure matches what VS Code's LSP client expects
+4. Check if the `Edit` object uses document URI format (`file:///`) that VS Code can resolve
+
+**Effort:** 1–2 days  
+**Verification:** `dotnet test` passes; manual test in VS Code Extension Dev Host — invoke Define Step and verify the generated step definition appears in the editor
 
 ---
 

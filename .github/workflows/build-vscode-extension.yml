@@ -110,6 +110,10 @@ jobs:
         run: npm run validate:tokens
         working-directory: ${{ env.VSCODE_DIR }}
 
+      - name: Prettier check
+        run: npm run format:check
+        working-directory: ${{ env.VSCODE_DIR }}
+
       - name: Package VSIX
         run: npx @vscode/vsce package --out "reqnroll-ide-support-${{ github.sha }}.vsix"
         working-directory: ${{ env.VSCODE_DIR }}

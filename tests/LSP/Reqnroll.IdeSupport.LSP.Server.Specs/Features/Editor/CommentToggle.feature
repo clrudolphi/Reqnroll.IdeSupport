@@ -1,7 +1,7 @@
 Feature: Comment / Uncomment (F13)
 
 workspace/executeCommand with reqnroll.toggleComment toggles # comments
-on the selected line(s) of a .feature file, applying the edit via workspace/applyEdit.
+on the selected line(s) of a .feature file, applying the edit via workspace/applyEdit request.
 
 Background:
     Given the LSP server is started
@@ -14,7 +14,7 @@ Scenario: Toggle comment adds hash to a single uncommented line
         Feature: Calculator
         """
     And the toggle comment command is executed for "SingleLine.feature" on lines 0 to 0
-    Then a workspace/applyEdit notification is sent
+    Then a workspace/applyEdit request is received
     And the edit replaces line 0 with "# Feature: Calculator"
 
 Scenario: Toggle comment adds hash to multiple lines

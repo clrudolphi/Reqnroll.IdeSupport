@@ -416,73 +416,80 @@ This means the Protocol Handler is responsible for the initial synchronous state
 
 ### 6.1 VS Code
 
-A TypeScript extension using `vscode-languageclient`. This is the thinnest of the three clients: nearly all Gherkin intelligence lives in the LSP server. The one exception is **table cell decoration**, which requires VS Code's editor decoration API because the LSP semantic token protocol cannot express the per-cell/per-pipe granularity needed (see [Table Decoration Service](#table-decoration-service) below).
+> **As-built** — this section reflects the implementation on `feat/vscode-extension-initial` (T0–T11).
+
+A TypeScript extension under `src/VSCode/` using `vscode-languageclient` v10. Nearly all Gherkin intelligence lives in the LSP server; the extension is intentionally thin. Table cell decoration (T3) is deferred to a future iteration — it requires client-side VS Code decoration APIs that LSP semantic tokens cannot express.
 
 #### Extension manifest (`package.json`)
 
 | Property | Value | Notes |
 |----------|-------|-------|
-| Activation events | `onLanguage:gherkin`, `onLanguage:csharp` | Server starts when either file type is opened |
-| Language registration | ID: `gherkin`, extensions: `.feature` | Associates file extension with language server |
-| Default formatter | Reqnroll extension | Declared so VS Code routes Format Document to our server |
+| Publisher / ID | `reqnroll.reqnroll-ide-support` | VS Code Marketplace ID |
+| Activation events | `onLanguage:gherkin`, `onLanguage:plaintext` | Server starts when a `.feature` file is opened |
+| Language registration | ID: `gherkin`, extensions: `.feature` | Associates `.feature` with the language server |
+| Default formatter | Reqnroll extension | `editor.defaultFormatter` for `gherkin` language |
 | `editor.formatOnType` | `true` (for `gherkin`) | Enables F12 table auto-formatting as user types |
-| Main dependency | `vscode-languageclient` v9+ | Standard VS Code LSP client library |
+| `reqnroll.trace.server` | `off` / `messages` / `verbose` | Controls LSP protocol trace level; `verbose` also writes to a log file |
+| Main dependency | `vscode-languageclient` v10 | Standard VS Code LSP client library |
+| Minimum VS Code | 1.96.0 | First version with full `vscode-languageclient` v10 compatibility |
 
-#### Source components
+#### Source components (as-built)
 
 | File | Purpose |
 |------|---------|
-| `extension.ts` | Entry point: `activate()` creates the output channel, instantiates `TableHighlightService`, resolves server path, configures `ServerOptions` (stdio) and `ClientOptions`, starts the `LanguageClient`; `deactivate()` stops it |
-| `tableHighlightService.ts` | Client-side decoration service for Gherkin table cells (see below) |
-| `package.json` (`semanticTokenScopes` / `configurationDefaults`) | Maps the custom `reqnroll.*` semantic token types from the server legend to TextMate scopes and default colors — see [F1 · Client-side token-type mapping](LSP-IDE-Support-Feature-Designs.md#f1--gherkin-syntax-highlighting) |
+| `src/extension.ts` | Entry point: resolves server path, registers command stubs, creates output + trace channels, starts `LanguageClient`, wires `ProjectManager` and `StatusBarManager` |
+| `src/projectManager.ts` | Watches `.csproj`/`.sln`/`.slnx` files; sends `reqnroll/projectLoaded` and `reqnroll/projectUnloaded` custom notifications; uses `msbuildEvaluator.ts` for MSBuild property evaluation (v2) |
+| `src/msbuildEvaluator.ts` | Shells `dotnet msbuild -getProperty` to populate `OutputAssemblyPath`, `TargetFrameworkMoniker`, `RootNamespace`, and package references from `project.assets.json` |
+| `src/statusBar.ts` | Status bar item (right-aligned) that reflects LSP server lifecycle state (`Starting` / `Running` / `Stopped`) via `client.onDidChangeState` |
+| `src/lspInspectorLogger.ts` | Creates a `LogOutputChannel` that also tees to a timestamped file when tracing is enabled (matches VS extension `reqnroll-vs-inspector-*.log` convention) |
+| `syntaxes/gherkin.tmLanguage.json` | TextMate grammar — provides keyword/tag/comment colouring before LSP semantic tokens arrive |
+| `language-configuration.json` | Comment configuration, bracket pairs, and indentation rules for the `gherkin` language |
 
-#### Table decoration service
+#### Startup sequence
 
-The `TableHighlightService` applies three VS Code `TextEditorDecorationType` styles directly in the editor, beyond what semantic tokens express:
+1. `activate()` registers command stubs and creates output/trace channels.
+2. Server binary is resolved for the host platform/architecture (`win-x64`, `osx-x64`, `osx-arm64`, `linux-x64`). If the binary is missing a VS Code error notification is shown.
+3. `LanguageClient` is constructed with `--ide vscode` flag and started via stdio.
+4. `StatusBarManager` subscribes to `onDidChangeState` immediately so the status bar reflects the `Starting` → `Running` transition.
+5. After `client.start()` resolves, `ProjectManager` is instantiated. It scans the workspace for `.csproj` files and sends `reqnroll/projectLoaded` notifications with MSBuild-evaluated properties (v2), falling back to empty fields if `dotnet` is unavailable.
 
-| Decoration | Colour | Applied to |
-|------------|--------|-----------|
-| `headerDecoration` | Purple `#8A2DA5`, bold | First row of each table (header row) |
-| `cellDecoration` | Reddish `#C74A2F` | Data cell content in subsequent rows |
-| `pipeDecoration` | Blue `#2F45FF` | `\|` pipe delimiter characters |
+#### Server path resolution (production vs. development)
 
-The service listens to `onDidChangeActiveTextEditor`, `onDidChangeVisibleTextEditors`, `onDidChangeTextDocument`, and `onDidOpenTextDocument`, re-applying decorations on each event. It implements `vscode.Disposable` for cleanup on extension deactivation.
+| Mode | Strategy |
+|------|----------|
+| Production (packaged `.vsix`) | `{extensionDir}/server/<rid>/Reqnroll.IdeSupport.LSP.Server[.exe]` |
+| Development (Extension Dev Host, F5) | Relative path from `src/VSCode` to server `bin/Release/net10.0/win-x64/publish/` |
 
-#### Document selector
+The server is started with `--ide vscode` and communicates over stdio.
 
-The LSP client registers interest in two document types:
+#### Project notification approach (v1/v2)
 
-```typescript
-[
-  { scheme: 'file', language: 'gherkin' },          // .feature files
-  { scheme: 'file', language: 'csharp' }            // all .cs files
-]
-```
+VS Code has no native MSBuild project system. The extension bridges this with a two-tier strategy:
 
-> **Note**: The Thomas Heijtink PoC restricts the C# selector to `pattern: '**/Steps/*.cs'`. For production use, the selector should cover all `.cs` files so that step definitions in any project subfolder are discovered by the Roslyn binding discovery pipeline.
+- **v1 (folder-prefix fallback)**: for `.slnx` / `.sln` files, the extension adds the project to the known set but sends only the folder path — the server uses folder-prefix routing for file membership.
+- **v2 (MSBuild evaluation)**: for `.csproj` files, `msbuildEvaluator.ts` shells `dotnet msbuild -getProperty` (with `DesignTimeBuild=true`) to extract `TargetFrameworkMoniker`, `OutputPath`, `AssemblyName`, `RootNamespace`, and `ProjectAssetsFile`. Package references are read from `project.assets.json`. This enables reflection-based binding discovery.
 
-#### Project membership (`reqnroll/projectFiles`)
+**Known limitation**: linked files (files that appear in multiple projects via MSBuild `Link`) are not supported. This is tracked as risk R4.
 
-VS Code has **no MSBuild project system of its own**, so — unlike VS and Rider — it cannot produce the file-membership manifest as a cheap byproduct of opening the workspace. Authoritative membership must come from one of: (a) the LSP server (or a helper) invoking `dotnet msbuild` to evaluate the project's item groups; (b) the C# Dev Kit project system, if a dependency on it is acceptable; or (c) the server itself evaluating MSBuild (it already shells out to `dotnet` for the Connector). All three are async and complete after a coarse "project exists" signal could be sent — which is precisely why membership is delivered via the separate, later-arriving `reqnroll/projectFiles` notification rather than being folded into `reqnroll/projectLoaded`. Until a baseline manifest is available, this client may send `projectLoaded` alone; the affected projects route via the folder-prefix fallback in the interim.
+#### TextMate grammar (fallback colouring)
 
-#### Server path resolution
+`syntaxes/gherkin.tmLanguage.json` covers all Gherkin keywords, tags, comments, doc strings, table delimiters, numeric literals, and placeholders via 10 repository entries. It provides colouring during the interval before the LSP server's first `textDocument/semanticTokens/full` response. Once semantic tokens are active the grammar has no visible effect.
 
-| Priority | Strategy |
-|----------|----------|
-| 1 | Packaged path: `{extensionDir}/server/Reqnroll.IdeSupport.LSP.Server` (production) |
-| 2 | Development fallback: relative path from extension source root to build output |
+#### LSP inspector logging
 
-The server is launched with `--client vscode` and communicates over stdio.
-
-#### TextMate grammar (fallback coloring)
-
-A minimal TextMate grammar (`.tmLanguage.json`) provides basic keyword coloring during the interval between extension activation and the LSP server's first `textDocument/semanticTokens/full` response. Once semantic tokens are active, the grammar has no visible effect. This grammar is not present in the PoC and should be added for the production extension.
+When `reqnroll.trace.server` is set to `messages` or `verbose`, the `lspInspectorLogger.ts` module creates a `TeeLogOutputChannel` that:
+- Shows trace in the **Reqnroll LSP Trace** Output panel (via the standard `traceOutputChannel` mechanism)
+- Writes each entry to a timestamped file:
+  - Windows: `%LOCALAPPDATA%\Reqnroll\reqnroll-vscode-inspector-<ts>.log`
+  - macOS: `~/Library/Logs/Reqnroll/reqnroll-vscode-inspector-<ts>.log`
+  - Linux: `~/.local/share/Reqnroll/reqnroll-vscode-inspector-<ts>.log`
 
 #### Packaging and distribution
 
-- Built with `vsce` (VS Code Extension CLI) and published to the **VS Code Marketplace** as a `.vsix`
-- The LSP server executable is bundled inside the extension package under `server/`
-- Minimum VS Code version: 1.90.0 (for `vscode-languageclient` v9 compatibility)
+- Built with `vsce` (VS Code Extension CLI) and packaged as a `.vsix`
+- The LSP server self-contained binaries for all four RIDs are bundled under `server/<rid>/` inside the `.vsix`
+- CI publishes all four RIDs in parallel (see `.github/workflows/build-vscode-extension.yml`); the `build-extension` job downloads all four artifacts and then runs `vsce package`
+- Minimum VS Code version: **1.96.0**
 
 ### 6.2 Visual Studio
 

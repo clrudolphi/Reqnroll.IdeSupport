@@ -34,10 +34,10 @@ public sealed class CommentToggleSteps
 
     // -- Then ------------------------------------------------------------------
 
-    [Then("a workspace\\/applyEdit notification is sent")]
-    public void ThenAWorkspaceApplyEditNotificationIsSent()
+    [Then("a workspace\\/applyEdit request is received")]
+    public void ThenAWorkspaceApplyEditRequestIsReceived()
     {
-        _ctx.LastToggleEdit.Should().NotBeNull("the server should send workspace/applyEdit");
+        _ctx.LastToggleEdit.Should().NotBeNull("the server should send workspace/applyEdit as a request");
     }
 
     [Then("the edit replaces line (\\d+) with \"(.*)\"")]

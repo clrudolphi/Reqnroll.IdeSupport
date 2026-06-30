@@ -97,11 +97,14 @@ public sealed class LspServerHarness : IAsyncDisposable
             });
 
             // Sink for workspace/applyEdit (F13 — Comment/Uncomment).
-            options.OnNotification("workspace/applyEdit", (ApplyWorkspaceEditParams p) =>
-            {
-                RecordApplyEdit(p);
-                return Task.CompletedTask;
-            });
+            // LSP defines this as a server-initiated request (not notification) — client must respond.
+            options.OnRequest<ApplyWorkspaceEditParams, ApplyWorkspaceEditResponse>(
+                "workspace/applyEdit",
+                (p, _) =>
+                {
+                    RecordApplyEdit(p);
+                    return Task.FromResult(new ApplyWorkspaceEditResponse { Applied = true });
+                });
         }).ConfigureAwait(false);
 
         _server = await serverTask.ConfigureAwait(false);

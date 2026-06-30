@@ -50,6 +50,9 @@ public sealed class LspScenarioContext
     public RenameTargetsResponse? LastRenameTargets { get; set; }
     public OmniSharp.Extensions.LanguageServer.Protocol.Models.Range? LastPrepareRenameRange { get; set; }
 
+    // F6 — Define Steps (code actions)
+    public CommandOrCodeActionContainer? LastCodeActions { get; set; }
+
     public DocumentUri UriFor(string relativeName)
         => DocumentUri.FromFileSystemPath(Path.Combine(WorkspaceFolder, relativeName));
 

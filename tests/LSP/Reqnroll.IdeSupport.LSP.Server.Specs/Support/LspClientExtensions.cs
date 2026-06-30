@@ -232,6 +232,22 @@ public static class LspClientExtensions
             .Returning<Unit>(ct);
 
     /// <summary>
+    /// Sends a <c>textDocument/codeAction</c> request (F6 — Define Steps).
+    /// Returns the code actions available at <paramref name="range"/> in the given document,
+    /// or <see langword="null"/> when no actions are offered.
+    /// </summary>
+    public static Task<CommandOrCodeActionContainer?> RequestCodeActionsAsync(
+        this ILanguageClient client, DocumentUri uri, LspRange range, CancellationToken ct = default)
+        => client.SendRequest("textDocument/codeAction",
+                new CodeActionParams
+                {
+                    TextDocument = new TextDocumentIdentifier { Uri = uri },
+                    Range        = range,
+                    Context      = new CodeActionContext()
+                })
+            .Returning<CommandOrCodeActionContainer?>(ct);
+
+    /// <summary>
     /// Sends a <c>reqnroll/goToStepDefinitions</c> request (F5 — Go to Step Definition).
     /// Returns step definition locations with type and method metadata for a cursor in a .feature file.
     /// </summary>
