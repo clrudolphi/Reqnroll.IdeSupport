@@ -490,6 +490,86 @@ namespace S
             .Which.Regex!.ToString().Should().Be("^the firs number is (.*)$");
     }
 
+    // ── HasExpressionChanges ────────────────────────────────────────────────────
+
+    [Fact]
+    public void HasExpressionChanges_returns_false_when_expressions_are_unchanged()
+    {
+        // Simulates an edit that doesn't touch any binding's matched expression (e.g. a method
+        // body edit, a comment, or whitespace) -- the attribute text parsed into each binding is
+        // identical before and after.
+        var before = new ProjectBindingRegistry(
+            new[] { BuildStepDefinition("^the first number is (.*)$", "Steps.Method", FilePath) },
+            Array.Empty<ProjectHookBinding>(), projectHash: 0);
+        var after = new ProjectBindingRegistry(
+            new[] { BuildStepDefinition("^the first number is (.*)$", "Steps.Method", FilePath) },
+            Array.Empty<ProjectHookBinding>(), projectHash: 0);
+
+        ProjectBindingRegistry.HasExpressionChanges(before, after, FilePath).Should().BeFalse();
+    }
+
+    [Fact]
+    public void HasExpressionChanges_returns_true_when_an_expression_text_changes()
+    {
+        var before = new ProjectBindingRegistry(
+            new[] { BuildStepDefinition("^the first number is (.*)$", "Steps.Method", FilePath) },
+            Array.Empty<ProjectHookBinding>(), projectHash: 0);
+        var after = new ProjectBindingRegistry(
+            new[] { BuildStepDefinition("^the first num is (.*)$", "Steps.Method", FilePath) },
+            Array.Empty<ProjectHookBinding>(), projectHash: 0);
+
+        ProjectBindingRegistry.HasExpressionChanges(before, after, FilePath).Should().BeTrue();
+    }
+
+    [Fact]
+    public void HasExpressionChanges_returns_true_when_a_binding_is_added()
+    {
+        var before = new ProjectBindingRegistry(
+            new[] { BuildStepDefinition("^the first number is (.*)$", "Steps.Method", FilePath) },
+            Array.Empty<ProjectHookBinding>(), projectHash: 0);
+        var after = new ProjectBindingRegistry(
+            new[]
+            {
+                BuildStepDefinition("^the first number is (.*)$", "Steps.Method", FilePath),
+                BuildStepDefinition("^the second number is (.*)$", "Steps.Method2", FilePath),
+            },
+            Array.Empty<ProjectHookBinding>(), projectHash: 0);
+
+        ProjectBindingRegistry.HasExpressionChanges(before, after, FilePath).Should().BeTrue();
+    }
+
+    [Fact]
+    public void HasExpressionChanges_returns_true_when_a_binding_is_removed()
+    {
+        var before = new ProjectBindingRegistry(
+            new[]
+            {
+                BuildStepDefinition("^the first number is (.*)$", "Steps.Method", FilePath),
+                BuildStepDefinition("^the second number is (.*)$", "Steps.Method2", FilePath),
+            },
+            Array.Empty<ProjectHookBinding>(), projectHash: 0);
+        var after = new ProjectBindingRegistry(
+            new[] { BuildStepDefinition("^the first number is (.*)$", "Steps.Method", FilePath) },
+            Array.Empty<ProjectHookBinding>(), projectHash: 0);
+
+        ProjectBindingRegistry.HasExpressionChanges(before, after, FilePath).Should().BeTrue();
+    }
+
+    [Fact]
+    public void HasExpressionChanges_ignores_changes_in_other_files()
+    {
+        const string otherFilePath = @"C:\Project\Other.cs";
+        var before = new ProjectBindingRegistry(
+            new[] { BuildStepDefinition("^stale$", "Other.Method", otherFilePath) },
+            Array.Empty<ProjectHookBinding>(), projectHash: 0);
+        var after = new ProjectBindingRegistry(
+            new[] { BuildStepDefinition("^changed$", "Other.Method", otherFilePath) },
+            Array.Empty<ProjectHookBinding>(), projectHash: 0);
+
+        // The only change is to a binding owned by a different file than the one being compared.
+        ProjectBindingRegistry.HasExpressionChanges(before, after, FilePath).Should().BeFalse();
+    }
+
     private static ProjectStepDefinitionBinding BuildStepDefinition(string regex, string method, string sourceFile) =>
         new(ScenarioBlock.Given, new Regex(regex), null,
             new ProjectBindingImplementation(method, Array.Empty<string>(), new SourceLocation(sourceFile, 0, 0)));

@@ -132,8 +132,18 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
     /// </remarks>
     public async Task ApplyRoslynFileUpdateAsync(CSharpStepDefinitionFile file)
     {
-        var updated = await _current.ReplaceBindings(file).ConfigureAwait(false);
+        var previous = _current;
+        var updated = await previous.ReplaceBindings(file).ConfigureAwait(false);
         _current = updated;
+
+        // Skip the notification entirely when no binding's matched expression actually changed
+        // (e.g. a method-body or comment edit). Publishing here drives feature-file reparsing
+        // downstream (BindingRegistryChangedHandler), which can only produce a different result
+        // when a binding's expression was added, removed, or edited -- so there's nothing for
+        // that pipeline to do, and running it anyway would just burn CPU on every keystroke.
+        if (!ProjectBindingRegistry.HasExpressionChanges(previous, updated, file.FullName))
+            return;
+
         _bindingRegistryChanged?.Invoke(this, false);
     }
 

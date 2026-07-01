@@ -143,6 +143,63 @@ namespace S
     }
 
     [Fact]
+    public async Task ApplyRoslynFileUpdate_raises_event_as_incremental_not_full_replacement()
+    {
+        var sut = CreateSut();
+        bool? isFullReplacement = null;
+        sut.BindingRegistryChanged += (_, full) => isFullReplacement = full;
+
+        var file = FileDetailsFor("Steps.cs", @"
+namespace S
+{
+    [Reqnroll.Binding]
+    public class Steps
+    {
+        [Reqnroll.Given(""the first number is (.*)"")]
+        public void Method(int n) { }
+    }
+}");
+        await sut.ApplyRoslynFileUpdateAsync(file);
+
+        isFullReplacement.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ApplyRoslynFileUpdate_does_not_raise_event_when_only_a_method_body_changes()
+    {
+        var sut = CreateSut();
+
+        var original = FileDetailsFor("Steps.cs", @"
+namespace S
+{
+    [Reqnroll.Binding]
+    public class Steps
+    {
+        [Reqnroll.Given(""the first number is (.*)"")]
+        public void Method(int n) { var unused = 1; }
+    }
+}");
+        await sut.ApplyRoslynFileUpdateAsync(original);
+
+        var raised = false;
+        sut.BindingRegistryChanged += (_, _) => raised = true;
+
+        var bodyEdited = FileDetailsFor("Steps.cs", @"
+namespace S
+{
+    [Reqnroll.Binding]
+    public class Steps
+    {
+        [Reqnroll.Given(""the first number is (.*)"")]
+        public void Method(int n) { var unused = 2; }
+    }
+}");
+        await sut.ApplyRoslynFileUpdateAsync(bodyEdited);
+
+        raised.Should().BeFalse("only the method body changed, not the binding's matched expression -- there's nothing for feature-file matching to recompute");
+    }
+
+    [Fact]
     public async Task ApplyRoslynFileUpdate_replaces_only_that_files_bindings()
     {
         var sut = CreateSut();

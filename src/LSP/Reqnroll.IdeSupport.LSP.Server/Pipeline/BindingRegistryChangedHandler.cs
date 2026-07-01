@@ -42,6 +42,7 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
     private readonly ClientIdeContext                 _clientIde;
     private readonly IMediator                        _mediator;
     private readonly ICSharpBindingDiscoveryService   _csharpDiscoveryService;
+    private readonly IFeatureRescanDebouncer          _rescanDebouncer;
     private readonly IDeveroomLogger                  _logger;
 
     public BindingRegistryChangedHandler(
@@ -52,6 +53,7 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
         ClientIdeContext clientIde,
         IMediator mediator,
         ICSharpBindingDiscoveryService csharpDiscoveryService,
+        IFeatureRescanDebouncer rescanDebouncer,
         IDeveroomLogger logger)
     {
         _documentBufferService  = documentBufferService;
@@ -61,6 +63,7 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
         _clientIde              = clientIde;
         _mediator               = mediator;
         _csharpDiscoveryService = csharpDiscoveryService;
+        _rescanDebouncer        = rescanDebouncer;
         _logger                 = logger;
     }
 
@@ -80,6 +83,22 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
                 .ConfigureAwait(false);
 
             await ScanAllFeatureFilesAsync(notification.Project, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            // An incremental Roslyn patch that changed a binding's matched expression (added,
+            // removed, or edited). ConnectorBindingRegistryProvider only publishes this
+            // notification for a Roslyn patch when that's the case -- a method-body/comment edit
+            // never reaches here, since there's nothing for feature-file matching to recompute.
+            // Closed feature files' cached usage counts are now stale, but re-running the
+            // whole-project rescan on every keystroke would be wasteful, so it's debounced: a
+            // burst of edits collapses into one rescan after they settle.
+            var project = notification.Project;
+            _rescanDebouncer.ScheduleRescan(project, async ct =>
+            {
+                await ScanAllFeatureFilesAsync(project, ct).ConfigureAwait(false);
+                await RequestCodeLensRefreshAsync(project).ConfigureAwait(false);
+            });
         }
 
         await ReparseOpenFilesAsync(notification.Project, cancellationToken).ConfigureAwait(false);

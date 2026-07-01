@@ -255,6 +255,40 @@ public record ProjectBindingRegistry
     }
 
     /// <summary>
+    /// Compares the step-definition expressions for <paramref name="sourceFile"/> between
+    /// <paramref name="before"/> and <paramref name="after"/>, keyed by
+    /// <c>(StepDefinitionType, Method, ParameterTypes)</c> rather than source line -- an edit
+    /// elsewhere in the file shifts line numbers without changing binding identity, and line
+    /// number is deliberately excluded from this comparison. Returns <see langword="true"/> if a
+    /// binding for this file was added, removed, or had its matched expression change; edits to
+    /// method bodies, comments, or anything else that doesn't touch a step's matched expression
+    /// report no change.
+    /// </summary>
+    public static bool HasExpressionChanges(
+        ProjectBindingRegistry before, ProjectBindingRegistry after, string sourceFile)
+    {
+        static string Key(ProjectStepDefinitionBinding b) =>
+            $"{b.StepDefinitionType}|{b.Implementation.Method}|{string.Join(",", b.Implementation.ParameterTypes)}";
+
+        bool OwnedByFile(ProjectStepDefinitionBinding b) =>
+            IsSameSourceFile(b.Implementation.SourceLocation?.SourceFile, sourceFile);
+
+        var beforeByKey = before.StepDefinitions.Where(OwnedByFile).ToDictionary(Key, b => b.Expression);
+        var afterByKey  = after.StepDefinitions.Where(OwnedByFile).ToDictionary(Key, b => b.Expression);
+
+        if (beforeByKey.Count != afterByKey.Count)
+            return true;
+
+        foreach (var entry in beforeByKey)
+        {
+            if (!afterByKey.TryGetValue(entry.Key, out var newExpression) || newExpression != entry.Value)
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Compares two source-file paths for identity. The comparison normalizes the paths and is
     /// case-insensitive: the reflection connector records source paths from the PDB (often with an
     /// upper-case drive letter), while Roslyn discovery derives them from an LSP document URI (which

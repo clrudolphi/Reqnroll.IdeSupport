@@ -39,6 +39,20 @@ public class CSharpBindingDiscoveryServiceTests : IDisposable
 
     private CSharpBindingDiscoveryService CreateSut() => new(_scopeManager, _logger);
 
+    // Non-empty source with a real binding: BindingRegistryChanged is only raised when a
+    // binding's matched expression actually changes, so an empty-to-empty "update" (the
+    // registry's starting state) would never fire it.
+    private const string StepDefinitionSource = @"
+namespace S
+{
+    [Reqnroll.Binding]
+    public class Steps
+    {
+        [Reqnroll.Given(""a step"")]
+        public void Method() { }
+    }
+}";
+
     private CSharpBindingDiscoveryService CreateSutWithTelemetry(ILspTelemetryService telemetry) =>
         new(_scopeManager, _logger, telemetry);
 
@@ -116,7 +130,7 @@ public class CSharpBindingDiscoveryServiceTests : IDisposable
         // A URI that GetFileSystemPath() returns a non-empty value for.
         var csUri = DocumentUri.FromFileSystemPath(Path.Combine(_root1, "Steps.cs"));
 
-        await CreateSut().UpdateFromSourceAsync(csUri, string.Empty, false, CancellationToken.None);
+        await CreateSut().UpdateFromSourceAsync(csUri, StepDefinitionSource, false, CancellationToken.None);
 
         changed1.Should().BeTrue("provider1 should be updated for project1");
         changed2.Should().BeTrue("provider2 should be updated for project2");
@@ -141,7 +155,7 @@ public class CSharpBindingDiscoveryServiceTests : IDisposable
 
         var csPath = Path.Combine(_root1, "Steps.cs");
 
-        await CreateSut().UpdateFromSourceForProjectAsync(project, csPath, string.Empty, CancellationToken.None);
+        await CreateSut().UpdateFromSourceForProjectAsync(project, csPath, StepDefinitionSource, CancellationToken.None);
 
         changed.Should().BeTrue("the known project's provider should be patched directly");
         // The whole point of this overload: it never consults the membership index.
@@ -210,7 +224,7 @@ public class CSharpBindingDiscoveryServiceTests : IDisposable
 
         var csUri = DocumentUri.FromFileSystemPath(Path.Combine(_root1, "Steps.cs"));
 
-        await CreateSut().UpdateFromSourceAsync(csUri, string.Empty, false, CancellationToken.None);
+        await CreateSut().UpdateFromSourceAsync(csUri, StepDefinitionSource, false, CancellationToken.None);
 
         changed1.Should().BeTrue("project1's provider should be updated");
         changed2.Should().BeFalse("project2's provider must not be updated — it doesn't own the file");

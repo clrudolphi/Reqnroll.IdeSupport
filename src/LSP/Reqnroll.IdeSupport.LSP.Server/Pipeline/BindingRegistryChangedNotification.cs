@@ -14,7 +14,11 @@ namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 /// belong to <see cref="Project"/> — not only the currently open ones — so that the binding match
 /// cache covers the complete workspace for features such as Find Usages (F14).
 /// When <see cref="IsFullReplacement"/> is <see langword="false"/> (incremental Roslyn re-discovery
-/// on a <c>.cs</c> save), re-parsing only the open feature files is sufficient.
+/// on a <c>.cs</c> edit), re-parsing only the open feature files is sufficient immediately, and
+/// closed feature files are additionally rescanned after a debounce so their cached usage counts
+/// stay correct without waiting for a rebuild. This notification is only published for an
+/// incremental patch when it actually changed a binding's matched expression -- a patch that
+/// didn't (e.g. a method-body edit) never reaches here, since there is nothing to re-parse.
 /// </remarks>
 public record BindingRegistryChangedNotification(
     LspReqnrollProject Project,

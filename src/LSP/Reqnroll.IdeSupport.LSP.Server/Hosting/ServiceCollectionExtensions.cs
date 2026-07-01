@@ -92,7 +92,10 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IProjectBindingRegistryLookup>(sp => sp.GetRequiredService<BindingRegistryProviderRouter>())
             // Roslyn (source-level) binding discovery for .cs edits (design doc F2).
             .AddSingleton<ICSharpBindingDiscoveryService, CSharpBindingDiscoveryService>()
-            .AddSingleton<IDeveroomTagParser, DeveroomTagParser>();
+            .AddSingleton<IDeveroomTagParser, DeveroomTagParser>()
+            // Debounces the closed-feature-file rescan triggered by an incremental Roslyn patch
+            // whose binding expressions actually changed (BindingRegistryChangedHandler).
+            .AddSingleton<IFeatureRescanDebouncer, FeatureRescanDebouncer>();
     }
 
     /// <summary>

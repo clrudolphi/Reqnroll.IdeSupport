@@ -13,8 +13,10 @@ public interface IBindingRegistryProvider
     /// <summary>
     /// Raised on any thread when the registry is replaced.
     /// The <c>bool</c> argument is <see langword="true"/> for a full registry replacement
-    /// (connector/reflection discovery) and <see langword="false"/> for an incremental
-    /// Roslyn per-file patch.
+    /// (connector/reflection discovery) and <see langword="false"/> for an incremental Roslyn
+    /// per-file patch. Implementations only raise this for a Roslyn patch when it actually
+    /// changed a binding's matched expression -- a patch that didn't (e.g. a method-body edit)
+    /// raises nothing, since there would be no feature-file match to recompute.
     /// </summary>
     event EventHandler<bool> BindingRegistryChanged;
 }
