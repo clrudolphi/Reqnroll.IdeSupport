@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
+import { ReqnrollMethods } from './lspMethods';
 
 interface GoToStepDefinitionsResponse {
   stepDefinitions: GoToStepDefinitionLocation[];
@@ -22,7 +23,7 @@ export async function doGoToStepDefinition(client: LanguageClient): Promise<void
   let response: GoToStepDefinitionsResponse;
   try {
     response = await client.sendRequest<GoToStepDefinitionsResponse>(
-      'reqnroll/goToStepDefinitions',
+      ReqnrollMethods.goToStepDefinitions,
       {
         textDocument: { uri: editor.document.uri.toString() },
         position: { line: pos.line, character: pos.character },

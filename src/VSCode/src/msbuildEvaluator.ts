@@ -10,6 +10,7 @@ export interface ProjectProperties {
   readonly targetFrameworkMoniker: string;
   readonly defaultNamespace: string;
   readonly packageReferences: readonly PackageRef[];
+  readonly files: readonly ProjectFileItem[];
 }
 
 export interface PackageRef {
@@ -17,8 +18,14 @@ export interface PackageRef {
   readonly version: string;
 }
 
+/** One file the project's MSBuild evaluation attributes to it, with link targets resolved. */
+export interface ProjectFileItem {
+  readonly path: string;
+  readonly role: 'feature' | 'binding';
+}
+
 /**
- * Evaluates a .csproj using `dotnet msbuild -getProperty` and reads
+ * Evaluates a .csproj using `dotnet msbuild -getProperty`/`-getItem` and reads
  * `project.assets.json` for package references.
  *
  * Returns `null` when `dotnet` is unavailable or evaluation fails
@@ -26,20 +33,23 @@ export interface PackageRef {
  */
 export async function evaluateProject(projectFile: string): Promise<ProjectProperties | null> {
   try {
-    const props = await getMsbuildProperties(projectFile);
-    if (!props) return null;
+    const evaluation = await getMsbuildEvaluation(projectFile);
+    if (!evaluation) return null;
+    const { properties: props, items } = evaluation;
 
     const outputAssemblyPath = buildOutputPath(projectFile, props);
     const packageReferences = readPackageReferences(
       props.ProjectAssetsFile,
       props.TargetFrameworkMoniker,
     );
+    const files = toProjectFileItems(items);
 
     return {
       outputAssemblyPath,
       targetFrameworkMoniker: props.TargetFrameworkMoniker,
       defaultNamespace: props.RootNamespace,
       packageReferences,
+      files,
     };
   } catch (err) {
     console.error(`MsbuildEvaluator: evaluation failed for ${projectFile}:`, err);
@@ -47,7 +57,7 @@ export async function evaluateProject(projectFile: string): Promise<ProjectPrope
   }
 }
 
-// ── MSBuild property evaluation ──────────────────────────────────────────
+// ── MSBuild property/item evaluation ─────────────────────────────────────
 
 interface MsbuildProperties {
   TargetFrameworkMoniker: string;
@@ -57,7 +67,19 @@ interface MsbuildProperties {
   ProjectAssetsFile: string;
 }
 
-async function getMsbuildProperties(projectFile: string): Promise<MsbuildProperties | null> {
+/** One entry from `-getItem:Compile;None;Content` (only the metadata we asked MSBuild to resolve). */
+interface MsbuildItem {
+  Identity: string;
+  FullPath?: string;
+}
+
+interface MsbuildEvaluation {
+  properties: MsbuildProperties;
+  // Keyed by item type (Compile/None/Content); absent when the project has none of that type.
+  items: Partial<Record<'Compile' | 'None' | 'Content', MsbuildItem[]>>;
+}
+
+async function getMsbuildEvaluation(projectFile: string): Promise<MsbuildEvaluation | null> {
   return new Promise((resolve) => {
     const args = [
       'msbuild',
@@ -65,6 +87,9 @@ async function getMsbuildProperties(projectFile: string): Promise<MsbuildPropert
       '-p:DesignTimeBuild=true',
       '-nologo',
       '-getProperty:TargetFrameworkMoniker;OutputPath;AssemblyName;RootNamespace;ProjectAssetsFile',
+      // Compile (.cs bindings) + None/Content (.feature files are typically included as one of
+      // these, depending on how the project references the Reqnroll/SpecFlow tooling).
+      '-getItem:Compile;None;Content',
     ];
 
     const child = execFile(
@@ -72,7 +97,7 @@ async function getMsbuildProperties(projectFile: string): Promise<MsbuildPropert
       args,
       {
         timeout: 30_000,
-        maxBuffer: 1024 * 64,
+        maxBuffer: 1024 * 1024,
         env: { ...process.env, MSYS_NO_PATHCONV: '1' },
       },
       (error, stdout, _stderr) => {
@@ -87,6 +112,7 @@ async function getMsbuildProperties(projectFile: string): Promise<MsbuildPropert
         try {
           const parsed = JSON.parse(stdout) as {
             Properties: MsbuildProperties;
+            Items?: Partial<Record<'Compile' | 'None' | 'Content', MsbuildItem[]>>;
           };
           const p = parsed.Properties;
 
@@ -96,7 +122,7 @@ async function getMsbuildProperties(projectFile: string): Promise<MsbuildPropert
             return;
           }
 
-          resolve(p);
+          resolve({ properties: p, items: parsed.Items ?? {} });
         } catch {
           console.error(
             `MsbuildEvaluator: failed to parse msbuild output for ${projectFile}: ${stdout.slice(0, 300)}`,
@@ -111,6 +137,35 @@ async function getMsbuildProperties(projectFile: string): Promise<MsbuildPropert
       /* handled in callback */
     });
   });
+}
+
+/**
+ * Reduces raw `Compile`/`None`/`Content` MSBuild items to the `.cs`/`.feature` files the
+ * project's membership index cares about, deduplicated by resolved absolute path (the same
+ * file can appear under more than one item type, e.g. a linked file).
+ */
+function toProjectFileItems(
+  items: Partial<Record<'Compile' | 'None' | 'Content', MsbuildItem[]>>,
+): ProjectFileItem[] {
+  const seen = new Set<string>();
+  const result: ProjectFileItem[] = [];
+
+  const addAll = (entries: MsbuildItem[] | undefined, role: 'feature' | 'binding', ext: string) => {
+    for (const entry of entries ?? []) {
+      const resolved = entry.FullPath ?? entry.Identity;
+      if (!resolved.toLowerCase().endsWith(ext)) continue;
+      const key = resolved.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push({ path: resolved, role });
+    }
+  };
+
+  addAll(items.Compile, 'binding', '.cs');
+  addAll(items.None, 'feature', '.feature');
+  addAll(items.Content, 'feature', '.feature');
+
+  return result;
 }
 
 // ── Output assembly path ─────────────────────────────────────────────────

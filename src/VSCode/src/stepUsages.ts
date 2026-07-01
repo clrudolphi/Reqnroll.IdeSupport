@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
+import { ReqnrollMethods } from './lspMethods';
 
 interface FindStepUsagesResponse {
   isBinding: boolean;
@@ -40,11 +41,14 @@ export async function doFindStepUsages(
 ): Promise<void> {
   let response: FindStepUsagesResponse | null | undefined;
   try {
-    response = await client.sendRequest<FindStepUsagesResponse | null>('reqnroll/findStepUsages', {
-      textDocument: { uri: uriStr },
-      position: { line, character: char },
-      context: { includeDeclaration: false },
-    });
+    response = await client.sendRequest<FindStepUsagesResponse | null>(
+      ReqnrollMethods.findStepUsages,
+      {
+        textDocument: { uri: uriStr },
+        position: { line, character: char },
+        context: { includeDeclaration: false },
+      },
+    );
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     void vscode.window.showErrorMessage(`Reqnroll: Find Step Usages failed — ${msg}`);
@@ -95,7 +99,7 @@ export async function doFindUnusedStepDefinitions(client: LanguageClient): Promi
       },
       () =>
         client.sendRequest<FindUnusedStepDefinitionsResponse>(
-          'reqnroll/findUnusedStepDefinitions',
+          ReqnrollMethods.findUnusedStepDefinitions,
           {},
         ),
     );

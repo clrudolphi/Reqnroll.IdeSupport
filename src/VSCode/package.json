@@ -246,6 +246,7 @@
     "url": "https://github.com/clrudolphi/Reqnroll.Plugin.VisualStudio_Prototypes.git"
   },
   "dependencies": {
+    "@vscode/extension-telemetry": "^1.5.2",
     "vscode-languageclient": "^10.0.1"
   }
 }

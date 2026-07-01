@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { LanguageClient } from 'vscode-languageclient/node';
+import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
 import { normalizeSelectionLines } from './selectionUtils';
 
 export async function doToggleComment(client: LanguageClient): Promise<void> {
@@ -14,7 +14,7 @@ export async function doToggleComment(client: LanguageClient): Promise<void> {
   );
 
   try {
-    await client.sendRequest('workspace/executeCommand', {
+    await client.sendRequest(ExecuteCommandRequest.type, {
       command: 'reqnroll.toggleComment',
       arguments: [editor.document.uri.toString(), startLine, endLine],
     });

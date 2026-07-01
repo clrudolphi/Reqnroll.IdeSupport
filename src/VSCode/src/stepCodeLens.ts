@@ -1,15 +1,9 @@
 import * as vscode from 'vscode';
-import { LanguageClient } from 'vscode-languageclient/node';
-
-interface LspPosition {
-  line: number;
-  character: number;
-}
-
-interface LspCodeLens {
-  range: { start: LspPosition; end: LspPosition };
-  command?: { title: string; command: string; arguments?: unknown[] };
-}
+import {
+  CodeLensRefreshRequest,
+  CodeLensRequest,
+  LanguageClient,
+} from 'vscode-languageclient/node';
 
 export function registerStepCodeLens(
   client: LanguageClient,
@@ -27,7 +21,7 @@ export function registerStepCodeLens(
     onDidChangeCodeLenses: onDidChangeCodeLensesEmitter.event,
     async provideCodeLenses(document: vscode.TextDocument): Promise<vscode.CodeLens[]> {
       try {
-        const lenses = await client.sendRequest<LspCodeLens[] | null>('textDocument/codeLens', {
+        const lenses = await client.sendRequest(CodeLensRequest.type, {
           textDocument: { uri: document.uri.toString() },
         });
         if (!lenses || lenses.length === 0) return [];
@@ -56,9 +50,8 @@ export function registerStepCodeLens(
 
   context.subscriptions.push(
     onDidChangeCodeLensesEmitter,
-    client.onRequest('workspace/codeLens/refresh', () => {
+    client.onRequest(CodeLensRefreshRequest.type, () => {
       onDidChangeCodeLensesEmitter.fire();
-      return null;
     }),
     vscode.languages.registerCodeLensProvider({ language: 'csharp' }, provider),
   );

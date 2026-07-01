@@ -10,7 +10,12 @@ import { doFindStepUsages, doFindUnusedStepDefinitions } from './stepUsages';
 import { doGoToHooks } from './hookNavigation';
 import { doGoToStepDefinition } from './stepNavigation';
 import { registerStepCodeLens } from './stepCodeLens';
-import { ManualDocumentSync, createManualSyncMiddleware, isCSharpDocument } from './manualDocumentSync';
+import {
+  ManualDocumentSync,
+  createManualSyncMiddleware,
+  isCSharpDocument,
+} from './manualDocumentSync';
+import { registerTelemetry } from './telemetry';
 
 let client: LanguageClient | undefined;
 let projectManager: ProjectManager | undefined;
@@ -222,6 +227,8 @@ export function activate(context: vscode.ExtensionContext): void {
       // Manually sync .cs documents (see manualDocumentSync.ts / createManualSyncMiddleware
       // above) instead of relying on vscode-languageclient's built-in sync feature.
       context.subscriptions.push(new ManualDocumentSync(client!, isCSharpDocument));
+      // Forward server-emitted telemetry/event notifications to Application Insights.
+      registerTelemetry(client!, context);
     })
     .catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);

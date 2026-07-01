@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
+import { ReqnrollMethods } from './lspMethods';
 
 interface GoToHooksResponse {
   hooks: GoToHookLocation[];
@@ -21,7 +22,7 @@ export async function doGoToHooks(client: LanguageClient): Promise<void> {
   const pos = editor.selection.active;
   let response: GoToHooksResponse;
   try {
-    response = await client.sendRequest<GoToHooksResponse>('reqnroll/goToHooks', {
+    response = await client.sendRequest<GoToHooksResponse>(ReqnrollMethods.goToHooks, {
       textDocument: { uri: editor.document.uri.toString() },
       position: { line: pos.line, character: pos.character },
     });
