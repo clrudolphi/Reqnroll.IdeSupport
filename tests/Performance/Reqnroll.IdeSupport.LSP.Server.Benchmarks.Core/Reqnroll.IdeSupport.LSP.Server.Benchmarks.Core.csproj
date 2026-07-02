@@ -14,7 +14,10 @@
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>../../../reqnroll.snk</AssemblyOriginatorKeyFile>
     <PlatformTarget>x64</PlatformTarget>
-    <NoWarn>NU1701;VSTHRD200</NoWarn>
+    <!-- VSTHRD103: batch scenarios legitimately write synchronous diagnostic console output when a
+         discovery poll times out; the vs-threading rule targets UI apps, not this CLI-adjacent
+         library shared with the benchmark exe (which already suppresses it). -->
+    <NoWarn>NU1701;VSTHRD200;VSTHRD103</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
