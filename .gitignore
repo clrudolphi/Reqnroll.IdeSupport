@@ -275,3 +275,7 @@ launchSettings.json
 
 /.serena
 /.hermes
+
+# Claude Code: settings.json (no .local) is the shared/team-tracked config, if ever added.
+# settings.local.json is per-user/machine (permission allowlists etc.) and must never be committed.
+.claude/settings.local.json
