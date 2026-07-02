@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Pipelines;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Shell;
 using Nerdbank.Streams;
@@ -141,6 +142,13 @@ internal sealed class LspServerConnectionService : IDisposable
             _serverProcess = Process.Start(psi)
                 ?? throw new InvalidOperationException("Process.Start returned null.");
 
+            // Fire-and-forget: pushes project/discovery data to the server's preload side
+            // channel as soon as the solution is loaded, well before VS's own initialize
+            // handshake (and hence CreateServerConnectionAsync) may happen. Must not be awaited
+            // here — it can take up to ~60s (waiting for solution load) and must not delay
+            // returning the pipe to VS. See LspProjectPreloadPusher's remarks.
+            _ = LspProjectPreloadPusher.PushAsync(_serverProcess.Id, _traceSource, CancellationToken.None);
+
             // Assign to a kill-on-close Job Object so the server is terminated by the OS
             // when this VS process exits, even if Dispose is never called.
             try
@@ -208,7 +216,7 @@ internal sealed class LspServerConnectionService : IDisposable
             // Pass CancellationToken.None: the pumps must live for the entire connection
             // lifetime, not just for the duration of this async creation call. The pipe's
             // own internal CTS (cancelled in Dispose) provides the shutdown signal.
-            await _interceptingPipe.StartAsync(System.Threading.CancellationToken.None).ConfigureAwait(false);
+            await _interceptingPipe.StartAsync(CancellationToken.None).ConfigureAwait(false);
 
             return _interceptingPipe.VsFacingPipe;
         }
