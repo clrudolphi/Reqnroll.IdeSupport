@@ -75,5 +75,13 @@ suite('ProjectManager', () => {
 
       assert.strictEqual(findOwningProjectFile(file, known), csproj);
     });
+
+    test('resolves an output assembly under bin/ to its owning project (v5 build-completion watcher)', () => {
+      const csproj = path.join('C:', 'work', 'App.csproj');
+      const known = new Set([csproj]);
+      const dll = path.join('C:', 'work', 'bin', 'Debug', 'net8.0', 'App.dll');
+
+      assert.strictEqual(findOwningProjectFile(dll, known), csproj);
+    });
   });
 });

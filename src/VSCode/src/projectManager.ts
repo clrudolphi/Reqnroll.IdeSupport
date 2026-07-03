@@ -1,7 +1,11 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { LanguageClient } from 'vscode-languageclient/node';
-import { evaluateProject, ProjectFileItem } from './msbuildEvaluator';
+import {
+  DidChangeWatchedFilesNotification,
+  FileChangeType,
+  LanguageClient,
+} from 'vscode-languageclient/node';
+import { evaluateProject, ProjectFileItem, ProjectProperties } from './msbuildEvaluator';
 import { ReqnrollMethods } from './lspMethods';
 
 // Mirrors ProjectFilesKind / ProjectFileRole in
@@ -75,11 +79,30 @@ export function findOwningProjectFile(
  *     own `workspace/didChangeWorkspaceFolders` LSP notification is already sent automatically
  *     by vscode-languageclient's WorkspaceFoldersFeature; this only covers *our* project
  *     discovery, which the library has no knowledge of).
+ * v5: forwards output-assembly (re)build events to the server. Connector-based binding
+ *     discovery (`ConnectorBindingRegistryProvider`, server-side) reflects over the project's
+ *     `OutputAssemblyPath` DLL; if that DLL doesn't exist yet when the initial
+ *     `reqnroll/projectLoaded` baseline is sent (e.g. a freshly cloned repo opened before its
+ *     first `dotnet build`), discovery fails once with "Output assembly not found". The server
+ *     already declares a standard `workspace/didChangeWatchedFiles` registration for
+ *     `**\/bin/**\/*.dll` (`WatchedFilesHandler.cs`) specifically to retry discovery once the
+ *     assembly appears — but whether each IDE's LSP client actually *delivers* those dynamically
+ *     registered watched-file events reliably is an open question (Q9 in
+ *     docs/LSP-IDE-Support-Open-Questions.md); VS Code's `files.watcherExclude` commonly excludes
+ *     `bin/`/`obj/` from the file watching a dynamically-registered `FileSystemWatcherFeature`
+ *     relies on. Rather than resending the full `reqnroll/projectLoaded` + baseline (which re-runs
+ *     `dotnet msbuild` and duplicates work the server can already do with the `OutputAssemblyPath`
+ *     it was given at initial registration — that path is computed from MSBuild properties and is
+ *     correct even before the file exists), this watcher sends the *same standard*
+ *     `workspace/didChangeWatchedFiles` notification directly, landing on the server's existing
+ *     handler with no extra round trip. VS's `VsProjectEventMonitor` doesn't need this fallback —
+ *     it hooks `DTE.Events.BuildEvents.OnBuildDone` directly.
  */
 export class ProjectManager {
   private readonly _client: LanguageClient;
   private readonly _watcher: vscode.FileSystemWatcher;
   private readonly _fileWatcher: vscode.FileSystemWatcher;
+  private readonly _outputWatcher: vscode.FileSystemWatcher;
   private readonly _knownProjects = new Set<string>();
   private readonly _resendTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private _disposables: vscode.Disposable[] = [];
@@ -100,6 +123,19 @@ export class ProjectManager {
     this._fileWatcher.onDidCreate((uri) => this.scheduleResend(uri));
     this._fileWatcher.onDidDelete((uri) => this.scheduleResend(uri));
 
+    // Forward output-assembly build events to the server as a standard
+    // workspace/didChangeWatchedFiles notification (see v5 above) — a fallback in case the
+    // server's own dynamically-registered watcher for this same glob doesn't fire reliably.
+    // findOwningProjectFile narrows to a known project (or no-ops for paths outside any known
+    // project), so the extra watch surface beyond one project's own OutputAssemblyPath is harmless.
+    this._outputWatcher = vscode.workspace.createFileSystemWatcher('**/bin/**/*.dll');
+    this._outputWatcher.onDidCreate((uri) =>
+      this.notifyOutputAssemblyChanged(uri, FileChangeType.Created),
+    );
+    this._outputWatcher.onDidChange((uri) =>
+      this.notifyOutputAssemblyChanged(uri, FileChangeType.Changed),
+    );
+
     // Re-run discovery when a workspace folder is added (e.g. a multi-root workspace gains a
     // folder with its own .csproj/.feature files), and drop projects under a removed folder.
     this._disposables.push(
@@ -116,6 +152,7 @@ export class ProjectManager {
   dispose(): void {
     this._watcher.dispose();
     this._fileWatcher.dispose();
+    this._outputWatcher.dispose();
     for (const timer of this._resendTimers.values()) clearTimeout(timer);
     this._resendTimers.clear();
     for (const d of this._disposables) d.dispose();
@@ -196,11 +233,41 @@ export class ProjectManager {
     );
   }
 
-  /** Re-runs MSBuild evaluation for an already-registered project and resends its baseline. */
+  /**
+   * Re-runs MSBuild evaluation for an already-registered project and resends both
+   * `reqnroll/projectLoaded` and its `reqnroll/projectFiles` baseline. Used for `.cs`/`.feature`
+   * additions/removals, where the file *membership* itself may have changed — not for output
+   * assembly rebuilds (see {@link notifyOutputAssemblyChanged}), which don't need a fresh MSBuild
+   * evaluation since `OutputAssemblyPath` doesn't change just because the DLL was rebuilt.
+   */
   private async resendProjectFiles(projectFile: string): Promise<void> {
-    const props = await evaluateProject(projectFile);
+    const { props } = await this.sendProjectLoaded(projectFile);
     if (!props) return; // msbuild unavailable — index stays Pending, same as v1 fallback
     await this.sendProjectFilesBaseline(projectFile, props.targetFrameworkMoniker, props.files);
+  }
+
+  /**
+   * Forwards a `bin/**` DLL create/change event to the server as a standard
+   * `workspace/didChangeWatchedFiles` notification (v5, see class doc). No-ops for assemblies
+   * that don't belong to a known project (dependency DLLs, other tools' output). Deliberately
+   * does *not* re-run MSBuild or resend `reqnroll/projectLoaded`/`reqnroll/projectFiles` — the
+   * server's `WatchedFilesHandler` already has the project's `OutputAssemblyPath` from its
+   * original registration (computed from MSBuild properties, valid whether or not the file
+   * exists yet) and can retry discovery from just the URI + change type.
+   */
+  private notifyOutputAssemblyChanged(uri: vscode.Uri, changeType: FileChangeType): void {
+    if (!findOwningProjectFile(uri.fsPath, this._knownProjects)) return;
+
+    void this._client
+      .sendNotification(DidChangeWatchedFilesNotification.type, {
+        changes: [{ uri: uri.toString(), type: changeType }],
+      })
+      .catch((err: unknown) => {
+        console.error(
+          `ProjectManager: failed to notify output assembly change for ${uri.fsPath}:`,
+          err,
+        );
+      });
   }
 
   // ── Notification sending ──────────────────────────────────────────────
@@ -221,11 +288,39 @@ export class ProjectManager {
       return;
     }
 
+    const result = await this.sendProjectLoaded(projectFile);
+    if (!result.sent) return; // notification failed — do not mark known (matches pre-v5 behavior)
+    this._knownProjects.add(projectFile);
+
+    // v3: populate the server's per-file membership index, same data VS's
+    // VsProjectEventMonitor.SendInitialProjectsAsync sends via TrySendProjectFilesAsync.
+    if (result.props) {
+      await this.sendProjectFilesBaseline(
+        projectFile,
+        result.props.targetFrameworkMoniker,
+        result.props.files,
+      );
+    }
+  }
+
+  /**
+   * Evaluates `projectFile` via MSBuild and sends `reqnroll/projectLoaded` with the result
+   * (empty fields when msbuild is unavailable — v1 compat, file stays folder-prefix `Pending`).
+   * Shared by {@link registerProject} (first discovery) and {@link resendProjectFiles} (v5:
+   * re-evaluating after the output assembly is built, so `outputAssemblyPath` reaches the server
+   * even though it didn't exist at initial registration time).
+   *
+   * `sent` is `false` only when the notification itself failed to send (e.g. the client isn't
+   * running) — distinct from `props` being `null`, which means msbuild evaluation failed/was
+   * unavailable but the (empty-field) notification still went out successfully.
+   */
+  private async sendProjectLoaded(
+    projectFile: string,
+  ): Promise<{ sent: boolean; props: ProjectProperties | null }> {
     const folders = (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath);
     const workspaceFolder = resolveWorkspaceFolder(projectFile, folders);
     const projectFolder = path.dirname(projectFile);
 
-    // v2: evaluate via dotnet msbuild
     const props = await evaluateProject(projectFile);
 
     const params = {
@@ -245,17 +340,12 @@ export class ProjectManager {
 
     try {
       await this._client.sendNotification(ReqnrollMethods.projectLoaded, params);
-      this._knownProjects.add(projectFile);
     } catch (err) {
       console.error(`ProjectManager: failed to send projectLoaded for ${projectFile}:`, err);
-      return;
+      return { sent: false, props: null };
     }
 
-    // v3: populate the server's per-file membership index, same data VS's
-    // VsProjectEventMonitor.SendInitialProjectsAsync sends via TrySendProjectFilesAsync.
-    if (props) {
-      await this.sendProjectFilesBaseline(projectFile, props.targetFrameworkMoniker, props.files);
-    }
+    return { sent: true, props };
   }
 
   /** Sends a reqnroll/projectFiles baseline (full snapshot) for one project. */
