@@ -963,6 +963,18 @@ sequenceDiagram
     IDE-->>User: Lines commented / uncommented
 ```
 
+#### VS Code — as-built
+
+F13 is **implemented** on `feat/vscode-extension-initial`, matching the design above with no deviation:
+
+| Design element | As-built |
+|---|---|
+| Keybinding interception | `package.json` `contributes.keybindings` binds `ctrl+/` (`cmd+/` on macOS) to `reqnroll.toggleComment`, scoped by `"when": "editorTextFocus && editorLangId == gherkin"` — VS Code's own comment-toggle keybinding does not fire for `gherkin`-language documents. |
+| Command handler | `reqnroll.toggleComment` (registered in [`extension.ts`](../src/VSCode/src/extension.ts)) delegates to `doToggleComment` in [`commentToggle.ts`](../src/VSCode/src/commentToggle.ts). |
+| Selection normalization | `normalizeSelectionLines` ([`selectionUtils.ts`](../src/VSCode/src/selectionUtils.ts)) trims a trailing selected line when VS Code reports the selection ending at `(line, 0)` — i.e. the user dragged past the end of the previous line without selecting any character on the next one — so that line is not spuriously toggled. |
+| Request | `doToggleComment` sends `workspace/executeCommand` (`reqnroll.toggleComment`, `[uri, startLine, endLine]`) via `client.sendRequest(ExecuteCommandRequest.type, ...)` and lets the returned `WorkspaceEdit` apply through the standard LSP client machinery; failures surface via `vscode.window.showErrorMessage`. |
+| Menu presence | Also available via editor context menu (`editor/context`, group `1_modification`) and the command palette, both gated on `editorLangId == gherkin`. |
+
 ---
 
 ### F14 · Find Step Definition Usages
@@ -1037,6 +1049,18 @@ F14 is **implemented**. The as-built mapping is:
 
 > **As-built note — VS "Find All References" does not integrate automatically.** VS does not dispatch `textDocument/references` to secondary LSP servers for `.cs` files; the C# language server intercepts unconditionally. Q13 is **resolved as "dispatch is unreliable"**. The custom VS.Extensibility command (`FindStepUsagesCommand`) instead injects `reqnroll/findStepUsages` directly over the owned `LspInterceptingPipe`. VS-validated end-to-end on the Experimental Instance (Surfaces 1 and 2, 2026-06-09).
 
+#### VS Code — as-built
+
+F14 is **implemented** on `feat/vscode-extension-initial` as a custom command rather than a `textDocument/references` binding — VS Code, like VS, has no reliable way to route `textDocument/references` on a `.cs` file to the Reqnroll server instead of the built-in C# extension, so the client sidesteps the dispatch-ambiguity question entirely (same conclusion as Q13, reached independently on the VS Code side):
+
+| Design element | As-built |
+|---|---|
+| Invocation surfaces | Command palette / editor context menu (`reqnroll.findStepUsages`, `when: editorLangId == csharp`), and CodeLens click (see F18) — no reliance on `textDocument/references`. |
+| Request | `doFindStepUsages` ([`stepUsages.ts`](../src/VSCode/src/stepUsages.ts)) sends the custom `reqnroll/findStepUsages` request directly (not `textDocument/references`), with `{textDocument, position, context: {includeDeclaration: false}}`. |
+| Three-state response handling | Mirrors the server's `FindStepUsagesResponse` contract: `isBinding: false` shows an information message ("cursor is not on a step definition binding"); `isBinding: true` with zero locations shows "No usages found"; otherwise a `vscode.window.showQuickPick` lists each usage as `keyword stepText`, with scenario name as description and project name as detail. |
+| Navigation | Selecting a QuickPick entry calls `openAndReveal` ([`navigationUtils.ts`](../src/VSCode/src/navigationUtils.ts)) to open the target `.feature` file and reveal the step location — no native "Find All References" panel integration (VS Code's references panel is not addressable from an extension for arbitrary custom data; the QuickPick is the VS Code-idiomatic substitute). |
+| CodeLens integration | When invoked from a CodeLens item (F18), `extension.ts` receives `[uri, line, char]` as command arguments instead of reading the active editor's cursor position. A separate `reqnroll.noStepUsages` command (deliberately omitted from `package.json`'s `contributes.commands`, since it is never invoked from the palette) is the click target for CodeLens items reporting zero usages. |
+
 ---
 
 ### F15 · Find Unused Step Definitions
@@ -1089,6 +1113,17 @@ sequenceDiagram
     RCH-->>IDE: window/showDocument (or custom notification) with unused list
     IDE-->>User: Results displayed
 ```
+
+#### VS Code — as-built
+
+F15 is **implemented** on `feat/vscode-extension-initial`:
+
+| Design element | As-built |
+|---|---|
+| Command | `reqnroll.findUnusedStepDefinitions` (command palette only — no keybinding or context-menu placement) invokes `doFindUnusedStepDefinitions` ([`stepUsages.ts`](../src/VSCode/src/stepUsages.ts)), which sends `workspace/executeCommand` (`reqnroll.findUnusedStepDefinitions`) wrapped in `vscode.window.withProgress` so a "Scanning for unused step definitions…" notification is shown while the workspace-wide analysis runs. |
+| Results display | Zero unused bindings shows an information message. Otherwise a `vscode.window.showQuickPick` lists each unused binding as `$(warning) ClassName.MethodName`, with the binding expression as description and project name as detail; selecting one opens the `.cs` source file and reveals the method via `openAndReveal`. |
+| Deleted-`.cs`-file bug fix | The server-side bug documented in [VSCode-Extension-Implementation-Plan.md](VSCode-Extension-Implementation-Plan.md) — a deleted `.cs` file's step definitions lingering in the registry and causing the QuickPick's navigation to throw — was fixed by adding `ICSharpBindingDiscoveryService.RemoveFileAsync`, invoked from `WatchedFilesHandler` on `.cs` `FileChangeType.Deleted` events. VS Code's `synchronize.fileEvents: '**/*.{feature,cs}'` watcher (configured in `extension.ts`) already emits these delete events, so no VS Code-side change was needed once the server handled them. |
+| Cross-project semantics | No VS Code-specific handling — the client is a thin pass-through to `workspace/executeCommand`; the membership-index intersection semantics described above are entirely server-side and apply identically regardless of client. |
 
 ---
 
@@ -1276,6 +1311,14 @@ sequenceDiagram
 - **Phase 4 migration path for VS.** The existing `RenameStepCommand` (VSSDK) is retained and acts as a façade: for single-binding positions it delegates to the LSP `textDocument/rename` flow (via the same `LspInterceptingPipe` used by F14's custom command). For multi-attribute positions it shows the existing picker + `RenameStepViewModel` dialog. This dual-path approach lets the LSP rename ship in Phase 4 without regressing the rich VS validation UX, and the VS-specific code can be retired in a later release once the LSP dialog ecosystem catches up.
 - **Linked files.** When the membership index (Q17) reports that a binding `.cs` file belongs to multiple projects, the rename handler unions the feature files from **all** including projects into the WorkspaceEdit. The handler calls `ILspWorkspaceScopeManager.GetProjectsForUri(bindingCsFile)` to get the owning set, then iterates each project's registry to find matching feature steps. This is the same multi-project routing already designed for F14/F15; the rename handler uses the same `GetProjectsForUri` API.
 
+#### VS Code — as-built
+
+F16's **single-binding** case is implemented on `master` as a thin pass-through to VS Code's native rename gesture: `reqnroll.renameStep` (bound to F2 for `gherkin`-language documents, `package.json` `contributes.keybindings`) calls `vscode.commands.executeCommand('editor.action.rename')`, which drives the standard `textDocument/prepareRename` / `textDocument/rename` flow already implemented server-side. No VS Code-specific validation or edit-application code exists — `vscode-languageclient` applies the returned `WorkspaceEdit` (spanning the `.cs` attribute and every matching `.feature` step) through its normal rename UI.
+
+**Multi-attribute disambiguation is not yet on `master`.** As designed above, when the cursor resolves to more than one candidate binding, the server returns `null` from `prepareRename`, which makes VS Code report the standard "You cannot rename this element" message with no path to disambiguate — there is currently no VS Code-side consumer of the server's `reqnroll/renameTargets` / `reqnroll/selectRenameTarget` custom requests. This matches the "⚠️ Config" (not "🔧 Plugin") rating in the IDE support matrix above: today, VS Code relies entirely on the user manually clicking into the specific attribute string before invoking rename.
+
+An open PR ([#27](https://github.com/clrudolphi/Reqnroll.IdeSupport/pull/27), branch `feat/vscode-rename-disambiguation`, unmerged as of this writing) adds a client-side `RenameMiddleware.prepareRename` override (`src/VSCode/src/renameDisambiguation.ts`) that queries `reqnroll/renameTargets` first: 0–1 candidates pass straight through to native `prepareRename` (no behavior change from what's on `master` today); 2+ candidates show a `vscode.window.showQuickPick` and send `reqnroll/selectRenameTarget` with the chosen index before letting the native rename input box open. The PR requires no server-side changes, since `reqnroll/renameTargets` and `reqnroll/selectRenameTarget` already exist for the Visual Studio disambiguation dialog. Until it merges, this parity gap with Visual Studio's picker-based disambiguation remains open.
+
 ---
 
 ### F17 · Hook Navigation
@@ -1351,6 +1394,17 @@ sequenceDiagram
     end
 ```
 
+#### VS Code — as-built
+
+F17 is **implemented** on `feat/vscode-extension-initial`:
+
+| Design element | As-built |
+|---|---|
+| Command | `reqnroll.goToHooks`, available via editor context menu (`editor/context`, group `navigation@90`, `when: editorLangId == gherkin`) and the command palette; no default keybinding. |
+| Request | `doGoToHooks` ([`hookNavigation.ts`](../src/VSCode/src/hookNavigation.ts)) reads the active editor's cursor position and sends the custom `reqnroll/goToHooks` request with `{textDocument, position}`. |
+| Single vs. multiple results | A single hook navigates directly via `openAndReveal`. Multiple hooks show a `vscode.window.showQuickPick` with one entry per hook (`$(symbol-event) HookType`, method name as description, `Order: N` as detail when `hookOrder !== 0`) — the VS Code-idiomatic equivalent of the VS `NavigationPickerDialog` modal described above. |
+| Navigation | `navigateToHook` opens the target `.cs` file and reveals the hook method's location via the shared `openAndReveal` helper (also used by F14 and F15). |
+
 ---
 
 ### F18 · Code Lens (Step Usage Counts)
@@ -1415,6 +1469,17 @@ sequenceDiagram
         IDE-->>IDE: Render lens above first attribute of method
     end
 ```
+
+#### VS Code — as-built
+
+F18 is **implemented** on `feat/vscode-extension-initial`, matching the "✅ Generic" rating: VS Code's `CodeLensProvider` API maps directly onto `textDocument/codeLens` without the method-vs-attribute reconciliation VS.Extensibility's `ICodeLensProvider` requires (see the VS attribute-to-method mapping note above) — VS Code's provider is called once per document, not once per code element, so no per-method line-bucketing logic is needed:
+
+| Design element | As-built |
+|---|---|
+| Registration | `registerStepCodeLens` ([`stepCodeLens.ts`](../src/VSCode/src/stepCodeLens.ts)) calls `vscode.languages.registerCodeLensProvider({ language: 'csharp' }, provider)` directly via the VS Code API — registered after `client.start()` resolves, in `extension.ts` — rather than through `vscode-languageclient`'s built-in CodeLens feature, specifically to avoid clashing with the C# extension's own CodeLens registration on `.cs` files. |
+| Request | `provideCodeLenses` sends the raw `textDocument/codeLens` request (`CodeLensRequest.type`) for the document and maps each returned lens 1:1 to a `vscode.CodeLens`, preserving the server's range (method-declaration line) and command (title/command/arguments). A request failure logs a console warning and returns an empty array rather than surfacing an error to the user. |
+| Refresh on registry change | Because the provider bypasses `vscode-languageclient`'s CodeLens feature, it also loses that feature's built-in listener for the server's `workspace/codeLens/refresh` push. `stepCodeLens.ts` compensates with its own `vscode.EventEmitter<void>` wired to `onDidChangeCodeLenses`, firing on `client.onRequest(CodeLensRefreshRequest.type, ...)` so lenses still refresh promptly after a binding registry change instead of only on incidental events like editor focus change. |
+| `codeLens/resolve` | Not used — the server's `textDocument/codeLens` response already includes the fully resolved `command`, so no separate resolve round-trip is implemented client-side. |
 
 ---
 
