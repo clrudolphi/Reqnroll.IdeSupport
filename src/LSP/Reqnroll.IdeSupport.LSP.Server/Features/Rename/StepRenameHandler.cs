@@ -285,18 +285,24 @@ public sealed class StepRenameHandler
         var sourceLiteral = await FindAttributeLiteralAsync(uri, binding);
         var sourceExpression = sourceLiteral?.Token.ValueText ?? expression;
 
-        // For a .feature-triggered rename, VS Code seeds the rename dialog with the step's
-        // concrete text (real parameter values), not the binding's abstract expression — the
-        // prepareRename range covers the whole line, so `newName` comes back as concrete text
-        // too (e.g. "I have 10 cukes", not "I have {int} cukes"). Comparing that concrete text
-        // straight against the abstract expression always trips the parameter-count check in
-        // ValidateNewName, silently discarding every rename of a parameterized step. Derive the
-        // abstract expression the user actually intends by diffing the edited concrete text
-        // against the original (anchored to the same live source expression that the feature
-        // edits and the C# attribute edit use), so the rest of the pipeline keeps operating on
-        // abstract expressions.
+        // A .feature-triggered rename can arrive in two shapes, both via the same
+        // textDocument/rename call, with no protocol-level way to tell them apart:
+        //  - VS Code's native F2 seeds the dialog via prepareRename's whole-line range, so
+        //    `newName` comes back as concrete step text (real parameter values, e.g.
+        //    "I have 10 cukes" rather than "I have {int} cukes"). Comparing that straight
+        //    against the abstract expression always trips ValidateNewName's parameter-count
+        //    check, silently discarding every rename of a parameterized step.
+        //  - VS's custom "Rename Step" command builds its own prompt seeded with the binding's
+        //    abstract expression (RenameStepCommand.cs), so `newName` already carries the
+        //    correct placeholder syntax and needs no reconciliation — attempting it anyway would
+        //    fail to find any parameter "value" to locate in already-abstract text and wrongly
+        //    reject a rename that never needed fixing up.
+        // Try the abstract form first (matching parameter-slot count against the live source
+        // expression); only when that count differs do we attempt to derive the abstract
+        // expression by diffing the edited concrete text against the original.
         var effectiveNewName = newName;
-        if (path.EndsWith(".feature", StringComparison.OrdinalIgnoreCase))
+        if (path.EndsWith(".feature", StringComparison.OrdinalIgnoreCase) &&
+            StepExpressionParameters.ExtractSlots(newName).Count != StepExpressionParameters.ExtractSlots(sourceExpression).Count)
         {
             var currentUsage = usages.FirstOrDefault(u =>
                 string.Equals(u.FeatureDocumentId, uri.ToString(), StringComparison.OrdinalIgnoreCase) &&
