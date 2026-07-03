@@ -144,7 +144,32 @@ public sealed class BenchmarkLspHarness : IAsyncDisposable
             { Uri = uri, Version = version, LanguageId = "csharp", Text = text }
         });
 
+    public void ChangeCSharp(DocumentUri uri, int version, string text) =>
+        Client.SendNotification("textDocument/didChange", new DidChangeTextDocumentParams
+        {
+            TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = uri, Version = version },
+            ContentChanges = new Container<TextDocumentContentChangeEvent>(
+                new TextDocumentContentChangeEvent { Text = text })
+        });
+
     public void SendNotification(string method, object payload) => Client.SendNotification(method, payload);
+
+    /// <summary>
+    /// Announces the corpus as a loaded Reqnroll project so binding discovery runs against the
+    /// built corpus bindings assembly (see <c>CorpusAssemblyLocator</c>) and the registry is
+    /// primed for bound-state benchmarks (definition cache-hit, step completion), instead of
+    /// running against an empty registry.
+    /// </summary>
+    public void SendCorpusProjectLoaded(string corpusRoot, string corpusAssemblyPath) =>
+        Client.SendNotification("reqnroll/projectLoaded", new
+        {
+            workspaceFolder = corpusRoot,
+            projectFile = Path.Combine(corpusRoot, "Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus.csproj"),
+            projectFolder = corpusRoot,
+            outputAssemblyPath = corpusAssemblyPath,
+            targetFrameworkMoniker = ".NETCoreApp,Version=v10.0",
+            packageReferences = Array.Empty<object>(),
+        });
 
     // ── Timed request ───────────────────────────────────────────────────────────
 

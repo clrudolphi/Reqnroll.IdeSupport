@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus;
 using Reqnroll.IdeSupport.LSP.Server.Benchmarks.Harness;
 using Reqnroll.IdeSupport.LSP.Server.Benchmarks.Latency;
@@ -27,7 +28,7 @@ public static class BenchmarkRunner
         var measured = IntArg(args, "--iterations", 50);
         var fileCount = IntArg(args, "--files", 10);
         var outPath = StringArg(args, "--out");
-        var corpusAssembly = StringArg(args, "--corpus-assembly");
+        var corpusAssembly = StringArg(args, "--corpus-assembly") ?? CorpusAssemblyLocator.TryFind();
         var includeBatch = !args.Contains("--no-batch");
         var outOfProcess = args.Contains("--out-of-process");
         var serverExe = StringArg(args, "--server-exe") ?? (outOfProcess ? ServerExeLocator.Find() : null);
@@ -39,6 +40,10 @@ public static class BenchmarkRunner
         Console.WriteLine($"Running interactive benchmarks against corpus at {corpusRoot}");
         Console.WriteLine($"  warmup={warmup} iterations={measured} files={fileCount} " +
                           $"assert={gate.AssertThresholds} out-of-process={outOfProcess}");
+        Console.WriteLine(corpusAssembly is not null
+            ? $"  corpus bindings assembly: {corpusAssembly}"
+            : "  corpus bindings assembly: not found (build Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus " +
+              "first to enable the binding-discovery batch scenarios and primed bound-state numbers)");
 
         await using var harness = new BenchmarkLspHarness();
         string transport;
@@ -56,6 +61,15 @@ public static class BenchmarkRunner
 
         var features = await InteractiveScenarios.OpenFeaturesAsync(harness, corpusRoot, fileCount).ConfigureAwait(false);
         var scenarios = new InteractiveScenarios(harness, features, warmup, measured);
+
+        if (corpusAssembly is not null)
+        {
+            // Prime the registry against the built corpus bindings assembly before driving the
+            // bound-state benchmarks (definition cache-hit, step completion), so their numbers
+            // reflect a populated match cache rather than an empty (unbound) registry.
+            harness.SendCorpusProjectLoaded(corpusRoot, corpusAssembly);
+            await WaitForBindingDiscoveryAsync(harness, features[0]).ConfigureAwait(false);
+        }
 
         var summaries = new List<(PerfTarget Target, LatencySummary Summary)>
         {
@@ -79,7 +93,20 @@ public static class BenchmarkRunner
                     phases: coldStartPhases).ConfigureAwait(false)));
         }
 
+        // Binding-discovery batch scenarios: only measurable once a built corpus bindings assembly
+        // is available (see Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus). Otherwise reported as
+        // skipped rather than measured against an empty registry.
         var skipped = BatchScenarios.UnavailableDiscoveryScenarios(corpusAssembly);
+        if (includeBatch && corpusAssembly is not null)
+        {
+            Console.WriteLine("Running binding-discovery batch scenarios (Roslyn re-discovery, reflection discovery)...");
+            summaries.Add((PerfTargets.RoslynReDiscovery,
+                await BatchScenarios.RoslynReDiscoveryAsync(harness, corpusRoot, features[0].Uri, features[0].Text)
+                    .ConfigureAwait(false)));
+            summaries.Add((PerfTargets.ReflectionDiscovery,
+                await BatchScenarios.ReflectionDiscoveryAsync(corpusRoot, corpusAssembly)
+                    .ConfigureAwait(false)));
+        }
 
         var results = summaries.Select(s => new OperationResult(s.Target, s.Summary)).ToList();
         var report = new BenchmarkReport(
@@ -123,6 +150,33 @@ public static class BenchmarkRunner
         }
 
         return 0;
+    }
+
+    /// <summary>
+    /// Polls <c>textDocument/definition</c> on a step known to be bound in the corpus (see
+    /// <c>CorpusGenerator</c> — "Given precondition N is met" always binds) until it resolves to a
+    /// real location, i.e. the async binding-discovery + match pass triggered by
+    /// <c>reqnroll/projectLoaded</c> has completed. Falls through after the timeout so a slow/failed
+    /// discovery degrades to the previous (unprimed) behaviour rather than hanging the run.
+    /// </summary>
+    private static async Task WaitForBindingDiscoveryAsync(BenchmarkLspHarness harness, OpenFeature feature, int timeoutMs = 10_000)
+    {
+        var (line, character) = feature.StepPosition;
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (DateTime.UtcNow < deadline)
+        {
+            var location = await harness.RequestAsync<LocationOrLocationLinks?>(
+                "textDocument/definition",
+                new DefinitionParams
+                {
+                    TextDocument = new TextDocumentIdentifier { Uri = feature.Uri },
+                    Position = new Position(line, character),
+                }).ConfigureAwait(false);
+            if (location is not null && location.Any()) return;
+            await Task.Delay(50).ConfigureAwait(false);
+        }
+        Console.WriteLine("  warning: binding discovery did not resolve a definition within the timeout; " +
+                           "bound-state benchmarks may run against an unprimed registry.");
     }
 
     private static int IntArg(string[] args, string name, int fallback)

@@ -49,5 +49,6 @@
     <Folder Name="/Tests/Performance/">
         <Project Path="tests/Performance/Reqnroll.IdeSupport.LSP.Server.Benchmarks.Core/Reqnroll.IdeSupport.LSP.Server.Benchmarks.Core.csproj" />
         <Project Path="tests/Performance/Reqnroll.IdeSupport.LSP.Server.Benchmarks/Reqnroll.IdeSupport.LSP.Server.Benchmarks.csproj" />
+        <Project Path="tests/Performance/Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus/Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus.csproj" />
     </Folder>
 </Solution>
