@@ -17,6 +17,7 @@ using Reqnroll.IdeSupport.LSP.Server.Features.References;
 using Reqnroll.IdeSupport.LSP.Server.Features.Rename;
 using Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens;
 using Reqnroll.IdeSupport.LSP.Server.Diagnostics.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Tracing;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 using OmniSharp.Extensions.LanguageServer.Protocol;
@@ -41,7 +42,10 @@ public static class LanguageServerOptionsExtensions
                .AddHandler<FeatureCodeActionHandler>()
                .AddHandler<GherkinFormattingHandler>()
                .AddHandler<FeatureDocumentSymbolHandler>()
-               .AddHandler<FeatureFoldingRangeHandler>();
+               .AddHandler<FeatureFoldingRangeHandler>()
+               // F41: standard $/setTrace notification, letting the client change the trace
+               // level at runtime.
+               .AddHandler<SetTraceNotificationHandler>();
     }
 
     /// <summary>

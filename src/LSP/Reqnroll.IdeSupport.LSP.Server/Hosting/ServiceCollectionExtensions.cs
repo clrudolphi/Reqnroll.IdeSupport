@@ -37,6 +37,7 @@ using Reqnroll.IdeSupport.LSP.Server.Features.Definition;
 using Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 using Reqnroll.IdeSupport.LSP.Server.Tagging;
+using Reqnroll.IdeSupport.LSP.Server.Tracing;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Hosting;
@@ -72,11 +73,16 @@ public static class ServiceCollectionExtensions
             // PERF lines to the log and (when REQNROLL_PERF_TELEMETRY_SAMPLE is set) emits sampled
             // PerfSample telemetry. Singleton so the sampler's RNG is shared across handlers.
             .AddSingleton<IPerfTelemetrySampler>(_ => PerfTelemetrySampler.FromEnvironment())
+            // F41: tracks the LSP `trace` level (InitializeParams.Trace / $/setTrace) and issues
+            // $/logTrace notifications. Singleton so the level set by $/setTrace is visible to
+            // every consumer (currently OperationDurationRecorder's PERF lines).
+            .AddSingleton<ITraceService, TraceService>()
             .AddSingleton<IOperationDurationRecorder>(sp => new OperationDurationRecorder(
                 sp.GetRequiredService<IDeveroomLogger>(),
                 sp.GetRequiredService<ClientIdeContext>(),
                 sp.GetRequiredService<ILspTelemetryService>(),
-                sp.GetRequiredService<IPerfTelemetrySampler>()));
+                sp.GetRequiredService<IPerfTelemetrySampler>(),
+                sp.GetRequiredService<ITraceService>()));
     }
 
     /// <summary>
@@ -157,6 +163,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<FeatureFoldingRangeHandler>()
             .AddSingleton<CommentToggleHandler>()
             .AddSingleton<StepRenameHandler>()
-            .AddSingleton<RenameSessionManager>();
+            .AddSingleton<RenameSessionManager>()
+            .AddSingleton<SetTraceNotificationHandler>();
     }
 }

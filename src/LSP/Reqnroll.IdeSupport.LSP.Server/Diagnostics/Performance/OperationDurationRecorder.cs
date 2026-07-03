@@ -7,6 +7,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
+using Reqnroll.IdeSupport.LSP.Server.Tracing;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Diagnostics.Performance;
 
@@ -29,17 +30,20 @@ public sealed class OperationDurationRecorder : IOperationDurationRecorder
     private readonly ClientIdeContext _ide;
     private readonly ILspTelemetryService? _telemetry;
     private readonly IPerfTelemetrySampler _sampler;
+    private readonly ITraceService? _trace;
 
     public OperationDurationRecorder(
         IDeveroomLogger logger,
         ClientIdeContext ide,
         ILspTelemetryService? telemetry = null,
-        IPerfTelemetrySampler? sampler = null)
+        IPerfTelemetrySampler? sampler = null,
+        ITraceService? trace = null)
     {
         _logger = logger;
         _ide = ide;
         _telemetry = telemetry;
         _sampler = sampler ?? PerfTelemetrySampler.FromEnvironment();
+        _trace = trace;
     }
 
     public IDisposable Measure(string operation, DocumentUri? uri = null)
@@ -52,6 +56,13 @@ public sealed class OperationDurationRecorder : IOperationDurationRecorder
         _logger.LogVerbose(() => uri is null
             ? $"PERF op={operation} ms={elapsedMs:F1}"
             : $"PERF op={operation} ms={elapsedMs:F1} uri={uri}");
+
+        // F41: mirror the same measurement as a $/logTrace notification (a no-op unless the
+        // client opted into tracing via InitializeParams.Trace or $/setTrace). The URI only goes
+        // into the verbose detail, matching the log line's own privacy posture.
+        _trace?.Trace(
+            $"{operation}: {elapsedMs:F1}ms",
+            uri is null ? null : () => uri.ToString());
 
         // Secondary sink: sampled telemetry metric — no URI/path (privacy).
         if (_telemetry is not null && _sampler.ShouldSample())

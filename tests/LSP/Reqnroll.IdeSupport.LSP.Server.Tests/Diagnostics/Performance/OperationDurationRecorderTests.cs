@@ -8,6 +8,7 @@ using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Diagnostics.Performance;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
+using Reqnroll.IdeSupport.LSP.Server.Tracing;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Diagnostics.Performance;
 
@@ -120,6 +121,41 @@ public class OperationDurationRecorderTests
 
         logger.Messages.Should().ContainSingle()
             .Which.Should().Contain("op=textDocument/semanticTokens/full");
+    }
+
+    [Fact]
+    public void Record_mirrors_the_measurement_as_a_trace_notification()
+    {
+        var trace = Substitute.For<ITraceService>();
+        var sut = new OperationDurationRecorder(
+            new CapturingLogger(), Ide(), telemetry: null, sampler: new FixedSampler(false), trace: trace);
+
+        sut.Record("textDocument/completion#step", 42.5);
+
+        trace.Received(1).Trace("textDocument/completion#step: 42.5ms", Arg.Any<Func<string>?>());
+    }
+
+    [Fact]
+    public void Record_does_not_pass_a_verbose_callback_when_no_uri_is_given()
+    {
+        var trace = Substitute.For<ITraceService>();
+        var sut = new OperationDurationRecorder(
+            new CapturingLogger(), Ide(), telemetry: null, sampler: new FixedSampler(false), trace: trace);
+
+        sut.Record("textDocument/definition", 10);
+
+        trace.Received(1).Trace(Arg.Any<string>(), null);
+    }
+
+    [Fact]
+    public void Record_works_without_a_trace_service()
+    {
+        var sut = new OperationDurationRecorder(
+            new CapturingLogger(), Ide(), telemetry: null, sampler: new FixedSampler(false));
+
+        var act = () => sut.Record("textDocument/definition", 10);
+
+        act.Should().NotThrow();
     }
 
     [Theory]

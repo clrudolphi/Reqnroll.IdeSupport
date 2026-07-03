@@ -23,6 +23,7 @@ using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.LSP.Server.Configuration;
 using Reqnroll.IdeSupport.LSP.Server.Pipeline;
 using Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens;
+using Reqnroll.IdeSupport.LSP.Server.Tracing;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Hosting;
@@ -150,6 +151,10 @@ public class Program
 
         options.OnInitialized((languageServer, request, response, ct) =>
         {
+            // F41: respect the trace level the client asked for at the handshake; $/setTrace
+            // (SetTraceNotificationHandler) can change it afterwards.
+            languageServer.Services.GetRequiredService<ITraceService>().Level = request.Trace;
+
             var tokenService = languageServer.Services.GetRequiredService<ISemanticTokenService>();
 
             response.Capabilities.SemanticTokensProvider = new SemanticTokensRegistrationOptions.StaticOptions
