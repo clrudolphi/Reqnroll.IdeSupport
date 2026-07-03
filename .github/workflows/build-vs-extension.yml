@@ -1,0 +1,119 @@
+# ---------------------------------------------------------------------------
+# build-vs-extension.yml — CI pipeline for the Reqnroll Visual Studio extension.
+#
+# Modeled on reqnroll/Reqnroll.VisualStudio's ci.yml (the legacy VS extension
+# this project replaces): a VSIX-producing build needs a Windows runner and
+# MSBuild (via microsoft/setup-msbuild) rather than a plain Linux/dotnet-only
+# job, because VSIX packaging goes through Microsoft.VSSDK.BuildTools targets.
+#
+# Unlike the legacy project (net481 classic VSSDK package, built with
+# `msbuild -property:DeployExtension=false ...`), this repo's extension is an
+# SDK-style csproj using the modern VisualStudio.Extensibility SDK plus
+# Microsoft.VSSDK.BuildTools for VSIX packaging (GeneratePkgDefFile,
+# VssdkCompatibleExtension). It was verified locally that plain
+# `dotnet build` (which also republishes the LSP server into the VSIX, see
+# the IncludeLspServerInVsix target) already produces a working .vsix — so
+# this workflow uses `dotnet build`/`dotnet test` and does not require
+# `msbuild.exe` directly. `microsoft/setup-msbuild` is still added to PATH
+# because the VSSDK build targets shell out to msbuild.exe for some VSIX
+# manifest/pkgdef steps even under a `dotnet build` invocation.
+#
+# This workflow builds and packages the VSIX only — it does not sign or
+# publish to the Visual Studio Marketplace (no marketplace credentials are
+# configured for this repo yet; see reqnroll/Reqnroll.VisualStudio's `release`
+# job for the CodingWithCalvin/GHA-VSMarketplacePublisher pattern to adopt
+# once publishing is desired). This mirrors build-vscode-extension.yml, which
+# similarly stops at packaging the .vsix without publishing to the Marketplace.
+# ---------------------------------------------------------------------------
+name: Build VS Extension
+
+on:
+  push:
+    branches:
+      - 'main'
+    paths:
+      - 'src/VisualStudio/**'
+      - 'src/LSP/**'
+      - 'tests/VisualStudio/**'
+      - '.github/workflows/build-vs-extension.yml'
+  pull_request:
+    paths:
+      - 'src/VisualStudio/**'
+      - 'src/LSP/**'
+      - 'tests/VisualStudio/**'
+      - '.github/workflows/build-vs-extension.yml'
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  CONFIGURATION: Release
+  EXTENSION_PROJECT: src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Extension/Reqnroll.IdeSupport.VisualStudio.Extension.csproj
+  TESTS_PROJECT: tests/VisualStudio/Reqnroll.VisualStudio.Tests/Reqnroll.VisualStudio.Tests.csproj
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Build + package — restores, builds the extension (which also
+  # republishes the LSP server into the VSIX via IncludeLspServerInVsix), and
+  # uploads the resulting .vsix.
+  # ---------------------------------------------------------------------------
+  build-extension:
+    name: Build VSIX
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore
+        run: dotnet restore ${{ env.EXTENSION_PROJECT }}
+
+      - name: Build VSIX (${{ env.CONFIGURATION }})
+        run: dotnet build ${{ env.EXTENSION_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }}
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reqnroll-vs-extension-vsix
+          path: src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Extension/bin/${{ env.CONFIGURATION }}/net481/*.vsix
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Job 2: Unit tests — Reqnroll.VisualStudio.Tests (client parse/transform
+  # logic; see src/VisualStudio/CONTRIBUTING.md for what belongs here vs. the
+  # LSP server specs).
+  # ---------------------------------------------------------------------------
+  unit-tests:
+    name: Unit Tests
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore
+        run: dotnet restore ${{ env.TESTS_PROJECT }}
+
+      - name: Test
+        run: dotnet test ${{ env.TESTS_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} --logger trx --results-directory TestResults
+
+      - name: Upload Test Result TRX Files
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vs-extension-tests-trx
+          if-no-files-found: error
+          path: "TestResults/*.trx"
