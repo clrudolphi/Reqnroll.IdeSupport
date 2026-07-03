@@ -29,7 +29,9 @@ suite('renameDisambiguation', () => {
       const client = fakeClient({
         sendRequest: () =>
           Promise.resolve({
-            targets: [{ label: 'Given the first number is {int}', expression: 'x', attributeIndex: 0 }],
+            targets: [
+              { label: 'Given the first number is {int}', expression: 'x', attributeIndex: 0 },
+            ],
           }),
       });
 
@@ -93,48 +95,58 @@ suite('renameDisambiguation', () => {
       assert.ok(nextCalled, 'next() should be invoked when the client is not yet available');
     });
 
-    test('sends reqnroll/selectRenameTarget before delegating when multiple targets exist and ' +
-      'the user picks one', function () {
-      // Exercising the real QuickPick requires interactive UI, which the extension-host test
-      // runner cannot drive headlessly. Getting past the picker without a real selection isn't
-      // possible here, so this documents the currently-untestable branch instead of asserting on
-      // it — see the "no target selected" test below for the branch that is testable end-to-end.
-      this.skip();
-    });
+    test(
+      'sends reqnroll/selectRenameTarget before delegating when multiple targets exist and ' +
+        'the user picks one',
+      function () {
+        // Exercising the real QuickPick requires interactive UI, which the extension-host test
+        // runner cannot drive headlessly. Getting past the picker without a real selection isn't
+        // possible here, so this documents the currently-untestable branch instead of asserting on
+        // it — see the "no target selected" test below for the branch that is testable end-to-end.
+        this.skip();
+      },
+    );
 
-    test('suppresses rename (does not call next) when multiple targets exist and the user ' +
-      'dismisses the picker', async () => {
-      // showQuickPick resolves to undefined when the user presses Escape; simulate that by
-      // stubbing the VS Code API for the duration of this test.
-      const original = vscode.window.showQuickPick;
-      (vscode.window as unknown as { showQuickPick: unknown }).showQuickPick = () =>
-        Promise.resolve(undefined);
+    test(
+      'suppresses rename (does not call next) when multiple targets exist and the user ' +
+        'dismisses the picker',
+      async () => {
+        // showQuickPick resolves to undefined when the user presses Escape; simulate that by
+        // stubbing the VS Code API for the duration of this test.
+        const original = vscode.window.showQuickPick;
+        (vscode.window as unknown as { showQuickPick: unknown }).showQuickPick = () =>
+          Promise.resolve(undefined);
 
-      try {
-        const client = fakeClient({
-          sendRequest: () =>
-            Promise.resolve({
-              targets: [
-                { label: 'Given a', expression: 'a', attributeIndex: 0 },
-                { label: 'Given b', expression: 'b', attributeIndex: 1 },
-              ],
-            }),
-        });
-        const middleware = createRenameMiddleware(() => client);
+        try {
+          const client = fakeClient({
+            sendRequest: () =>
+              Promise.resolve({
+                targets: [
+                  { label: 'Given a', expression: 'a', attributeIndex: 0 },
+                  { label: 'Given b', expression: 'b', attributeIndex: 1 },
+                ],
+              }),
+          });
+          const middleware = createRenameMiddleware(() => client);
 
-        let nextCalled = false;
-        const next = () => {
-          nextCalled = true;
-          return Promise.resolve(new vscode.Range(position, position));
-        };
+          let nextCalled = false;
+          const next = () => {
+            nextCalled = true;
+            return Promise.resolve(new vscode.Range(position, position));
+          };
 
-        const result = await middleware.prepareRename!(document, position, token, next);
+          const result = await middleware.prepareRename!(document, position, token, next);
 
-        assert.strictEqual(result, undefined);
-        assert.strictEqual(nextCalled, false, 'next() should not be invoked when the picker is dismissed');
-      } finally {
-        (vscode.window as unknown as { showQuickPick: unknown }).showQuickPick = original;
-      }
-    });
+          assert.strictEqual(result, undefined);
+          assert.strictEqual(
+            nextCalled,
+            false,
+            'next() should not be invoked when the picker is dismissed',
+          );
+        } finally {
+          (vscode.window as unknown as { showQuickPick: unknown }).showQuickPick = original;
+        }
+      },
+    );
   });
 });
