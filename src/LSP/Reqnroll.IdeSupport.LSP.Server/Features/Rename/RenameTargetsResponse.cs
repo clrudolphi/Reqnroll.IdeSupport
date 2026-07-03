@@ -10,6 +10,15 @@ public sealed class RenameTargetsResponse
 {
     [JsonProperty("targets")]
     public List<RenameTargetItem> Targets { get; set; } = new();
+
+    /// <summary>
+    /// True when <see cref="Targets"/> is empty because the cursor is on a step that matches
+    /// more than one binding, none of which resolve to a single definite match — as opposed to
+    /// no binding being found at all. Lets clients show "rename is not supported for an
+    /// ambiguous step" instead of a misleading "no step definition found" message.
+    /// </summary>
+    [JsonProperty("isAmbiguous")]
+    public bool IsAmbiguous { get; set; }
 }
 
 /// <summary>One renameable binding attribute at the queried position.</summary>

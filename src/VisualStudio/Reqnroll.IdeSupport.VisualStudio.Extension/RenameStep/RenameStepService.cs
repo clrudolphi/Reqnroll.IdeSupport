@@ -73,23 +73,27 @@ internal sealed class RenameStepService
         if (result is not JObject obj)
             return null;
 
+        var isAmbiguous = obj["isAmbiguous"]?.Value<bool>() ?? false;
         var targets = obj["targets"] as JArray;
-        if (targets is null || targets.Count == 0)
+        if ((targets is null || targets.Count == 0) && !isAmbiguous)
             return null;
 
-        var response = new RenameTargetsResult();
-        foreach (var t in targets)
+        var response = new RenameTargetsResult { IsAmbiguous = isAmbiguous };
+        if (targets is not null)
         {
-            if (t is not JObject item) continue;
-            response.Targets.Add(new RenameTargetItem
+            foreach (var t in targets)
             {
-                Label = item["label"]?.Value<string>() ?? "",
-                Expression = item["expression"]?.Value<string>() ?? "",
-                AttributeIndex = item["attributeIndex"]?.Value<int>() ?? 0
-            });
+                if (t is not JObject item) continue;
+                response.Targets.Add(new RenameTargetItem
+                {
+                    Label = item["label"]?.Value<string>() ?? "",
+                    Expression = item["expression"]?.Value<string>() ?? "",
+                    AttributeIndex = item["attributeIndex"]?.Value<int>() ?? 0
+                });
+            }
         }
 
-        return response.Targets.Count > 0 ? response : null;
+        return response.Targets.Count > 0 || response.IsAmbiguous ? response : null;
     }
 
     /// <summary>

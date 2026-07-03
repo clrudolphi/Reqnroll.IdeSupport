@@ -146,9 +146,15 @@ public sealed class StepRenameHandler
         // subsequent textDocument/rename would fail with "Internal Error".
         if (path.EndsWith(".feature", StringComparison.OrdinalIgnoreCase))
         {
-            var featureBindings = FindBindingsAtFeatureStep(uri, path, request.Position, out var stepRange);
+            var featureBindings = FindBindingsAtFeatureStep(uri, path, request.Position, out var stepRange, out var isAmbiguous);
             if (featureBindings.Count == 0)
             {
+                if (isAmbiguous)
+                {
+                    _logger.LogVerbose("StepRenameHandler: prepareRename — step is ambiguously bound");
+                    throw new InvalidOperationException("Rename is not supported for an ambiguously bound step.");
+                }
+
                 _logger.LogVerbose("StepRenameHandler: prepareRename — no defined binding at feature step position");
                 return Task.FromResult<LspRange?>(null);
             }
@@ -499,9 +505,9 @@ public sealed class StepRenameHandler
     private async Task<RenameTargetsResponse?> HandleRenameTargetsFromFeatureAsync(
         DocumentUri uri, string path, Position position, CancellationToken cancellationToken)
     {
-        var matchedBindings = FindBindingsAtFeatureStep(uri, path, position: position);
+        var matchedBindings = FindBindingsAtFeatureStep(uri, path, position, out _, out var isAmbiguous);
         if (matchedBindings.Count == 0)
-            return new RenameTargetsResponse();
+            return new RenameTargetsResponse { IsAmbiguous = isAmbiguous };
 
         var response = new RenameTargetsResponse();
         int idx = 0;
@@ -526,7 +532,7 @@ public sealed class StepRenameHandler
     /// </summary>
     private List<ProjectStepDefinitionBinding> FindBindingsAtFeatureStep(
         DocumentUri uri, string path, Position position) =>
-        FindBindingsAtFeatureStep(uri, path, position, out _);
+        FindBindingsAtFeatureStep(uri, path, position, out _, out _);
 
     /// <summary>
     /// Finds all bindings that match the feature step at the given cursor position, and the
@@ -537,9 +543,22 @@ public sealed class StepRenameHandler
     /// the edit is applied) should use this overload.
     /// </summary>
     private List<ProjectStepDefinitionBinding> FindBindingsAtFeatureStep(
-        DocumentUri uri, string path, Position position, out LspRange? matchedRange)
+        DocumentUri uri, string path, Position position, out LspRange? matchedRange) =>
+        FindBindingsAtFeatureStep(uri, path, position, out matchedRange, out _);
+
+    /// <summary>
+    /// Finds all bindings that match the feature step at the given cursor position, the
+    /// matched step's own text span via <paramref name="matchedRange"/>, and whether the step
+    /// at the cursor is ambiguously bound (matches more than one binding, none of which is a
+    /// single defined match) via <paramref name="isAmbiguous"/>. An ambiguous step never
+    /// contributes to the returned bindings list — callers use <paramref name="isAmbiguous"/> to
+    /// tell that apart from "nothing matched here" when the list comes back empty.
+    /// </summary>
+    private List<ProjectStepDefinitionBinding> FindBindingsAtFeatureStep(
+        DocumentUri uri, string path, Position position, out LspRange? matchedRange, out bool isAmbiguous)
     {
         matchedRange = null;
+        isAmbiguous = false;
 
         var uriStr = uri.ToString();
         var owners = _scopeManager.ResolveOwners(uri);
@@ -556,7 +575,7 @@ public sealed class StepRenameHandler
 
             foreach (var step in matchSet.Steps)
             {
-                if (step.Result is null || !step.Result.HasDefined)
+                if (step.Result is null)
                     continue;
 
                 // Check if cursor falls within the step's range
@@ -570,6 +589,13 @@ public sealed class StepRenameHandler
                     if (position.Character >= stepStartChar && position.Character <= stepEndChar)
                     {
                         matchedRange ??= step.Range.ToLspRange();
+
+                        if (step.Result.HasAmbiguous)
+                            isAmbiguous = true;
+
+                        if (!step.Result.HasDefined)
+                            continue;
+
                         foreach (var item in step.Result.Items)
                         {
                             if (item.MatchedStepDefinition != null)

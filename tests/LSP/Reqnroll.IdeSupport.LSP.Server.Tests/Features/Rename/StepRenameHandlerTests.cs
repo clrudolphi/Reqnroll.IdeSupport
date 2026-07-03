@@ -490,6 +490,107 @@ public class StepRenameHandlerTests
         response!.Targets.Should().BeEmpty();
     }
 
+    // ── Ambiguous step rename (#34/#36): an ambiguous step must be distinguished from "nothing
+    //    matched here" so callers can show a specific message instead of a misleading generic one.
+
+    private static FeatureBindingMatchSet MakeAmbiguousFeatureMatchSet(
+        string featureUri, ProjectStepDefinitionBinding binding1, ProjectStepDefinitionBinding binding2,
+        string scenarioBlock, string stepText, int stepLine, int stepChar)
+    {
+        var text = $"Feature: F\nScenario: S\n\t{scenarioBlock} {stepText}\n";
+        var snapshot = new LspTextSnapshot(featureUri, 1, text);
+        var stepPrefix = $"\t{scenarioBlock} ";
+        var startOffset = text.IndexOf(stepPrefix + stepText) + stepPrefix.Length;
+        var range = GherkinRange.FromPoint(snapshot, startOffset: startOffset, length: stepText.Length);
+        var match = new StepBindingMatch(
+            featureUri,
+            range,
+            MatchResult.CreateMultiMatch(new[]
+            {
+                MatchResultItem.CreateMatch(binding1, ParameterMatch.NotMatch).CloneToAmbiguousItem(),
+                MatchResultItem.CreateMatch(binding2, ParameterMatch.NotMatch).CloneToAmbiguousItem()
+            }));
+
+        return new FeatureBindingMatchSet(
+            featureUri,
+            new ProjectOwner("/workspace/MyProject.csproj", ".NETCoreApp,Version=v8.0"),
+            1, 1,
+            new[] { match });
+    }
+
+    [Fact]
+    public async Task PrepareRename_from_feature_ambiguous_step_throws_distinct_message()
+    {
+        var featureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+        var binding1 = MakeBinding(
+            ScenarioBlock.Then, new Regex("^to be or not to be$"),
+            specifiedExpression: "to be or not to be", line: 8, method: "Steps.M1()");
+        var binding2 = MakeBinding(
+            ScenarioBlock.Then, new Regex("^to be or not to be$"),
+            specifiedExpression: "to be or not to be", line: 20, method: "Steps.M2()");
+
+        var project = MakeTestProject();
+        _scopeManager.ResolveOwners(featureUri).Returns(new[] { project });
+        _scopeManager.GetProjectForUri(featureUri).Returns(project);
+
+        var matchSet = MakeAmbiguousFeatureMatchSet(
+            featureUri.ToString(), binding1, binding2,
+            "Then", "to be or not to be", stepLine: 2, stepChar: 5);
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+            .Returns(ci =>
+            {
+                ci[1] = matchSet;
+                return true;
+            });
+
+        var act = async () => await CreateSut().HandlePrepareRenameAsync(
+            new PrepareRenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 10)
+            },
+            CancellationToken.None);
+
+        (await act.Should().ThrowAsync<InvalidOperationException>())
+            .WithMessage("*ambiguously bound*");
+    }
+
+    [Fact]
+    public async Task RenameTargets_from_feature_ambiguous_step_sets_IsAmbiguous()
+    {
+        var featureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+        var binding1 = MakeBinding(
+            ScenarioBlock.Then, new Regex("^to be or not to be$"),
+            specifiedExpression: "to be or not to be", line: 8, method: "Steps.M1()");
+        var binding2 = MakeBinding(
+            ScenarioBlock.Then, new Regex("^to be or not to be$"),
+            specifiedExpression: "to be or not to be", line: 20, method: "Steps.M2()");
+
+        _scopeManager.ResolveOwners(featureUri).Returns(new[] { MakeTestProject() });
+
+        var matchSet = MakeAmbiguousFeatureMatchSet(
+            featureUri.ToString(), binding1, binding2,
+            "Then", "to be or not to be", stepLine: 2, stepChar: 5);
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+            .Returns(ci =>
+            {
+                ci[1] = matchSet;
+                return true;
+            });
+
+        var response = await CreateSut().HandleRenameTargetsAsync(
+            new TextDocumentPositionParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 14)
+            },
+            CancellationToken.None);
+
+        response.Should().NotBeNull();
+        response!.Targets.Should().BeEmpty();
+        response.IsAmbiguous.Should().BeTrue();
+    }
+
     [Fact]
     public async Task Rename_from_feature_edits_both_feature_text_and_csharp_attribute()
     {

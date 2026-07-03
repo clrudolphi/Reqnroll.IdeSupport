@@ -79,6 +79,13 @@ internal sealed class RenameStepCommand : Command
 
             if (targets is null || targets.Targets.Count == 0)
             {
+                if (targets?.IsAmbiguous == true)
+                {
+                    _fileLogger.LogInfo("RenameStepCommand: step at cursor position is ambiguously bound.");
+                    VsUtils.ShowStatusBarMessage("Reqnroll: Rename is not supported for an ambiguously bound step.");
+                    return;
+                }
+
                 _fileLogger.LogInfo("RenameStepCommand: no renameable targets at cursor position.");
                 VsUtils.ShowStatusBarMessage("Reqnroll: No step definition found to rename at this position.");
                 return;

@@ -58,6 +58,20 @@ public class RenameTargetsMappingTests
     }
 
     [Fact]
+    public void An_ambiguous_result_with_no_targets_returns_a_flagged_result()
+    {
+        var result = RenameStepService.MapTargets(new JObject
+        {
+            ["targets"] = new JArray(),
+            ["isAmbiguous"] = true,
+        });
+
+        result.Should().NotBeNull();
+        result!.Targets.Should().BeEmpty();
+        result.IsAmbiguous.Should().BeTrue();
+    }
+
+    [Fact]
     public void Missing_fields_default_and_non_object_entries_are_skipped()
     {
         var result = RenameStepService.MapTargets(new JObject
