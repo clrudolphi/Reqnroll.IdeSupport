@@ -146,19 +146,24 @@ public sealed class StepRenameHandler
         // subsequent textDocument/rename would fail with "Internal Error".
         if (path.EndsWith(".feature", StringComparison.OrdinalIgnoreCase))
         {
-            var featureBindings = FindBindingsAtFeatureStep(uri, path, request.Position);
+            var featureBindings = FindBindingsAtFeatureStep(uri, path, request.Position, out var stepRange);
             if (featureBindings.Count == 0)
             {
                 _logger.LogVerbose("StepRenameHandler: prepareRename — no defined binding at feature step position");
                 return Task.FromResult<LspRange?>(null);
             }
 
-            var line = request.Position.Line;
-            return Task.FromResult<LspRange?>(new LspRange
+            if (stepRange == null)
             {
-                Start = new Position(line, 0),
-                End   = new Position(line, 200)
-            });
+                // Should not happen alongside a non-empty featureBindings, but refuse rather
+                // than fall back to a whole-line range: that used to seed the dialog with the
+                // keyword/indentation, which then got duplicated when the resulting edit was
+                // applied at the step-text-only range HandleRenameAsync actually replaces.
+                _logger.LogVerbose("StepRenameHandler: prepareRename — matched a binding but could not resolve the step's text range");
+                return Task.FromResult<LspRange?>(null);
+            }
+
+            return Task.FromResult<LspRange?>(stepRange);
         }
 
         return Task.FromResult<LspRange?>(null);
@@ -520,8 +525,22 @@ public sealed class StepRenameHandler
     /// by querying the binding match cache for the owning projects.
     /// </summary>
     private List<ProjectStepDefinitionBinding> FindBindingsAtFeatureStep(
-        DocumentUri uri, string path, Position position)
+        DocumentUri uri, string path, Position position) =>
+        FindBindingsAtFeatureStep(uri, path, position, out _);
+
+    /// <summary>
+    /// Finds all bindings that match the feature step at the given cursor position, and the
+    /// matched step's own text span (excluding the keyword/indentation) via <paramref
+    /// name="matchedRange"/>. Callers that only need the range for editing (prepareRename must
+    /// offer exactly the text that HandleRenameAsync will later replace at <c>usage.Range</c> —
+    /// otherwise the keyword/indentation the client seeds the dialog with gets duplicated when
+    /// the edit is applied) should use this overload.
+    /// </summary>
+    private List<ProjectStepDefinitionBinding> FindBindingsAtFeatureStep(
+        DocumentUri uri, string path, Position position, out LspRange? matchedRange)
     {
+        matchedRange = null;
+
         var uriStr = uri.ToString();
         var owners = _scopeManager.ResolveOwners(uri);
         if (owners.Count == 0)
@@ -550,6 +569,7 @@ public sealed class StepRenameHandler
                     var stepEndChar   = (position.Line == endPos.Line)   ? endPos.Character   : int.MaxValue;
                     if (position.Character >= stepStartChar && position.Character <= stepEndChar)
                     {
+                        matchedRange ??= step.Range.ToLspRange();
                         foreach (var item in step.Result.Items)
                         {
                             if (item.MatchedStepDefinition != null)

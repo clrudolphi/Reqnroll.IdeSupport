@@ -130,6 +130,13 @@ Scenario: Renaming from a .feature file updates the attribute and all feature us
         """
     Then the feature step "I press add" is reported as bound
     # Line 2 (0-based) is "    When I press add" — cursor at col 9 is within the step text
+    # Regression: prepareRename used to return the whole line (column 0-200), so VS Code seeded
+    # the rename dialog with "    When I press add" (keyword and indentation included). Submitting
+    # an edited copy of that back then duplicated the keyword when the resulting edit was applied
+    # only at the step-text-only range HandleRenameAsync actually replaces, producing
+    # "    When     When I choose add" in the feature file.
+    When prepare rename is requested at line 2 column 9 in "FeatureRename.feature"
+    Then the prepare rename range excludes the step keyword and indentation
     When rename is requested at line 2 column 9 in "FeatureRename.feature" with new name "I choose add"
     Then a workspace edit is returned
     And the workspace edit contains a change in "Steps.cs"

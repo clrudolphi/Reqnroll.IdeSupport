@@ -380,6 +380,58 @@ public class StepRenameHandlerTests
             },
             Substitute.For<Reqnroll.IdeSupport.Common.IIdeScope>());
 
+    // ── Regression: prepareRename for a .feature step must return the step-text-only range
+    //    (excluding the keyword and leading indentation), matching the range HandleRenameAsync
+    //    later applies the edit at (usage.Range). A whole-line range used to seed the rename
+    //    dialog with "\tThen the result should be 120"; submitting an edited version of that back
+    //    duplicated the keyword when the edit was applied only at the step-text span, producing
+    //    "\tThen \tThen the result should be 120" in the feature file. ──────────────────────────
+
+    [Fact]
+    public async Task PrepareRename_from_feature_returns_step_text_range_excluding_keyword_and_indentation()
+    {
+        var featureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+        var binding = MakeBinding(
+            ScenarioBlock.Then,
+            new Regex("^to be or not to be$"),
+            specifiedExpression: "to be or not to be",
+            line: 8, column: 9,
+            method: "Steps.ThenToBeOrNotToBe()");
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { binding }));
+
+        var project = MakeTestProject();
+        _scopeManager.ResolveOwners(featureUri).Returns(new[] { project });
+        _scopeManager.GetProjectForUri(featureUri).Returns(project);
+
+        var matchSet = MakeFeatureMatchSet(
+            featureUri.ToString(), binding,
+            "Then", "to be or not to be", stepLine: 2, stepChar: 5);
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+            .Returns(ci =>
+            {
+                ci[1] = matchSet;
+                return true;
+            });
+
+        var result = await CreateSut().HandlePrepareRenameAsync(
+            new PrepareRenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 10)
+            },
+            CancellationToken.None);
+
+        result.Should().NotBeNull();
+        // MakeFeatureMatchSet builds the line as "\tThen to be or not to be" — the step text
+        // starts right after the tab + "Then " (6 chars), not at column 0.
+        result!.Start.Line.Should().Be(2);
+        result.Start.Character.Should().Be(6,
+            "the range must start at the step text, excluding the keyword and indentation");
+        result.End.Character.Should().NotBe(200,
+            "a synthetic whole-line range was the bug this regression guards against");
+    }
+
     [Fact]
     public async Task RenameTargets_from_feature_returns_matched_binding()
     {
