@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 // Pull in all additional test suites so the single entry-point loads them all
 import './projectManager.test';
 import './lspInspectorLogger.test';
+import './renameDisambiguation.test';
 
 suite('Reqnroll Extension Tests', () => {
   const extensionId = 'reqnroll.reqnroll-ide-support';
