@@ -49,6 +49,7 @@ env:
   CONFIGURATION: Release
   EXTENSION_PROJECT: src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Extension/Reqnroll.IdeSupport.VisualStudio.Extension.csproj
   TESTS_PROJECT: tests/VisualStudio/Reqnroll.VisualStudio.Tests/Reqnroll.VisualStudio.Tests.csproj
+  CONNECTOR_PROJECT: src/LSP/Reqnroll.IdeSupport.LSP.Connector/Connector/Connector.csproj
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -70,6 +71,14 @@ jobs:
 
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
+
+      - name: Restore Connector
+        # Reqnroll.IdeSupport.LSP.Server.csproj's BuildConnector target invokes Connector.csproj
+        # via a direct <MSBuild Targets="Build"> task call (not a ProjectReference — multi-targeted
+        # projects don't expose GetTargetPath at the outer build level), so `dotnet restore` on the
+        # extension project never reaches it. Restore it explicitly first, same as
+        # build-vscode-extension.yml's "Restore Connector" step.
+        run: dotnet restore ${{ env.CONNECTOR_PROJECT }}
 
       - name: Restore
         run: dotnet restore ${{ env.EXTENSION_PROJECT }}
@@ -103,6 +112,12 @@ jobs:
 
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
+
+      - name: Restore Connector
+        # Reqnroll.VisualStudio.Tests references the Extension project, which pulls in the
+        # LSP Server's BuildConnector target — see the Build VSIX job's identical step for why
+        # this needs an explicit restore.
+        run: dotnet restore ${{ env.CONNECTOR_PROJECT }}
 
       - name: Restore
         run: dotnet restore ${{ env.TESTS_PROJECT }}
