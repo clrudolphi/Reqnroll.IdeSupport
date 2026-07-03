@@ -87,4 +87,18 @@ public class WorkspaceEditApplierTests
 
         result.Should().Be(Nl("line0", "Bye", "line2"));
     }
+
+    // ── ShouldNotifyDidChange: a closed .cs file rewritten by ApplyToDisk must be reported to
+    //    the server too, or its Roslyn binding registry goes stale until the file is reopened. ──
+
+    [Theory]
+    [InlineData(@"C:\repo\Features\Calculator.feature", true)]
+    [InlineData(@"C:\repo\StepDefinitions\CalculatorStepDefinitions.cs", true)]
+    [InlineData(@"C:\repo\StepDefinitions\CalculatorStepDefinitions.CS", true)]
+    [InlineData(@"C:\repo\reqnroll.json", false)]
+    [InlineData(@"C:\repo\Notes.txt", false)]
+    public void ShouldNotifyDidChange_covers_feature_and_cs_files_only(string path, bool expected)
+    {
+        WorkspaceEditApplier.ShouldNotifyDidChange(path).Should().Be(expected);
+    }
 }

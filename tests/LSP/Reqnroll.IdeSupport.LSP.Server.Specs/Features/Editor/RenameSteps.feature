@@ -130,12 +130,60 @@ Scenario: Renaming from a .feature file updates the attribute and all feature us
         """
     Then the feature step "I press add" is reported as bound
     # Line 2 (0-based) is "    When I press add" — cursor at col 9 is within the step text
+    # Regression: prepareRename used to return the whole line (column 0-200), so VS Code seeded
+    # the rename dialog with "    When I press add" (keyword and indentation included). Submitting
+    # an edited copy of that back then duplicated the keyword when the resulting edit was applied
+    # only at the step-text-only range HandleRenameAsync actually replaces, producing
+    # "    When     When I choose add" in the feature file.
+    When prepare rename is requested at line 2 column 9 in "FeatureRename.feature"
+    Then the prepare rename range excludes the step keyword and indentation
     When rename is requested at line 2 column 9 in "FeatureRename.feature" with new name "I choose add"
     Then a workspace edit is returned
     And the workspace edit contains a change in "Steps.cs"
     And the workspace edit contains a change in "FeatureRename.feature"
     And the workspace edit changes to "Steps.cs" include new text "I choose add"
     And the workspace edit changes to "FeatureRename.feature" include new text "I choose add"
+
+# ── Rename from the .feature side, parameterized step ─────────────────────────
+# Regression: VS Code seeds the .feature rename dialog with the step's concrete text (real
+# parameter values, since prepareRename's range covers the whole line) — not the binding's
+# abstract expression. The submitted "new name" is therefore concrete text too (e.g.
+# "I have 5 pickles", not "I have {int} cukes"). The rename must reconcile that concrete
+# edit back to an abstract expression before validating/propagating it, otherwise the
+# parameter-count check always fails and the rename silently no-ops.
+
+Scenario: Renaming a parameterized step from the .feature file preserves the parameter slot
+    Given the LSP server is started
+    When the project is announced with output assembly "Sample.dll" for "ParamFeatureRename.feature"
+    # Use "opened and saved to disk with" so FindAttributeLiteralAsync can read the file from disk.
+    And the C# step definition file "Steps.cs" is opened and saved to disk with
+        """
+        using Reqnroll;
+        namespace Sample
+        {
+            [Binding]
+            public class Steps
+            {
+                [Given("I have {int} cukes")]
+                public void GivenIHaveCukes(int count) { }
+            }
+        }
+        """
+    And the feature file "ParamFeatureRename.feature" is opened with
+        """
+        Feature: ParamFeatureRename
+        Scenario: S
+            Given I have 5 cukes
+        """
+    Then the feature step "I have 5 cukes" is reported as bound
+    # Line 2 (0-based) is "    Given I have 5 cukes" — cursor at col 20 is within "cukes".
+    # The dialog is seeded with the concrete line and only the static word "cukes" is edited.
+    When rename is requested at line 2 column 20 in "ParamFeatureRename.feature" with new name "I have 5 pickles"
+    Then a workspace edit is returned
+    And the workspace edit contains a change in "Steps.cs"
+    And the workspace edit contains a change in "ParamFeatureRename.feature"
+    And the workspace edit changes to "Steps.cs" include new text "I have {int} pickles"
+    And the workspace edit changes to "ParamFeatureRename.feature" include new text "I have 5 pickles"
 
 # ── prepareRename for .feature: undefined step must block dialog ───────────────
 

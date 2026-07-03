@@ -167,12 +167,25 @@ internal sealed class WorkspaceEditApplier
 
     private void NotifyDidChange(string localPath, string? newContent, CancellationToken cancellationToken)
     {
-        if (newContent is null || !localPath.EndsWith(".feature", StringComparison.OrdinalIgnoreCase))
+        if (newContent is null || !ShouldNotifyDidChange(localPath))
             return;
 
         _ = _service.SendDidChangeAsync(localPath, newContent, cancellationToken);
         _logger.LogInfo($"WorkspaceEditApplier: sent didChange for '{localPath}'.");
     }
+
+    /// <summary>
+    /// .cs files need this notification just as much as .feature files: the server's Roslyn
+    /// binding registry (CSharpBindingDiscoveryService) is only refreshed by textDocument/didOpen
+    /// or textDocument/didChange (TextDocumentSyncHandler) — there is no file-system watcher for
+    /// .cs content changes (WatchedFilesHandler only watches reqnroll.json/.editorconfig/output
+    /// assemblies, plus .cs *deletions*). Without this, a rename that rewrites a closed .cs file's
+    /// attribute leaves the registry stale — the renamed feature step shows unbound — until the
+    /// file happens to be opened, which triggers didOpen and a live re-parse.
+    /// </summary>
+    internal static bool ShouldNotifyDidChange(string localPath) =>
+        localPath.EndsWith(".feature", StringComparison.OrdinalIgnoreCase) ||
+        localPath.EndsWith(".cs", StringComparison.OrdinalIgnoreCase);
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 

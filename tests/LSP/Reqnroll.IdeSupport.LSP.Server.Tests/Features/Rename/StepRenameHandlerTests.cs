@@ -380,6 +380,58 @@ public class StepRenameHandlerTests
             },
             Substitute.For<Reqnroll.IdeSupport.Common.IIdeScope>());
 
+    // ── Regression: prepareRename for a .feature step must return the step-text-only range
+    //    (excluding the keyword and leading indentation), matching the range HandleRenameAsync
+    //    later applies the edit at (usage.Range). A whole-line range used to seed the rename
+    //    dialog with "\tThen the result should be 120"; submitting an edited version of that back
+    //    duplicated the keyword when the edit was applied only at the step-text span, producing
+    //    "\tThen \tThen the result should be 120" in the feature file. ──────────────────────────
+
+    [Fact]
+    public async Task PrepareRename_from_feature_returns_step_text_range_excluding_keyword_and_indentation()
+    {
+        var featureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+        var binding = MakeBinding(
+            ScenarioBlock.Then,
+            new Regex("^to be or not to be$"),
+            specifiedExpression: "to be or not to be",
+            line: 8, column: 9,
+            method: "Steps.ThenToBeOrNotToBe()");
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { binding }));
+
+        var project = MakeTestProject();
+        _scopeManager.ResolveOwners(featureUri).Returns(new[] { project });
+        _scopeManager.GetProjectForUri(featureUri).Returns(project);
+
+        var matchSet = MakeFeatureMatchSet(
+            featureUri.ToString(), binding,
+            "Then", "to be or not to be", stepLine: 2, stepChar: 5);
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+            .Returns(ci =>
+            {
+                ci[1] = matchSet;
+                return true;
+            });
+
+        var result = await CreateSut().HandlePrepareRenameAsync(
+            new PrepareRenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 10)
+            },
+            CancellationToken.None);
+
+        result.Should().NotBeNull();
+        // MakeFeatureMatchSet builds the line as "\tThen to be or not to be" — the step text
+        // starts right after the tab + "Then " (6 chars), not at column 0.
+        result!.Start.Line.Should().Be(2);
+        result.Start.Character.Should().Be(6,
+            "the range must start at the step text, excluding the keyword and indentation");
+        result.End.Character.Should().NotBe(200,
+            "a synthetic whole-line range was the bug this regression guards against");
+    }
+
     [Fact]
     public async Task RenameTargets_from_feature_returns_matched_binding()
     {
@@ -591,6 +643,184 @@ public class StepRenameHandlerTests
         result.Should().NotBeNull();
         result!.Changes!.Should().ContainKey(featureUri);
         result.Changes.Should().ContainKey(csUri);
+    }
+
+    // ── Regression: VS Code seeds the .feature rename dialog with the step's concrete text
+    //    (real parameter values), not the abstract expression, since prepareRename returns a
+    //    whole-line range. A rename submitted from the feature file must therefore be
+    //    reconciled back to an abstract expression before validation/propagation — otherwise
+    //    the parameter-count check always fails and the rename silently no-ops. ──────────────
+
+    [Fact]
+    public async Task Rename_from_feature_with_concrete_parameter_value_updates_feature_and_csharp()
+    {
+        var featureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+        var csUri = DocumentUri.FromFileSystemPath("/workspace/Steps.cs");
+
+        const string csText =
+            "using Reqnroll;\n" +
+            "namespace N\n" +
+            "{\n" +
+            "    [Binding]\n" +
+            "    public class Steps\n" +
+            "    {\n" +
+            "        [Given(\"I have {int} cukes\")]\n" +
+            "        public void GivenIHaveCukes(int count) { }\n" +
+            "    }\n" +
+            "}\n";
+
+        const string featureText = "Feature: F\nScenario: S\n\tGiven I have 5 cukes\n";
+        SetupBuffers((csUri, csText), (featureUri, featureText));
+
+        var binding = MakeBinding(
+            ScenarioBlock.Given,
+            new Regex("^I have (-?\\d+) cukes$"),
+            specifiedExpression: "I have {int} cukes",
+            line: 8, column: 9,
+            method: "Steps.GivenIHaveCukes()");
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { binding }));
+
+        var project = MakeTestProject();
+        _scopeManager.ResolveOwners(featureUri).Returns(new[] { project });
+
+        var matchSet = MakeFeatureMatchSet(
+            featureUri.ToString(), binding,
+            "Given", "I have 5 cukes", stepLine: 2, stepChar: 5);
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+            .Returns(ci =>
+            {
+                ci[1] = matchSet;
+                return true;
+            });
+
+        var snapshot = new LspTextSnapshot(featureUri.ToString(), 1, featureText);
+        const string stepText = "I have 5 cukes";
+        var stepOffset = featureText.IndexOf("\tGiven " + stepText) + "\tGiven ".Length;
+        var usageMatch = new StepBindingMatch(
+            featureUri.ToString(),
+            GherkinRange.FromPoint(snapshot, startOffset: stepOffset, length: stepText.Length),
+            MatchResult.CreateMultiMatch(new[]
+            {
+                MatchResultItem.CreateMatch(binding, ParameterMatch.NotMatch)
+            }));
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(new[] { usageMatch });
+
+        var sut = CreateSut();
+
+        // Simulates F2 on "cukes": VS Code seeds the dialog with the whole concrete line and the
+        // user edits only the static wording, keeping the parameter value (5) untouched.
+        var result = await sut.HandleRenameAsync(
+            new RenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 15),
+                NewName = "I have 5 pickles"
+            },
+            CancellationToken.None);
+
+        result.Should().NotBeNull("a parameterized step rename from the .feature file must not silently no-op");
+        result!.Changes!.Should().ContainKey(featureUri);
+        result.Changes.Should().ContainKey(csUri);
+
+        var featureEdit = result.Changes[featureUri].ToList();
+        featureEdit.Should().ContainSingle();
+        featureEdit[0].NewText.Should().Be("I have 5 pickles",
+            "the concrete parameter value must be preserved in the feature file");
+
+        var csEdit = result.Changes[csUri].ToList();
+        csEdit.Should().ContainSingle();
+        csEdit[0].NewText.Should().Be("\"I have {int} pickles\"",
+            "the {int} parameter type must be preserved in the binding attribute, not the concrete value 5");
+    }
+
+    [Fact]
+    public async Task Rename_from_feature_with_already_abstract_new_name_is_used_as_is()
+    {
+        // VS's custom "Rename Step" command (RenameStepCommand.cs) seeds its own prompt with the
+        // binding's abstract expression (placeholders intact) regardless of whether the cursor was
+        // in the .cs or .feature file, then submits that abstract text verbatim as `newName`. This
+        // must not be mistaken for VS Code's concrete-text submission and rejected/mangled by the
+        // parameter-value reconciliation added for that case.
+        var featureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+        var csUri = DocumentUri.FromFileSystemPath("/workspace/Steps.cs");
+
+        const string csText =
+            "using Reqnroll;\n" +
+            "namespace N\n" +
+            "{\n" +
+            "    [Binding]\n" +
+            "    public class Steps\n" +
+            "    {\n" +
+            "        [Given(\"I have {int} cukes\")]\n" +
+            "        public void GivenIHaveCukes(int count) { }\n" +
+            "    }\n" +
+            "}\n";
+
+        const string featureText = "Feature: F\nScenario: S\n\tGiven I have 5 cukes\n";
+        SetupBuffers((csUri, csText), (featureUri, featureText));
+
+        var binding = MakeBinding(
+            ScenarioBlock.Given,
+            new Regex("^I have (-?\\d+) cukes$"),
+            specifiedExpression: "I have {int} cukes",
+            line: 8, column: 9,
+            method: "Steps.GivenIHaveCukes()");
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { binding }));
+
+        var project = MakeTestProject();
+        _scopeManager.ResolveOwners(featureUri).Returns(new[] { project });
+
+        var matchSet = MakeFeatureMatchSet(
+            featureUri.ToString(), binding,
+            "Given", "I have 5 cukes", stepLine: 2, stepChar: 5);
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+            .Returns(ci =>
+            {
+                ci[1] = matchSet;
+                return true;
+            });
+
+        var snapshot = new LspTextSnapshot(featureUri.ToString(), 1, featureText);
+        const string stepText = "I have 5 cukes";
+        var stepOffset = featureText.IndexOf("\tGiven " + stepText) + "\tGiven ".Length;
+        var usageMatch = new StepBindingMatch(
+            featureUri.ToString(),
+            GherkinRange.FromPoint(snapshot, startOffset: stepOffset, length: stepText.Length),
+            MatchResult.CreateMultiMatch(new[]
+            {
+                MatchResultItem.CreateMatch(binding, ParameterMatch.NotMatch)
+            }));
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(new[] { usageMatch });
+
+        var sut = CreateSut();
+
+        // Simulates VS's custom command: the prompt was seeded with, and the user edited, the
+        // abstract expression "I have {int} cukes" directly — not the concrete feature line.
+        var result = await sut.HandleRenameAsync(
+            new RenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 15),
+                NewName = "I have {int} pickles"
+            },
+            CancellationToken.None);
+
+        result.Should().NotBeNull("an already-abstract newName must not be rejected as an unreconcilable parameter-value change");
+        result!.Changes!.Should().ContainKey(featureUri);
+        result.Changes.Should().ContainKey(csUri);
+
+        var featureEdit = result.Changes[featureUri].ToList();
+        featureEdit.Should().ContainSingle();
+        featureEdit[0].NewText.Should().Be("I have 5 pickles",
+            "the concrete parameter value must still be preserved in the feature file");
+
+        var csEdit = result.Changes[csUri].ToList();
+        csEdit.Should().ContainSingle();
+        csEdit[0].NewText.Should().Be("\"I have {int} pickles\"");
     }
 
     [Fact]

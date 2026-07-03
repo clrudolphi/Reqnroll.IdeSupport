@@ -200,4 +200,48 @@ public class FeatureStepTextBuilderTests
 
         result.Should().Be("the result is {int}");
     }
+
+    // ── DeriveExpressionFromEditedText: the inverse operation, used when a .feature-triggered
+    //    rename hands back the edited concrete step text (real parameter values) instead of an
+    //    abstract expression, so the rest of the rename pipeline can keep working with the
+    //    abstract form. ─────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void DeriveExpressionFromEditedText_single_param_preserves_slot_and_wording_edit()
+    {
+        var result = FeatureStepTextBuilder.DeriveExpressionFromEditedText(
+            "I have {int} cukes", "I have 5 cukes", "I have 5 pickles");
+
+        result.Should().Be("I have {int} pickles");
+    }
+
+    [Fact]
+    public void DeriveExpressionFromEditedText_multiple_params_preserve_slots_in_order()
+    {
+        var result = FeatureStepTextBuilder.DeriveExpressionFromEditedText(
+            "the {int} was {string}", "the 3 was \"ok\"", "the 3 became \"ok\"");
+
+        result.Should().Be("the {int} became {string}");
+    }
+
+    [Fact]
+    public void DeriveExpressionFromEditedText_no_parameters_returns_edited_text_verbatim()
+    {
+        var result = FeatureStepTextBuilder.DeriveExpressionFromEditedText(
+            "to be or not to be", "to be or not to be", "to be and not to be");
+
+        result.Should().Be("to be and not to be");
+    }
+
+    [Fact]
+    public void DeriveExpressionFromEditedText_parameter_value_changed_returns_null()
+    {
+        // The user changed the value (5 → 6), not just the wording — this rename flow only
+        // supports renaming the step's wording, so it should be rejected rather than silently
+        // renaming the binding to accept a different concrete value.
+        var result = FeatureStepTextBuilder.DeriveExpressionFromEditedText(
+            "I have {int} cukes", "I have 5 cukes", "I have 6 cukes");
+
+        result.Should().BeNull();
+    }
 }
