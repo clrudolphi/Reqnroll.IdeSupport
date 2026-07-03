@@ -39,10 +39,15 @@ Examples:
 #     advertising renameProvider to VS would cause its standard rename UI to appear
 #     alongside the custom reqnroll/renameTargets dialog.
 
-Scenario: Non-VS clients receive static textDocumentSync and renameProvider capabilities
-	Given the LSP server is started for IDE "vscode"
+Scenario Outline: Non-VS clients receive static textDocumentSync and renameProvider capabilities
+	Given the LSP server is started for IDE "<ide>"
 	Then the server statically advertises textDocumentSync with full sync and openClose
 	And the server advertises renameProvider with prepareProvider
+
+Examples:
+	| ide     |
+	| vscode  |
+	| rider   |
 
 # Note: a matching "VS client does not receive textDocumentSync" scenario is intentionally omitted.
 # The in-process OmniSharp spec client merges dynamic client/registerCapability into ServerSettings,
