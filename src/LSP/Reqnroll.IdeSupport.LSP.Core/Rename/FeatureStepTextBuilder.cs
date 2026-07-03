@@ -231,6 +231,84 @@ public static class FeatureStepTextBuilder
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Derives a new abstract expression from an in-place feature-file edit. <paramref
+    /// name="oldStepText"/> and <paramref name="newStepText"/> are the step's concrete text
+    /// (no keyword) before and after the user's edit in the rename dialog; <paramref
+    /// name="oldExpression"/> is the binding's current abstract expression. The parameter
+    /// values are located in <paramref name="oldStepText"/> using <paramref
+    /// name="oldExpression"/>'s static segments, then re-located verbatim in <paramref
+    /// name="newStepText"/> so the original parameter slots (<c>{int}</c>, a regex group, …)
+    /// can be preserved around whatever static wording the user typed. Returns <see
+    /// langword="null"/> when a parameter value can no longer be found verbatim in the edited
+    /// text — i.e. the user changed a parameter value rather than the step's wording, which
+    /// this flow does not support.
+    /// </summary>
+    public static string? DeriveExpressionFromEditedText(string oldExpression, string oldStepText, string newStepText)
+    {
+        var oldSegments = StepExpressionParameters.StaticSegments(oldExpression);
+
+        // No parameters: the whole step text is static, so it becomes the new expression as-is.
+        if (oldSegments.Count == 1)
+            return newStepText;
+
+        var prefix = oldSegments[0];
+        var suffix = oldSegments[oldSegments.Count - 1];
+        if (!oldStepText.StartsWith(prefix, StringComparison.Ordinal) ||
+            !oldStepText.EndsWith(suffix, StringComparison.Ordinal))
+            return null;
+
+        var regionStart = prefix.Length;
+        var regionEnd = oldStepText.Length - suffix.Length;
+        if (regionEnd < regionStart)
+            return null;
+
+        // Extract each parameter value from the original concrete text, in order.
+        var values = new List<string>();
+        var cursor = regionStart;
+        for (int i = 1; i < oldSegments.Count - 1; i++)
+        {
+            var seg = oldSegments[i];
+            int idx = seg.Length == 0
+                ? cursor
+                : oldStepText.IndexOf(seg, cursor, regionEnd - cursor, StringComparison.Ordinal);
+            if (idx < 0)
+                return null;
+            values.Add(oldStepText.Substring(cursor, idx - cursor));
+            cursor = idx + seg.Length;
+        }
+        values.Add(oldStepText.Substring(cursor, regionEnd - cursor));
+
+        var slots = StepExpressionParameters.ExtractSlots(oldExpression);
+        if (slots.Count != values.Count)
+            return null;
+
+        // Re-locate the same values, in order, within the edited text to recover the new
+        // static segments around them.
+        var searchFrom = 0;
+        var newSegments = new List<string>();
+        foreach (var value in values)
+        {
+            int idx = value.Length == 0
+                ? searchFrom
+                : newStepText.IndexOf(value, searchFrom, StringComparison.Ordinal);
+            if (idx < 0)
+                return null;
+            newSegments.Add(newStepText.Substring(searchFrom, idx - searchFrom));
+            searchFrom = idx + value.Length;
+        }
+        newSegments.Add(newStepText.Substring(searchFrom));
+
+        var result = new StringBuilder();
+        for (int i = 0; i < newSegments.Count; i++)
+        {
+            result.Append(newSegments[i]);
+            if (i < slots.Count)
+                result.Append(slots[i]);
+        }
+        return result.ToString();
+    }
+
     private static readonly System.Text.RegularExpressions.Regex PlaceholderPattern
         = new(@"\<([^>]+)\>", System.Text.RegularExpressions.RegexOptions.Compiled);
 

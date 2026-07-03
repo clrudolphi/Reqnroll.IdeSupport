@@ -593,6 +593,96 @@ public class StepRenameHandlerTests
         result.Changes.Should().ContainKey(csUri);
     }
 
+    // ── Regression: VS Code seeds the .feature rename dialog with the step's concrete text
+    //    (real parameter values), not the abstract expression, since prepareRename returns a
+    //    whole-line range. A rename submitted from the feature file must therefore be
+    //    reconciled back to an abstract expression before validation/propagation — otherwise
+    //    the parameter-count check always fails and the rename silently no-ops. ──────────────
+
+    [Fact]
+    public async Task Rename_from_feature_with_concrete_parameter_value_updates_feature_and_csharp()
+    {
+        var featureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+        var csUri = DocumentUri.FromFileSystemPath("/workspace/Steps.cs");
+
+        const string csText =
+            "using Reqnroll;\n" +
+            "namespace N\n" +
+            "{\n" +
+            "    [Binding]\n" +
+            "    public class Steps\n" +
+            "    {\n" +
+            "        [Given(\"I have {int} cukes\")]\n" +
+            "        public void GivenIHaveCukes(int count) { }\n" +
+            "    }\n" +
+            "}\n";
+
+        const string featureText = "Feature: F\nScenario: S\n\tGiven I have 5 cukes\n";
+        SetupBuffers((csUri, csText), (featureUri, featureText));
+
+        var binding = MakeBinding(
+            ScenarioBlock.Given,
+            new Regex("^I have (-?\\d+) cukes$"),
+            specifiedExpression: "I have {int} cukes",
+            line: 8, column: 9,
+            method: "Steps.GivenIHaveCukes()");
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { binding }));
+
+        var project = MakeTestProject();
+        _scopeManager.ResolveOwners(featureUri).Returns(new[] { project });
+
+        var matchSet = MakeFeatureMatchSet(
+            featureUri.ToString(), binding,
+            "Given", "I have 5 cukes", stepLine: 2, stepChar: 5);
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+            .Returns(ci =>
+            {
+                ci[1] = matchSet;
+                return true;
+            });
+
+        var snapshot = new LspTextSnapshot(featureUri.ToString(), 1, featureText);
+        const string stepText = "I have 5 cukes";
+        var stepOffset = featureText.IndexOf("\tGiven " + stepText) + "\tGiven ".Length;
+        var usageMatch = new StepBindingMatch(
+            featureUri.ToString(),
+            GherkinRange.FromPoint(snapshot, startOffset: stepOffset, length: stepText.Length),
+            MatchResult.CreateMultiMatch(new[]
+            {
+                MatchResultItem.CreateMatch(binding, ParameterMatch.NotMatch)
+            }));
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(new[] { usageMatch });
+
+        var sut = CreateSut();
+
+        // Simulates F2 on "cukes": VS Code seeds the dialog with the whole concrete line and the
+        // user edits only the static wording, keeping the parameter value (5) untouched.
+        var result = await sut.HandleRenameAsync(
+            new RenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 15),
+                NewName = "I have 5 pickles"
+            },
+            CancellationToken.None);
+
+        result.Should().NotBeNull("a parameterized step rename from the .feature file must not silently no-op");
+        result!.Changes!.Should().ContainKey(featureUri);
+        result.Changes.Should().ContainKey(csUri);
+
+        var featureEdit = result.Changes[featureUri].ToList();
+        featureEdit.Should().ContainSingle();
+        featureEdit[0].NewText.Should().Be("I have 5 pickles",
+            "the concrete parameter value must be preserved in the feature file");
+
+        var csEdit = result.Changes[csUri].ToList();
+        csEdit.Should().ContainSingle();
+        csEdit[0].NewText.Should().Be("\"I have {int} pickles\"",
+            "the {int} parameter type must be preserved in the binding attribute, not the concrete value 5");
+    }
+
     [Fact]
     public async Task FindAttributeLiteralAsync_redirects_from_feature_to_csharp_source()
     {

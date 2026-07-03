@@ -268,14 +268,15 @@ public sealed class StepRenameHandler
             bindingLocation = new SourceLocation(path, line, column);
         }
 
-        // ── 2. Validate new name ───────────────────────────────────────────────
         var expression = binding.Expression ?? string.Empty;
-        var nameError = StepRenameValidator.ValidateNewName(expression, newName);
-        if (nameError != null)
-        {
-            _logger.LogVerbose($"StepRenameHandler: validation failed — {nameError.Message}");
-            return null;
-        }
+
+        // ── 2. Resolve feature step locations ──────────────────────────────────
+        var owners = _scopeManager.ResolveOwners(uri);
+        var projectFilter = owners.Count > 0
+            ? owners.Select(p => new ProjectOwner(p.ProjectFullName, p.TargetFrameworkMoniker)).ToArray()
+            : null;
+
+        var usages = _matchService.FindUsages(bindingLocation, projectFilter);
 
         // Resolve the live source expression once (preserves the original parameter syntax).
         // For a .cs-invoked rename this is the attribute string literal; otherwise it falls back
@@ -284,13 +285,57 @@ public sealed class StepRenameHandler
         var sourceLiteral = await FindAttributeLiteralAsync(uri, binding);
         var sourceExpression = sourceLiteral?.Token.ValueText ?? expression;
 
-        // ── 3. Resolve feature step locations ──────────────────────────────────
-        var owners = _scopeManager.ResolveOwners(uri);
-        var projectFilter = owners.Count > 0
-            ? owners.Select(p => new ProjectOwner(p.ProjectFullName, p.TargetFrameworkMoniker)).ToArray()
-            : null;
+        // For a .feature-triggered rename, VS Code seeds the rename dialog with the step's
+        // concrete text (real parameter values), not the binding's abstract expression — the
+        // prepareRename range covers the whole line, so `newName` comes back as concrete text
+        // too (e.g. "I have 10 cukes", not "I have {int} cukes"). Comparing that concrete text
+        // straight against the abstract expression always trips the parameter-count check in
+        // ValidateNewName, silently discarding every rename of a parameterized step. Derive the
+        // abstract expression the user actually intends by diffing the edited concrete text
+        // against the original (anchored to the same live source expression that the feature
+        // edits and the C# attribute edit use), so the rest of the pipeline keeps operating on
+        // abstract expressions.
+        var effectiveNewName = newName;
+        if (path.EndsWith(".feature", StringComparison.OrdinalIgnoreCase))
+        {
+            var currentUsage = usages.FirstOrDefault(u =>
+                string.Equals(u.FeatureDocumentId, uri.ToString(), StringComparison.OrdinalIgnoreCase) &&
+                u.Range != null &&
+                request.Position.Line >= u.Range.ToLspRange().Start.Line &&
+                request.Position.Line <= u.Range.ToLspRange().End.Line);
 
-        var usages = _matchService.FindUsages(bindingLocation, projectFilter);
+            var oldStepText = currentUsage?.Range != null
+                ? ReadStepText(uri, currentUsage.Range.ToLspRange())
+                : null;
+
+            if (oldStepText == null)
+            {
+                // Can't read the pre-edit step text (buffer and disk both unavailable) — fall
+                // back to treating newName as-is, same as before this reconciliation existed.
+                _logger.LogVerbose("StepRenameHandler: could not read original step text for the edited position — using newName as-is");
+            }
+            else
+            {
+                var derived = FeatureStepTextBuilder.DeriveExpressionFromEditedText(sourceExpression, oldStepText, newName);
+                if (derived == null)
+                {
+                    _logger.LogVerbose("StepRenameHandler: could not reconcile edited step text with the binding's parameter positions — the parameter values, not just the wording, appear to have changed");
+                    return null;
+                }
+
+                effectiveNewName = derived;
+                _logger.LogVerbose($"StepRenameHandler: derived abstract expression '{effectiveNewName}' from edited step text '{newName}'");
+            }
+        }
+
+        // ── 3. Validate new name ───────────────────────────────────────────────
+        var nameError = StepRenameValidator.ValidateNewName(expression, effectiveNewName);
+        if (nameError != null)
+        {
+            _logger.LogVerbose($"StepRenameHandler: validation failed — {nameError.Message}");
+            return null;
+        }
+
         var changes = new Dictionary<DocumentUri, List<TextEdit>>();
 
         // ── 4. Build .feature file edits ───────────────────────────────────────
@@ -311,7 +356,7 @@ public sealed class StepRenameHandler
                 stepText = ReadStepText(featureUri, stepRange);
             }
 
-            var featureNewText = FeatureStepTextBuilder.Build(newName, sourceExpression, binding.Regex, stepText);
+            var featureNewText = FeatureStepTextBuilder.Build(effectiveNewName, sourceExpression, binding.Regex, stepText);
             list.Add(new TextEdit
             {
                 Range = usage.Range!.ToLspRange(),
@@ -322,7 +367,7 @@ public sealed class StepRenameHandler
         // ── 5. Build .cs file edit ────────────────────────────────────────────
         if (sourceLiteral != null)
         {
-            var csEdit = BuildCSharpEdit(sourceLiteral, newName);
+            var csEdit = BuildCSharpEdit(sourceLiteral, effectiveNewName);
             if (csEdit != null)
             {
                 var csUri = path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
