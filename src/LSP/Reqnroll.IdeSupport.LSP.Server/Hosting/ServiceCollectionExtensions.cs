@@ -12,6 +12,7 @@ using Reqnroll.IdeSupport.LSP.Core.Scaffolding;
 using Reqnroll.IdeSupport.LSP.Core.DocumentOutline;
 using Reqnroll.IdeSupport.LSP.Core.Folding;
 using Reqnroll.IdeSupport.LSP.Core.Commenting;
+using Reqnroll.IdeSupport.LSP.Core.InlayHints;
 using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
 
 
@@ -34,6 +35,7 @@ using Reqnroll.IdeSupport.LSP.Server.Features.References;
 using Reqnroll.IdeSupport.LSP.Server.Features.Rename;
 using Reqnroll.IdeSupport.LSP.Server.Features.Completions;
 using Reqnroll.IdeSupport.LSP.Server.Features.Definition;
+using Reqnroll.IdeSupport.LSP.Server.Features.InlayHints;
 using Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 using Reqnroll.IdeSupport.LSP.Server.Tagging;
@@ -115,7 +117,8 @@ public static class ServiceCollectionExtensions
             .AddSingleton<ISemanticTokenService, SemanticTokenService>()
             .AddSingleton<IDiagnosticsAggregator, DiagnosticsAggregator>()
             .AddSingleton<IGherkinFoldingRangeService, GherkinFoldingRangeService>()
-            .AddSingleton<ICommentToggleService, CommentToggleService>();
+            .AddSingleton<ICommentToggleService, CommentToggleService>()
+            .AddSingleton<IGherkinInlayHintService, GherkinInlayHintService>();
     }
 
     /// <summary>
@@ -157,6 +160,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<FeatureFoldingRangeHandler>()
             .AddSingleton<CommentToggleHandler>()
             .AddSingleton<StepRenameHandler>()
-            .AddSingleton<RenameSessionManager>();
+            .AddSingleton<RenameSessionManager>()
+            .AddSingleton<FeatureInlayHintHandler>();
     }
 }
