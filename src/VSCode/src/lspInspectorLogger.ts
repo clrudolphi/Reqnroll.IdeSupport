@@ -9,9 +9,15 @@ import * as vscode from 'vscode';
  *
  * Why LogOutputChannel (not plain OutputChannel):
  *   vscode-languageclient v10 types traceOutputChannel as LogOutputChannel and
- *   reads its logLevel property at construction time to set the internal trace
- *   level.  We always return LogLevel.Trace from logLevel so the client enables
- *   tracing and routes messages to channel.trace().
+ *   reads its logLevel property to decide whether tracing is enabled at all
+ *   (see refreshTrace in its client.js): logLevel !== Trace collapses straight
+ *   to Trace.Off, bypassing the `reqnroll.trace.server` setting entirely;
+ *   anything else lets that setting pick Messages/Verbose. logLevel must
+ *   therefore mirror the same setting `createTraceChannel` used to decide
+ *   whether to allocate this channel in the first place — hardcoding it to
+ *   Trace (as this class used to) meant vscode-languageclient always sent at
+ *   least `trace: "messages"` in InitializeParams and via $/setTrace on
+ *   config changes, even when the user had chosen "off".
  *
  * Why only trace() writes to file:
  *   vscode-languageclient routes all LSP request/response/notification entries
@@ -37,21 +43,32 @@ class TeeLogOutputChannel implements vscode.LogOutputChannel {
   readonly name: string;
   private readonly _inner: vscode.LogOutputChannel;
   private _stream: fs.WriteStream | undefined;
+  private readonly _onDidChangeLogLevel = new vscode.EventEmitter<vscode.LogLevel>();
+  private readonly _configListener: vscode.Disposable;
 
   constructor(name: string, stream: fs.WriteStream | undefined) {
     this._inner = vscode.window.createOutputChannel(name, { log: true });
     this.name = this._inner.name;
     this._stream = stream;
+    // vscode-languageclient's own onDidChangeConfiguration listener calls
+    // refreshTrace(), but that reads a *cached* copy of logLevel that only
+    // updates via onDidChangeLogLevel — so this channel must fire its own
+    // event on the same setting change for a live "off" toggle (no window
+    // reload) to actually reach the server as `$/setTrace`.
+    this._configListener = vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('reqnroll.trace.server')) {
+        this._onDidChangeLogLevel.fire(this.logLevel);
+      }
+    });
   }
 
   get logLevel(): vscode.LogLevel {
-    // Always report Trace so vscode-languageclient enables tracing and routes
-    // all LSP messages to channel.trace() rather than suppressing them.
-    return vscode.LogLevel.Trace;
+    const level = vscode.workspace.getConfiguration('reqnroll').get<string>('trace.server', 'off');
+    return level === 'off' ? vscode.LogLevel.Off : vscode.LogLevel.Trace;
   }
 
   get onDidChangeLogLevel(): vscode.Event<vscode.LogLevel> {
-    return this._inner.onDidChangeLogLevel;
+    return this._onDidChangeLogLevel.event;
   }
 
   trace(message: string, ...args: unknown[]): void {
@@ -100,6 +117,8 @@ class TeeLogOutputChannel implements vscode.LogOutputChannel {
     this._inner.dispose();
     this._stream?.end();
     this._stream = undefined;
+    this._configListener.dispose();
+    this._onDidChangeLogLevel.dispose();
   }
 
   private _writeLspEntry(message: string): void {

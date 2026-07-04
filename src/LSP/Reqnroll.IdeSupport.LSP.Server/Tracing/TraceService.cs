@@ -11,9 +11,10 @@ public sealed class TraceService : ITraceService
     private readonly ILanguageServerFacade _languageServer;
     private volatile InitializeTrace _level = InitializeTrace.Off;
 
-    public TraceService(ILanguageServerFacade languageServer)
+    public TraceService(ILanguageServerFacade languageServer, InitializeTrace initialLevel = InitializeTrace.Off)
     {
         _languageServer = languageServer;
+        _level = initialLevel;
     }
 
     public InitializeTrace Level
