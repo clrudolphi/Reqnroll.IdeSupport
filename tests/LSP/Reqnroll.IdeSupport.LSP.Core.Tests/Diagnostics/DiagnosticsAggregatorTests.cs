@@ -177,7 +177,8 @@ public class DiagnosticsAggregatorTests
         var diag = result[0];
         diag.Severity.Should().Be(GherkinDiagnosticSeverity.Error);
         diag.Source.Should().Be(DiagnosticsAggregator.BindingSource);
-        diag.Message.Should().Be("Ambiguous step definition.");
+        diag.Message.Should().Contain("Method1", "the hover message should list every colliding binding, not just say it's ambiguous");
+        diag.Message.Should().Contain("Method2");
     }
 
     [Fact]
