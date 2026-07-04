@@ -37,6 +37,44 @@ public class ProgramTests
     }
 
     [Fact]
+    public void ParseProtocolLogLevel_defaults_to_Warning_when_flag_is_absent()
+    {
+        Program.ParseProtocolLogLevel(new[] { "--ide", "visualstudio" }).Should().Be(TraceLevel.Warning);
+    }
+
+    [Fact]
+    public void ParseProtocolLogLevel_defaults_to_Warning_for_no_args()
+    {
+        Program.ParseProtocolLogLevel(Array.Empty<string>()).Should().Be(TraceLevel.Warning);
+    }
+
+    [Theory]
+    [InlineData("Off", TraceLevel.Off)]
+    [InlineData("error", TraceLevel.Error)]
+    [InlineData("WARNING", TraceLevel.Warning)]
+    [InlineData("Info", TraceLevel.Info)]
+    [InlineData("verbose", TraceLevel.Verbose)]
+    public void ParseProtocolLogLevel_parses_case_insensitively(string arg, TraceLevel expected)
+    {
+        Program.ParseProtocolLogLevel(new[] { "--protocol-log-level", arg }).Should().Be(expected);
+    }
+
+    [Fact]
+    public void ParseProtocolLogLevel_defaults_to_Warning_for_an_unrecognized_value()
+    {
+        Program.ParseProtocolLogLevel(new[] { "--protocol-log-level", "not-a-level" }).Should().Be(TraceLevel.Warning);
+    }
+
+    [Fact]
+    public void ParseProtocolLogLevel_is_independent_of_log_level()
+    {
+        var args = new[] { "--log-level", "Off", "--protocol-log-level", "Verbose" };
+
+        Program.ParseLogLevel(args).Should().Be(TraceLevel.Off);
+        Program.ParseProtocolLogLevel(args).Should().Be(TraceLevel.Verbose);
+    }
+
+    [Fact]
     public void ParseArg_returns_the_value_following_the_flag()
     {
         Program.ParseArg(new[] { "--ide", "visualstudio", "--log-level", "Verbose" }, "--ide")
