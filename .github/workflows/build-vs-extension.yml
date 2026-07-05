@@ -99,19 +99,6 @@ jobs:
   # logic; see src/VisualStudio/CONTRIBUTING.md for what belongs here vs. the
   # LSP server specs) plus Reqnroll.IdeSupport.VisualStudio.Wizards.Tests (New
   # Project/New Item wizard + welcome-dialog unit tests).
-  #
-  # NOTE: tests/VisualStudio/Reqnroll.VisualStudio.Specs (the legacy
-  # SpecFlow/Reqnroll BDD spec project) is intentionally NOT run here. Its step
-  # definitions (tests/VisualStudio/Reqnroll.VisualStudio.Specs/StepDefinitions/DeveroomSteps.cs)
-  # are explicitly marked "Deferred: discovery-based steps depend on
-  # IDiscoveryService/GetDiscoveryService() and IProjectBindingRegistryCache
-  # which have not yet been ported" — every scenario in that project currently
-  # fails with "undefined step" (verified locally: 94/94 failed, 0 passed).
-  # src/VisualStudio/CONTRIBUTING.md also directs contributors not to add new
-  # scenarios there, since the behavior it exercised now lives server-side and
-  # is covered by the LSP server's own specs (tests/LSP/Reqnroll.IdeSupport.LSP.Server.Specs).
-  # Wiring this project into CI today would make the workflow permanently red;
-  # revisit once/if DeveroomSteps is ported or the project is retired.
   # ---------------------------------------------------------------------------
   unit-tests:
     name: Unit Tests
