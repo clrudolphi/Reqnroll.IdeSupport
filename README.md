@@ -92,6 +92,16 @@ The .NET projects can also be opened as one workspace via the solution file
 [`Reqnroll.IdeSupport.slnx`](Reqnroll.IdeSupport.slnx) in an IDE that supports the `.slnx` format
 (Visual Studio 2022 17.13+, VS Code with the C# Dev Kit).
 
+### Server logging and trace verbosity
+
+The LSP server accepts three independent verbosity flags — `--log-level` (its own file logging),
+`--protocol-log-level` (OmniSharp's internal diagnostics), and `--trace` (the LSP `$/logTrace`
+protocol trace) — each defaulting to a quiet level when omitted. Each IDE's glue component sets
+its own defaults for these (chattier in DEBUG builds); see
+[src/LSP/CONTRIBUTING.md](src/LSP/CONTRIBUTING.md#server-logging-and-trace-verbosity) for the full
+flag reference and [src/VisualStudio/CONTRIBUTING.md](src/VisualStudio/CONTRIBUTING.md) /
+[src/VSCode/CONTRIBUTING.md](src/VSCode/CONTRIBUTING.md) for how each client wires them up.
+
 See [CONTRIBUTING.md](CONTRIBUTING.md) and the area-specific contributor guides
 ([LSP Server](src/LSP/CONTRIBUTING.md), [Visual Studio extension](src/VisualStudio/CONTRIBUTING.md),
 [VS Code extension](src/VSCode/CONTRIBUTING.md)) for full development workflows, debugging, and

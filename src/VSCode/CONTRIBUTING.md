@@ -109,6 +109,23 @@ reqnroll.trace.server: verbose
 
 Traffic appears in the **Output** panel under **Reqnroll LSP Trace**. When set to `verbose`, a timestamped log file is also written to `%LOCALAPPDATA%\Reqnroll\` (Windows) or `~/.local/share/Reqnroll/` (macOS/Linux).
 
+Unlike the Visual Studio extension, VS Code doesn't spawn the server with `--trace` or
+`--protocol-log-level` — `reqnroll.trace.server` is the one setting that drives both sides:
+
+- The wire-level trace (`InitializeParams.Trace` at startup, `$/setTrace` on later changes) is
+  handled entirely by `vscode-languageclient` itself, via the `LogOutputChannel` returned from
+  `createTraceChannel()` (`src/lspInspectorLogger.ts`) — `off` maps to `vscode.LogLevel.Off`
+  (client sends `trace: "off"`), anything else to `vscode.LogLevel.Trace` (client sends
+  `trace: "messages"`/`"verbose"` matching the setting). No `--trace` CLI flag is involved.
+- `traceServerToLogLevel()` (same file) separately maps the setting onto the server's
+  `--log-level` CLI argument passed in `extension.ts` (`off` → `Warning`, `messages` → `Info`,
+  `verbose` → `Verbose`), so the same lever also controls the server's own file/protocol log
+  verbosity. `--protocol-log-level` is left at the server's own default (`Warning`) — there's no
+  VS Code setting for it yet.
+
+Changing `reqnroll.trace.server` requires a window reload to take effect on the already-running
+server (the `--log-level` it maps to is fixed at process launch).
+
 ## CI
 
 The GitHub Actions workflow [`.github/workflows/build-vscode-extension.yml`](../../.github/workflows/build-vscode-extension.yml) runs on every push to `feat/vscode-extension-**` branches. It:

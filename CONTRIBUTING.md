@@ -49,3 +49,8 @@ Use the [Issues](../../issues) tab. Include, where relevant: which IDE (VS/VS Co
 against a minimal `.feature`/`.cs` pair if possible, and the runtime logs described in the
 area-specific CONTRIBUTING guide (server-debug + client-inspector logs together are usually what's
 needed to diagnose an LSP-protocol-level issue).
+
+To get more verbose logs out of the server itself when reproducing a bug, see
+[src/LSP/CONTRIBUTING.md](src/LSP/CONTRIBUTING.md#server-logging-and-trace-verbosity) for the
+`--log-level`/`--protocol-log-level`/`--trace` command-line flags, and the VS/VS Code guides for
+how to raise them from each client.

@@ -144,6 +144,33 @@ understanding why it failed first.
 - Custom `reqnroll/*` protocol surface (params DTOs, method-name constants) lives under
   `Protocol/` — add new custom methods there rather than inline string literals.
 
+## Server logging and trace verbosity
+
+The server accepts three independent command-line flags, each defaulting to a quiet level so a
+normal session doesn't write maximum-verbosity output indefinitely. All are parsed in
+`Hosting/Program.cs` (`ParseLogLevel`/`ParseProtocolLogLevel`/`ParseTraceLevel`):
+
+| Flag | Values | Default | Controls |
+|---|---|---|---|
+| `--log-level` | `Off`/`Error`/`Warning`/`Info`/`Verbose` | `Warning` | The server's own app-level `IDeveroomLogger` file (`reqnroll-*-server-*.log`) — parses, discovery, handler activity. |
+| `--protocol-log-level` | `Off`/`Error`/`Warning`/`Info`/`Verbose` | `Warning` | OmniSharp's own internal diagnostics (request dispatch, DryIoc, JSON-RPC plumbing), fed to both `window/logMessage` and a dedicated `reqnroll-*-protocol-*.log` file. Deliberately independent of `--log-level` — turning up app logging shouldn't also flood the client's Output panel with library internals, and vice versa. |
+| `--trace` | `Off`/`Messages`/`Verbose` | `Off` | F41: seeds the LSP protocol trace level (`$/logTrace`) before the client connects. |
+
+`--trace`'s value is only a starting point — the effective trace level is resolved with the
+following precedence (see `ConfigureServer`'s `initialTrace` parameter and
+`ResolveInitialTrace`):
+
+1. The `--trace` command-line default.
+2. `InitializeParams.Trace`, applied once in `OnInitialized` — but only when the client actually
+   sent something other than `Off`, since `Off` there is indistinguishable from "the client didn't
+   set this field at all" and must not silently clobber an explicit `--trace` default.
+3. `$/setTrace` (`SetTraceNotificationHandler`), which can set any value — including back to
+   `Off` — at any time after that.
+
+Each IDE's glue component sets its own defaults for these three flags when spawning the server;
+see [../VisualStudio/CONTRIBUTING.md](../VisualStudio/CONTRIBUTING.md) and
+[../VSCode/CONTRIBUTING.md](../VSCode/CONTRIBUTING.md) for what each one passes.
+
 ## Debugging
 
 Runtime logs land in `%LocalAppData%\Reqnroll\` (Windows) / `~/.local/share/Reqnroll/`
