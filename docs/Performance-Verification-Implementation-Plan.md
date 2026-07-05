@@ -20,15 +20,24 @@
 | **T1 — harness + interactive scenarios** | ✅ implemented | `Benchmarks.Core/Harness/BenchmarkLspHarness`, `Scenarios/InteractiveScenarios`; `Benchmarks` exe `run` command |
 | **T1 — latency percentiles, reporters, reference-machine gating** | ✅ implemented | `Benchmarks.Core/Latency/`, `Reporting/`; JSON output is the Layer 3 baseline format |
 | **T1 — cold-start batch scenario** | ✅ implemented | `Benchmarks.Core/Scenarios/BatchScenarios.ColdStartScanAsync` |
-| **T1 — Roslyn / reflection discovery batch scenarios** | ⏳ deferred | reported as **skipped (not faked)** until a *built* corpus bindings assembly + connector is wired; see A3.2/§A1 |
-| Binding-dependent interactive numbers (definition cache-hit, step completion) | ⚠️ run, but against an unprimed registry | representative bound-state numbers need the same built corpus assembly; the harness + measurement are correct |
+| **T1 — Roslyn / reflection discovery batch scenarios** | ✅ implemented | `Benchmarks.Core/Scenarios/BatchScenarios.RoslynReDiscoveryAsync` / `ReflectionDiscoveryAsync`, gated on the built corpus bindings assembly (see below); reported as **skipped (not faked)** only when that assembly isn't built |
+| Binding-dependent interactive numbers (definition cache-hit, step completion) | ✅ primed | `BenchmarkRunner` sends `reqnroll/projectLoaded` for the built corpus bindings assembly and waits for discovery to settle before measuring |
 | Layer 1 micro-benchmarks, Layer 3 CI gating | ⏳ deferred by design | seams left (JSON baseline format exists for Layer 3) |
 
-**Honest gap:** the one piece not yet built is a **buildable corpus bindings assembly** (a `.csproj`
-referencing Reqnroll, built + deployed next to the benchmark). It is the prerequisite for (a) the two
-binding-discovery batch scenarios and (b) representative bound-state numbers for definition/step
-completion. The source-only corpus is sufficient for the drift test, semantic tokens, keyword
-completion, diagnostics push, and cold start — which run today.
+**Corpus bindings assembly (closes the former gap):**
+`tests/Performance/Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus/` is a small class library
+referencing Reqnroll that compiles the committed `Corpus/Bindings/CorpusSteps.cs` (linked, not
+copied) into a real, loadable bindings assembly — the same pattern
+`Reqnroll.IdeSupport.LSP.Server.Specs.BindingsFixture` uses for the specs. The benchmark exe
+project-references it (`ReferenceOutputAssembly="false"`, since it's loaded via reflection/Roslyn
+discovery, not compiled in) purely to force it to build, then an MSBuild target
+(`DeployDiscoveryAssets`, mirroring the specs' `DeployDiscoveryAssets`) copies the built assembly and
+the server's `Connectors\` output next to the benchmark's own output — required because
+`OutProcReqnrollConnectorFactory` resolves both relative to `AppContext.BaseDirectory`, which for the
+in-process harness is the benchmark exe's own directory. `CorpusAssemblyLocator` finds the deployed
+copy at runtime; `BenchmarkRunner` announces it via `reqnroll/projectLoaded` and polls
+`textDocument/definition` on a known-bound corpus step until discovery settles before measuring the
+bound-state benchmarks and running the two discovery batch scenarios.
 
 ---
 

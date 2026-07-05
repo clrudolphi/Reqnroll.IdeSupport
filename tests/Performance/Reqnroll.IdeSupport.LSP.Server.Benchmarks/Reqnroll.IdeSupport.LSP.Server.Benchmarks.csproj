@@ -29,6 +29,12 @@
   <ItemGroup>
     <ProjectReference Include="../../../src/LSP/Reqnroll.IdeSupport.LSP.Server/Reqnroll.IdeSupport.LSP.Server.csproj" />
     <ProjectReference Include="../Reqnroll.IdeSupport.LSP.Server.Benchmarks.Core/Reqnroll.IdeSupport.LSP.Server.Benchmarks.Core.csproj" />
+    <!-- Not referenced as a compile-time dependency (the corpus assembly is loaded via
+         reflection/Roslyn discovery, the same way a user's test assembly is) — this
+         ProjectReference exists purely to make `dotnet build` on this project also build the
+         corpus assembly, so CorpusAssemblyLocator can find it next to the benchmark output. -->
+    <ProjectReference Include="../Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus/Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus.csproj"
+                       ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <!-- Surface the committed benchmark corpus in the IDE. It lives in a sibling directory
@@ -41,5 +47,33 @@
   <ItemGroup>
     <None Include="..\Corpus\**\*" Link="Corpus\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
+
+  <!-- Deploy the connector binaries (built next to the server) and the built corpus bindings
+       assembly next to the benchmark host, mirroring what
+       Reqnroll.IdeSupport.LSP.Server.Specs.csproj does for the specs host. The in-process harness
+       (BenchmarkLspHarness.StartAsync) hosts the real server in THIS process, and
+       OutProcReqnrollConnectorFactory resolves both the connector and (indirectly, via
+       CorpusAssemblyLocator) the corpus assembly relative to AppContext.BaseDirectory — so both
+       must live next to this project's own output for binding discovery to find them. This is
+       what un-blocks the Roslyn/reflection batch scenarios and primes the registry for the
+       bound-state benchmarks (definition cache-hit, step completion). -->
+  <Target Name="DeployDiscoveryAssets" AfterTargets="Build">
+    <PropertyGroup>
+      <_ServerConnectors>$(MSBuildThisFileDirectory)..\..\..\src\LSP\Reqnroll.IdeSupport.LSP.Server\bin\$(Configuration)\net10.0\win-x64\Connectors\</_ServerConnectors>
+      <_CorpusAssemblyOutput>$(MSBuildThisFileDirectory)..\Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus\bin\$(Configuration)\net10.0\</_CorpusAssemblyOutput>
+    </PropertyGroup>
+    <ItemGroup>
+      <_ConnectorFiles Include="$(_ServerConnectors)**\*.*" />
+      <_CorpusAssemblyFiles Include="$(_CorpusAssemblyOutput)**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_ConnectorFiles)"
+          DestinationFiles="@(_ConnectorFiles->'$(OutDir)Connectors\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(_ServerConnectors)')" />
+    <Copy SourceFiles="@(_CorpusAssemblyFiles)"
+          DestinationFiles="@(_CorpusAssemblyFiles->'$(OutDir)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(_CorpusAssemblyOutput)')" />
+  </Target>
 
 </Project>

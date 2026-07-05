@@ -48,11 +48,13 @@ public sealed class DiagnosticsAggregator : IDiagnosticsAggregator
                 BindingSource));
         }
 
-        // Ambiguous matches reported as errors
+        // Ambiguous matches reported as errors. Result.GetErrorMessage() lists every matching
+        // binding (MatchResult.CreateMultiMatch builds it for exactly this case), so hovering
+        // shows which step definitions collide instead of just "it's ambiguous".
         foreach (var step in matchSet.Ambiguous)
         {
             diagnostics.Add(new GherkinDiagnostic(
-                AmbiguousStepMessage,
+                step.Result.GetErrorMessage() ?? AmbiguousStepMessage,
                 step.Range,
                 GherkinDiagnosticSeverity.Error,
                 BindingSource));

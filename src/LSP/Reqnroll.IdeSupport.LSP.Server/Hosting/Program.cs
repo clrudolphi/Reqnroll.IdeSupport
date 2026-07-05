@@ -23,6 +23,7 @@ using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.LSP.Server.Configuration;
 using Reqnroll.IdeSupport.LSP.Server.Pipeline;
 using Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens;
+using Reqnroll.IdeSupport.LSP.Server.Tracing;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Hosting;
@@ -40,7 +41,21 @@ public class Program
         // Each IDE's glue component may pass --log-level <level> (Off/Error/Warning/Info/Verbose)
         // when spawning the server. Defaults to Warning when absent so a normal session doesn't
         // write maximum-verbosity logs indefinitely; pass --log-level Verbose for full tracing.
+        // Controls ONLY our own app-level IDeveroomLogger file (reqnroll-*-server-*.log).
         var logLevel = ParseLogLevel(args);
+
+        // --protocol-log-level <level> is the equivalent dial for OmniSharp's own internal
+        // diagnostics (request dispatch, DryIoc, JSON-RPC plumbing — whatever the library logs via
+        // ILogger<T>), deliberately decoupled from --log-level: turning up our own app logging
+        // shouldn't also flood the client's Output panel (window/logMessage) or a separate protocol
+        // log file with library internals, and vice versa. See ConfigureServer for where it's used.
+        var protocolLogLevel = ParseProtocolLogLevel(args);
+
+        // F41: --trace <Off/Messages/Verbose> seeds the LSP protocol trace level ($/logTrace) —
+        // yet another independent dial from the two above — before the client ever connects, so an
+        // IDE glue component that doesn't populate InitializeParams.Trace still gets a configurable
+        // default. See ConfigureServer's initialTrace parameter for the full precedence order.
+        var initialTrace = ParseTraceLevel(args);
 
         // Write any unhandled startup exception to a file next to the LSP inspector logs
         // so crashes are self-diagnosing without needing to capture stderr.
@@ -56,7 +71,7 @@ public class Program
                 // Production transport: the IDE talks to the server over stdio.
                 options.WithInput(Console.OpenStandardInput())
                        .WithOutput(Console.OpenStandardOutput());
-                ConfigureServer(options, ideId, logLevel);
+                ConfigureServer(options, ideId, logLevel, initialTrace, protocolLogLevel);
             });
 
             using var preloadCts = new CancellationTokenSource();
@@ -109,17 +124,40 @@ public class Program
     /// </param>
     /// <param name="logLevel">
     /// The <c>--log-level</c> verbosity requested by the client, defaulting to
-    /// <see cref="TraceLevel.Warning"/>. Drives both the file-backed <see cref="IDeveroomLogger"/>
-    /// and the OmniSharp protocol-logging minimum level, so wire-level debugging and file logging
-    /// stay in lockstep unless a caller explicitly asks for more (e.g. <c>--log-level Verbose</c>).
+    /// <see cref="TraceLevel.Warning"/>. Drives only the file-backed <see cref="IDeveroomLogger"/>
+    /// (our own app-level logging) — deliberately independent of <paramref name="protocolLogLevel"/>.
+    /// </param>
+    /// <param name="initialTrace">
+    /// F41: the LSP protocol trace level (<c>$/logTrace</c>), resolved with the following
+    /// precedence — later stages only apply when they actually say something:
+    /// <list type="number">
+    /// <item><description>this <c>--trace</c> command-line default (defaults to <see cref="InitializeTrace.Off"/>);</description></item>
+    /// <item><description><c>InitializeParams.Trace</c>, applied in <c>OnInitialized</c> below —
+    /// but only when the client sent something other than <see cref="InitializeTrace.Off"/>, since
+    /// that value is indistinguishable from "the client didn't set this field at all" and must not
+    /// silently clobber an explicit <c>--trace</c> default;</description></item>
+    /// <item><description><c>$/setTrace</c> (<see cref="SetTraceNotificationHandler"/>), which can
+    /// set any value — including back to Off — at any time after that.</description></item>
+    /// </list>
+    /// </param>
+    /// <param name="protocolLogLevel">
+    /// The <c>--protocol-log-level</c> verbosity for OmniSharp's own internal diagnostics,
+    /// defaulting to <see cref="TraceLevel.Warning"/>. Drives the OmniSharp protocol-logging
+    /// minimum level, which feeds both the standard <c>window/logMessage</c> notification
+    /// (<c>AddLanguageProtocolLogging()</c>, visible to the client) and <see cref="ProtocolLoggerProvider"/>
+    /// (a dedicated <c>reqnroll-*-protocol-*.log</c> file, so that content survives even if the
+    /// client's Output panel is never inspected). Independent of <paramref name="logLevel"/> —
+    /// see that parameter's remarks.
     /// </param>
     internal static void ConfigureServer(LanguageServerOptions options, string? clientIde = null,
-        TraceLevel logLevel = TraceLevel.Warning)
+        TraceLevel logLevel = TraceLevel.Warning, InitializeTrace initialTrace = InitializeTrace.Off,
+        TraceLevel protocolLogLevel = TraceLevel.Warning)
     {
         options.ConfigureLogging(logging =>
         {
-            logging.SetMinimumLevel(ToLogLevel(logLevel));
+            logging.SetMinimumLevel(ToLogLevel(protocolLogLevel));
             logging.AddLanguageProtocolLogging();
+            logging.AddProvider(new ProtocolLoggerProvider(clientIde, protocolLogLevel));
         });
 
         options.WithServerInfo(new ServerInfo
@@ -137,7 +175,7 @@ public class Program
             // notification to two handler instances (the transient from the scan and 
             // the singleton from the explicit call).
             .AddMediatR(typeof(Program).Assembly)
-            .AddReqnrollLspCoreServices(clientIde, logLevel)
+            .AddReqnrollLspCoreServices(clientIde, logLevel, initialTrace)
             .AddReqnrollProjectSystem()
             .AddReqnrollEditorServices()
             .AddReqnrollLspHandlers();
@@ -150,6 +188,13 @@ public class Program
 
         options.OnInitialized((languageServer, request, response, ct) =>
         {
+            // F41: apply the client's requested trace level over the --trace command-line
+            // default, unless the client didn't actually request one. $/setTrace
+            // (SetTraceNotificationHandler) can still change the level — including back to
+            // Off — at any time after this.
+            var traceService = languageServer.Services.GetRequiredService<ITraceService>();
+            traceService.Level = ResolveInitialTrace(traceService.Level, request.Trace);
+
             var tokenService = languageServer.Services.GetRequiredService<ISemanticTokenService>();
 
             response.Capabilities.SemanticTokensProvider = new SemanticTokensRegistrationOptions.StaticOptions
@@ -221,4 +266,26 @@ public class Program
         => Enum.TryParse<TraceLevel>(ParseArg(args, "--log-level"), ignoreCase: true, out var parsedLevel)
             ? parsedLevel
             : TraceLevel.Warning;
+
+    /// <summary>Parses <c>--protocol-log-level</c> from <paramref name="args"/>, defaulting to <see cref="TraceLevel.Warning"/> when absent or unrecognized.</summary>
+    internal static TraceLevel ParseProtocolLogLevel(string[] args)
+        => Enum.TryParse<TraceLevel>(ParseArg(args, "--protocol-log-level"), ignoreCase: true, out var parsedLevel)
+            ? parsedLevel
+            : TraceLevel.Warning;
+
+    /// <summary>Parses <c>--trace</c> (Off/Messages/Verbose) from <paramref name="args"/>, defaulting to <see cref="InitializeTrace.Off"/> when absent or unrecognized.</summary>
+    internal static InitializeTrace ParseTraceLevel(string[] args)
+        => Enum.TryParse<InitializeTrace>(ParseArg(args, "--trace"), ignoreCase: true, out var parsedLevel)
+            ? parsedLevel
+            : InitializeTrace.Off;
+
+    /// <summary>
+    /// F41: resolves the trace level to apply at the initialize handshake. <paramref
+    /// name="requested"/> (<c>InitializeParams.Trace</c>) wins whenever the client actually asked
+    /// for something; <see cref="InitializeTrace.Off"/> there is indistinguishable from "the
+    /// client didn't set this field", so it must not clobber <paramref name="current"/> (the
+    /// <c>--trace</c> command-line default).
+    /// </summary>
+    internal static InitializeTrace ResolveInitialTrace(InitializeTrace current, InitializeTrace requested)
+        => requested == InitializeTrace.Off ? current : requested;
 }

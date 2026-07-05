@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The buildable corpus bindings assembly for Performance Verification (T1/T2 — see
+       docs/Performance-Verification-Implementation-Plan.md, A3.2). It compiles the committed
+       ../Corpus/Bindings/CorpusSteps.cs (linked, not copied — the corpus tree under ../Corpus is
+       the single source of truth) into a real Reqnroll bindings assembly, the same way
+       Reqnroll.IdeSupport.LSP.Server.Specs.BindingsFixture does for the specs. Built next to the
+       benchmark output so the Roslyn/reflection binding-discovery batch scenarios and the
+       bound-state interactive benchmarks (definition cache-hit, step completion) can run against
+       a primed registry instead of being skipped / unprimed. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+    <!-- Keep the assembly name stable and discoverable by CorpusAssemblyLocator. -->
+    <AssemblyName>Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Reqnroll" Version="3.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Corpus\Bindings\CorpusSteps.cs" Link="Bindings\CorpusSteps.cs" />
+  </ItemGroup>
+
+</Project>

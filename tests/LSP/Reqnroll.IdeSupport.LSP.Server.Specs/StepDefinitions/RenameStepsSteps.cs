@@ -73,6 +73,18 @@ public sealed class RenameStepsSteps
             "prepareRename should return null when the cursor is not on a step binding");
     }
 
+    [Then("the prepare rename range excludes the step keyword and indentation")]
+    public void ThenThePrepareRenameRangeExcludesTheStepKeywordAndIndentation()
+    {
+        _ctx.LastPrepareRenameRange.Should().NotBeNull();
+        _ctx.LastPrepareRenameRange!.Start.Character.Should().BeGreaterThan(0,
+            "a range starting at column 0 would seed the rename dialog with the keyword and " +
+            "indentation, which then duplicates when the resulting edit is applied at the " +
+            "step-text-only range HandleRenameAsync actually replaces");
+        _ctx.LastPrepareRenameRange.End.Character.Should().NotBe(200,
+            "a synthetic whole-line (0-200) range was the bug this regression guards against");
+    }
+
     [Then(@"the workspace edit contains a change in ""(.*)""")]
     public void ThenWorkspaceEditContainsChangeIn(string fileName)
     {
