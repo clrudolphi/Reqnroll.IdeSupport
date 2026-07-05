@@ -49,6 +49,7 @@ env:
   CONFIGURATION: Release
   EXTENSION_PROJECT: src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Extension/Reqnroll.IdeSupport.VisualStudio.Extension.csproj
   TESTS_PROJECT: tests/VisualStudio/Reqnroll.VisualStudio.Tests/Reqnroll.VisualStudio.Tests.csproj
+  WIZARDS_TESTS_PROJECT: tests/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Wizards.Tests/Reqnroll.IdeSupport.VisualStudio.Wizards.Tests.csproj
   CONNECTOR_PROJECT: src/LSP/Reqnroll.IdeSupport.LSP.Connector/Connector/Connector.csproj
 
 jobs:
@@ -96,7 +97,8 @@ jobs:
   # ---------------------------------------------------------------------------
   # Job 2: Unit tests — Reqnroll.VisualStudio.Tests (client parse/transform
   # logic; see src/VisualStudio/CONTRIBUTING.md for what belongs here vs. the
-  # LSP server specs).
+  # LSP server specs) plus Reqnroll.IdeSupport.VisualStudio.Wizards.Tests (New
+  # Project/New Item wizard + welcome-dialog unit tests).
   # ---------------------------------------------------------------------------
   unit-tests:
     name: Unit Tests
@@ -124,6 +126,12 @@ jobs:
 
       - name: Test
         run: dotnet test ${{ env.TESTS_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} --logger trx --results-directory TestResults
+
+      - name: Restore Wizards Tests
+        run: dotnet restore ${{ env.WIZARDS_TESTS_PROJECT }}
+
+      - name: Test Wizards
+        run: dotnet test ${{ env.WIZARDS_TESTS_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} --logger trx --results-directory TestResults
 
       - name: Upload Test Result TRX Files
         uses: actions/upload-artifact@v4
