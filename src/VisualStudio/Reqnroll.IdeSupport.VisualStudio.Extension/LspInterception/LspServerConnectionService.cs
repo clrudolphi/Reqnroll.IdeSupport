@@ -112,11 +112,21 @@ internal sealed class LspServerConnectionService : IDisposable
 
     /// <summary>
     /// The command-line arguments passed to the LSP server process: <c>--ide</c> selects the
-    /// semantic token profile, <c>--log-level</c> keeps the server's own file/protocol logging in
-    /// step with the client's default rather than the server falling back to its own default
-    /// independently. Extracted as a constant so it's unit-testable without spawning a process.
+    /// semantic token profile; <c>--log-level</c>, <c>--protocol-log-level</c>, and <c>--trace</c>
+    /// set the server's own file logging, OmniSharp's internal diagnostics, and the LSP
+    /// <c>$/logTrace</c> level respectively, rather than letting the server fall back to its own
+    /// defaults independently. A DEBUG build of this extension (a developer F5-ing the extension
+    /// project, not an installed VSIX) asks for the chattiest reasonable defaults across all three;
+    /// a RELEASE build — what real users run — asks for quiet ones, since VS itself has no UI for
+    /// a user to raise these afterward (unlike VS Code's <c>reqnroll.trace.server</c> setting).
+    /// Extracted as a constant so it's unit-testable without spawning a process.
     /// </summary>
-    internal const string ServerArguments = "--ide visualstudio --log-level Warning";
+    internal const string ServerArguments =
+#if DEBUG
+        "--ide visualstudio --log-level Verbose --protocol-log-level Info --trace Verbose";
+#else
+        "--ide visualstudio --log-level Warning --protocol-log-level Warning --trace Off";
+#endif
 
     private async Task<IDuplexPipe?> StartAsync()
     {
