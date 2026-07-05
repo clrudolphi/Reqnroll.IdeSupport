@@ -225,6 +225,7 @@
     "test": "node ./out/test/runTest.js",
     "package": "vsce package",
     "build:server": "bash scripts/publish-server.sh",
+    "build:server:dev": "node scripts/dev-publish-server.mjs",
     "build:vsix": "bash scripts/build-vsix.sh",
     "validate:tokens": "node scripts/validate-semantic-token-scopes.mjs"
   },

@@ -13,6 +13,7 @@ using Reqnroll.IdeSupport.LSP.Server.Features.CodeLens;
 using Reqnroll.IdeSupport.LSP.Server.Features.Completions;
 using Reqnroll.IdeSupport.LSP.Server.Features.Definition;
 using Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs;
+using Reqnroll.IdeSupport.LSP.Server.Features.InlayHints;
 using Reqnroll.IdeSupport.LSP.Server.Features.References;
 using Reqnroll.IdeSupport.LSP.Server.Features.Rename;
 using Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens;
@@ -43,6 +44,8 @@ public static class LanguageServerOptionsExtensions
                .AddHandler<GherkinFormattingHandler>()
                .AddHandler<FeatureDocumentSymbolHandler>()
                .AddHandler<FeatureFoldingRangeHandler>()
+               // F23: textDocument/inlayHint — binding info hints on .feature steps.
+               .AddHandler<FeatureInlayHintHandler>()
                // F41: standard $/setTrace notification, letting the client change the trace
                // level at runtime.
                .AddHandler<SetTraceNotificationHandler>();
