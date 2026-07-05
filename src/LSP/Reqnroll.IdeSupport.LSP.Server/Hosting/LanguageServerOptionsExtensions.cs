@@ -137,16 +137,16 @@ public static class LanguageServerOptionsExtensions
             (_, ct) => resolver!.Get<FindUnusedStepDefinitionsHandler>().HandleAsync(ct));
 
         // ── F16 Step Rename ────────────────────────────────────────────────────
-        // prepareRename null → throw: VS Code treats a JSON-RPC error from prepareRename as
-        // "rename not available here" and suppresses the dialog with a quiet status-bar message.
+        // prepareRename null → null: per the LSP spec, a null prepareRename result means
+        // "rename not supported at the given position", and vscode-languageclient handles that
+        // quietly. Throwing here instead surfaces the raw exception text as a visible error
+        // popup — confusing UX for what should be a silent no-op (see issue #47).
         // rename null → empty WorkspaceEdit: VS Code treats a JSON-RPC error from rename as
         // "Internal Error" (confusing UX); returning an empty edit is a silent no-op fallback.
         // renameTargets null → empty response.
-        options.OnRequest<PrepareRenameParams, LspRange>(
+        options.OnRequest<PrepareRenameParams, LspRange?>(
             LspMethodNames.TextDocumentPrepareRename,
-            async (request, ct) =>
-                await resolver!.Get<StepRenameHandler>().HandlePrepareRenameAsync(request, ct)
-                ?? throw new InvalidOperationException("Rename is not available at this position."));
+            (request, ct) => resolver!.Get<StepRenameHandler>().HandlePrepareRenameAsync(request, ct));
 
         options.OnRequest<RenameParams, WorkspaceEdit>(
             LspMethodNames.TextDocumentRename,

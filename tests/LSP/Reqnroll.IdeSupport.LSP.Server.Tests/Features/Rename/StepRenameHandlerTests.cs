@@ -456,6 +456,39 @@ public class StepRenameHandlerTests
             "a synthetic whole-line range was the bug this regression guards against");
     }
 
+    // ── Regression (issue #47): prepareRename at a position with no renameable binding must
+    //    return null quietly rather than throwing. The textDocument/prepareRename JSON-RPC
+    //    handler in LanguageServerOptionsExtensions passes this return value straight through
+    //    (LspRange?), so vscode-languageclient can treat it as "rename not supported here" and
+    //    stay silent instead of surfacing a raw exception popup. ─────────────────────────────
+
+    [Fact]
+    public async Task PrepareRename_from_feature_returns_null_when_no_binding_matches_the_step()
+    {
+        var featureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(Array.Empty<ProjectStepDefinitionBinding>()));
+
+        var project = MakeTestProject();
+        _scopeManager.ResolveOwners(featureUri).Returns(new[] { project });
+        _scopeManager.GetProjectForUri(featureUri).Returns(project);
+        _scopeManager.GetIndexedFeatureFiles(project).Returns(new List<string> { featureUri.GetFileSystemPath()! });
+
+        // No match set registered for this key → FindBindingsAtFeatureStep finds nothing.
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+            .Returns(false);
+
+        var result = await CreateSut().HandlePrepareRenameAsync(
+            new PrepareRenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 10)
+            },
+            CancellationToken.None);
+
+        result.Should().BeNull("rename is not available at this position and must be a silent no-op, not an exception");
+    }
+
     [Fact]
     public async Task RenameTargets_from_feature_returns_matched_binding()
     {
