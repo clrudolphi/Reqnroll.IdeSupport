@@ -507,9 +507,19 @@ public sealed class StepRenameHandler
         int idx = 0;
         foreach (var b in matchedBindings)
         {
+            // Ambiguous bindings from the .feature side are frequently identical steps bound
+            // to different methods (that's the whole reason they're ambiguous) — the expression
+            // text alone doesn't distinguish them in the picker, so append the implementing
+            // method to give the user something to choose by. Implementation.Method is fully
+            // qualified (e.g. "MyProj.StepDefinitions.CalculatorSteps.GivenX(Int32)"); the shared
+            // namespace prefix across bindings in the same project pushes the actually-different
+            // part (class + method name) past the picker's visible width before two entries'
+            // labels diverge, so only the last two dot-segments are kept.
+            var method = ShortenMethodQualifier(b.Implementation?.Method);
+            var methodSuffix = !string.IsNullOrEmpty(method) ? $" — {method}" : "";
             response.Targets.Add(new RenameTargetItem
             {
-                Label = $"{b.StepDefinitionType} {b.Expression ?? "(unknown)"}",
+                Label = $"{b.StepDefinitionType} {b.Expression ?? "(unknown)"}{methodSuffix}",
                 Expression = b.Expression ?? "",
                 AttributeIndex = idx,
                 StartLine = 0, StartChar = 0, EndLine = 0, EndChar = 200
@@ -556,7 +566,11 @@ public sealed class StepRenameHandler
 
             foreach (var step in matchSet.Steps)
             {
-                if (step.Result is null || !step.Result.HasDefined)
+                // Ambiguous steps (2+ matching bindings) are exactly what the rename-targets
+                // picker exists to disambiguate — MatchResult.HasDefined is false for them
+                // (their items are typed Ambiguous, not Defined), so it must not gate them out
+                // here alongside genuinely undefined steps.
+                if (step.Result is null || !(step.Result.HasDefined || step.Result.HasAmbiguous))
                     continue;
 
                 // Check if cursor falls within the step's range
@@ -591,7 +605,7 @@ public sealed class StepRenameHandler
         SelectRenameTargetParams request,
         CancellationToken        cancellationToken)
     {
-        _sessionManager.SetSession(request.Uri, request.Version, request.AttributeIndex);
+        _sessionManager.SetSession(request.Uri.ToString(), request.Version, request.AttributeIndex);
         return Task.CompletedTask;
     }
 
@@ -722,6 +736,21 @@ public sealed class StepRenameHandler
         var literals = GetStepAttributeLiterals(chosen.Method, stepType).ToList();
         return literals.FirstOrDefault(e => e.Token.ValueText == binding.Expression)
                ?? literals[0];
+    }
+
+    /// <summary>
+    /// Keeps only the last two dot-segments of a fully qualified method name (class + method),
+    /// dropping the namespace. Two ambiguous bindings from the same project usually share the
+    /// same namespace prefix, so keeping it just wastes the picker's limited width without
+    /// helping the user distinguish the entries.
+    /// </summary>
+    private static string? ShortenMethodQualifier(string? fullyQualifiedMethod)
+    {
+        if (string.IsNullOrEmpty(fullyQualifiedMethod))
+            return fullyQualifiedMethod;
+
+        var parts = fullyQualifiedMethod.Split('.');
+        return parts.Length <= 2 ? fullyQualifiedMethod : string.Join(".", parts[^2..]);
     }
 
     /// <summary>

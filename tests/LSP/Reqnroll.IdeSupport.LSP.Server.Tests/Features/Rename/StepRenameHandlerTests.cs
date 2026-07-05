@@ -370,6 +370,30 @@ public class StepRenameHandlerTests
             new[] { match });
     }
 
+    // Builds a match set where the step is genuinely ambiguous (2+ matching bindings), mirroring
+    // how ProjectBindingRegistry.cs:123 turns multiple Defined items into Ambiguous ones via
+    // CloneToAmbiguousItem() — MatchResultItem.CreateMatch alone always produces Type.Defined.
+    private static FeatureBindingMatchSet MakeAmbiguousFeatureMatchSet(
+        string featureUri, ProjectStepDefinitionBinding[] bindings,
+        string scenarioBlock, string stepText, int stepLine, int stepChar)
+    {
+        var text = $"Feature: F\nScenario: S\n\t{scenarioBlock} {stepText}\n";
+        var snapshot = new LspTextSnapshot(featureUri, 1, text);
+        var stepPrefix = $"\t{scenarioBlock} ";
+        var startOffset = text.IndexOf(stepPrefix + stepText) + stepPrefix.Length;
+        var range = GherkinRange.FromPoint(snapshot, startOffset: startOffset, length: stepText.Length);
+        var items = bindings
+            .Select(b => MatchResultItem.CreateMatch(b, ParameterMatch.NotMatch).CloneToAmbiguousItem())
+            .ToArray();
+        var match = new StepBindingMatch(featureUri, range, MatchResult.CreateMultiMatch(items));
+
+        return new FeatureBindingMatchSet(
+            featureUri,
+            new ProjectOwner("/workspace/MyProject.csproj", ".NETCoreApp,Version=v8.0"),
+            1, 1,
+            new[] { match });
+    }
+
     private static LspReqnrollProject MakeTestProject() =>
         new(
             new ReqnrollProjectLoadedParams
@@ -469,7 +493,7 @@ public class StepRenameHandlerTests
         response.Should().NotBeNull();
         var target = response!.Targets.Should().ContainSingle().Subject;
         target.Expression.Should().Be("to be or not to be");
-        target.Label.Should().Be("Then to be or not to be");
+        target.Label.Should().Be("Then to be or not to be — Steps.ThenToBeOrNotToBe()");
     }
 
     [Fact]
@@ -488,6 +512,250 @@ public class StepRenameHandlerTests
 
         response.Should().NotBeNull();
         response!.Targets.Should().BeEmpty();
+    }
+
+    // ── Regression: an ambiguous feature step (2+ matching bindings) must still surface
+    //    every candidate through the rename-targets picker, and prepareRename must not report
+    //    "no defined binding" for it. MatchResult.HasDefined is false for ambiguous steps (their
+    //    items are typed Ambiguous, not Defined) — FindBindingsAtFeatureStep used to gate on
+    //    HasDefined alone, silently excluding exactly the steps this feature exists to handle. ──
+
+    [Fact]
+    public async Task RenameTargets_from_feature_returns_all_targets_for_ambiguous_step()
+    {
+        var featureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+        var bindingInt = MakeBinding(
+            ScenarioBlock.Then,
+            new Regex("^the result should be (-?\\d+)$"),
+            specifiedExpression: "the result should be {int}",
+            line: 8, column: 9,
+            method: "Steps.ThenResultInt(Int32)");
+        var bindingAny = MakeBinding(
+            ScenarioBlock.Then,
+            new Regex("^the result should be (.*)$"),
+            specifiedExpression: "the result should be (.*)",
+            line: 10, column: 9,
+            method: "Steps.ThenResultAny(String)");
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { bindingInt, bindingAny }));
+
+        var project = MakeTestProject();
+        _scopeManager.ResolveOwners(featureUri).Returns(new[] { project });
+
+        var matchSet = MakeAmbiguousFeatureMatchSet(
+            featureUri.ToString(), new[] { bindingInt, bindingAny },
+            "Then", "the result should be 120", stepLine: 2, stepChar: 5);
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+            .Returns(ci =>
+            {
+                ci[1] = matchSet;
+                return true;
+            });
+
+        var response = await CreateSut().HandleRenameTargetsAsync(
+            new TextDocumentPositionParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 14)
+            },
+            CancellationToken.None);
+
+        response.Should().NotBeNull();
+        response!.Targets.Should().HaveCount(2,
+            "both ambiguous bindings must be offered, not silently dropped because neither is individually 'Defined'");
+        response.Targets.Select(t => t.Expression).Should()
+            .BeEquivalentTo(new[] { "the result should be {int}", "the result should be (.*)" });
+        response.Targets.Select(t => t.Label).Should().OnlyHaveUniqueItems(
+            "identical-looking picker entries leave the user unable to tell which binding they're choosing — " +
+            "the implementing method must be part of the label");
+        response.Targets.Should().Contain(t => t.Label.EndsWith("Steps.ThenResultInt(Int32)"));
+        response.Targets.Should().Contain(t => t.Label.EndsWith("Steps.ThenResultAny(String)"));
+    }
+
+    [Fact]
+    public async Task PrepareRename_from_feature_succeeds_for_ambiguous_step()
+    {
+        var featureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+        var bindingInt = MakeBinding(
+            ScenarioBlock.Then,
+            new Regex("^the result should be (-?\\d+)$"),
+            specifiedExpression: "the result should be {int}",
+            line: 8, column: 9,
+            method: "Steps.ThenResultInt(Int32)");
+        var bindingAny = MakeBinding(
+            ScenarioBlock.Then,
+            new Regex("^the result should be (.*)$"),
+            specifiedExpression: "the result should be (.*)",
+            line: 10, column: 9,
+            method: "Steps.ThenResultAny(String)");
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { bindingInt, bindingAny }));
+
+        var project = MakeTestProject();
+        _scopeManager.ResolveOwners(featureUri).Returns(new[] { project });
+        _scopeManager.GetProjectForUri(featureUri).Returns(project);
+
+        var matchSet = MakeAmbiguousFeatureMatchSet(
+            featureUri.ToString(), new[] { bindingInt, bindingAny },
+            "Then", "the result should be 120", stepLine: 2, stepChar: 5);
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+            .Returns(ci =>
+            {
+                ci[1] = matchSet;
+                return true;
+            });
+
+        var result = await CreateSut().HandlePrepareRenameAsync(
+            new PrepareRenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 10)
+            },
+            CancellationToken.None);
+
+        result.Should().NotBeNull(
+            "an ambiguous-but-defined step must still offer rename — this used to return null " +
+            "and the server's null->throw wiring surfaced that as a visible client error popup");
+    }
+
+    [Fact]
+    public async Task SelectRenameTarget_then_Rename_from_feature_edits_only_selected_ambiguous_binding()
+    {
+        var featureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+        var csUri = DocumentUri.FromFileSystemPath("/workspace/Steps.cs");
+
+        const string csText =
+            "using Reqnroll;\n" +
+            "namespace N\n" +
+            "{\n" +
+            "    [Binding]\n" +
+            "    public class Steps\n" +
+            "    {\n" +
+            "        [Then(\"the result should be {int}\")]\n" +   // 0-based line 6
+            "        public void ThenResultInt(int result) { }\n" + // 0-based line 7
+            "        [Then(\"the result should be (.*)\")]\n" +     // 0-based line 8
+            "        public void ThenResultAny(string result) { }\n" + // 0-based line 9
+            "    }\n" +
+            "}\n";
+        SetupBuffers((csUri, csText));
+
+        var bindingInt = MakeBinding(
+            ScenarioBlock.Then,
+            new Regex("^the result should be (-?\\d+)$"),
+            specifiedExpression: "the result should be {int}",
+            line: 8, column: 9,
+            method: "Steps.ThenResultInt(Int32)");
+        var bindingAny = MakeBinding(
+            ScenarioBlock.Then,
+            new Regex("^the result should be (.*)$"),
+            specifiedExpression: "the result should be (.*)",
+            line: 10, column: 9,
+            method: "Steps.ThenResultAny(String)");
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { bindingInt, bindingAny }));
+
+        var project = MakeTestProject();
+        _scopeManager.ResolveOwners(featureUri).Returns(new[] { project });
+
+        var matchSet = MakeAmbiguousFeatureMatchSet(
+            featureUri.ToString(), new[] { bindingInt, bindingAny },
+            "Then", "the result should be 120", stepLine: 2, stepChar: 5);
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+            .Returns(ci =>
+            {
+                ci[1] = matchSet;
+                return true;
+            });
+
+        var sut = CreateSut();
+
+        // Discover the target index for the "(.*)" binding rather than assuming ordering —
+        // FindBindingsAtFeatureStep collects candidates via a HashSet, so index isn't contractual.
+        var targets = await sut.HandleRenameTargetsAsync(
+            new TextDocumentPositionParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 14)
+            },
+            CancellationToken.None);
+        var anyTarget = targets!.Targets.Should()
+            .ContainSingle(t => t.Expression == "the result should be (.*)").Subject;
+
+        await sut.HandleSelectRenameTargetAsync(
+            new SelectRenameTargetParams { Uri = featureUri.ToString(), Version = 0, AttributeIndex = anyTarget.AttributeIndex },
+            CancellationToken.None);
+
+        var result = await sut.HandleRenameAsync(
+            new RenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 14),
+                NewName = "the total should be (.*)"
+            },
+            CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result!.Changes!.Should().ContainKey(csUri);
+        var csEdit = result.Changes[csUri].ToList();
+        csEdit.Should().ContainSingle();
+        csEdit[0].NewText.Should().Be("\"the total should be (.*)\"",
+            "only the selected (ThenResultAny) attribute should be edited");
+        csEdit[0].Range.Start.Line.Should().Be(8,
+            "the edit must land on the ThenResultAny attribute line, not ThenResultInt's");
+    }
+
+    // ── Regression: a namespace-qualified method name (as real discovery actually produces,
+    //    e.g. "MyProj.StepDefinitions.CalculatorSteps.GivenX(Int32)") must not dominate the
+    //    picker label — two ambiguous bindings in the same project share that namespace prefix,
+    //    so keeping it pushes the only actually-distinguishing part (class + method) past the
+    //    picker's visible width before the two labels diverge. ─────────────────────────────────
+
+    [Fact]
+    public async Task RenameTargets_from_feature_label_omits_namespace_from_method_qualifier()
+    {
+        var featureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+        var bindingInt = MakeBinding(
+            ScenarioBlock.Given,
+            new Regex("^the first number is (-?\\d+)$"),
+            specifiedExpression: "the first number is {int}",
+            line: 8, column: 9,
+            method: "Minimal.StepDefinitions.CalculatorStepDefinitions.GivenTheFirstNumberIs(Int32)");
+        var bindingAny = MakeBinding(
+            ScenarioBlock.Given,
+            new Regex("^the first number is (.*)$"),
+            specifiedExpression: "the first number is {int}",
+            line: 10, column: 9,
+            method: "Minimal.StepDefinitions.OtherStepDefinitions.GivenTheFirstNumberIs(Int32)");
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { bindingInt, bindingAny }));
+
+        var project = MakeTestProject();
+        _scopeManager.ResolveOwners(featureUri).Returns(new[] { project });
+
+        var matchSet = MakeAmbiguousFeatureMatchSet(
+            featureUri.ToString(), new[] { bindingInt, bindingAny },
+            "Given", "the first number is 50", stepLine: 2, stepChar: 6);
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+            .Returns(ci =>
+            {
+                ci[1] = matchSet;
+                return true;
+            });
+
+        var response = await CreateSut().HandleRenameTargetsAsync(
+            new TextDocumentPositionParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 14)
+            },
+            CancellationToken.None);
+
+        response.Should().NotBeNull();
+        response!.Targets.Should().HaveCount(2);
+        response.Targets.Should().OnlyContain(t => !t.Label.Contains("Minimal.StepDefinitions"),
+            "the shared namespace prefix must be dropped — it doesn't help distinguish ambiguous bindings and crowds out the part that does");
+        response.Targets.Should().Contain(t => t.Label.EndsWith("CalculatorStepDefinitions.GivenTheFirstNumberIs(Int32)"));
+        response.Targets.Should().Contain(t => t.Label.EndsWith("OtherStepDefinitions.GivenTheFirstNumberIs(Int32)"));
     }
 
     [Fact]
