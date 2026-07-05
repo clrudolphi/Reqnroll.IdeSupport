@@ -67,6 +67,22 @@ When debugging coloring/binding/CodeLens behavior, the ext-debug and server-debu
 usually tell the whole story; the inspector log is what to reach for when you suspect a protocol
 mismatch specifically.
 
+### Server log-level and trace defaults
+
+`LspServerConnectionService.ServerArguments` is the full command line the extension passes to the
+LSP server process, including the three verbosity flags described in
+[../LSP/CONTRIBUTING.md](../LSP/CONTRIBUTING.md#server-logging-and-trace-verbosity)
+(`--log-level`, `--protocol-log-level`, `--trace`). It's build-configuration-dependent:
+
+- **DEBUG** (a developer F5-ing the Extension project): `--log-level Verbose --protocol-log-level
+  Info --trace Verbose` — the chattiest reasonable defaults across all three.
+- **RELEASE** (an installed VSIX, what real users run): `--log-level Warning --protocol-log-level
+  Warning --trace Off` — quiet by default.
+
+Unlike VS Code's `reqnroll.trace.server` setting, **VS currently has no end-user UI to raise these
+levels at runtime.** To get more verbose logs out of a RELEASE build for a bug report, either
+change `ServerArguments` and rebuild, or use the DEBUG configuration directly.
+
 ## Testing
 
 ```sh
