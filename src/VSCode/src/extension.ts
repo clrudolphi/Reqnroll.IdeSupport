@@ -15,6 +15,7 @@ import {
   createManualSyncMiddleware,
   isCSharpDocument,
 } from './manualDocumentSync';
+import { createRenameMiddleware } from './renameDisambiguation';
 import { registerTelemetry } from './telemetry';
 
 let client: LanguageClient | undefined;
@@ -213,7 +214,14 @@ export function activate(context: vscode.ExtensionContext): void {
     // .cs sync is driven manually (see manualDocumentSync.ts) because
     // vscode-languageclient's built-in sync has proven unreliable for it; this middleware
     // stops the built-in path from also emitting sync notifications for .cs documents.
-    middleware: createManualSyncMiddleware(isCSharpDocument),
+    // F16 — prepareRename is intercepted to surface multi-attribute rename ambiguity via a
+    // QuickPick before delegating to the standard rename flow (see renameDisambiguation.ts).
+    // `() => client` is passed rather than `client` directly because `client` isn't assigned
+    // until after this object is constructed.
+    middleware: {
+      ...createManualSyncMiddleware(isCSharpDocument),
+      ...createRenameMiddleware(() => client),
+    },
   };
 
   client = new LanguageClient('reqnroll', 'Reqnroll Language Server', serverOptions, clientOptions);
