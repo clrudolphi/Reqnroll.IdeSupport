@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.Common.Diagnostics;
@@ -39,6 +40,7 @@ using Reqnroll.IdeSupport.LSP.Server.Features.InlayHints;
 using Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 using Reqnroll.IdeSupport.LSP.Server.Tagging;
+using Reqnroll.IdeSupport.LSP.Server.Tracing;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Hosting;
@@ -52,7 +54,7 @@ public static class ServiceCollectionExtensions
     /// Registers core infrastructure and cross-cutting services.
     /// </summary>
     public static IServiceCollection AddReqnrollLspCoreServices(this IServiceCollection services, string? clientIde,
-        TraceLevel logLevel = TraceLevel.Warning)
+        TraceLevel logLevel = TraceLevel.Warning, InitializeTrace initialTrace = InitializeTrace.Off)
     {
         return services
             .AddSingleton(new ClientIdeContext(clientIde, logLevel))
@@ -74,11 +76,18 @@ public static class ServiceCollectionExtensions
             // PERF lines to the log and (when REQNROLL_PERF_TELEMETRY_SAMPLE is set) emits sampled
             // PerfSample telemetry. Singleton so the sampler's RNG is shared across handlers.
             .AddSingleton<IPerfTelemetrySampler>(_ => PerfTelemetrySampler.FromEnvironment())
+            // F41: tracks the LSP `trace` level (--trace / InitializeParams.Trace / $/setTrace) and
+            // issues $/logTrace notifications. Singleton so the level set by $/setTrace is visible
+            // to every consumer (currently OperationDurationRecorder's PERF lines).
+            .AddSingleton<ITraceService>(sp => new TraceService(
+                sp.GetRequiredService<OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServerFacade>(),
+                initialTrace))
             .AddSingleton<IOperationDurationRecorder>(sp => new OperationDurationRecorder(
                 sp.GetRequiredService<IDeveroomLogger>(),
                 sp.GetRequiredService<ClientIdeContext>(),
                 sp.GetRequiredService<ILspTelemetryService>(),
-                sp.GetRequiredService<IPerfTelemetrySampler>()));
+                sp.GetRequiredService<IPerfTelemetrySampler>(),
+                sp.GetRequiredService<ITraceService>()));
     }
 
     /// <summary>
@@ -161,6 +170,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<CommentToggleHandler>()
             .AddSingleton<StepRenameHandler>()
             .AddSingleton<RenameSessionManager>()
-            .AddSingleton<FeatureInlayHintHandler>();
+            .AddSingleton<FeatureInlayHintHandler>()
+            .AddSingleton<SetTraceNotificationHandler>();
     }
 }

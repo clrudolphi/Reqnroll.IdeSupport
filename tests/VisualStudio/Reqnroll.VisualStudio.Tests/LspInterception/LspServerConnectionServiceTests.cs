@@ -36,8 +36,17 @@ public class LspServerConnectionServiceTests
     }
 
     [Fact]
-    public void Server_arguments_identify_the_ide_and_a_quiet_default_log_level()
+    public void Server_arguments_identify_the_ide_and_set_all_three_logging_dials()
     {
-        LspServerConnectionService.ServerArguments.Should().Be("--ide visualstudio --log-level Warning");
+        // The test assembly and the extension assembly share the same build configuration, so the
+        // #if DEBUG branch actually taken here is whatever configuration this test itself was
+        // compiled under.
+#if DEBUG
+        LspServerConnectionService.ServerArguments.Should().Be(
+            "--ide visualstudio --log-level Verbose --protocol-log-level Info --trace Verbose");
+#else
+        LspServerConnectionService.ServerArguments.Should().Be(
+            "--ide visualstudio --log-level Warning --protocol-log-level Warning --trace Off");
+#endif
     }
 }
