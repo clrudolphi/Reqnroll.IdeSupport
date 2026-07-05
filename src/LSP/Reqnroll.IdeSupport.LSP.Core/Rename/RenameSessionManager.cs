@@ -49,6 +49,23 @@ public class RenameSessionManager
 
     private static string NormalizeUri(string uri)
     {
+        // Decode percent-encoding before lowercasing. VS Code's vscode.Uri.toString() percent-
+        // encodes the Windows drive-letter colon (file:///c%3A/Users/...), which is what
+        // SelectRenameTargetParams.Uri carries verbatim from the client. The subsequent
+        // textDocument/rename request's URI is re-serialized server-side through OmniSharp's
+        // DocumentUri, which does not use that encoding (file:///c:/Users/...). Without
+        // unescaping first, those two representations of the identical file normalize to
+        // different keys, TryConsume always misses, and HandleRenameAsync silently falls back
+        // to picking the first ambiguous candidate regardless of what the user selected.
+        try
+        {
+            uri = Uri.UnescapeDataString(uri);
+        }
+        catch (Exception)
+        {
+            // Not a well-formed percent-encoded string — fall back to the raw value.
+        }
+
         // Normalize URI casing so that file:///C:/Users/... and file:///c:/Users/...
         // map to the same key. On Windows, file paths are case-insensitive.
         return uri.ToLowerInvariant();

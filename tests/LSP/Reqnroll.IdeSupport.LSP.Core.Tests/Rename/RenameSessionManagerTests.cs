@@ -127,6 +127,39 @@ public class RenameSessionManagerTests
         attributeIndex.Should().Be(2);
     }
 
+    // ── Regression: VS Code's Uri.toString() percent-encodes the Windows drive-letter colon
+    //    (file:///c%3A/...), which reqnroll/selectRenameTarget carries verbatim as a raw string,
+    //    while the subsequent textDocument/rename request's URI is round-tripped server-side
+    //    through OmniSharp's DocumentUri and comes back unescaped (file:///c:/...). Before this
+    //    fix, TryConsume's key never matched SetSession's for real client traffic, so the
+    //    session was always "missed" and HandleRenameAsync silently fell back to picking the
+    //    first ambiguous candidate — regardless of which one the user actually selected in the
+    //    picker. ──────────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void SetSession_with_percent_encoded_drive_colon_is_consumable_with_plain_colon()
+    {
+        var sut = CreateSut();
+
+        sut.SetSession("file:///c%3A/Users/test/Calculator.feature", 0, 1);
+        var consumed = sut.TryConsume("file:///c:/Users/test/Calculator.feature", 0, out var attributeIndex);
+
+        consumed.Should().BeTrue();
+        attributeIndex.Should().Be(1);
+    }
+
+    [Fact]
+    public void TryConsume_with_percent_encoded_drive_colon_is_consumable_with_session_set_plain()
+    {
+        var sut = CreateSut();
+
+        sut.SetSession("file:///c:/Users/test/Calculator.feature", 0, 1);
+        var consumed = sut.TryConsume("file:///c%3A/Users/test/Calculator.feature", 0, out var attributeIndex);
+
+        consumed.Should().BeTrue();
+        attributeIndex.Should().Be(1);
+    }
+
     /// <summary>
     /// Multiple bindings in the same file can share the same expression with different
     /// [Scope] attributes. The session stores the picker's selection (attributeIndex)
