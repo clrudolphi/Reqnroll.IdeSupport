@@ -601,4 +601,48 @@ public class MembershipIndexTests : IAsyncLifetime
 
         await act.Should().NotThrowAsync();
     }
+
+    [Fact]
+    public async Task Baseline_before_projectLoaded_fires_deferred_full_rescan_once_project_registers()
+    {
+        // Reproduces the other half of issue #48's race: the baseline (and therefore the full
+        // re-scan it would normally trigger) arrives before `reqnroll/projectLoaded` registers
+        // the project. Any .cs buffer synced in that window was evaluated with zero known
+        // owners; without a deferred re-scan firing once the project registers, that buffer's
+        // bindings would never be re-evaluated until a full rebuild.
+        var p = ProjectParams();
+
+        await _sut.HandleProjectFilesAsync(
+            BaselineParams(p.ProjectFile, p.TargetFrameworkMoniker,
+                (Feature("f"), ProjectFileRole.Feature)),
+            CancellationToken.None);
+
+        // No project registered yet — the re-scan must not fire prematurely (there is nothing
+        // to attribute it to).
+        _ = _mediator.DidNotReceive().Publish(
+            Arg.Any<BindingRegistryChangedNotification>(),
+            Arg.Any<CancellationToken>());
+
+        await _sut.HandleProjectLoadedAsync(p, CancellationToken.None);
+
+        _ = _mediator.Received(1).Publish(
+            Arg.Is<BindingRegistryChangedNotification>(n => n.IsFullReplacement),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ProjectLoaded_without_a_pending_baseline_does_not_fire_a_spurious_rescan()
+    {
+        // The deferred-rescan flag must only fire when a baseline actually raced ahead of
+        // registration — an ordinary projectLoaded (the common case, no prior baseline) should
+        // not publish an extra notification beyond whatever ProjectDiscovered/TriggerRefresh
+        // already does through the connector pipeline.
+        var p = ProjectParams();
+
+        await _sut.HandleProjectLoadedAsync(p, CancellationToken.None);
+
+        _ = _mediator.DidNotReceive().Publish(
+            Arg.Any<BindingRegistryChangedNotification>(),
+            Arg.Any<CancellationToken>());
+    }
 }

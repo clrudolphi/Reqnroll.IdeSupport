@@ -28,6 +28,10 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
     private readonly object _membershipLock = new();
     // project key → baseline-received flag
     private readonly ConcurrentDictionary<ProjectKey, bool> _baselineReceived = new();
+    // project keys whose baseline arrived before the project itself registered (see
+    // HandleProjectFilesAsync / HandleProjectLoadedAsync) — the full re-scan that baseline
+    // would normally trigger is deferred here until the project actually loads.
+    private readonly ConcurrentDictionary<ProjectKey, bool> _pendingFullRescan = new();
 
     public LspWorkspaceScopeManager(IIdeScope ideScope, IDeveroomLogger logger, IMediator mediator)
     {
@@ -118,6 +122,20 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
             // until this update lands, so the watcher event for the new DLL can be dropped.
             if (discoveryInputChanged)
                 TriggerBindingDiscovery(project);
+        }
+
+        // The project's baseline may have already arrived (see HandleProjectFilesAsync) before
+        // this registration — that full re-scan was deferred since no project existed yet to
+        // attribute it to. Fire it now: any .cs buffers synced during the race window were
+        // evaluated with zero known owners and would otherwise never be re-evaluated, silently
+        // gating live Roslyn re-discovery for them until the next full build (issue #48).
+        if (_pendingFullRescan.TryRemove(MakeKey(project), out _))
+        {
+            _logger.LogInfo(
+                $"[Membership] Firing deferred full re-scan for '{project.ProjectName}' now that the project has loaded.");
+            _ = _mediator.Publish(
+                new BindingRegistryChangedNotification(project, true),
+                cancellationToken);
         }
 
         return Task.CompletedTask;
@@ -277,6 +295,12 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         }
         else
         {
+            // The baseline raced ahead of `reqnroll/projectLoaded` (see issue #48): any .cs
+            // buffers already synced for this project were evaluated against zero known
+            // owners and, absent this flag, would never be re-evaluated once the project
+            // actually registers. HandleProjectLoadedAsync checks this flag and fires the
+            // deferred re-scan itself.
+            _pendingFullRescan[key] = true;
             _logger.LogVerbose(
                 $"[Membership] No live project found for '{parameters.ProjectFile}'; " +
                 "re-scan deferred until the project loads.");
