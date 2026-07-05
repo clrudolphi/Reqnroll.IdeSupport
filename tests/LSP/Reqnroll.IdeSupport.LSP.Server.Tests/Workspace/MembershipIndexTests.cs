@@ -107,7 +107,67 @@ public class MembershipIndexTests : IAsyncLifetime
     [Fact]
     public void GetMembershipState_is_Unowned_for_file_with_no_covering_project()
     {
-        // No projects registered at all.
+        // No projects registered at all, and no workspace scope covers this path either.
+        var outsideUri = DocumentUri.FromFileSystemPath(Feature("nowhere", _root2));
+
+        _sut.GetMembershipState(outsideUri).Should().Be(MembershipState.Unowned);
+    }
+
+    // ── I2 startup race (issue #48) ───────────────────────────────────────────
+    // A workspace folder can be open (via `initialize`/workspace-folders) before the
+    // `reqnroll/projectLoaded` notification for a project inside it has arrived. A file
+    // sync (didOpen/didChange) landing in that window must not be permanently excluded —
+    // no *project* covers the path yet, but the covering *workspace scope* does, so a
+    // project may still register momentarily.
+
+    [Fact]
+    public void GetMembershipState_is_Pending_for_file_in_open_workspace_with_no_project_registered_yet()
+    {
+        // Workspace folder is open (as it would be after `initialize`), but no
+        // `reqnroll/projectLoaded` notification has arrived for any project inside it.
+        _sut.OpenWorkspace(_root1);
+
+        var uri = DocumentUri.FromFileSystemPath(Feature("CalculatorStepDefinitions", _root1));
+
+        _sut.GetMembershipState(uri).Should().Be(MembershipState.Pending,
+            "a project may still register inside this open workspace scope momentarily; " +
+            "this must not be treated as a permanent (Unowned) exclusion");
+    }
+
+    [Fact]
+    public async Task GetMembershipState_becomes_Owned_once_the_racing_project_registers_and_sends_baseline()
+    {
+        // Reproduces the full race from issue #48: workspace opens, a .cs file syncs before
+        // the owning project has registered (Pending), then the project registers and its
+        // baseline arrives claiming the file (Owned) — discovery must not have been
+        // permanently gated in between.
+        _sut.OpenWorkspace(_root1);
+        var csPath = CsFile("CalculatorStepDefinitions");
+        var uri = DocumentUri.FromFileSystemPath(csPath);
+
+        _sut.GetMembershipState(uri).Should().Be(MembershipState.Pending);
+
+        var p = ProjectParams();
+        await _sut.HandleProjectLoadedAsync(p, CancellationToken.None);
+
+        // Project registered but baseline not yet received — still Pending (existing behaviour).
+        _sut.GetMembershipState(uri).Should().Be(MembershipState.Pending);
+
+        await _sut.HandleProjectFilesAsync(
+            BaselineParams(p.ProjectFile, p.TargetFrameworkMoniker,
+                (csPath, ProjectFileRole.Binding)),
+            CancellationToken.None);
+
+        _sut.GetMembershipState(uri).Should().Be(MembershipState.Owned);
+    }
+
+    [Fact]
+    public void GetMembershipState_is_Unowned_for_file_outside_every_open_workspace_scope()
+    {
+        // A workspace IS open, but the file lives entirely outside its root — this remains
+        // a genuine Unowned case (distinct from Pending), since no scope could ever claim it.
+        _sut.OpenWorkspace(_root1);
+
         var outsideUri = DocumentUri.FromFileSystemPath(Feature("nowhere", _root2));
 
         _sut.GetMembershipState(outsideUri).Should().Be(MembershipState.Unowned);

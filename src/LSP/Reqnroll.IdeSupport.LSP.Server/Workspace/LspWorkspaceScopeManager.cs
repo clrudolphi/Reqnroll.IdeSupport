@@ -371,7 +371,20 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
             .ToList();
 
         if (covering.Count == 0)
-            return MembershipState.Unowned;
+        {
+            // No *registered* project covers this path yet. That is not the same as the
+            // path being permanently excluded: at startup, a workspace folder can be open
+            // (or about to open) well before its `reqnroll/projectLoaded` notification
+            // arrives, and file sync (didOpen/didChange) can race ahead of it. As long as
+            // the path falls inside a known workspace-folder scope, a covering project may
+            // still register momentarily, so treat this as Pending rather than a definitive
+            // Unowned — Unowned must only fire once we can be sure nothing will ever claim
+            // the file (see invariant I2 in CSharpBindingDiscoveryService).
+            var insideKnownScope = _scopes.Values.Any(
+                s => filePath.StartsWith(s.RootFolder, StringComparison.OrdinalIgnoreCase));
+
+            return insideKnownScope ? MembershipState.Pending : MembershipState.Unowned;
+        }
 
         // Pending if any covering project has not yet sent a baseline.
         foreach (var project in covering)
