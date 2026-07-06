@@ -570,8 +570,58 @@ namespace S
         ProjectBindingRegistry.HasExpressionChanges(before, after, FilePath).Should().BeFalse();
     }
 
-    private static ProjectStepDefinitionBinding BuildStepDefinition(string regex, string method, string sourceFile) =>
-        new(ScenarioBlock.Given, new Regex(regex), null,
+    [Fact]
+    public void HasExpressionChanges_does_not_throw_when_a_method_has_two_attributes_of_the_same_type_and_parameters()
+    {
+        // Regression test for issue #56: a method with two [When(...)] attributes producing
+        // different expressions but identical (StepDefinitionType, Method, ParameterTypes) keys
+        // used to crash HasExpressionChanges with a duplicate-key ArgumentException from
+        // ToDictionary, instead of tolerating the collision.
+        var before = new ProjectBindingRegistry(
+            new[]
+            {
+                BuildStepDefinition("^the two nums are confirmed (.*)$", "Steps.Method", FilePath, ScenarioBlock.When),
+                BuildStepDefinition("^the result should be (.*)$", "Steps.Method", FilePath, ScenarioBlock.When),
+            },
+            Array.Empty<ProjectHookBinding>(), projectHash: 0);
+        var after = new ProjectBindingRegistry(
+            new[]
+            {
+                BuildStepDefinition("^the two nums are confirmed (.*)$", "Steps.Method", FilePath, ScenarioBlock.When),
+                BuildStepDefinition("^the result should be (.*)$", "Steps.Method", FilePath, ScenarioBlock.When),
+            },
+            Array.Empty<ProjectHookBinding>(), projectHash: 0);
+
+        var act = () => ProjectBindingRegistry.HasExpressionChanges(before, after, FilePath);
+
+        act.Should().NotThrow();
+        act().Should().BeFalse();
+    }
+
+    [Fact]
+    public void HasExpressionChanges_detects_change_when_one_of_two_colliding_attributes_expression_changes()
+    {
+        var before = new ProjectBindingRegistry(
+            new[]
+            {
+                BuildStepDefinition("^the two nums are confirmed (.*)$", "Steps.Method", FilePath, ScenarioBlock.When),
+                BuildStepDefinition("^the result should be (.*)$", "Steps.Method", FilePath, ScenarioBlock.When),
+            },
+            Array.Empty<ProjectHookBinding>(), projectHash: 0);
+        var after = new ProjectBindingRegistry(
+            new[]
+            {
+                BuildStepDefinition("^the two nums are confirmed (.*)$", "Steps.Method", FilePath, ScenarioBlock.When),
+                BuildStepDefinition("^the result should be changed (.*)$", "Steps.Method", FilePath, ScenarioBlock.When),
+            },
+            Array.Empty<ProjectHookBinding>(), projectHash: 0);
+
+        ProjectBindingRegistry.HasExpressionChanges(before, after, FilePath).Should().BeTrue();
+    }
+
+    private static ProjectStepDefinitionBinding BuildStepDefinition(string regex, string method, string sourceFile,
+        ScenarioBlock stepDefinitionType = ScenarioBlock.Given) =>
+        new(stepDefinitionType, new Regex(regex), null,
             new ProjectBindingImplementation(method, Array.Empty<string>(), new SourceLocation(sourceFile, 0, 0)));
 
     private static ProjectHookBinding BuildHook(HookType hookType, string method, string sourceFile) =>

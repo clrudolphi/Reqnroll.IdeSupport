@@ -264,6 +264,12 @@ public record ProjectBindingRegistry
     /// method bodies, comments, or anything else that doesn't touch a step's matched expression
     /// report no change.
     /// </summary>
+    /// <remarks>
+    /// A method can carry multiple attributes of the same step type with the same parameter
+    /// types but different expression text (e.g. two <c>[When(...)]</c> on one method), which
+    /// collapse to the same key. Bindings are therefore grouped by key and compared as a sorted
+    /// multiset of expressions per key, rather than a single expression per key.
+    /// </remarks>
     public static bool HasExpressionChanges(
         ProjectBindingRegistry before, ProjectBindingRegistry after, string sourceFile)
     {
@@ -273,15 +279,20 @@ public record ProjectBindingRegistry
         bool OwnedByFile(ProjectStepDefinitionBinding b) =>
             IsSameSourceFile(b.Implementation.SourceLocation?.SourceFile, sourceFile);
 
-        var beforeByKey = before.StepDefinitions.Where(OwnedByFile).ToDictionary(Key, b => b.Expression);
-        var afterByKey  = after.StepDefinitions.Where(OwnedByFile).ToDictionary(Key, b => b.Expression);
+        static Dictionary<string, List<string>> GroupExpressionsByKey(IEnumerable<ProjectStepDefinitionBinding> bindings) =>
+            bindings.GroupBy(Key).ToDictionary(
+                g => g.Key,
+                g => g.Select(b => b.Expression).OrderBy(e => e, StringComparer.Ordinal).ToList());
+
+        var beforeByKey = GroupExpressionsByKey(before.StepDefinitions.Where(OwnedByFile));
+        var afterByKey  = GroupExpressionsByKey(after.StepDefinitions.Where(OwnedByFile));
 
         if (beforeByKey.Count != afterByKey.Count)
             return true;
 
         foreach (var entry in beforeByKey)
         {
-            if (!afterByKey.TryGetValue(entry.Key, out var newExpression) || newExpression != entry.Value)
+            if (!afterByKey.TryGetValue(entry.Key, out var newExpressions) || !newExpressions.SequenceEqual(entry.Value))
                 return true;
         }
 
