@@ -371,7 +371,7 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
     }
 
     /// <summary>Splits the flat per-call file arrays back into (project, range) groups.</summary>
-    private static IEnumerable<(IVsProject Project, int Start, int Count)> GroupByProject(
+    internal static IEnumerable<(IVsProject Project, int Start, int Count)> GroupByProject(
         int cProjects, int cFiles, IVsProject[] rgpProjects, int[] rgFirstIndices)
     {
         for (var i = 0; i < cProjects; i++)
@@ -385,7 +385,7 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
 
     /// <summary>Classifies a file by extension the same way <see cref="VsProjectPayloadBuilder"/> does;
     /// returns <see langword="null"/> for files the membership index does not track.</summary>
-    private static int? ClassifyRole(string path)
+    internal static int? ClassifyRole(string path)
     {
         var ext = Path.GetExtension(path);
         if (ext.Equals(".feature", StringComparison.OrdinalIgnoreCase))
