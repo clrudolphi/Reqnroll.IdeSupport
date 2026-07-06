@@ -22,6 +22,7 @@ using Reqnroll.IdeSupport.LSP.Server.Tracing;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 using OmniSharp.Extensions.LanguageServer.Protocol;
+using Newtonsoft.Json.Linq;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Hosting;
 
@@ -137,16 +138,28 @@ public static class LanguageServerOptionsExtensions
             (_, ct) => resolver!.Get<FindUnusedStepDefinitionsHandler>().HandleAsync(ct));
 
         // ── F16 Step Rename ────────────────────────────────────────────────────
-        // prepareRename null → throw: VS Code treats a JSON-RPC error from prepareRename as
-        // "rename not available here" and suppresses the dialog with a quiet status-bar message.
+        // prepareRename null → null: per the LSP spec, a null prepareRename result means
+        // "rename not supported at the given position", and vscode-languageclient handles that
+        // quietly. Throwing here instead surfaces the raw exception text as a visible error
+        // popup — confusing UX for what should be a silent no-op (see issue #47).
         // rename null → empty WorkspaceEdit: VS Code treats a JSON-RPC error from rename as
         // "Internal Error" (confusing UX); returning an empty edit is a silent no-op fallback.
         // renameTargets null → empty response.
-        options.OnRequest<PrepareRenameParams, LspRange>(
+        //
+        // Response type is JToken, not LspRange?: OmniSharp's manual OnRequest routing
+        // (DelegatingRequestHandler<T, TResponse>.Handle) always calls
+        // JToken.FromObject((object)response, ...) with no null-check, so any manual route that
+        // completes with a null TResponse throws ArgumentNullException from inside Newtonsoft —
+        // regardless of TResponse's declared nullability. Returning JValue.CreateNull() (a
+        // non-null JToken that *represents* JSON null) instead of a null reference sidesteps that
+        // library bug while still round-tripping as a null prepareRename result on the wire.
+        options.OnRequest<PrepareRenameParams, JToken>(
             LspMethodNames.TextDocumentPrepareRename,
             async (request, ct) =>
-                await resolver!.Get<StepRenameHandler>().HandlePrepareRenameAsync(request, ct)
-                ?? throw new InvalidOperationException("Rename is not available at this position."));
+            {
+                var range = await resolver!.Get<StepRenameHandler>().HandlePrepareRenameAsync(request, ct);
+                return range != null ? (JToken)JObject.FromObject(range) : JValue.CreateNull();
+            });
 
         options.OnRequest<RenameParams, WorkspaceEdit>(
             LspMethodNames.TextDocumentRename,
