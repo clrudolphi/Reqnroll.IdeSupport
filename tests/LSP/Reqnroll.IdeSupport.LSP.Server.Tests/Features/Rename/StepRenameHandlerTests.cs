@@ -226,6 +226,62 @@ public class StepRenameHandlerTests
             "the original Cucumber {int} parameter type is preserved, not the regex (.*) the user typed");
     }
 
+    // ── Regression (issue #55): prepareRename for a .cs binding must return the string
+    //    literal's INNER text range, excluding the surrounding quote characters. A whole-line
+    //    (or whole-token, quotes-included) range used to seed the rename dialog with the quotes
+    //    still visible; if the user left them untouched, `newName` arrived already quoted, and
+    //    BuildCSharpEdit's unconditional `"` + text + `"` wrapping doubled them, producing a
+    //    stray trailing quote in the attribute, e.g. [Given("foo bar"")]. ─────────────────────
+
+    [Fact]
+    public async Task PrepareRename_from_cs_returns_literal_inner_range_excluding_quotes()
+    {
+        const string csText =
+            "using Reqnroll;\n" +
+            "namespace N\n" +
+            "{\n" +
+            "    [Binding]\n" +
+            "    public class Steps\n" +
+            "    {\n" +
+            "        [Given(\"the first number is {int}\")]\n" +          // 0-based line 6
+            "        public void GivenTheFirstNumberIs(int number) { }\n" +
+            "    }\n" +
+            "}\n";
+        SetupBuffer(csText);
+
+        var binding = MakeBinding(
+            ScenarioBlock.Given,
+            new Regex("^the first number is (.*)$"),
+            specifiedExpression: "the first number is {int}",
+            line: 8, column: 9);
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { binding }));
+
+        var project = MakeTestProject();
+        _scopeManager.GetProjectForUri(CsUri).Returns(project);
+        _scopeManager.GetIndexedFeatureFiles(project).Returns(new List<string> { "/workspace/test.feature" });
+
+        var result = await CreateSut().HandlePrepareRenameAsync(
+            new PrepareRenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = CsUri },
+                Position     = new Position(7, 8)
+            },
+            CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result!.Start.Line.Should().Be(6, "the attribute literal lives on 0-based line 6");
+        result.End.Line.Should().Be(6);
+
+        var line = csText.Replace("\r\n", "\n").Split('\n')[6];
+        line[result.Start.Character - 1].Should().Be('"',
+            "the range must start right after the opening quote, not include it");
+        line[result.End.Character].Should().Be('"',
+            "the range must end right before the closing quote, not include it");
+        line.Substring(result.Start.Character, result.End.Character - result.Start.Character)
+            .Should().Be("the first number is {int}");
+    }
+
     // ── renameTargets surfaces the live source expression so the dialog seeds the
     //    Cucumber form rather than the regex projection. ───────────────────────────────────
 

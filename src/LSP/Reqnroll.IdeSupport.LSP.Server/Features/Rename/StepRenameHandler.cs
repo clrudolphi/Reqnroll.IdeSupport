@@ -69,7 +69,7 @@ public sealed class StepRenameHandler
     /// of the renameable text (attribute string or step text), or <c>null</c>
     /// if rename is not available at this position.
     /// </summary>
-    public Task<LspRange?> HandlePrepareRenameAsync(
+    public async Task<LspRange?> HandlePrepareRenameAsync(
         PrepareRenameParams request,
         CancellationToken   cancellationToken)
     {
@@ -77,14 +77,14 @@ public sealed class StepRenameHandler
         var path = uri.GetFileSystemPath();
 
         if (string.IsNullOrEmpty(path))
-            return Task.FromResult<LspRange?>(null);
+            return null;
 
         // Rule 1: validate cursor position (file type)
         var posError = StepRenameValidator.ValidateCursorPosition((Uri)uri);
         if (posError != null)
         {
             _logger.LogVerbose($"StepRenameHandler: prepareRename — {posError.Message}");
-            return Task.FromResult<LspRange?>(null);
+            return null;
         }
 
         // Rule 7: validate project state via the registry lookup
@@ -104,7 +104,7 @@ public sealed class StepRenameHandler
         if (projError != null)
         {
             _logger.LogVerbose($"StepRenameHandler: prepareRename — {projError.Message}");
-            return Task.FromResult<LspRange?>(null);
+            return null;
         }
 
         // For .cs files: check if the cursor resolves to a single binding
@@ -115,27 +115,34 @@ public sealed class StepRenameHandler
             var bindingLocation = new SourceLocation(path, line, column);
 
             if (registry == ProjectBindingRegistry.Invalid)
-                return Task.FromResult<LspRange?>(null);
+                return null;
 
             var binding = registry.FindBindingAtLocation(bindingLocation);
             if (binding == null)
-                return Task.FromResult<LspRange?>(null);
+                return null;
 
             // Rule 2: validate expression is a string literal
             var exprError = StepRenameValidator.ValidateExpressionIsStringLiteral(binding.Expression);
             if (exprError != null)
             {
                 _logger.LogVerbose($"StepRenameHandler: prepareRename — {exprError.Message}");
-                return Task.FromResult<LspRange?>(null);
+                return null;
             }
 
-            // Return a simple range highlighting the method line
-            var methodRange = new LspRange
+            // Return the range of the string literal's INNER text only, excluding the
+            // surrounding quote characters. Returning the whole line/token (quotes included)
+            // seeds the client's rename box with the quotes; if the user leaves them untouched
+            // (a natural interaction — they look like part of the placeholder), `newName`
+            // arrives already quoted, and BuildCSharpEdit's unconditional `"` + text + `"`
+            // wrapping then doubles them, producing a stray trailing quote (issue #55).
+            var literal = await FindAttributeLiteralAsync(uri, binding);
+            if (literal == null)
             {
-                Start = new Position(line - 1, 0),
-                End   = new Position(line - 1, 200)
-            };
-            return Task.FromResult<LspRange?>(methodRange);
+                _logger.LogVerbose("StepRenameHandler: prepareRename — could not resolve attribute literal for binding");
+                return null;
+            }
+
+            return GetLiteralInnerRange(literal);
         }
 
         // For .feature files: only offer rename when the cursor is on a step that is
@@ -150,7 +157,7 @@ public sealed class StepRenameHandler
             if (featureBindings.Count == 0)
             {
                 _logger.LogVerbose("StepRenameHandler: prepareRename — no defined binding at feature step position");
-                return Task.FromResult<LspRange?>(null);
+                return null;
             }
 
             if (stepRange == null)
@@ -160,13 +167,40 @@ public sealed class StepRenameHandler
                 // keyword/indentation, which then got duplicated when the resulting edit was
                 // applied at the step-text-only range HandleRenameAsync actually replaces.
                 _logger.LogVerbose("StepRenameHandler: prepareRename — matched a binding but could not resolve the step's text range");
-                return Task.FromResult<LspRange?>(null);
+                return null;
             }
 
-            return Task.FromResult<LspRange?>(stepRange);
+            return stepRange;
         }
 
-        return Task.FromResult<LspRange?>(null);
+        return null;
+    }
+
+    /// <summary>
+    /// Computes the LSP range of a string literal's inner text, i.e. its <see cref="LiteralExpressionSyntax.Token"/>
+    /// span with the surrounding quote characters excluded (2 leading characters for a verbatim
+    /// string's <c>@"</c>, 1 otherwise; 1 trailing character for the closing <c>"</c>).
+    /// </summary>
+    private static LspRange GetLiteralInnerRange(LiteralExpressionSyntax literal)
+    {
+        var tokenText = literal.Token.Text;
+        var leadingQuoteLength = tokenText.StartsWith("@\"", StringComparison.Ordinal) ? 2 : 1;
+        const int trailingQuoteLength = 1;
+
+        var fullSpan = literal.Token.Span;
+        var innerSpan = new Microsoft.CodeAnalysis.Text.TextSpan(
+            fullSpan.Start + leadingQuoteLength,
+            fullSpan.Length - leadingQuoteLength - trailingQuoteLength);
+
+        var lineSpan = literal.SyntaxTree!.GetLineSpan(innerSpan);
+        var startPos = lineSpan.StartLinePosition;
+        var endPos   = lineSpan.EndLinePosition;
+
+        return new LspRange
+        {
+            Start = new Position(startPos.Line, startPos.Character),
+            End   = new Position(endPos.Line, endPos.Character)
+        };
     }
 
     // ── textDocument/rename ────────────────────────────────────────────────────
