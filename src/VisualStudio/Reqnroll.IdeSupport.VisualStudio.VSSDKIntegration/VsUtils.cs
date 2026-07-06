@@ -475,24 +475,28 @@ public static class VsUtils
         }
     }
 
-    //public static Project GetProjectFromHierarchy(IVsHierarchy hierarchy)
-    //{
-    //    try
-    //    {
-    //        if (!ErrorHandler.Succeeded(hierarchy.GetProperty(
-    //                VSConstants.VSITEMID_ROOT,
-    //                (int) __VSHPROPID.VSHPROPID_ExtObject,
-    //                out var projectObj)))
-    //            return null;
+    public static Project GetProjectFromHierarchy(IVsHierarchy hierarchy)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        try
+        {
+            if (hierarchy is null)
+                return null;
 
-    //        return projectObj as Project;
-    //    }
-    //    catch (Exception ex)
-    //    {
-    //        Debug.WriteLine(ex);
-    //        return null;
-    //    }
-    //}
+            if (!ErrorHandler.Succeeded(hierarchy.GetProperty(
+                    VSConstants.VSITEMID_ROOT,
+                    (int) __VSHPROPID.VSHPROPID_ExtObject,
+                    out var projectObj)))
+                return null;
+
+            return projectObj as Project;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine(ex);
+            return null;
+        }
+    }
 
     //public static string SafeGetProjectFilePath(IVsHierarchy vsHierarchy)
     //{
