@@ -28,6 +28,10 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
     private readonly object _membershipLock = new();
     // project key → baseline-received flag
     private readonly ConcurrentDictionary<ProjectKey, bool> _baselineReceived = new();
+    // project keys whose baseline arrived before the project itself registered (see
+    // HandleProjectFilesAsync / HandleProjectLoadedAsync) — the full re-scan that baseline
+    // would normally trigger is deferred here until the project actually loads.
+    private readonly ConcurrentDictionary<ProjectKey, bool> _pendingFullRescan = new();
 
     public LspWorkspaceScopeManager(IIdeScope ideScope, IDeveroomLogger logger, IMediator mediator)
     {
@@ -118,6 +122,20 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
             // until this update lands, so the watcher event for the new DLL can be dropped.
             if (discoveryInputChanged)
                 TriggerBindingDiscovery(project);
+        }
+
+        // The project's baseline may have already arrived (see HandleProjectFilesAsync) before
+        // this registration — that full re-scan was deferred since no project existed yet to
+        // attribute it to. Fire it now: any .cs buffers synced during the race window were
+        // evaluated with zero known owners and would otherwise never be re-evaluated, silently
+        // gating live Roslyn re-discovery for them until the next full build (issue #48).
+        if (_pendingFullRescan.TryRemove(MakeKey(project), out _))
+        {
+            _logger.LogInfo(
+                $"[Membership] Firing deferred full re-scan for '{project.ProjectName}' now that the project has loaded.");
+            _ = _mediator.Publish(
+                new BindingRegistryChangedNotification(project, true),
+                cancellationToken);
         }
 
         return Task.CompletedTask;
@@ -277,6 +295,12 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         }
         else
         {
+            // The baseline raced ahead of `reqnroll/projectLoaded` (see issue #48): any .cs
+            // buffers already synced for this project were evaluated against zero known
+            // owners and, absent this flag, would never be re-evaluated once the project
+            // actually registers. HandleProjectLoadedAsync checks this flag and fires the
+            // deferred re-scan itself.
+            _pendingFullRescan[key] = true;
             _logger.LogVerbose(
                 $"[Membership] No live project found for '{parameters.ProjectFile}'; " +
                 "re-scan deferred until the project loads.");
@@ -371,7 +395,20 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
             .ToList();
 
         if (covering.Count == 0)
-            return MembershipState.Unowned;
+        {
+            // No *registered* project covers this path yet. That is not the same as the
+            // path being permanently excluded: at startup, a workspace folder can be open
+            // (or about to open) well before its `reqnroll/projectLoaded` notification
+            // arrives, and file sync (didOpen/didChange) can race ahead of it. As long as
+            // the path falls inside a known workspace-folder scope, a covering project may
+            // still register momentarily, so treat this as Pending rather than a definitive
+            // Unowned — Unowned must only fire once we can be sure nothing will ever claim
+            // the file (see invariant I2 in CSharpBindingDiscoveryService).
+            var insideKnownScope = _scopes.Values.Any(
+                s => filePath.StartsWith(s.RootFolder, StringComparison.OrdinalIgnoreCase));
+
+            return insideKnownScope ? MembershipState.Pending : MembershipState.Unowned;
+        }
 
         // Pending if any covering project has not yet sent a baseline.
         foreach (var project in covering)

@@ -107,7 +107,67 @@ public class MembershipIndexTests : IAsyncLifetime
     [Fact]
     public void GetMembershipState_is_Unowned_for_file_with_no_covering_project()
     {
-        // No projects registered at all.
+        // No projects registered at all, and no workspace scope covers this path either.
+        var outsideUri = DocumentUri.FromFileSystemPath(Feature("nowhere", _root2));
+
+        _sut.GetMembershipState(outsideUri).Should().Be(MembershipState.Unowned);
+    }
+
+    // ── I2 startup race (issue #48) ───────────────────────────────────────────
+    // A workspace folder can be open (via `initialize`/workspace-folders) before the
+    // `reqnroll/projectLoaded` notification for a project inside it has arrived. A file
+    // sync (didOpen/didChange) landing in that window must not be permanently excluded —
+    // no *project* covers the path yet, but the covering *workspace scope* does, so a
+    // project may still register momentarily.
+
+    [Fact]
+    public void GetMembershipState_is_Pending_for_file_in_open_workspace_with_no_project_registered_yet()
+    {
+        // Workspace folder is open (as it would be after `initialize`), but no
+        // `reqnroll/projectLoaded` notification has arrived for any project inside it.
+        _sut.OpenWorkspace(_root1);
+
+        var uri = DocumentUri.FromFileSystemPath(Feature("CalculatorStepDefinitions", _root1));
+
+        _sut.GetMembershipState(uri).Should().Be(MembershipState.Pending,
+            "a project may still register inside this open workspace scope momentarily; " +
+            "this must not be treated as a permanent (Unowned) exclusion");
+    }
+
+    [Fact]
+    public async Task GetMembershipState_becomes_Owned_once_the_racing_project_registers_and_sends_baseline()
+    {
+        // Reproduces the full race from issue #48: workspace opens, a .cs file syncs before
+        // the owning project has registered (Pending), then the project registers and its
+        // baseline arrives claiming the file (Owned) — discovery must not have been
+        // permanently gated in between.
+        _sut.OpenWorkspace(_root1);
+        var csPath = CsFile("CalculatorStepDefinitions");
+        var uri = DocumentUri.FromFileSystemPath(csPath);
+
+        _sut.GetMembershipState(uri).Should().Be(MembershipState.Pending);
+
+        var p = ProjectParams();
+        await _sut.HandleProjectLoadedAsync(p, CancellationToken.None);
+
+        // Project registered but baseline not yet received — still Pending (existing behaviour).
+        _sut.GetMembershipState(uri).Should().Be(MembershipState.Pending);
+
+        await _sut.HandleProjectFilesAsync(
+            BaselineParams(p.ProjectFile, p.TargetFrameworkMoniker,
+                (csPath, ProjectFileRole.Binding)),
+            CancellationToken.None);
+
+        _sut.GetMembershipState(uri).Should().Be(MembershipState.Owned);
+    }
+
+    [Fact]
+    public void GetMembershipState_is_Unowned_for_file_outside_every_open_workspace_scope()
+    {
+        // A workspace IS open, but the file lives entirely outside its root — this remains
+        // a genuine Unowned case (distinct from Pending), since no scope could ever claim it.
+        _sut.OpenWorkspace(_root1);
+
         var outsideUri = DocumentUri.FromFileSystemPath(Feature("nowhere", _root2));
 
         _sut.GetMembershipState(outsideUri).Should().Be(MembershipState.Unowned);
@@ -540,5 +600,49 @@ public class MembershipIndexTests : IAsyncLifetime
             CancellationToken.None);
 
         await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task Baseline_before_projectLoaded_fires_deferred_full_rescan_once_project_registers()
+    {
+        // Reproduces the other half of issue #48's race: the baseline (and therefore the full
+        // re-scan it would normally trigger) arrives before `reqnroll/projectLoaded` registers
+        // the project. Any .cs buffer synced in that window was evaluated with zero known
+        // owners; without a deferred re-scan firing once the project registers, that buffer's
+        // bindings would never be re-evaluated until a full rebuild.
+        var p = ProjectParams();
+
+        await _sut.HandleProjectFilesAsync(
+            BaselineParams(p.ProjectFile, p.TargetFrameworkMoniker,
+                (Feature("f"), ProjectFileRole.Feature)),
+            CancellationToken.None);
+
+        // No project registered yet — the re-scan must not fire prematurely (there is nothing
+        // to attribute it to).
+        _ = _mediator.DidNotReceive().Publish(
+            Arg.Any<BindingRegistryChangedNotification>(),
+            Arg.Any<CancellationToken>());
+
+        await _sut.HandleProjectLoadedAsync(p, CancellationToken.None);
+
+        _ = _mediator.Received(1).Publish(
+            Arg.Is<BindingRegistryChangedNotification>(n => n.IsFullReplacement),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ProjectLoaded_without_a_pending_baseline_does_not_fire_a_spurious_rescan()
+    {
+        // The deferred-rescan flag must only fire when a baseline actually raced ahead of
+        // registration — an ordinary projectLoaded (the common case, no prior baseline) should
+        // not publish an extra notification beyond whatever ProjectDiscovered/TriggerRefresh
+        // already does through the connector pipeline.
+        var p = ProjectParams();
+
+        await _sut.HandleProjectLoadedAsync(p, CancellationToken.None);
+
+        _ = _mediator.DidNotReceive().Publish(
+            Arg.Any<BindingRegistryChangedNotification>(),
+            Arg.Any<CancellationToken>());
     }
 }
