@@ -1,9 +1,5 @@
 import * as assert from 'assert';
-import {
-  getPipeIndexes,
-  getTrimmedCellRange,
-  isTableRow,
-} from '../tableHighlightService';
+import { getPipeIndexes, getTrimmedCellRange, isTableRow } from '../tableHighlightService';
 
 suite('tableHighlightService', () => {
   suite('isTableRow', () => {
