@@ -22,6 +22,7 @@ using Reqnroll.IdeSupport.LSP.Server.Tracing;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 using OmniSharp.Extensions.LanguageServer.Protocol;
+using Newtonsoft.Json.Linq;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Hosting;
 
@@ -144,9 +145,21 @@ public static class LanguageServerOptionsExtensions
         // rename null → empty WorkspaceEdit: VS Code treats a JSON-RPC error from rename as
         // "Internal Error" (confusing UX); returning an empty edit is a silent no-op fallback.
         // renameTargets null → empty response.
-        options.OnRequest<PrepareRenameParams, LspRange?>(
+        //
+        // Response type is JToken, not LspRange?: OmniSharp's manual OnRequest routing
+        // (DelegatingRequestHandler<T, TResponse>.Handle) always calls
+        // JToken.FromObject((object)response, ...) with no null-check, so any manual route that
+        // completes with a null TResponse throws ArgumentNullException from inside Newtonsoft —
+        // regardless of TResponse's declared nullability. Returning JValue.CreateNull() (a
+        // non-null JToken that *represents* JSON null) instead of a null reference sidesteps that
+        // library bug while still round-tripping as a null prepareRename result on the wire.
+        options.OnRequest<PrepareRenameParams, JToken>(
             LspMethodNames.TextDocumentPrepareRename,
-            (request, ct) => resolver!.Get<StepRenameHandler>().HandlePrepareRenameAsync(request, ct));
+            async (request, ct) =>
+            {
+                var range = await resolver!.Get<StepRenameHandler>().HandlePrepareRenameAsync(request, ct);
+                return range != null ? (JToken)JObject.FromObject(range) : JValue.CreateNull();
+            });
 
         options.OnRequest<RenameParams, WorkspaceEdit>(
             LspMethodNames.TextDocumentRename,
