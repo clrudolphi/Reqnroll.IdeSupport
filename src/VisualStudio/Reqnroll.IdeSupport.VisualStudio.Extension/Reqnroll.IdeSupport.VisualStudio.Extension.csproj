@@ -47,6 +47,12 @@
           <IncludeInVSIX>true</IncludeInVSIX>
           <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </Content>
+      <!-- Consumed by WelcomeService.CheckFileAssociation to register the .feature
+           file's Windows shell DefaultIcon (issue #17: green gherkin icon in Explorer). -->
+      <Content Include="Package\Resources\gherkin_reqnrollvs.ico">
+          <IncludeInVSIX>true</IncludeInVSIX>
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Content>
   </ItemGroup>
     
   <ItemGroup>
