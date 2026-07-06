@@ -42,7 +42,7 @@ public class InlayHintRefreshHandlerTests
         await CreateSut().Handle(new MatchCacheChangedNotification(DocumentUri.From("file:///f.feature"), 1), CancellationToken.None);
         await Task.Delay(700); // past the 500ms debounce window
 
-        _languageServer.Workspace.Received(1).SendInlayHintRefresh(Arg.Any<InlayHintRefreshParams>());
+        _languageServer.Client.Received(1).SendRequest(WorkspaceNames.InlayHintRefresh);
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public class InlayHintRefreshHandlerTests
         await CreateSut().Handle(new MatchCacheChangedNotification(DocumentUri.From("file:///f.feature"), 1), CancellationToken.None);
         await Task.Delay(700);
 
-        _languageServer.Workspace.DidNotReceiveWithAnyArgs().SendInlayHintRefresh(default!);
+        _languageServer.Client.DidNotReceive().SendRequest(WorkspaceNames.InlayHintRefresh);
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public class InlayHintRefreshHandlerTests
         await CreateSut().Handle(new MatchCacheChangedNotification(DocumentUri.From("file:///f.feature"), 1), CancellationToken.None);
         await Task.Delay(700);
 
-        _languageServer.Workspace.DidNotReceiveWithAnyArgs().SendInlayHintRefresh(default!);
+        _languageServer.Client.DidNotReceive().SendRequest(WorkspaceNames.InlayHintRefresh);
     }
 
     [Fact]
@@ -79,6 +79,6 @@ public class InlayHintRefreshHandlerTests
         await sut.Handle(new MatchCacheChangedNotification(uri, 3), CancellationToken.None);
         await Task.Delay(700);
 
-        _languageServer.Workspace.Received(1).SendInlayHintRefresh(Arg.Any<InlayHintRefreshParams>());
+        _languageServer.Client.Received(1).SendRequest(WorkspaceNames.InlayHintRefresh);
     }
 }

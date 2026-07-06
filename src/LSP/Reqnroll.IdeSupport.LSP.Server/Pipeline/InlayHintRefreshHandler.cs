@@ -1,7 +1,6 @@
 using MediatR;
-using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
-using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 
@@ -61,7 +60,10 @@ public class InlayHintRefreshHandler : INotificationHandler<MatchCacheChangedNot
             await Task.Delay(DebounceDelay, debounceToken).ConfigureAwait(false);
 
             _logger.LogVerbose("InlayHintRefreshHandler: sending workspace/inlayHint/refresh");
-            _languageServer.Workspace.SendInlayHintRefresh(new InlayHintRefreshParams());
+            await _languageServer.Client
+                .SendRequest(WorkspaceNames.InlayHintRefresh)
+                .ReturningVoid(CancellationToken.None)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
