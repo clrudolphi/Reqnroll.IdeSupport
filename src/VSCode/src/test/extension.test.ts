@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 import './projectManager.test';
 import './lspInspectorLogger.test';
 import './renameDisambiguation.test';
+import './tableHighlightService.test';
 
 suite('Reqnroll Extension Tests', () => {
   const extensionId = 'reqnroll.reqnroll-ide-support';

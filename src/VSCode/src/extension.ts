@@ -17,6 +17,7 @@ import {
 } from './manualDocumentSync';
 import { createRenameMiddleware } from './renameDisambiguation';
 import { registerTelemetry } from './telemetry';
+import { TableHighlightService } from './tableHighlightService';
 
 let client: LanguageClient | undefined;
 let projectManager: ProjectManager | undefined;
@@ -228,6 +229,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
   statusBar = new StatusBarManager(client);
   context.subscriptions.push(statusBar);
+
+  // Issue #8 — per-pipe-character / per-cell decorations for Gherkin data tables. Doesn't
+  // depend on the LSP client, so it starts decorating already-open editors immediately.
+  context.subscriptions.push(new TableHighlightService());
 
   client
     .start()
