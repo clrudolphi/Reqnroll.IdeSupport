@@ -1,6 +1,6 @@
 # Rename Change Annotations — Implementation Plan
 
-> **Status:** Draft for review
+> **Status:** Phase 0 verified (2026-07-07) — go, VS on `Changes` fallback. Not yet implemented (Phases A–C).
 > **Audience:** Core team contributors
 > **Based on:** [F16 Step Rename](F16-Step-Rename-Implementation-Plan.md); LSP 3.16 `ChangeAnnotation` / `AnnotatedTextEdit`
 > **Library support:** Already modelled in OmniSharp.Extensions.LanguageServer 0.19.9
@@ -129,7 +129,7 @@ If verification shows VS silently drops annotated edits (rather than applying th
 
 ## 6. Phased build plan & effort
 
-### Phase 0 — Capability verification (go/no-go) · ~0.5 day
+### Phase 0 — Capability verification (go/no-go) · ~0.5 day — **DONE (2026-07-07)**
 
 The whole feature hinges on the VS LSP client advertising annotation support; resolve this **before** writing code.
 
@@ -141,6 +141,16 @@ The whole feature hinges on the VS LSP client advertising annotation support; re
   - Both present → proceed at full scope (annotated `DocumentChanges` for all clients).
   - Present in VS Code/Rider, absent in VS → proceed; VS runs the `Changes` fallback. Record as a known limitation in §7.
   - Absent everywhere → shelve; no client benefit to building it.
+
+**Observed results (captured from live `initialize` payloads, 2026-07-07):**
+
+| Client | `documentChanges` | `changeAnnotationSupport` |
+|---|---|---|
+| Visual Studio | `true` | absent |
+| VS Code 1.127.0 | `true` | `{ "groupsOnLabel": true }` |
+| Rider | not yet captured | not yet captured |
+
+**Decision: GO**, per the "present in VS Code/Rider, absent in VS" rule — proceed with the full feature; VS negotiates down to the `Changes` fallback and sees no regression. Rider capture still outstanding but does not block the decision (VS Code alone already justifies building it).
 
 ### Phase A — `WorkspaceEditBuilder` + negotiation (~1 day)
 Standalone, fully unit-testable. Build the dual-mode builder and the `SupportsChangeAnnotations` accessor wired in `OnStarted`. No handler change yet.
