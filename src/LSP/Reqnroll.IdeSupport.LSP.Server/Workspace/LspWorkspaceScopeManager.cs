@@ -326,17 +326,16 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         if (string.IsNullOrEmpty(filePath))
             return [];
 
-        Dictionary<ProjectKey, ProjectFileRole>? owners;
+        List<ProjectKey> keySnapshot;
         lock (_membershipLock)
         {
-            _membership.TryGetValue(filePath, out owners);
+            if (!_membership.TryGetValue(filePath, out var owners) || owners.Count == 0)
+                return [];
+            keySnapshot = owners.Keys.ToList();
         }
 
-        if (owners is null or { Count: 0 })
-            return [];
-
-        var result = new List<LspReqnrollProject>(owners.Count);
-        foreach (var key in owners.Keys)
+        var result = new List<LspReqnrollProject>(keySnapshot.Count);
+        foreach (var key in keySnapshot)
         {
             var project = FindProjectByKey(key);
             if (project is not null)
