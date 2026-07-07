@@ -252,6 +252,19 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
                 return;
             }
             ApplyDelta(key, parameters.Files);
+
+            // The delta may re-attribute a file that's already open (e.g. Solution Explorer
+            // rename: the client's didClose/didOpen for the new URI typically reaches the server
+            // before this delta does, so its first parse/diagnostics pass ran with zero owners).
+            // Without this, that already-open buffer would show stale/empty diagnostics until
+            // the next full build or solution reload (issue #32).
+            var deltaProject = FindProjectByKey(key);
+            if (deltaProject is not null)
+            {
+                _ = _mediator.Publish(
+                    new BindingRegistryChangedNotification(deltaProject, false),
+                    cancellationToken);
+            }
             return;
         }
 
