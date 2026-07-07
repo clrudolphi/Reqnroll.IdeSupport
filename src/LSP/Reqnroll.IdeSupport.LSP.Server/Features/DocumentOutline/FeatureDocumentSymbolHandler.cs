@@ -1,3 +1,4 @@
+using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -10,9 +11,24 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.DocumentOutline;
 
 /// <summary>
 /// Handles <c>textDocument/documentSymbol</c> for <c>.feature</c> files (F9 — Document Outline).
-/// Returns a nested <see cref="DocumentSymbol"/> hierarchy:
-/// Feature → Background / Rule → Scenario / Scenario Outline → Step / Examples.
+/// Returns a nested <see cref="DocumentSymbol"/> hierarchy (Feature → Background / Rule →
+/// Scenario / Scenario Outline → Step / Examples) when the client declared
+/// <c>hierarchicalDocumentSymbolSupport</c>, or a flattened <see cref="SymbolInformation"/> list
+/// otherwise (see remarks).
 /// </summary>
+/// <remarks>
+/// Visual Studio's own LSP client does not declare <c>hierarchicalDocumentSymbolSupport</c> in its
+/// <c>documentSymbol</c> capability (confirmed by inspector-log capture: only
+/// <c>{"dynamicRegistration":true}</c>, no hierarchical flag) — per the LSP spec, a server MUST NOT
+/// send nested <see cref="DocumentSymbol"/> to such a client and must fall back to flat
+/// <see cref="SymbolInformation"/>. Prior to this fix the handler always sent nested
+/// <see cref="DocumentSymbol"/> regardless of client capability, which is the most likely reason
+/// VS's built-in Document Outline window / Breadcrumb Bar stayed empty despite VS successfully
+/// calling <c>documentSymbol</c> and getting a 200 response: VS's typed client presumably fails to
+/// deserialize a response shaped as <see cref="DocumentSymbol"/> (range/selectionRange/children)
+/// against the flat <see cref="SymbolInformation"/> (location/containerName) shape it declared
+/// support for. VS Code/Rider are unaffected — they do declare hierarchical support.
+/// </remarks>
 public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
 {
     private readonly IDocumentBufferService        _documentBufferService;
@@ -21,6 +37,12 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
 
     private static readonly TextDocumentSelector FeatureSelector = new(
         new TextDocumentFilter { Pattern = "**/*.feature" });
+
+    // Set from the client's declared capability in GetRegistrationOptions, which the OmniSharp
+    // framework always calls before any Handle call during real capability negotiation. Defaults
+    // to true (the pre-existing behavior) so a Handle call that skips registration (e.g. a unit
+    // test constructing the handler directly) still gets the hierarchical shape by default.
+    private bool _hierarchicalSupport = true;
 
     public FeatureDocumentSymbolHandler(
         IDocumentBufferService documentBufferService,
@@ -34,24 +56,59 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
 
     public DocumentSymbolRegistrationOptions GetRegistrationOptions(
         DocumentSymbolCapability capability, ClientCapabilities clientCapabilities)
-        => new() { DocumentSelector = FeatureSelector };
+    {
+        _hierarchicalSupport = capability.HierarchicalDocumentSymbolSupport;
+        return new() { DocumentSelector = FeatureSelector };
+    }
 
     public Task<SymbolInformationOrDocumentSymbolContainer?> Handle(
         DocumentSymbolParams request, CancellationToken ct)
     {
-        _logger.LogInfo($"F9 textDocument/documentSymbol: {request.TextDocument.Uri}");
+        _logger.LogInfo(
+            $"F9 textDocument/documentSymbol: {request.TextDocument.Uri} " +
+            $"(hierarchicalSupport={_hierarchicalSupport})");
 
-        if (!_documentBufferService.TryGet(request.TextDocument.Uri, out var buffer) || buffer?.Tags is null)
-            return Task.FromResult<SymbolInformationOrDocumentSymbolContainer?>(new SymbolInformationOrDocumentSymbolContainer());
-
-        var symbols = _symbolService.BuildSymbols(buffer.Tags);
+        var symbols = GetSymbols(request.TextDocument.Uri);
         if (symbols.Count == 0)
             return Task.FromResult<SymbolInformationOrDocumentSymbolContainer?>(new SymbolInformationOrDocumentSymbolContainer());
 
-        var container = new SymbolInformationOrDocumentSymbolContainer(
-            symbols.Select(s => SymbolInformationOrDocumentSymbol.Create(ToDocumentSymbol(s))));
+        var entries = _hierarchicalSupport
+            ? symbols.Select(s => SymbolInformationOrDocumentSymbol.Create(ToDocumentSymbol(s)))
+            : Flatten(symbols, request.TextDocument.Uri, containerName: null)
+                .Select(SymbolInformationOrDocumentSymbol.Create);
 
-        return Task.FromResult<SymbolInformationOrDocumentSymbolContainer?>(container);
+        return Task.FromResult<SymbolInformationOrDocumentSymbolContainer?>(
+            new SymbolInformationOrDocumentSymbolContainer(entries));
+    }
+
+    /// <summary>
+    /// Handles the custom <c>reqnroll/documentSymbolHierarchical</c> request: always returns the
+    /// nested <see cref="DocumentSymbol"/> shape, regardless of what the real LSP client (VS) has
+    /// declared support for via <c>GetRegistrationOptions</c>.
+    /// </summary>
+    /// <remarks>
+    /// The VS extension's own Navigation Bar (Issue #5 / Q22 Option B) fetches symbols through this
+    /// method rather than <c>textDocument/documentSymbol</c>. It parses the response itself
+    /// (<c>GherkinNavigationBarSymbolService</c>), so it isn't affected by VS's declared client
+    /// capability the way <see cref="Handle"/> is — but <see cref="Handle"/>'s capability-driven
+    /// shape is per-handler-instance, not per-request, so without a separate method the Nav Bar's
+    /// own fetch would silently receive the flattened shape too (and its range/children parsing,
+    /// written for the nested shape, would break) whenever VS's client declares no hierarchical
+    /// support.
+    /// </remarks>
+    public Task<IReadOnlyList<DocumentSymbol>> HandleHierarchicalAsync(
+        DocumentSymbolParams request, CancellationToken ct)
+    {
+        var symbols = GetSymbols(request.TextDocument.Uri);
+        return Task.FromResult<IReadOnlyList<DocumentSymbol>>(symbols.Select(ToDocumentSymbol).ToList());
+    }
+
+    private IReadOnlyList<GherkinDocumentSymbol> GetSymbols(DocumentUri uri)
+    {
+        if (!_documentBufferService.TryGet(uri, out var buffer) || buffer?.Tags is null)
+            return Array.Empty<GherkinDocumentSymbol>();
+
+        return _symbolService.BuildSymbols(buffer.Tags);
     }
 
     // ── Conversion helpers ────────────────────────────────────────────────────
@@ -71,6 +128,24 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
             SelectionRange = s.SelectionRange.ToLspRange(),
             Children       = children,
         };
+    }
+
+    private static IEnumerable<SymbolInformation> Flatten(
+        IReadOnlyList<GherkinDocumentSymbol> symbols, DocumentUri uri, string? containerName)
+    {
+        foreach (var s in symbols)
+        {
+            yield return new SymbolInformation
+            {
+                Name          = s.Name,
+                Kind          = ToSymbolKind(s.Kind),
+                ContainerName = containerName,
+                Location      = new Location { Uri = uri, Range = s.Range.ToLspRange() },
+            };
+
+            foreach (var child in Flatten(s.Children, uri, s.Name))
+                yield return child;
+        }
     }
 
     private static SymbolKind ToSymbolKind(GherkinSymbolKind kind) => kind switch

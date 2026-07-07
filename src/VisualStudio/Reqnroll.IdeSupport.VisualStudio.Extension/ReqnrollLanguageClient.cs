@@ -14,9 +14,11 @@ using Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
 using Reqnroll.IdeSupport.VisualStudio.Extension.GoToHooks;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
+using Reqnroll.IdeSupport.VisualStudio.Extension.NavigationBar;
 using Reqnroll.IdeSupport.VisualStudio.Extension.RenameStep;
 using Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspNotifications;
+using Reqnroll.IdeSupport.VisualStudio.NavigationBar;
 #pragma warning disable VSEXTPREVIEW_LSP
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension;
@@ -33,6 +35,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
     private readonly CommentToggleState _commentToggleState;
     private readonly RenameStepState _renameStepState;
     private readonly LspServerConnectionService _connectionService;
+    private GherkinNavigationBarSymbolService? _navigationBarSymbolService;
 
     public ReqnrollLanguageClient(
         ExtensionCore container,
@@ -137,10 +140,15 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
             _stepCodeLensState.Service              = new StepCodeLensService(interceptingPipe, _traceSource);
             _commentToggleState.Service             = new CommentToggleService(interceptingPipe, _traceSource);
             _renameStepState.Service                 = new RenameStepService(interceptingPipe, _traceSource);
+            _navigationBarSymbolService              = new GherkinNavigationBarSymbolService(interceptingPipe, _traceSource);
 
             // Set the VSSDK command filter redirect so the keyboard shortcut interception
             // for Edit.CommentSelection/UncommentSelection/ToggleLineComment calls our service.
             CommentToggleRedirect.ToggleCommentAsync = _commentToggleState.Service.ToggleCommentAsync;
+
+            // Set the VSSDK drop-down bar client redirect (Issue #5 / Q22 Option B) so the
+            // Navigation Bar can fetch the Feature/Scenario/Step symbol tree.
+            NavigationBarRedirect.FetchDocumentSymbolsAsync = _navigationBarSymbolService.FetchSymbolsAsync;
 
             try
             {
@@ -211,6 +219,8 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
             _stepCodeLensState.FindUsagesRenderer = null;
             _commentToggleState.Service = null;
             _renameStepState.Service = null;
+            _navigationBarSymbolService = null;
+            NavigationBarRedirect.FetchDocumentSymbolsAsync = null;
 
             // _connectionService itself is NOT disposed here: it's a DI-owned singleton whose
             // lifetime spans the whole extension session, not just this provider instance. The DI

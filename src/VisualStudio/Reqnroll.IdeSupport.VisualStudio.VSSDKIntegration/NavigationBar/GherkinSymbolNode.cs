@@ -1,0 +1,25 @@
+#nullable enable
+
+using System.Collections.Generic;
+
+namespace Reqnroll.IdeSupport.VisualStudio.NavigationBar;
+
+/// <summary>0-based line/character position, matching LSP <c>Position</c>.</summary>
+public readonly record struct GherkinSymbolPosition(int Line, int Character);
+
+/// <summary>Matches LSP <c>Range</c> — a <see cref="Start"/>/<see cref="End"/> position pair.</summary>
+public readonly record struct GherkinSymbolRange(GherkinSymbolPosition Start, GherkinSymbolPosition End);
+
+/// <summary>
+/// Client-side, protocol-agnostic mirror of an LSP <c>DocumentSymbol</c> node, used to populate
+/// the Navigation Bar drop-downs (Issue #5 / Q22 Option B). Deliberately independent of any
+/// OmniSharp/Newtonsoft type so this VSSDK-hosted (net481, classic COM) project doesn't need to
+/// reference the LSP client libraries — <c>GherkinNavigationBarSymbolService</c> in the Extension
+/// project does the JSON parsing and hands over already-mapped instances of this type.
+/// </summary>
+public sealed record GherkinSymbolNode(
+    string                            Name,
+    int                               Kind,
+    GherkinSymbolRange                Range,
+    GherkinSymbolRange                SelectionRange,
+    IReadOnlyList<GherkinSymbolNode>  Children);
