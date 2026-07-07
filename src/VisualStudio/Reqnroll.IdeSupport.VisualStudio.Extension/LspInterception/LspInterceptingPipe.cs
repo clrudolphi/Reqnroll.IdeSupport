@@ -156,9 +156,25 @@ internal sealed class LspInterceptingPipe : IDisposable
                 // Normalize here — before correlation and before any interceptor sees the
                 // message — so every server→VS path (owned-RPC responses consumed below,
                 // and messages forwarded on to VS's own LSP client) gets a VS-matching URI.
+                // Guarded like an interceptor (see RunInterceptorsAsync): a bug here must
+                // degrade to "URI casing unfixed for this message", never sever the pipe —
+                // and unlike an interceptor fault, this runs before LspInspectorLogger sees
+                // the message, so a silent failure here would leave no trace in the wire log.
                 var rawBytes = frame.RawBytes;
-                if (direction == LspMessageDirection.Receive && DriveLetterUriNormalizer.NormalizeInPlace(body))
-                    rawBytes = EncodeFrame(body);
+                if (direction == LspMessageDirection.Receive)
+                {
+                    try
+                    {
+                        if (DriveLetterUriNormalizer.NormalizeInPlace(body))
+                            rawBytes = EncodeFrame(body);
+                    }
+                    catch (Exception ex)
+                    {
+                        _traceSource.TraceEvent(TraceEventType.Warning, 0,
+                            "LspInterceptingPipe: DriveLetterUriNormalizer threw on message {0}: {1}",
+                            body.ToString(Newtonsoft.Json.Formatting.None), ex);
+                    }
+                }
 
                 // Consume correlated responses before external interceptors so they never reach VS.
                 if (direction == LspMessageDirection.Receive && TryCompleteCorrelatedResponse(body))
