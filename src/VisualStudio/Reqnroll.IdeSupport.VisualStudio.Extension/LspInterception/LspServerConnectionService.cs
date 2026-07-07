@@ -240,6 +240,10 @@ internal sealed class LspServerConnectionService : IDisposable
         {
             _traceSource.TraceEvent(TraceEventType.Error, 0,
                 "LspServerConnectionService: Failed to start server: {0}", ex);
+            // Surfaced to the file log too (not just TraceSource) — a server-start exception here
+            // otherwise leaves no trace in reqnroll-vs-ext-debug-*.log, only in VS's own trace
+            // listener output, which isn't accessible when debugging from collected user logs.
+            _fileLogger.LogWarning($"LspServerConnectionService: StartAsync failed: {ex}");
             return null;
         }
     }

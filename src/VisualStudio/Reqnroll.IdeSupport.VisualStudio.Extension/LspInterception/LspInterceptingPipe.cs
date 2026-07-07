@@ -172,7 +172,7 @@ internal sealed class LspInterceptingPipe : IDisposable
                     {
                         _traceSource.TraceEvent(TraceEventType.Warning, 0,
                             "LspInterceptingPipe: DriveLetterUriNormalizer threw on message {0}: {1}",
-                            body.ToString(Newtonsoft.Json.Formatting.None), ex);
+                            body.ToString(), ex);
                     }
                 }
 
@@ -273,7 +273,12 @@ internal sealed class LspInterceptingPipe : IDisposable
     /// <summary>Re-encodes a (possibly mutated) parsed body back into a raw LSP frame.</summary>
     private static byte[] EncodeFrame(JObject body)
     {
-        var bodyBytes   = Utf8NoBom.GetBytes(body.ToString(Newtonsoft.Json.Formatting.None));
+        // Deliberately the parameterless overload: JToken.ToString(Formatting) resolves to a
+        // MissingMethodException in the VS host process — some Newtonsoft.Json assembly loaded
+        // there doesn't carry that overload. The parameterless one is used successfully
+        // elsewhere in this codebase (e.g. GoToHooksService). Formatting (indented vs. compact)
+        // doesn't affect wire correctness, only payload size.
+        var bodyBytes   = Utf8NoBom.GetBytes(body.ToString());
         var headerText  = $"Content-Length: {bodyBytes.Length}\r\n\r\n";
         var headerBytes = Utf8NoBom.GetBytes(headerText);
 
