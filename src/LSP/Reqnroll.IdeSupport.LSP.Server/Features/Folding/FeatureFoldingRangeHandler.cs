@@ -1,11 +1,7 @@
-using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
-using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Folding;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
-
-
 
 namespace Reqnroll.IdeSupport.LSP.Server.Features.Folding;
 
@@ -14,14 +10,20 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.Folding;
 /// Returns foldable regions for Feature bodies, Scenario/Background/Rule blocks,
 /// Doc strings, Data tables, and Examples blocks.
 /// </summary>
-public sealed class FeatureFoldingRangeHandler : IFoldingRangeHandler
+/// <remarks>
+/// Registered manually (see <c>LanguageServerOptionsExtensions.InitializeCustomProtocolRouting</c>)
+/// with <c>foldingRangeProvider</c> declared statically in the initialize response (see
+/// <c>Program.ConfigureServer</c>), instead of via OmniSharp's dynamic-registration handler
+/// interface. vscode-languageclient's dynamic <c>client/registerCapability</c> round trip for
+/// inlayHint/foldingRange races VS Code's restore of previously-open <c>.feature</c> tabs on
+/// window load — if the tab renders first, VS Code never re-checks for a provider for the rest
+/// of the session. Static declaration removes the race entirely.
+/// </remarks>
+public sealed class FeatureFoldingRangeHandler
 {
     private readonly IDocumentBufferService        _documentBufferService;
     private readonly IGherkinFoldingRangeService    _foldingService;
     private readonly IDeveroomLogger               _logger;
-
-    private static readonly TextDocumentSelector FeatureSelector = new(
-        new TextDocumentFilter { Pattern = "**/*.feature" });
 
     public FeatureFoldingRangeHandler(
         IDocumentBufferService documentBufferService,
@@ -33,11 +35,7 @@ public sealed class FeatureFoldingRangeHandler : IFoldingRangeHandler
         _logger                = logger;
     }
 
-    public FoldingRangeRegistrationOptions GetRegistrationOptions(
-        FoldingRangeCapability capability, ClientCapabilities clientCapabilities)
-        => new() { DocumentSelector = FeatureSelector };
-
-    public Task<Container<FoldingRange>?> Handle(
+    public Task<Container<FoldingRange>?> HandleAsync(
         FoldingRangeRequestParam request, CancellationToken ct)
     {
         _logger.LogInfo($"F10 textDocument/foldingRange: {request.TextDocument.Uri}");

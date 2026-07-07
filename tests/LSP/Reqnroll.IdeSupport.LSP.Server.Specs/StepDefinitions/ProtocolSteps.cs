@@ -146,6 +146,26 @@ public sealed class ProtocolSteps
                 "VS uses a custom intercepting-pipe rename flow; advertising renameProvider " +
                 "would cause VS's standard rename UI to appear alongside the custom dialog");
 
+    [Then("the server statically advertises an inlayHintProvider")]
+    public void ThenTheServerStaticallyAdvertisesInlayHintProvider()
+    {
+        var inlayHint = _ctx.Harness.ServerInitializeResult.Capabilities.InlayHintProvider;
+        inlayHint.Should().NotBeNull(
+            "inlayHint/foldingRange must be declared statically — dynamic client/registerCapability " +
+            "races VS Code's restore of previously-open .feature tabs on window load, and losing that " +
+            "race silently disables the provider for the rest of the session");
+        inlayHint!.IsValue.Should().BeTrue(
+            "inlayHintProvider should be advertised with static options, not just a boolean flag");
+    }
+
+    [Then("the server statically advertises a foldingRangeProvider")]
+    public void ThenTheServerStaticallyAdvertisesFoldingRangeProvider()
+        => _ctx.Harness.ServerInitializeResult.Capabilities.FoldingRangeProvider
+            .Should().NotBeNull(
+                "inlayHint/foldingRange must be declared statically — dynamic client/registerCapability " +
+                "races VS Code's restore of previously-open .feature tabs on window load, and losing " +
+                "that race silently disables the provider for the rest of the session");
+
     [Then("the semantic tokens legend includes the token types")]
     public void ThenTheLegendIncludesTokenTypes(Table table)
     {
