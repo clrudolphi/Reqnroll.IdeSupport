@@ -62,7 +62,7 @@ internal sealed class LspInspectorLogger : ILspMessageInterceptor, IDisposable
         if (_writer is null || _disposed)
             return LspInterceptorResult.PassThrough;
 
-        await _gate.WaitAsync().ConfigureAwait(false);
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             await _writer.WriteAsync(FormatEntry(message)).ConfigureAwait(false);
@@ -150,14 +150,18 @@ internal sealed class LspInspectorLogger : ILspMessageInterceptor, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        _gate.Wait(millisecondsTimeout: 500);
+        var acquired = _gate.Wait(millisecondsTimeout: 500);
         try
         {
             _writer?.Flush();
             _writer?.Dispose();
         }
         catch { /* best-effort */ }
-        _gate.Release();
+        finally
+        {
+            if (acquired)
+                _gate.Release();
+        }
         _gate.Dispose();
     }
 }
