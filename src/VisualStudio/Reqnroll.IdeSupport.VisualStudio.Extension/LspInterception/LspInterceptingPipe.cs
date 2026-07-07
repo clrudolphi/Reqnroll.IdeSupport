@@ -143,22 +143,48 @@ internal sealed class LspInterceptingPipe : IDisposable
                 if (frame is null)
                     break;
 
-                if (frame.Body is null)
+                var body = frame.Body;
+                if (body is null)
                 {
                     // Malformed JSON — forward raw bytes verbatim so the connection stays alive.
                     await WriteFrameAsync(destination, frame.RawBytes, ct).ConfigureAwait(false);
                     continue;
                 }
 
+                // OmniSharp's DocumentUri unconditionally lowercases drive letters, but VS
+                // tracks documents using the project system's original (upper-case) casing.
+                // Normalize here — before correlation and before any interceptor sees the
+                // message — so every server→VS path (owned-RPC responses consumed below,
+                // and messages forwarded on to VS's own LSP client) gets a VS-matching URI.
+                // Guarded like an interceptor (see RunInterceptorsAsync): a bug here must
+                // degrade to "URI casing unfixed for this message", never sever the pipe —
+                // and unlike an interceptor fault, this runs before LspInspectorLogger sees
+                // the message, so a silent failure here would leave no trace in the wire log.
+                var rawBytes = frame.RawBytes;
+                if (direction == LspMessageDirection.Receive)
+                {
+                    try
+                    {
+                        if (DriveLetterUriNormalizer.NormalizeInPlace(body))
+                            rawBytes = EncodeFrame(body);
+                    }
+                    catch (Exception ex)
+                    {
+                        _traceSource.TraceEvent(TraceEventType.Warning, 0,
+                            "LspInterceptingPipe: DriveLetterUriNormalizer threw on message {0}: {1}",
+                            body.ToString(), ex);
+                    }
+                }
+
                 // Consume correlated responses before external interceptors so they never reach VS.
-                if (direction == LspMessageDirection.Receive && TryCompleteCorrelatedResponse(frame.Body))
+                if (direction == LspMessageDirection.Receive && TryCompleteCorrelatedResponse(body))
                     continue;
 
-                var message = new LspMessage(direction, frame.Body, DateTimeOffset.Now);
+                var message = new LspMessage(direction, body, DateTimeOffset.Now);
                 var result  = await RunInterceptorsAsync(message, interceptors, ct).ConfigureAwait(false);
 
                 if (result == LspInterceptorResult.PassThrough)
-                    await WriteFrameAsync(destination, frame.RawBytes, ct).ConfigureAwait(false);
+                    await WriteFrameAsync(destination, rawBytes, ct).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) { /* normal shutdown */ }
@@ -242,6 +268,24 @@ internal sealed class LspInterceptingPipe : IDisposable
         }
 
         return new LspFrame(body, rawBytes);
+    }
+
+    /// <summary>Re-encodes a (possibly mutated) parsed body back into a raw LSP frame.</summary>
+    private static byte[] EncodeFrame(JObject body)
+    {
+        // Deliberately the parameterless overload: JToken.ToString(Formatting) resolves to a
+        // MissingMethodException in the VS host process — some Newtonsoft.Json assembly loaded
+        // there doesn't carry that overload. The parameterless one is used successfully
+        // elsewhere in this codebase (e.g. GoToHooksService). Formatting (indented vs. compact)
+        // doesn't affect wire correctness, only payload size.
+        var bodyBytes   = Utf8NoBom.GetBytes(body.ToString());
+        var headerText  = $"Content-Length: {bodyBytes.Length}\r\n\r\n";
+        var headerBytes = Utf8NoBom.GetBytes(headerText);
+
+        var rawBytes = new byte[headerBytes.Length + bodyBytes.Length];
+        Array.Copy(headerBytes, 0, rawBytes, 0, headerBytes.Length);
+        Array.Copy(bodyBytes, 0, rawBytes, headerBytes.Length, bodyBytes.Length);
+        return rawBytes;
     }
 
     /// <summary>
