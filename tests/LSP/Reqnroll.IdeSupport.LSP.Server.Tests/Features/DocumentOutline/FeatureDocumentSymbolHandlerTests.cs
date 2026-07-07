@@ -1,5 +1,6 @@
 #nullable enable
 
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Documents;
@@ -40,12 +41,13 @@ public class FeatureDocumentSymbolHandlerTests
             });
     }
 
-    private static GherkinDocumentSymbol MakeSymbol(string name, GherkinSymbolKind kind)
+    private static GherkinDocumentSymbol MakeSymbol(
+        string name, GherkinSymbolKind kind, IReadOnlyList<GherkinDocumentSymbol>? children = null)
     {
         var snap = new LspTextSnapshot(FeatureUri.ToString(), 1, "Feature: X\n");
         var range = new GherkinRange(snap, 0, 10);
         return new GherkinDocumentSymbol(name, null, kind, range, range,
-            Array.Empty<GherkinDocumentSymbol>());
+            children ?? Array.Empty<GherkinDocumentSymbol>());
     }
 
     // ── Guard rails ───────────────────────────────────────────────────────────
@@ -164,5 +166,82 @@ public class FeatureDocumentSymbolHandlerTests
         await CreateSut().Handle(RequestFor(FeatureUri), CancellationToken.None);
 
         _symbolService.Received(1).BuildSymbols(tags);
+    }
+
+    // ── hierarchicalDocumentSymbolSupport capability (Visual Studio compatibility) ─────────────
+    //
+    // Visual Studio's LSP client does not declare hierarchicalDocumentSymbolSupport, so per the
+    // LSP spec the server must return flat SymbolInformation instead of nested DocumentSymbol —
+    // otherwise VS's typed client fails to deserialize the response and windows like Document
+    // Outline / Breadcrumb Bar stay empty despite a successful 200 response.
+
+    [Fact]
+    public async Task Hierarchical_support_false_returns_flat_SymbolInformation_Async()
+    {
+        var tags = Array.Empty<DeveroomTag>();
+        SetupBuffer(FeatureUri, "Feature: X\n", tags);
+        _symbolService.BuildSymbols(tags)
+                      .Returns(new[] { MakeSymbol("MyFeature", GherkinSymbolKind.Feature) });
+
+        var sut = CreateSut();
+        sut.GetRegistrationOptions(
+            new DocumentSymbolCapability { HierarchicalDocumentSymbolSupport = false },
+            new ClientCapabilities());
+
+        var result = await sut.Handle(RequestFor(FeatureUri), CancellationToken.None);
+
+        var first = result!.First();
+        first.IsDocumentSymbol.Should().BeFalse();
+        first.SymbolInformation!.Name.Should().Be("MyFeature");
+        first.SymbolInformation!.Kind.Should().Be(SymbolKind.Module);
+        first.SymbolInformation!.Location.Uri.Should().Be(FeatureUri);
+        first.SymbolInformation!.ContainerName.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Hierarchical_support_false_flattens_children_with_parent_as_containerName_Async()
+    {
+        var tags = Array.Empty<DeveroomTag>();
+        SetupBuffer(FeatureUri, "Feature: X\n", tags);
+        var scenario = MakeSymbol("Add two numbers", GherkinSymbolKind.Scenario,
+            new[] { MakeSymbol("Given a step", GherkinSymbolKind.Step) });
+        _symbolService.BuildSymbols(tags)
+                      .Returns(new[] { MakeSymbol("MyFeature", GherkinSymbolKind.Feature, new[] { scenario }) });
+
+        var sut = CreateSut();
+        sut.GetRegistrationOptions(
+            new DocumentSymbolCapability { HierarchicalDocumentSymbolSupport = false },
+            new ClientCapabilities());
+
+        var result = await sut.Handle(RequestFor(FeatureUri), CancellationToken.None);
+
+        result!.Should().HaveCount(3);
+        var entries = result!.Select(e => e.SymbolInformation!).ToList();
+        entries[0].Name.Should().Be("MyFeature");
+        entries[0].ContainerName.Should().BeNull();
+        entries[1].Name.Should().Be("Add two numbers");
+        entries[1].ContainerName.Should().Be("MyFeature");
+        entries[2].Name.Should().Be("Given a step");
+        entries[2].ContainerName.Should().Be("Add two numbers");
+    }
+
+    [Fact]
+    public async Task Hierarchical_support_true_returns_nested_DocumentSymbol_Async()
+    {
+        var tags = Array.Empty<DeveroomTag>();
+        SetupBuffer(FeatureUri, "Feature: X\n", tags);
+        _symbolService.BuildSymbols(tags)
+                      .Returns(new[] { MakeSymbol("MyFeature", GherkinSymbolKind.Feature) });
+
+        var sut = CreateSut();
+        sut.GetRegistrationOptions(
+            new DocumentSymbolCapability { HierarchicalDocumentSymbolSupport = true },
+            new ClientCapabilities());
+
+        var result = await sut.Handle(RequestFor(FeatureUri), CancellationToken.None);
+
+        var first = result!.First();
+        first.IsDocumentSymbol.Should().BeTrue();
+        first.DocumentSymbol!.Name.Should().Be("MyFeature");
     }
 }

@@ -118,6 +118,14 @@ public static class LanguageServerOptionsExtensions
             LspMethodNames.ReqnrollFindStepUsages,
             (request, ct) => resolver!.Get<FindStepUsagesHandler>().HandleAsync(request, ct));
 
+        // Always-hierarchical documentSymbol for the VS extension's own Navigation Bar (Issue #5
+        // / Q22 Option B) — distinct from textDocument/documentSymbol, whose shape depends on the
+        // real client's declared hierarchicalDocumentSymbolSupport capability. See remarks on
+        // FeatureDocumentSymbolHandler.HandleHierarchicalAsync.
+        options.OnRequest<DocumentSymbolParams, IReadOnlyList<DocumentSymbol>>(
+            LspMethodNames.ReqnrollDocumentSymbolHierarchical,
+            (request, ct) => resolver!.Get<FeatureDocumentSymbolHandler>().HandleHierarchicalAsync(request, ct));
+
         options.OnRequest<TextDocumentPositionParams, GoToStepDefinitionsResponse>(
             LspMethodNames.ReqnrollGoToStepDefinitions,
             (request, ct) => resolver!.Get<GoToStepDefinitionsHandler>().HandleAsync(request, ct));
