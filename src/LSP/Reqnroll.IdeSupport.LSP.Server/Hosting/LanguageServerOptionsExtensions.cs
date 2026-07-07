@@ -44,9 +44,6 @@ public static class LanguageServerOptionsExtensions
                .AddHandler<FeatureCodeActionHandler>()
                .AddHandler<GherkinFormattingHandler>()
                .AddHandler<FeatureDocumentSymbolHandler>()
-               .AddHandler<FeatureFoldingRangeHandler>()
-               // F23: textDocument/inlayHint — binding info hints on .feature steps.
-               .AddHandler<FeatureInlayHintHandler>()
                // F41: standard $/setTrace notification, letting the client change the trace
                // level at runtime.
                .AddHandler<SetTraceNotificationHandler>();
@@ -132,6 +129,17 @@ public static class LanguageServerOptionsExtensions
         options.OnRequest<CodeLensParams, CodeLens[]>(
             LspMethodNames.TextDocumentCodeLens,
             (request, ct) => resolver!.Get<StepCodeLensHandler>().HandleAsync(request, ct));
+
+        // inlayHint/foldingRange are routed manually (rather than via AddHandler's dynamic
+        // registration) so that inlayHintProvider/foldingRangeProvider can be declared
+        // statically in the initialize response — see Program.ConfigureServer for why.
+        options.OnRequest<InlayHintParams, InlayHintContainer?>(
+            LspMethodNames.TextDocumentInlayHint,
+            (request, ct) => resolver!.Get<FeatureInlayHintHandler>().HandleAsync(request, ct));
+
+        options.OnRequest<FoldingRangeRequestParam, Container<FoldingRange>?>(
+            LspMethodNames.TextDocumentFoldingRange,
+            (request, ct) => resolver!.Get<FeatureFoldingRangeHandler>().HandleAsync(request, ct));
 
         options.OnRequest<FindUnusedStepDefinitionsParams, FindUnusedStepDefinitionsResponse>(
             LspMethodNames.ReqnrollFindUnusedStepDefinitions,

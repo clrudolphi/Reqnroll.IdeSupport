@@ -27,6 +27,8 @@ public static class LspMethodNames
     public const string TextDocumentDefinition = "textDocument/definition";
     public const string TextDocumentReferences = "textDocument/references";
     public const string TextDocumentCodeLens = "textDocument/codeLens";
+    public const string TextDocumentInlayHint = "textDocument/inlayHint";
+    public const string TextDocumentFoldingRange = "textDocument/foldingRange";
     public const string TextDocumentPrepareRename = "textDocument/prepareRename";
     public const string TextDocumentRename = "textDocument/rename";
     public const string TextDocumentPublishDiagnostics = "textDocument/publishDiagnostics";

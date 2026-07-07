@@ -48,7 +48,7 @@ public class FeatureFoldingRangeHandlerTests
         DocumentBuffer? ignored;
         _bufferService.TryGet(FeatureUri, out ignored).Returns(false);
 
-        var result = await CreateSut().Handle(RequestFor(FeatureUri), CancellationToken.None);
+        var result = await CreateSut().HandleAsync(RequestFor(FeatureUri), CancellationToken.None);
 
         result.Should().NotBeNull();
         result.Should().BeEmpty();
@@ -59,7 +59,7 @@ public class FeatureFoldingRangeHandlerTests
     {
         SetupBuffer(FeatureUri, tags: null);
 
-        var result = await CreateSut().Handle(RequestFor(FeatureUri), CancellationToken.None);
+        var result = await CreateSut().HandleAsync(RequestFor(FeatureUri), CancellationToken.None);
 
         result.Should().NotBeNull();
         result.Should().BeEmpty();
@@ -72,7 +72,7 @@ public class FeatureFoldingRangeHandlerTests
         _foldingService.BuildFoldingRanges(Arg.Any<IReadOnlyCollection<DeveroomTag>>())
                        .Returns(Array.Empty<GherkinFoldingRange>());
 
-        var result = await CreateSut().Handle(RequestFor(FeatureUri), CancellationToken.None);
+        var result = await CreateSut().HandleAsync(RequestFor(FeatureUri), CancellationToken.None);
 
         result.Should().NotBeNull();
         result.Should().BeEmpty();
@@ -92,7 +92,7 @@ public class FeatureFoldingRangeHandlerTests
                 new GherkinFoldingRange(4, 5),
             });
 
-        var result = await CreateSut().Handle(RequestFor(FeatureUri), CancellationToken.None);
+        var result = await CreateSut().HandleAsync(RequestFor(FeatureUri), CancellationToken.None);
 
         result.Should().HaveCount(2);
         result.Should().Contain(r => r.StartLine == 1 && r.EndLine == 3);
@@ -107,7 +107,7 @@ public class FeatureFoldingRangeHandlerTests
         _foldingService.BuildFoldingRanges(tags)
             .Returns(new[] { new GherkinFoldingRange(1, 2) });
 
-        var result = await CreateSut().Handle(RequestFor(FeatureUri), CancellationToken.None);
+        var result = await CreateSut().HandleAsync(RequestFor(FeatureUri), CancellationToken.None);
 
         result.Should().ContainSingle();
         result!.First().Kind.Should().BeNull();
@@ -121,7 +121,7 @@ public class FeatureFoldingRangeHandlerTests
         _foldingService.BuildFoldingRanges(Arg.Any<IReadOnlyCollection<DeveroomTag>>())
                        .Returns(Array.Empty<GherkinFoldingRange>());
 
-        await CreateSut().Handle(RequestFor(FeatureUri), CancellationToken.None);
+        await CreateSut().HandleAsync(RequestFor(FeatureUri), CancellationToken.None);
 
         _foldingService.Received(1).BuildFoldingRanges(tags);
     }

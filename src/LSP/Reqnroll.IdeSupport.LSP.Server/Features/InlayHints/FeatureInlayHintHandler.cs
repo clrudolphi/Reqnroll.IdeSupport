@@ -1,8 +1,6 @@
 #nullable enable
 
 using OmniSharp.Extensions.LanguageServer.Protocol;
-using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
-using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.InlayHints;
@@ -20,15 +18,21 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.InlayHints;
 /// Outline/Background step whose example rows resolve to more than one distinct binding shows a
 /// binding count. Undefined steps get no hint — the diagnostic already covers those.
 /// </summary>
-public sealed class FeatureInlayHintHandler : IInlayHintsHandler
+/// <remarks>
+/// Registered manually (see <c>LanguageServerOptionsExtensions.InitializeCustomProtocolRouting</c>)
+/// with <c>inlayHintProvider</c> declared statically in the initialize response (see
+/// <c>Program.ConfigureServer</c>), instead of via OmniSharp's dynamic-registration handler
+/// interface. vscode-languageclient's dynamic <c>client/registerCapability</c> round trip for
+/// inlayHint/foldingRange races VS Code's restore of previously-open <c>.feature</c> tabs on
+/// window load — if the tab renders first, VS Code never re-checks for a provider for the rest
+/// of the session. Static declaration removes the race entirely.
+/// </remarks>
+public sealed class FeatureInlayHintHandler
 {
     private readonly IBindingMatchService      _matchService;
     private readonly ILspWorkspaceScopeManager _scopeManager;
     private readonly IGherkinInlayHintService  _hintService;
     private readonly IDeveroomLogger           _logger;
-
-    private static readonly TextDocumentSelector FeatureSelector = new(
-        new TextDocumentFilter { Pattern = "**/*.feature" });
 
     public FeatureInlayHintHandler(
         IBindingMatchService      matchService,
@@ -42,11 +46,7 @@ public sealed class FeatureInlayHintHandler : IInlayHintsHandler
         _logger       = logger;
     }
 
-    public InlayHintRegistrationOptions GetRegistrationOptions(
-        InlayHintClientCapabilities capability, ClientCapabilities clientCapabilities)
-        => new() { DocumentSelector = FeatureSelector, ResolveProvider = false };
-
-    public Task<InlayHintContainer?> Handle(InlayHintParams request, CancellationToken cancellationToken)
+    public Task<InlayHintContainer?> HandleAsync(InlayHintParams request, CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
 

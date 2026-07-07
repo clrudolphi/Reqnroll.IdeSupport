@@ -59,7 +59,7 @@ public class FeatureInlayHintHandlerTests
     [Fact]
     public async Task Handle_returns_empty_when_no_match_set_cached()
     {
-        var result = await CreateSut().Handle(RequestFor(FeatureUri), CancellationToken.None);
+        var result = await CreateSut().HandleAsync(RequestFor(FeatureUri), CancellationToken.None);
 
         result!.Should().BeEmpty();
     }
@@ -72,7 +72,7 @@ public class FeatureInlayHintHandlerTests
         _matchService.Store(new FeatureBindingMatchSet(
             FeatureUri.ToString(), ProjectOwner.Unknown, 1, 1, new[] { step }));
 
-        var result = await CreateSut().Handle(RequestFor(FeatureUri), CancellationToken.None);
+        var result = await CreateSut().HandleAsync(RequestFor(FeatureUri), CancellationToken.None);
 
         var hint = result!.Should().ContainSingle().Subject;
         hint.Position.Line.Should().Be(2);
@@ -89,19 +89,11 @@ public class FeatureInlayHintHandlerTests
             FeatureUri.ToString(), ProjectOwner.Unknown, 1, 1, new[] { step1, step2 }));
 
         // Only line 2 (the first step) is in view.
-        var result = await CreateSut().Handle(
+        var result = await CreateSut().HandleAsync(
             RequestFor(FeatureUri, new LspRange(new Position(0, 0), new Position(2, 100))),
             CancellationToken.None);
 
         var hint = result!.Should().ContainSingle().Subject;
         hint.Position.Line.Should().Be(2);
-    }
-
-    [Fact]
-    public void GetRegistrationOptions_does_not_advertise_resolve_support()
-    {
-        var options = CreateSut().GetRegistrationOptions(new(), new());
-
-        options.ResolveProvider.Should().BeFalse();
     }
 }

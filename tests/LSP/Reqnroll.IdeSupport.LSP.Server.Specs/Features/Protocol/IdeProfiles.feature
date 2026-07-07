@@ -58,3 +58,25 @@ Examples:
 Scenario: VS client does not receive static renameProvider capability
 	Given the LSP server is started for IDE "visualstudio"
 	Then the server does not advertise renameProvider
+
+# ── Static inlayHint / foldingRange capability advertisement ───────────────────
+#
+# Unlike textDocumentSync/renameProvider, these are declared statically for every client
+# (including VS), because the problem isn't a per-client protocol quirk — it's a race between
+# vscode-languageclient's dynamic client/registerCapability round trip and VS Code's restore of
+# previously-open .feature tabs on window load. If the tab renders first, VS Code never re-checks
+# for a provider for the rest of the session, and no amount of closing/reopening the file recovers
+# it. A statically-declared capability is known to the client the instant initialize resolves, so
+# there's no later round trip to lose.
+
+Scenario Outline: All clients receive static inlayHint and foldingRange capabilities
+	Given the LSP server is started for IDE "<ide>"
+	Then the server statically advertises an inlayHintProvider
+	And the server statically advertises a foldingRangeProvider
+
+Examples:
+	| ide          |
+	| visualstudio |
+	| vscode       |
+	| rider        |
+	| unknown-ide  |
