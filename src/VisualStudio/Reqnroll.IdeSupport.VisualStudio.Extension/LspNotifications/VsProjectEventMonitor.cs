@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnvDTE;
 using EnvDTE80;
+using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Newtonsoft.Json;
@@ -16,16 +17,24 @@ using Reqnroll.IdeSupport.VisualStudio.SDKIntegration;
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.LspNotifications;
 
 /// <summary>
-/// Monitors DTE solution and build events and sends
-/// <c>reqnroll/projectLoaded</c> / <c>reqnroll/projectUnloaded</c> notifications
-/// to the LSP server via <see cref="LspInterceptingPipe"/>.
+/// Monitors DTE solution and build events, and per-item add/remove/rename events via
+/// <see cref="IVsTrackProjectDocumentsEvents2"/>, and sends <c>reqnroll/projectLoaded</c>,
+/// <c>reqnroll/projectUnloaded</c>, and <c>reqnroll/projectFiles</c> notifications to the
+/// LSP server via <see cref="LspInterceptingPipe"/>.
 /// </summary>
 /// <remarks>
 /// Created by <see cref="ReqnrollLanguageClient"/> after the server has initialised
 /// successfully.  Holds strong references to DTE event sinks — required because DTE
 /// event objects are COM and are released if only a weak reference is held.
+///
+/// Solution Explorer renames/adds/removes of a single feature or binding file do not raise
+/// any <see cref="SolutionEvents"/> or <see cref="BuildEvents"/> — those only cover whole
+/// projects and full builds. Without <see cref="IVsTrackProjectDocumentsEvents2"/>, a rename
+/// left the server's file-membership index (<c>reqnroll/projectFiles</c>) pointing at the old
+/// path until the next full build or solution reload, so the renamed file appeared unowned
+/// (no diagnostics, no step rename) in the meantime (issue #32).
 /// </remarks>
-internal sealed class VsProjectEventMonitor : IDisposable
+internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocumentsEvents2
 {
     private readonly LspInterceptingPipe _pipe;
     private readonly TraceSource         _trace;
@@ -35,6 +44,11 @@ internal sealed class VsProjectEventMonitor : IDisposable
     // DTE event sinks — must be kept alive as fields.
     private readonly SolutionEvents _solutionEvents;
     private readonly BuildEvents    _buildEvents;
+
+    // Item-level tracking (add/remove/rename of individual files) via the shell service —
+    // DTE has no project-agnostic equivalent of these events.
+    private readonly IVsTrackProjectDocuments2? _trackProjectDocuments;
+    private uint _trackProjectDocumentsCookie;
 
     private bool _disposed;
     private readonly CancellationTokenSource _cts = new();
@@ -60,6 +74,22 @@ internal sealed class VsProjectEventMonitor : IDisposable
         _solutionEvents.Opened         += OnSolutionOpened;
         _solutionEvents.AfterClosing   += OnSolutionClosed;
         _buildEvents.OnBuildDone       += OnBuildDone;
+
+        _trackProjectDocuments = serviceProvider.GetService(typeof(SVsTrackProjectDocuments))
+            as IVsTrackProjectDocuments2;
+        if (_trackProjectDocuments is not null &&
+            ErrorHandler.Succeeded(_trackProjectDocuments.AdviseTrackProjectDocumentsEvents(
+                this, out _trackProjectDocumentsCookie)))
+        {
+            _trace.TraceInformation("VsProjectEventMonitor: Subscribed to IVsTrackProjectDocumentsEvents2.");
+        }
+        else
+        {
+            _trace.TraceEvent(TraceEventType.Warning, 0,
+                "VsProjectEventMonitor: Could not subscribe to IVsTrackProjectDocumentsEvents2; " +
+                "per-file add/remove/rename will not be reflected until the next build or solution reload.");
+            _trackProjectDocuments = null;
+        }
     }
 
     // ── Initial flush ─────────────────────────────────────────────────────────
@@ -259,6 +289,188 @@ internal sealed class VsProjectEventMonitor : IDisposable
         }
     }
 
+    // ── IVsTrackProjectDocumentsEvents2 (per-file add/remove/rename) ─────────────
+
+    public int OnAfterRenameFiles(int cProjects, int cFiles, IVsProject[] rgpProjects, int[] rgFirstIndices,
+        string[] rgszMkOldNames, string[] rgszMkNewNames, VSRENAMEFILEFLAGS[] rgFlags)
+    {
+        FireAndForget(ct => HandleRenameFilesAsync(cProjects, cFiles, rgpProjects, rgFirstIndices,
+            rgszMkOldNames, rgszMkNewNames, ct));
+        return VSConstants.S_OK;
+    }
+
+    public int OnAfterAddFilesEx(int cProjects, int cFiles, IVsProject[] rgpProjects, int[] rgFirstIndices,
+        string[] rgpszMkDocuments, VSADDFILEFLAGS[] rgFlags)
+    {
+        FireAndForget(ct => HandleAddOrRemoveFilesAsync(cProjects, cFiles, rgpProjects, rgFirstIndices,
+            rgpszMkDocuments, added: true, ct));
+        return VSConstants.S_OK;
+    }
+
+    public int OnAfterRemoveFiles(int cProjects, int cFiles, IVsProject[] rgpProjects, int[] rgFirstIndices,
+        string[] rgpszMkDocuments, VSREMOVEFILEFLAGS[] rgFlags)
+    {
+        FireAndForget(ct => HandleAddOrRemoveFilesAsync(cProjects, cFiles, rgpProjects, rgFirstIndices,
+            rgpszMkDocuments, added: false, ct));
+        return VSConstants.S_OK;
+    }
+
+    private async Task HandleRenameFilesAsync(int projectCount, int fileCount, IVsProject[] projects,
+        int[] fileStartIndices, string[] oldPaths, string[] newPaths, CancellationToken ct)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(ct);
+
+        foreach (var (vsProject, start, count) in GroupByProject(projectCount, fileCount, projects, fileStartIndices))
+        {
+            var project = ResolveProject(vsProject);
+            if (project is null)
+                continue;
+
+            var entries = new List<object>();
+            for (var i = start; i < start + count; i++)
+            {
+                if (ClassifyRole(oldPaths[i]) is { } oldRole)
+                    entries.Add(new { path = oldPaths[i], role = oldRole, added = false });
+                if (ClassifyRole(newPaths[i]) is { } newRole)
+                    entries.Add(new { path = newPaths[i], role = newRole, added = true });
+            }
+
+            if (entries.Count > 0)
+                await SendProjectFilesDeltaAsync(project, entries, ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task HandleAddOrRemoveFilesAsync(int projectCount, int fileCount, IVsProject[] projects,
+        int[] fileStartIndices, string[] paths, bool added, CancellationToken ct)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(ct);
+
+        foreach (var (vsProject, start, count) in GroupByProject(projectCount, fileCount, projects, fileStartIndices))
+        {
+            var project = ResolveProject(vsProject);
+            if (project is null)
+                continue;
+
+            var entries = new List<object>();
+            for (var i = start; i < start + count; i++)
+            {
+                if (ClassifyRole(paths[i]) is { } role)
+                    entries.Add(new { path = paths[i], role, added });
+            }
+
+            if (entries.Count > 0)
+                await SendProjectFilesDeltaAsync(project, entries, ct).ConfigureAwait(false);
+        }
+    }
+
+    private Project? ResolveProject(IVsProject vsProject)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var project = VsUtils.GetProjectFromHierarchy(vsProject as IVsHierarchy);
+        return project is not null && IsSolutionProject(project) ? project : null;
+    }
+
+    /// <summary>Splits the flat per-call file arrays back into (project, range) groups.</summary>
+    internal static IEnumerable<(IVsProject Project, int Start, int Count)> GroupByProject(
+        int projectCount, int fileCount, IVsProject[] projects, int[] fileStartIndices)
+    {
+        for (var i = 0; i < projectCount; i++)
+        {
+            var start = fileStartIndices[i];
+            var end   = i + 1 < projectCount ? fileStartIndices[i + 1] : fileCount;
+            if (end > start)
+                yield return (projects[i], start, end - start);
+        }
+    }
+
+    /// <summary>Classifies a file by extension the same way <see cref="VsProjectPayloadBuilder"/> does;
+    /// returns <see langword="null"/> for files the membership index does not track.</summary>
+    internal static int? ClassifyRole(string path)
+    {
+        var ext = Path.GetExtension(path);
+        if (ext.Equals(".feature", StringComparison.OrdinalIgnoreCase))
+            return 0; // ProjectFileRole.Feature
+        if (ext.Equals(".cs", StringComparison.OrdinalIgnoreCase))
+            return 1; // ProjectFileRole.Binding
+        return null;
+    }
+
+    private async Task SendProjectFilesDeltaAsync(Project project, List<object> entries, CancellationToken ct)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(ct);
+        try
+        {
+            var tfm = VsUtils.GetTargetFrameworkMoniker(project) ?? string.Empty;
+            var paramsObj = new
+            {
+                projectFile            = project.FullName,
+                targetFrameworkMoniker = tfm,
+                kind                   = 1, // ProjectFilesKind.Delta
+                files                  = entries,
+            };
+            var paramsJson = JsonConvert.SerializeObject(paramsObj, Formatting.None);
+            await _pipe.SendNotificationToServerAsync("reqnroll/projectFiles", paramsJson, ct)
+                       .ConfigureAwait(false);
+
+            _trace.TraceInformation(
+                "VsProjectEventMonitor: Sent projectFiles delta ({0} entrie(s)) for '{1}'",
+                entries.Count, project.Name);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            _trace.TraceEvent(TraceEventType.Warning, 0,
+                "VsProjectEventMonitor: Failed to send projectFiles delta for '{0}': {1}",
+                project.Name, ex.Message);
+        }
+    }
+
+    // Directory and SCC events are not part of the file-membership index — no-ops that
+    // approve/ignore. Query* methods leave the result arrays untouched (no veto).
+    public int OnQueryAddFiles(IVsProject pProject, int cFiles, string[] rgpszMkDocuments,
+        VSQUERYADDFILEFLAGS[] rgFlags, VSQUERYADDFILERESULTS[] pSummaryResult, VSQUERYADDFILERESULTS[] rgResults)
+        => VSConstants.S_OK;
+
+    public int OnQueryAddDirectories(IVsProject pProject, int cDirectories, string[] rgpszMkDocuments,
+        VSQUERYADDDIRECTORYFLAGS[] rgFlags, VSQUERYADDDIRECTORYRESULTS[] pSummaryResult,
+        VSQUERYADDDIRECTORYRESULTS[] rgResults)
+        => VSConstants.S_OK;
+
+    public int OnAfterAddDirectoriesEx(int cProjects, int cDirectories, IVsProject[] rgpProjects,
+        int[] rgFirstIndices, string[] rgpszMkDocuments, VSADDDIRECTORYFLAGS[] rgFlags)
+        => VSConstants.S_OK;
+
+    public int OnQueryRemoveFiles(IVsProject pProject, int cFiles, string[] rgpszMkDocuments,
+        VSQUERYREMOVEFILEFLAGS[] rgFlags, VSQUERYREMOVEFILERESULTS[] pSummaryResult,
+        VSQUERYREMOVEFILERESULTS[] rgResults)
+        => VSConstants.S_OK;
+
+    public int OnQueryRemoveDirectories(IVsProject pProject, int cDirectories, string[] rgpszMkDocuments,
+        VSQUERYREMOVEDIRECTORYFLAGS[] rgFlags, VSQUERYREMOVEDIRECTORYRESULTS[] pSummaryResult,
+        VSQUERYREMOVEDIRECTORYRESULTS[] rgResults)
+        => VSConstants.S_OK;
+
+    public int OnAfterRemoveDirectories(int cProjects, int cDirectories, IVsProject[] rgpProjects,
+        int[] rgFirstIndices, string[] rgpszMkDocuments, VSREMOVEDIRECTORYFLAGS[] rgFlags)
+        => VSConstants.S_OK;
+
+    public int OnQueryRenameFiles(IVsProject pProject, int cFiles, string[] rgszMkOldNames,
+        string[] rgszMkNewNames, VSQUERYRENAMEFILEFLAGS[] rgFlags, VSQUERYRENAMEFILERESULTS[] pSummaryResult,
+        VSQUERYRENAMEFILERESULTS[] rgResults)
+        => VSConstants.S_OK;
+
+    public int OnQueryRenameDirectories(IVsProject pProject, int cDirs, string[] rgszMkOldNames,
+        string[] rgszMkNewNames, VSQUERYRENAMEDIRECTORYFLAGS[] rgFlags,
+        VSQUERYRENAMEDIRECTORYRESULTS[] pSummaryResult, VSQUERYRENAMEDIRECTORYRESULTS[] rgResults)
+        => VSConstants.S_OK;
+
+    public int OnAfterRenameDirectories(int cProjects, int cDirs, IVsProject[] rgpProjects, int[] rgFirstIndices,
+        string[] rgszMkOldNames, string[] rgszMkNewNames, VSRENAMEDIRECTORYFLAGS[] rgFlags)
+        => VSConstants.S_OK;
+
+    public int OnAfterSccStatusChanged(int cProjects, int cFiles, IVsProject[] rgpProjects, int[] rgFirstIndices,
+        string[] rgpszMkDocuments, uint[] rgdwSccStatus)
+        => VSConstants.S_OK;
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private string GetSolutionFolder()
@@ -313,5 +525,8 @@ internal sealed class VsProjectEventMonitor : IDisposable
         _solutionEvents.Opened         -= OnSolutionOpened;
         _solutionEvents.AfterClosing   -= OnSolutionClosed;
         _buildEvents.OnBuildDone       -= OnBuildDone;
+
+        if (_trackProjectDocuments is not null && _trackProjectDocumentsCookie != 0)
+            _trackProjectDocuments.UnadviseTrackProjectDocumentsEvents(_trackProjectDocumentsCookie);
     }
 }

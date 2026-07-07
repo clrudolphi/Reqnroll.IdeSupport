@@ -645,4 +645,47 @@ public class MembershipIndexTests : IAsyncLifetime
             Arg.Any<BindingRegistryChangedNotification>(),
             Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task Delta_after_baseline_publishes_an_incremental_BindingRegistryChangedNotification()
+    {
+        // Reproduces issue #32's follow-up: a Solution Explorer rename's delta typically arrives
+        // just after the client's didClose/didOpen for the new URI, so the file's first
+        // parse/diagnostics pass ran with zero known owners. Without a notification here, that
+        // already-open buffer's diagnostics would stay stale until the next full build.
+        var p = ProjectParams();
+        await _sut.HandleProjectLoadedAsync(p, CancellationToken.None);
+
+        await _sut.HandleProjectFilesAsync(
+            BaselineParams(p.ProjectFile, p.TargetFrameworkMoniker,
+                (Feature("old"), ProjectFileRole.Feature)),
+            CancellationToken.None);
+        _mediator.ClearReceivedCalls();
+
+        await _sut.HandleProjectFilesAsync(
+            DeltaParams(p.ProjectFile, p.TargetFrameworkMoniker,
+                (Feature("old"), ProjectFileRole.Feature, false),
+                (Feature("renamed"), ProjectFileRole.Feature, true)),
+            CancellationToken.None);
+
+        _ = _mediator.Received(1).Publish(
+            Arg.Is<BindingRegistryChangedNotification>(n => !n.IsFullReplacement),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Delta_dropped_before_baseline_does_not_publish_a_notification()
+    {
+        var p = ProjectParams();
+        await _sut.HandleProjectLoadedAsync(p, CancellationToken.None);
+
+        await _sut.HandleProjectFilesAsync(
+            DeltaParams(p.ProjectFile, p.TargetFrameworkMoniker,
+                (Feature("late"), ProjectFileRole.Feature, true)),
+            CancellationToken.None);
+
+        _ = _mediator.DidNotReceive().Publish(
+            Arg.Any<BindingRegistryChangedNotification>(),
+            Arg.Any<CancellationToken>());
+    }
 }
