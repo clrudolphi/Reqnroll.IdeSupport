@@ -52,6 +52,7 @@ internal static class LspProjectPreloadPusher
             var pipeName = $"reqnroll-preload-{serverProcessId}";
             using var pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.Out, PipeOptions.Asynchronous);
             await pipe.ConnectAsync(15000, cancellationToken).ConfigureAwait(false);
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
             foreach (Project project in solution.Projects)
             {
