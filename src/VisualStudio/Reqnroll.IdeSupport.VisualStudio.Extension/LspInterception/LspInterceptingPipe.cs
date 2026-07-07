@@ -143,22 +143,32 @@ internal sealed class LspInterceptingPipe : IDisposable
                 if (frame is null)
                     break;
 
-                if (frame.Body is null)
+                var body = frame.Body;
+                if (body is null)
                 {
                     // Malformed JSON — forward raw bytes verbatim so the connection stays alive.
                     await WriteFrameAsync(destination, frame.RawBytes, ct).ConfigureAwait(false);
                     continue;
                 }
 
+                // OmniSharp's DocumentUri unconditionally lowercases drive letters, but VS
+                // tracks documents using the project system's original (upper-case) casing.
+                // Normalize here — before correlation and before any interceptor sees the
+                // message — so every server→VS path (owned-RPC responses consumed below,
+                // and messages forwarded on to VS's own LSP client) gets a VS-matching URI.
+                var rawBytes = frame.RawBytes;
+                if (direction == LspMessageDirection.Receive && DriveLetterUriNormalizer.NormalizeInPlace(body))
+                    rawBytes = EncodeFrame(body);
+
                 // Consume correlated responses before external interceptors so they never reach VS.
-                if (direction == LspMessageDirection.Receive && TryCompleteCorrelatedResponse(frame.Body))
+                if (direction == LspMessageDirection.Receive && TryCompleteCorrelatedResponse(body))
                     continue;
 
-                var message = new LspMessage(direction, frame.Body, DateTimeOffset.Now);
+                var message = new LspMessage(direction, body, DateTimeOffset.Now);
                 var result  = await RunInterceptorsAsync(message, interceptors, ct).ConfigureAwait(false);
 
                 if (result == LspInterceptorResult.PassThrough)
-                    await WriteFrameAsync(destination, frame.RawBytes, ct).ConfigureAwait(false);
+                    await WriteFrameAsync(destination, rawBytes, ct).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) { /* normal shutdown */ }
@@ -242,6 +252,19 @@ internal sealed class LspInterceptingPipe : IDisposable
         }
 
         return new LspFrame(body, rawBytes);
+    }
+
+    /// <summary>Re-encodes a (possibly mutated) parsed body back into a raw LSP frame.</summary>
+    private static byte[] EncodeFrame(JObject body)
+    {
+        var bodyBytes   = Utf8NoBom.GetBytes(body.ToString(Newtonsoft.Json.Formatting.None));
+        var headerText  = $"Content-Length: {bodyBytes.Length}\r\n\r\n";
+        var headerBytes = Utf8NoBom.GetBytes(headerText);
+
+        var rawBytes = new byte[headerBytes.Length + bodyBytes.Length];
+        Array.Copy(headerBytes, 0, rawBytes, 0, headerBytes.Length);
+        Array.Copy(bodyBytes, 0, rawBytes, headerBytes.Length, bodyBytes.Length);
+        return rawBytes;
     }
 
     /// <summary>
