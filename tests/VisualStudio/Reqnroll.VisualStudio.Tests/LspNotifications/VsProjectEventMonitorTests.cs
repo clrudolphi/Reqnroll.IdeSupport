@@ -26,9 +26,9 @@ public class VsProjectEventMonitorTests
         var project = Substitute.For<IVsProject>();
 
         var groups = VsProjectEventMonitor.GroupByProject(
-            cProjects: 1, cFiles: 3,
-            rgpProjects: new[] { project },
-            rgFirstIndices: new[] { 0 }).ToList();
+            projectCount: 1, fileCount: 3,
+            projects: new[] { project },
+            fileStartIndices: new[] { 0 }).ToList();
 
         groups.Should().ContainSingle();
         groups[0].Project.Should().BeSameAs(project);
@@ -37,15 +37,15 @@ public class VsProjectEventMonitorTests
     }
 
     [Fact]
-    public void Multiple_projects_split_the_flat_file_arrays_by_rgFirstIndices()
+    public void Multiple_projects_split_the_flat_file_arrays_by_fileStartIndices()
     {
         var projectA = Substitute.For<IVsProject>();
         var projectB = Substitute.For<IVsProject>();
 
         var groups = VsProjectEventMonitor.GroupByProject(
-            cProjects: 2, cFiles: 5,
-            rgpProjects: new[] { projectA, projectB },
-            rgFirstIndices: new[] { 0, 3 }).ToList();
+            projectCount: 2, fileCount: 5,
+            projects: new[] { projectA, projectB },
+            fileStartIndices: new[] { 0, 3 }).ToList();
 
         groups.Should().HaveCount(2);
         groups[0].Project.Should().BeSameAs(projectA);
@@ -64,9 +64,9 @@ public class VsProjectEventMonitorTests
         var projectC = Substitute.For<IVsProject>();
 
         var groups = VsProjectEventMonitor.GroupByProject(
-            cProjects: 3, cFiles: 5,
-            rgpProjects: new[] { projectA, projectB, projectC },
-            rgFirstIndices: new[] { 0, 2, 2 }).ToList();
+            projectCount: 3, fileCount: 5,
+            projects: new[] { projectA, projectB, projectC },
+            fileStartIndices: new[] { 0, 2, 2 }).ToList();
 
         groups.Should().HaveCount(2);
         groups[0].Project.Should().BeSameAs(projectA);
@@ -83,9 +83,9 @@ public class VsProjectEventMonitorTests
         var project = Substitute.For<IVsProject>();
 
         var groups = VsProjectEventMonitor.GroupByProject(
-            cProjects: 1, cFiles: 0,
-            rgpProjects: new[] { project },
-            rgFirstIndices: new[] { 0 }).ToList();
+            projectCount: 1, fileCount: 0,
+            projects: new[] { project },
+            fileStartIndices: new[] { 0 }).ToList();
 
         groups.Should().BeEmpty();
     }

@@ -315,12 +315,12 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
         return VSConstants.S_OK;
     }
 
-    private async Task HandleRenameFilesAsync(int cProjects, int cFiles, IVsProject[] rgpProjects,
-        int[] rgFirstIndices, string[] rgszMkOldNames, string[] rgszMkNewNames, CancellationToken ct)
+    private async Task HandleRenameFilesAsync(int projectCount, int fileCount, IVsProject[] projects,
+        int[] fileStartIndices, string[] oldPaths, string[] newPaths, CancellationToken ct)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(ct);
 
-        foreach (var (vsProject, start, count) in GroupByProject(cProjects, cFiles, rgpProjects, rgFirstIndices))
+        foreach (var (vsProject, start, count) in GroupByProject(projectCount, fileCount, projects, fileStartIndices))
         {
             var project = ResolveProject(vsProject);
             if (project is null)
@@ -329,10 +329,10 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
             var entries = new List<object>();
             for (var i = start; i < start + count; i++)
             {
-                if (ClassifyRole(rgszMkOldNames[i]) is { } oldRole)
-                    entries.Add(new { path = rgszMkOldNames[i], role = oldRole, added = false });
-                if (ClassifyRole(rgszMkNewNames[i]) is { } newRole)
-                    entries.Add(new { path = rgszMkNewNames[i], role = newRole, added = true });
+                if (ClassifyRole(oldPaths[i]) is { } oldRole)
+                    entries.Add(new { path = oldPaths[i], role = oldRole, added = false });
+                if (ClassifyRole(newPaths[i]) is { } newRole)
+                    entries.Add(new { path = newPaths[i], role = newRole, added = true });
             }
 
             if (entries.Count > 0)
@@ -340,12 +340,12 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
         }
     }
 
-    private async Task HandleAddOrRemoveFilesAsync(int cProjects, int cFiles, IVsProject[] rgpProjects,
-        int[] rgFirstIndices, string[] rgpszMkDocuments, bool added, CancellationToken ct)
+    private async Task HandleAddOrRemoveFilesAsync(int projectCount, int fileCount, IVsProject[] projects,
+        int[] fileStartIndices, string[] paths, bool added, CancellationToken ct)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(ct);
 
-        foreach (var (vsProject, start, count) in GroupByProject(cProjects, cFiles, rgpProjects, rgFirstIndices))
+        foreach (var (vsProject, start, count) in GroupByProject(projectCount, fileCount, projects, fileStartIndices))
         {
             var project = ResolveProject(vsProject);
             if (project is null)
@@ -354,8 +354,8 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
             var entries = new List<object>();
             for (var i = start; i < start + count; i++)
             {
-                if (ClassifyRole(rgpszMkDocuments[i]) is { } role)
-                    entries.Add(new { path = rgpszMkDocuments[i], role, added });
+                if (ClassifyRole(paths[i]) is { } role)
+                    entries.Add(new { path = paths[i], role, added });
             }
 
             if (entries.Count > 0)
@@ -372,14 +372,14 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
 
     /// <summary>Splits the flat per-call file arrays back into (project, range) groups.</summary>
     internal static IEnumerable<(IVsProject Project, int Start, int Count)> GroupByProject(
-        int cProjects, int cFiles, IVsProject[] rgpProjects, int[] rgFirstIndices)
+        int projectCount, int fileCount, IVsProject[] projects, int[] fileStartIndices)
     {
-        for (var i = 0; i < cProjects; i++)
+        for (var i = 0; i < projectCount; i++)
         {
-            var start = rgFirstIndices[i];
-            var end   = i + 1 < cProjects ? rgFirstIndices[i + 1] : cFiles;
+            var start = fileStartIndices[i];
+            var end   = i + 1 < projectCount ? fileStartIndices[i + 1] : fileCount;
             if (end > start)
-                yield return (rgpProjects[i], start, end - start);
+                yield return (projects[i], start, end - start);
         }
     }
 
