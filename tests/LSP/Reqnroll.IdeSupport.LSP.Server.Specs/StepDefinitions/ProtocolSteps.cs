@@ -132,19 +132,12 @@ public sealed class ProtocolSteps
     {
         var rename = _ctx.Harness.ServerInitializeResult.Capabilities.RenameProvider;
         rename.Should().NotBeNull(
-            "non-VS clients need a static renameProvider declaration to activate F2 rename");
+            "every client needs a static renameProvider declaration to activate F2 rename (issue #33)");
         rename!.IsValue.Should().BeTrue(
             "renameProvider should be advertised with static options, not just a boolean flag");
         rename.Value!.PrepareProvider.Should().BeTrue(
-            "prepareProvider=true is required so VS Code sends textDocument/prepareRename before rename");
+            "prepareProvider=true is required so the client sends textDocument/prepareRename before rename");
     }
-
-    [Then("the server does not advertise renameProvider")]
-    public void ThenTheServerDoesNotAdvertiseRenameProvider()
-        => _ctx.Harness.ServerInitializeResult.Capabilities.RenameProvider
-            .Should().BeNull(
-                "VS uses a custom intercepting-pipe rename flow; advertising renameProvider " +
-                "would cause VS's standard rename UI to appear alongside the custom dialog");
 
     [Then("the server statically advertises an inlayHintProvider")]
     public void ThenTheServerStaticallyAdvertisesInlayHintProvider()

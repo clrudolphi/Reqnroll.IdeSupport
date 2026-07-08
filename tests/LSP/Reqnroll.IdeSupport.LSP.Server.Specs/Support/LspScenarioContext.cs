@@ -48,7 +48,7 @@ public sealed class LspScenarioContext
     // F16 — Step Rename
     public WorkspaceEdit? LastRenameEdit { get; set; }
     public RenameTargetsResponse? LastRenameTargets { get; set; }
-    public OmniSharp.Extensions.LanguageServer.Protocol.Models.Range? LastPrepareRenameRange { get; set; }
+    public OmniSharp.Extensions.LanguageServer.Protocol.Models.RangeOrPlaceholderRange? LastPrepareRenameRange { get; set; }
 
     // F6 — Define Steps (code actions)
     public CommandOrCodeActionContainer? LastCodeActions { get; set; }

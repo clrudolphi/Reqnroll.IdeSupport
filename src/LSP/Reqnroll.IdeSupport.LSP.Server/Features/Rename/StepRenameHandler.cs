@@ -65,11 +65,22 @@ public sealed class StepRenameHandler
     // ── textDocument/prepareRename ──────────────────────────────────────────────
 
     /// <summary>
-    /// Validates that the cursor is on a renameable binding. Returns the range
-    /// of the renameable text (attribute string or step text), or <c>null</c>
-    /// if rename is not available at this position.
+    /// Validates that the cursor is on a renameable binding. Returns the range of the
+    /// renameable text (attribute string or step text) — for <c>.feature</c> files, paired
+    /// with a <see cref="PlaceholderRange.Placeholder"/> carrying the binding's abstract
+    /// expression (e.g. <c>"the second number is {int}"</c>) instead of the concrete step
+    /// text — or <c>null</c> if rename is not available at this position.
     /// </summary>
-    public async Task<LspRange?> HandlePrepareRenameAsync(
+    /// <remarks>
+    /// Seeding the rename box with the abstract expression, rather than the concrete text
+    /// literally in the buffer, is deliberate (issue #33 follow-up): a spec-compliant client
+    /// has no buffer text to anchor a partial in-place edit against when the placeholder
+    /// text doesn't appear in the document, so it can only submit the box's full edited
+    /// content as <c>newName</c> — turning an inherently ambiguous "did the user edit the
+    /// wording, the parameter value, or an arbitrary fragment?" problem into an unambiguous
+    /// one: <c>newName</c> is always the complete new abstract expression.
+    /// </remarks>
+    public async Task<RangeOrPlaceholderRange?> HandlePrepareRenameAsync(
         PrepareRenameParams request,
         CancellationToken   cancellationToken)
     {
@@ -170,7 +181,32 @@ public sealed class StepRenameHandler
                 return null;
             }
 
-            return stepRange;
+            // When ambiguous (2+ candidate bindings), a plain F2 rename would fall back to the
+            // first candidate anyway (see HandleRenameAsync's position-based fallback) — pick
+            // the same one here so the placeholder shown matches what would actually be renamed.
+            var matchedBinding = featureBindings[0];
+            var sourceLiteral  = await FindAttributeLiteralAsync(uri, matchedBinding);
+            var sourceExpression = sourceLiteral?.Token.ValueText ?? matchedBinding.Expression ?? string.Empty;
+
+            // Known cosmetic quirk (confirmed live in VS and VS Code, issue #33 follow-up): when
+            // a user pre-selects a sub-span of the concrete step text before invoking F2 (e.g.
+            // "added" in "the two numbers are added"), the client computes that selection's
+            // offset relative to Range.Start and reapplies the same numeric offset into
+            // Placeholder to decide what to pre-highlight in the rename box. Placeholder is a
+            // different string than the concrete text whenever a parameter's rendered width
+            // differs from its abstract token (here "are" → "{Verb}", +3 chars), so everything
+            // after the parameter shifts and the pre-highlighted substring lands a few characters
+            // off from what the user actually selected (e.g. "b} summed" instead of "summed").
+            // This is inherent to the offset math being reused across two different-length
+            // strings — the LSP PrepareRenameResult protocol has no field to specify which
+            // sub-span of Placeholder to highlight independently of Range — and is harmless: the
+            // box's full content is still correct, and whatever the user submits becomes newName
+            // in full regardless of what was pre-highlighted.
+            return new PlaceholderRange
+            {
+                Range       = stepRange,
+                Placeholder = sourceExpression
+            };
         }
 
         return null;
