@@ -285,9 +285,12 @@ public static class LspClientExtensions
 
     /// <summary>
     /// Sends a <c>textDocument/prepareRename</c> request (F16 — Step Rename).
-    /// Returns the range of the renameable text if the cursor is on a step binding, else null.
+    /// Returns the renameable range if the cursor is on a step binding, else null. A
+    /// <c>.feature</c>-triggered result carries a <see cref="PlaceholderRange"/> (the abstract
+    /// expression, not the concrete step text) rather than a bare <see cref="LspRange"/> — see
+    /// issue #33 follow-up.
     /// </summary>
-    public static Task<LspRange?> RequestPrepareRenameAsync(
+    public static Task<RangeOrPlaceholderRange?> RequestPrepareRenameAsync(
         this ILanguageClient client, DocumentUri uri, int line, int character, CancellationToken ct = default)
         => client.SendRequest("textDocument/prepareRename",
                 new PrepareRenameParams
@@ -295,7 +298,7 @@ public static class LspClientExtensions
                     TextDocument = new TextDocumentIdentifier { Uri = uri },
                     Position     = new Position(line, character)
                 })
-            .Returning<LspRange?>(ct);
+            .Returning<RangeOrPlaceholderRange?>(ct);
 
     /// <summary>
     /// Sends a <c>textDocument/rename</c> request (F16 — Step Rename).

@@ -31,18 +31,20 @@ Examples:
 
 # ── Per-IDE static capability advertisement ────────────────────────────────────
 #
-# textDocumentSync and renameProvider are gated on the client IDE identity because:
-#   - vscode-languageclient v10 silently ignores dynamic client/registerCapability for
-#     textDocument/didChange when the static textDocumentSync is absent from the
-#     InitializeResult, so non-VS clients need the static entry.
-#   - VS already handles dynamic-only textDocumentSync registration correctly, and
-#     advertising renameProvider to VS would cause its standard rename UI to appear
-#     alongside the custom reqnroll/renameTargets dialog.
+# textDocumentSync is gated on the client IDE identity because vscode-languageclient v10
+# silently ignores dynamic client/registerCapability for textDocument/didChange when the
+# static textDocumentSync is absent from the InitializeResult, so non-VS clients need the
+# static entry. VS already handles dynamic-only textDocumentSync registration correctly.
+#
+# renameProvider (issue #33), unlike textDocumentSync, is advertised to every client
+# including VS: VS's native F2 now wires directly to textDocument/prepareRename +
+# textDocument/rename for the common (single, unambiguous binding) case. VS's custom
+# "Reqnroll: Rename Step" command remains available alongside it for the multi-attribute
+# disambiguation case standard LSP rename has no protocol-level way to prompt for.
 
-Scenario Outline: Non-VS clients receive static textDocumentSync and renameProvider capabilities
+Scenario Outline: Non-VS clients receive static textDocumentSync capability
 	Given the LSP server is started for IDE "<ide>"
 	Then the server statically advertises textDocumentSync with full sync and openClose
-	And the server advertises renameProvider with prepareProvider
 
 Examples:
 	| ide     |
@@ -55,9 +57,15 @@ Examples:
 # logs confirm the static entry is absent in the real wire protocol. The behavioral coverage for VS
 # textDocument/didChange is provided by the Handshake + DocumentLifecycle specs.
 
-Scenario: VS client does not receive static renameProvider capability
-	Given the LSP server is started for IDE "visualstudio"
-	Then the server does not advertise renameProvider
+Scenario Outline: All clients receive static renameProvider capability
+	Given the LSP server is started for IDE "<ide>"
+	Then the server advertises renameProvider with prepareProvider
+
+Examples:
+	| ide          |
+	| visualstudio |
+	| vscode       |
+	| rider        |
 
 # ── Static inlayHint / foldingRange capability advertisement ───────────────────
 #

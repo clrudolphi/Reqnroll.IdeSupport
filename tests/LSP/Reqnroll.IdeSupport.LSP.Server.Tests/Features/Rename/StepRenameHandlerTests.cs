@@ -270,15 +270,19 @@ public class StepRenameHandlerTests
             CancellationToken.None);
 
         result.Should().NotBeNull();
-        result!.Start.Line.Should().Be(6, "the attribute literal lives on 0-based line 6");
-        result.End.Line.Should().Be(6);
+        result!.IsRange.Should().BeTrue(
+            "a .cs-triggered prepareRename returns a bare Range — the buffer text at that range " +
+            "already is the abstract expression, so no separate Placeholder is needed");
+        var range = result.Range!;
+        range.Start.Line.Should().Be(6, "the attribute literal lives on 0-based line 6");
+        range.End.Line.Should().Be(6);
 
         var line = csText.Replace("\r\n", "\n").Split('\n')[6];
-        line[result.Start.Character - 1].Should().Be('"',
+        line[range.Start.Character - 1].Should().Be('"',
             "the range must start right after the opening quote, not include it");
-        line[result.End.Character].Should().Be('"',
+        line[range.End.Character].Should().Be('"',
             "the range must end right before the closing quote, not include it");
-        line.Substring(result.Start.Character, result.End.Character - result.Start.Character)
+        line.Substring(range.Start.Character, range.End.Character - range.Start.Character)
             .Should().Be("the first number is {int}");
     }
 
@@ -503,12 +507,19 @@ public class StepRenameHandlerTests
             CancellationToken.None);
 
         result.Should().NotBeNull();
+        result!.IsPlaceholderRange.Should().BeTrue(
+            "a .feature-triggered prepareRename must seed the client with the abstract expression " +
+            "as Placeholder, not the concrete step text, so newName always comes back unambiguous");
+        result.PlaceholderRange!.Placeholder.Should().Be("to be or not to be",
+            "the placeholder is the binding's abstract expression, not whatever is literally in the buffer");
+
         // MakeFeatureMatchSet builds the line as "\tThen to be or not to be" — the step text
         // starts right after the tab + "Then " (6 chars), not at column 0.
-        result!.Start.Line.Should().Be(2);
-        result.Start.Character.Should().Be(6,
+        var range = result.PlaceholderRange.Range!;
+        range.Start.Line.Should().Be(2);
+        range.Start.Character.Should().Be(6,
             "the range must start at the step text, excluding the keyword and indentation");
-        result.End.Character.Should().NotBe(200,
+        range.End.Character.Should().NotBe(200,
             "a synthetic whole-line range was the bug this regression guards against");
     }
 
