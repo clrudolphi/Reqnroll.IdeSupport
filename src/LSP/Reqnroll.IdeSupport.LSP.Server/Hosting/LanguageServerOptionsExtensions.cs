@@ -11,6 +11,7 @@ using Reqnroll.IdeSupport.LSP.Server.Features.Folding;
 using Reqnroll.IdeSupport.LSP.Server.Features.Formatting;
 using Reqnroll.IdeSupport.LSP.Server.Features.CodeLens;
 using Reqnroll.IdeSupport.LSP.Server.Features.Completions;
+using Reqnroll.IdeSupport.LSP.Server.Features.DocumentActivated;
 using Reqnroll.IdeSupport.LSP.Server.Features.Definition;
 using Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs;
 using Reqnroll.IdeSupport.LSP.Server.Features.InlayHints;
@@ -111,6 +112,13 @@ public static class LanguageServerOptionsExtensions
         options.OnNotification<ReqnrollProjectFilesParams>(
             LspMethodNames.ReqnrollProjectFiles,
             (p, ct) => resolver!.Get<ILspWorkspaceScopeManager>().HandleProjectFilesAsync(p, ct));
+
+        // #85: VS-side tab-activation backstop — forces a fresh binding-match recompute and
+        // diagnostics/semantic-tokens republish for a document the client has just detected
+        // becoming the active tab, independent of whatever normally triggers that.
+        options.OnNotification<DocumentActivatedParams>(
+            LspMethodNames.ReqnrollDocumentActivated,
+            (p, ct) => resolver!.Get<DocumentActivatedHandler>().HandleAsync(p, ct));
 
         // ── Manual request routing to bypass dynamic registration limitations ─────────
         // semanticTokens/full is an interactive performance target; wrap it (and its delta sibling)

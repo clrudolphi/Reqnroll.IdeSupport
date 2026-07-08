@@ -1,0 +1,13 @@
+#nullable enable
+
+using Newtonsoft.Json;
+using OmniSharp.Extensions.LanguageServer.Protocol;
+
+namespace Reqnroll.IdeSupport.LSP.Server.Features.DocumentActivated;
+
+/// <summary>Parameters for the <c>reqnroll/documentActivated</c> notification (issue #85).</summary>
+public sealed class DocumentActivatedParams
+{
+    [JsonProperty("uri")]
+    public DocumentUri Uri { get; set; } = null!;
+}

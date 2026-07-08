@@ -31,6 +31,7 @@ using Reqnroll.IdeSupport.LSP.Server.Features.Folding;
 using Reqnroll.IdeSupport.LSP.Server.Features.Formatting;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 using Reqnroll.IdeSupport.LSP.Server.Features.CodeLens;
+using Reqnroll.IdeSupport.LSP.Server.Features.DocumentActivated;
 using Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs;
 using Reqnroll.IdeSupport.LSP.Server.Features.References;
 using Reqnroll.IdeSupport.LSP.Server.Features.Rename;
@@ -163,6 +164,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IStepScaffoldService, StepScaffoldService>()
             .AddSingleton<FeatureCodeActionHandler>()
             .AddSingleton<FindUnusedStepDefinitionsHandler>()
+            .AddSingleton<DocumentActivatedHandler>()
             .AddSingleton<GherkinFormattingHandler>()
             .AddSingleton<IGherkinDocumentSymbolService, GherkinDocumentSymbolService>()
             .AddSingleton<FeatureDocumentSymbolHandler>()

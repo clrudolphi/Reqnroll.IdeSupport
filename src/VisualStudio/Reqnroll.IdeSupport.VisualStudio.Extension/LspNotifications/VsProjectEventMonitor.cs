@@ -11,6 +11,7 @@ using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Newtonsoft.Json;
+using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 using Reqnroll.IdeSupport.VisualStudio.SDKIntegration;
 
@@ -36,14 +37,23 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.LspNotifications;
 /// </remarks>
 internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocumentsEvents2
 {
-    private readonly LspInterceptingPipe _pipe;
-    private readonly TraceSource         _trace;
-    private readonly DTE2                _dte;
-    private readonly IServiceProvider    _serviceProvider;
+    private readonly LspInterceptingPipe    _pipe;
+    private readonly TraceSource            _trace;
+    private readonly DTE2                   _dte;
+    private readonly IServiceProvider       _serviceProvider;
+    private readonly DocumentActivationState _activationState;
+
+    // TraceSource above is kept for consistency with this class's existing logging, but per issue
+    // #84 nothing ever attaches a listener to it in this codebase — TraceInformation/TraceEvent
+    // calls on it are silently discarded. The new WindowActivated/documentActivated logging (#85)
+    // uses this file logger instead so it's actually inspectable; Info-level explicitly since
+    // SynchronousFileLogger()'s default (Warning) would drop LogInfo the same way.
+    private readonly IDeveroomLogger _fileLogger = new SynchronousFileLogger(level: TraceLevel.Info);
 
     // DTE event sinks — must be kept alive as fields.
     private readonly SolutionEvents _solutionEvents;
     private readonly BuildEvents    _buildEvents;
+    private readonly WindowEvents   _windowEvents;
 
     // Item-level tracking (add/remove/rename of individual files) via the shell service —
     // DTE has no project-agnostic equivalent of these events.
@@ -56,24 +66,28 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
     public VsProjectEventMonitor(
         LspInterceptingPipe pipe,
         TraceSource trace,
-        IServiceProvider serviceProvider)
+        IServiceProvider serviceProvider,
+        DocumentActivationState activationState)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         _pipe            = pipe            ?? throw new ArgumentNullException(nameof(pipe));
         _trace           = trace           ?? throw new ArgumentNullException(nameof(trace));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _activationState = activationState ?? throw new ArgumentNullException(nameof(activationState));
 
         _dte = (DTE2)serviceProvider.GetService(typeof(DTE))
                ?? throw new InvalidOperationException("DTE service not available.");
 
         _solutionEvents = _dte.Events.SolutionEvents;
         _buildEvents    = _dte.Events.BuildEvents;
+        _windowEvents   = _dte.Events.WindowEvents;
 
         _solutionEvents.ProjectAdded   += OnProjectAdded;
         _solutionEvents.ProjectRemoved += OnProjectRemoved;
         _solutionEvents.Opened         += OnSolutionOpened;
         _solutionEvents.AfterClosing   += OnSolutionClosed;
         _buildEvents.OnBuildDone       += OnBuildDone;
+        _windowEvents.WindowActivated  += OnWindowActivated;
 
         _trackProjectDocuments = serviceProvider.GetService(typeof(SVsTrackProjectDocuments))
             as IVsTrackProjectDocuments2;
@@ -158,6 +172,24 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
         }
     }
 
+    // ── Document activation notification (issue #85) ──────────────────────────
+
+    /// <summary>
+    /// Sends <c>reqnroll/documentActivated</c> for a <c>.feature</c> file the user just switched
+    /// to, so the server recomputes and republishes diagnostics/semantic tokens for it
+    /// independent of whatever originally left it stale (see the #85 design discussion / #78).
+    /// </summary>
+    public Task SendDocumentActivatedAsync(string filePath, CancellationToken ct)
+    {
+        var featureUri = "file:///" + filePath.Replace('\\', '/');
+        var paramsJson = $"{{\"uri\":\"{featureUri}\"}}";
+
+        _fileLogger.LogInfo(
+            $"VsProjectEventMonitor: Sending documentActivated for '{Path.GetFileName(filePath)}'");
+
+        return _pipe.SendNotificationToServerAsync("reqnroll/documentActivated", paramsJson, ct);
+    }
+
     private Project? FindProjectContaining(string filePath)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -200,6 +232,60 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
     private void OnSolutionClosed()
     {
         // Nothing to do — projects are removed individually via OnProjectRemoved before this fires.
+    }
+
+    private void OnWindowActivated(Window gotFocus, Window lostFocus)
+    {
+        // DTE classic automation events fire synchronously on the UI thread (single-threaded
+        // apartment) — unlike VS.Extensibility's async APIs elsewhere in this codebase, which
+        // explicitly warn about background-thread invocation.
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        // Logged unconditionally, synchronously, before the UI-thread hop below — so the log
+        // proves whether DTE ever raises this event at all for a given window, independent of
+        // whatever the activation-state machine later decides to do with it (issue #85
+        // debugging: a prior run showed zero reqnroll/documentActivated sends despite the tabs'
+        // views clearly having been created, and there was no log evidence to say whether
+        // WindowActivated simply never fired or fired and no-op'd).
+        _fileLogger.LogInfo(
+            $"VsProjectEventMonitor: WindowActivated fired, gotFocus.Caption='{TryGetCaption(gotFocus)}', document='{TryGetDocumentPath(gotFocus)}'.");
+
+        FireAndForget(ct => HandleWindowActivatedAsync(gotFocus, ct));
+    }
+
+    private async Task HandleWindowActivatedAsync(Window gotFocus, CancellationToken ct)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(ct);
+
+        var filePath = gotFocus.Document?.FullName;
+        if (string.IsNullOrEmpty(filePath) ||
+            !filePath!.EndsWith(".feature", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var action = _activationState.OnWindowActivated(filePath);
+        _fileLogger.LogInfo(
+            $"VsProjectEventMonitor: WindowActivated for '{Path.GetFileName(filePath)}' — state action = {action}.");
+
+        if (action != DocumentActivationAction.SendNow)
+            return;
+
+        await SendDocumentActivatedAsync(filePath, ct).ConfigureAwait(false);
+    }
+
+    // Best-effort, UI-thread-safe reads for the diagnostic log line above — must not throw or
+    // block on COM calls that could be unsafe from whatever thread DTE invokes this event on.
+    private static string TryGetCaption(Window window)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        try { return window.Caption ?? "(null)"; }
+        catch (Exception ex) { return $"(error: {ex.Message})"; }
+    }
+
+    private static string TryGetDocumentPath(Window window)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        try { return window.Document?.FullName ?? "(no document)"; }
+        catch (Exception ex) { return $"(error: {ex.Message})"; }
     }
 
     private void OnBuildDone(vsBuildScope scope, vsBuildAction action)
@@ -525,6 +611,7 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
         _solutionEvents.Opened         -= OnSolutionOpened;
         _solutionEvents.AfterClosing   -= OnSolutionClosed;
         _buildEvents.OnBuildDone       -= OnBuildDone;
+        _windowEvents.WindowActivated  -= OnWindowActivated;
 
         if (_trackProjectDocuments is not null && _trackProjectDocumentsCookie != 0)
             _trackProjectDocuments.UnadviseTrackProjectDocumentsEvents(_trackProjectDocumentsCookie);

@@ -106,21 +106,27 @@ internal sealed class LspInterceptingPipe : IDisposable
         _linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, externalCancellation);
         var ct     = _linkedCts.Token;
 
-        // VS writes to _fromVsPipe.Writer → SendPump reads _fromVsPipe.Reader → server stdin
+        // VS writes to _fromVsPipe.Writer → SendPump reads _fromVsPipe.Reader → server stdin.
+        // lockDestination: true — this pump's destination (_serverPipe.Output) is the same
+        // stream SendNotificationToServerAsync/SendRequestToServerAsync inject into from other
+        // threads (e.g. a VS-side DTE event handler), so writes must be serialised against them.
         _sendPump = PumpAsync(
-            source:       _fromVsPipe.Reader,
-            destination:  _serverPipe.Output,
-            interceptors: _sendInterceptors,
-            direction:    LspMessageDirection.Send,
-            ct:           ct);
+            source:          _fromVsPipe.Reader,
+            destination:     _serverPipe.Output,
+            interceptors:    _sendInterceptors,
+            direction:       LspMessageDirection.Send,
+            lockDestination: true,
+            ct:              ct);
 
-        // Server stdout → ReceivePump reads _serverPipe.Input → _toVsPipe.Writer → VS reads _toVsPipe.Reader
+        // Server stdout → ReceivePump reads _serverPipe.Input → _toVsPipe.Writer → VS reads _toVsPipe.Reader.
+        // lockDestination: false — _toVsPipe.Writer has no other writer today.
         _receivePump = PumpAsync(
-            source:       _serverPipe.Input,
-            destination:  _toVsPipe.Writer,
-            interceptors: _receiveInterceptors,
-            direction:    LspMessageDirection.Receive,
-            ct:           ct);
+            source:          _serverPipe.Input,
+            destination:     _toVsPipe.Writer,
+            interceptors:    _receiveInterceptors,
+            direction:       LspMessageDirection.Receive,
+            lockDestination: false,
+            ct:              ct);
 
         return Task.CompletedTask;
     }
@@ -132,6 +138,7 @@ internal sealed class LspInterceptingPipe : IDisposable
         PipeWriter                             destination,
         IReadOnlyList<ILspMessageInterceptor>  interceptors,
         LspMessageDirection                    direction,
+        bool                                    lockDestination,
         CancellationToken                      ct)
     {
         try
@@ -147,7 +154,7 @@ internal sealed class LspInterceptingPipe : IDisposable
                 if (body is null)
                 {
                     // Malformed JSON — forward raw bytes verbatim so the connection stays alive.
-                    await WriteFrameAsync(destination, frame.RawBytes, ct).ConfigureAwait(false);
+                    await WriteFrameGuardedAsync(destination, frame.RawBytes, lockDestination, ct).ConfigureAwait(false);
                     continue;
                 }
 
@@ -184,7 +191,7 @@ internal sealed class LspInterceptingPipe : IDisposable
                 var result  = await RunInterceptorsAsync(message, interceptors, ct).ConfigureAwait(false);
 
                 if (result == LspInterceptorResult.PassThrough)
-                    await WriteFrameAsync(destination, rawBytes, ct).ConfigureAwait(false);
+                    await WriteFrameGuardedAsync(destination, rawBytes, lockDestination, ct).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) { /* normal shutdown */ }
@@ -361,6 +368,35 @@ internal sealed class LspInterceptingPipe : IDisposable
         rawFrame.CopyTo(memory);
         writer.Advance(rawFrame.Length);
         await writer.FlushAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Forwards a frame to <paramref name="writer"/>, taking <see cref="_injectLock"/> first when
+    /// <paramref name="lockDestination"/> is set. The send pump's destination
+    /// (<c>_serverPipe.Output</c>) is also written to directly by
+    /// <see cref="SendNotificationToServerAsync"/>/<see cref="SendRequestToServerAsync"/> from
+    /// other threads; without this, the pump's own passthrough write here could interleave with
+    /// an injected write on the same unsynchronised <see cref="PipeWriter"/>, corrupting the
+    /// framing. The receive pump's destination has no other writer, so it passes
+    /// <c>lockDestination: false</c> and skips the lock.
+    /// </summary>
+    private async Task WriteFrameGuardedAsync(PipeWriter writer, byte[] rawFrame, bool lockDestination, CancellationToken ct)
+    {
+        if (!lockDestination)
+        {
+            await WriteFrameAsync(writer, rawFrame, ct).ConfigureAwait(false);
+            return;
+        }
+
+        await _injectLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            await WriteFrameAsync(writer, rawFrame, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _injectLock.Release();
+        }
     }
 
     // ── Interceptor pipeline ────────────────────────────────────────────────
