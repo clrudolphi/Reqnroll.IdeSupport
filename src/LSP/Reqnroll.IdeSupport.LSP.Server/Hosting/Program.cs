@@ -237,18 +237,20 @@ public class Program
 
             // textDocument/prepareRename and textDocument/rename are registered via OnRequest
             // (manual routing) and therefore do NOT automatically populate server capabilities.
-            // Without renameProvider, vscode-languageclient never sets editorHasRenameProvider,
-            // F2 is inert, and no rename request reaches the server.
-            // VS does not need this: it invokes rename via the custom intercepting-pipe flow
-            // (reqnroll/renameTargets → reqnroll/selectRenameTarget) and advertising renameProvider
-            // to VS would cause its standard rename UI to appear alongside the custom dialog.
-            if (!string.Equals(clientIde, "visualstudio", StringComparison.OrdinalIgnoreCase))
+            // Without renameProvider, no client (VS Code's vscode-languageclient, or VS's own
+            // LSP client) wires its native F2/rename UI to this server, and no rename request
+            // ever reaches it.
+            // Advertised to every client, including VS (issue #33): HandleRenameAsync already
+            // falls back to plain position-based binding resolution when no
+            // reqnroll/selectRenameTarget session is pending, so native F2 in VS works standalone
+            // for the common (single, unambiguous binding) case. VS's custom "Reqnroll: Rename
+            // Step" command (RenameStepCommand.cs) remains as the only way to disambiguate when a
+            // cursor position matches more than one candidate binding — something plain LSP
+            // rename has no protocol-level way to prompt for.
+            response.Capabilities.RenameProvider = new RenameRegistrationOptions.StaticOptions
             {
-                response.Capabilities.RenameProvider = new RenameRegistrationOptions.StaticOptions
-                {
-                    PrepareProvider = true
-                };
-            }
+                PrepareProvider = true
+            };
 
             return Task.CompletedTask;
         });
