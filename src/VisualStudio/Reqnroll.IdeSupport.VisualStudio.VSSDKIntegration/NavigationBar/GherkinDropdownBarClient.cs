@@ -53,12 +53,25 @@ internal sealed class GherkinDropdownBarClient : IVsDropdownBarClient, IDisposab
     private IReadOnlyList<GherkinSymbolNode> _roots            = Array.Empty<GherkinSymbolNode>();
     private IReadOnlyList<GherkinSymbolNode> _structureEntries = Array.Empty<GherkinSymbolNode>();
 
-    // Issue #83: a successful-but-empty fetch during the startup window (server hasn't finished
-    // computing bindings yet) must not be trusted as final the way a genuinely-empty file would be —
-    // otherwise the combo can get stuck empty until some unrelated event (caret move, buffer edit)
-    // happens to call ScheduleRefresh() again. Bounded so a genuinely empty file still settles.
+    // Issue #83: a successful-but-empty fetch during the startup window must not be trusted as
+    // final the way a genuinely-empty file would be — otherwise the combo can get stuck empty
+    // until some unrelated event (caret move, buffer edit) happens to call ScheduleRefresh()
+    // again. Bounded so a genuinely empty file still settles.
+    //
+    // What the empty result actually races against: NOT step-binding computation — the Nav Bar's
+    // structural symbols (Feature/Rule/Scenario/Background titles) come from
+    // FeatureDocumentSymbolHandler.GetSymbols, which only needs the document's own Gherkin tags
+    // (GherkinDocumentTaggerService.ParseAsync) to exist; step-binding match data is a separate,
+    // best-effort annotation the tagger skips gracefully when the project registry isn't ready,
+    // not a precondition for structural tags. The real dependency is narrower: whether
+    // textDocument/didOpen has been processed for this URI at all yet (ParseAsync runs
+    // synchronously inside that handler). When a solution restores many .feature tabs at once,
+    // this view's fetch can win the race against its own didOpen notification still sitting in
+    // the server's queue behind everyone else's. The retry budget below is sized for that queue
+    // depth, not for the much slower whole-project C# binding discovery some other symptoms
+    // (e.g. hover-for-ambiguous-bindings) genuinely do wait on.
     private bool _hasSeenNonEmptyStructure;
-    private int  _emptyResultRetriesRemaining = 5;
+    private int  _emptyResultRetriesRemaining = 15;
 
     public GherkinDropdownBarClient(
         IVsTextView vsTextView,
@@ -176,7 +189,8 @@ internal sealed class GherkinDropdownBarClient : IVsDropdownBarClient, IDisposab
                 ApplyCaretPosition();
                 _logger.LogVerbose(
                     $"GherkinDropdownBarClient: '{_fileUri}' fetched 0 structure entries before any non-empty " +
-                    $"result — server may not have finished computing bindings yet, retrying " +
+                    $"result — the server may not have processed this document's didOpen yet (e.g. queued " +
+                    $"behind other restored tabs' own didOpen notifications), retrying " +
                     $"({_emptyResultRetriesRemaining} attempt(s) left).");
                 ScheduleRefresh();
                 return;
