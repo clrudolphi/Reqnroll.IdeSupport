@@ -22,7 +22,9 @@ using Reqnroll.IdeSupport.LSP.Server.Tracing;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 using OmniSharp.Extensions.LanguageServer.Protocol;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Hosting;
 
@@ -31,6 +33,20 @@ namespace Reqnroll.IdeSupport.LSP.Server.Hosting;
 /// </summary>
 public static class LanguageServerOptionsExtensions
 {
+    /// <summary>
+    /// <see cref="JObject.FromObject(object)"/>'s parameterless overload serializes with
+    /// Newtonsoft's global default settings — PascalCase property names, not the lowercase
+    /// camelCase every other LSP payload on the wire uses. That silently produced e.g.
+    /// <c>"Start"</c>/<c>"Character"</c> instead of <c>"start"</c>/<c>"character"</c> for plain
+    /// ranges, tolerated by clients doing case-insensitive property matching — but it breaks
+    /// <see cref="RangeOrPlaceholderRange"/>'s union-type discrimination outright: its converter
+    /// looks for the exact lowercase keys <c>"range"</c>/<c>"placeholder"</c>/
+    /// <c>"defaultBehavior"</c> to tell which variant is present, and silently produces neither
+    /// on the read side when the write side used PascalCase (issue #33 follow-up).
+    /// </summary>
+    private static readonly JsonSerializer CamelCaseSerializer = JsonSerializer.Create(
+        new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() });
+
     /// <summary>
     /// Registers standard OmniSharp handlers. 
     /// </summary>
@@ -173,8 +189,8 @@ public static class LanguageServerOptionsExtensions
             LspMethodNames.TextDocumentPrepareRename,
             async (request, ct) =>
             {
-                var range = await resolver!.Get<StepRenameHandler>().HandlePrepareRenameAsync(request, ct);
-                return range != null ? (JToken)JObject.FromObject(range) : JValue.CreateNull();
+                var result = await resolver!.Get<StepRenameHandler>().HandlePrepareRenameAsync(request, ct);
+                return result != null ? (JToken)JObject.FromObject(result, CamelCaseSerializer) : JValue.CreateNull();
             });
 
         options.OnRequest<RenameParams, WorkspaceEdit>(

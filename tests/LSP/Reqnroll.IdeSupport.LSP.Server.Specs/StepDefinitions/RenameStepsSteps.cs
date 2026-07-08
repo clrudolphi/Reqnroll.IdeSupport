@@ -77,11 +77,15 @@ public sealed class RenameStepsSteps
     public void ThenThePrepareRenameRangeExcludesTheStepKeywordAndIndentation()
     {
         _ctx.LastPrepareRenameRange.Should().NotBeNull();
-        _ctx.LastPrepareRenameRange!.Start.Character.Should().BeGreaterThan(0,
+        _ctx.LastPrepareRenameRange!.IsPlaceholderRange.Should().BeTrue(
+            "a .feature-triggered prepareRename must seed the client with the abstract expression " +
+            "as Placeholder, not the concrete step text (issue #33 follow-up)");
+        var range = _ctx.LastPrepareRenameRange.PlaceholderRange!.Range!;
+        range.Start.Character.Should().BeGreaterThan(0,
             "a range starting at column 0 would seed the rename dialog with the keyword and " +
             "indentation, which then duplicates when the resulting edit is applied at the " +
             "step-text-only range HandleRenameAsync actually replaces");
-        _ctx.LastPrepareRenameRange.End.Character.Should().NotBe(200,
+        range.End.Character.Should().NotBe(200,
             "a synthetic whole-line (0-200) range was the bug this regression guards against");
     }
 

@@ -65,11 +65,22 @@ public sealed class StepRenameHandler
     // ── textDocument/prepareRename ──────────────────────────────────────────────
 
     /// <summary>
-    /// Validates that the cursor is on a renameable binding. Returns the range
-    /// of the renameable text (attribute string or step text), or <c>null</c>
-    /// if rename is not available at this position.
+    /// Validates that the cursor is on a renameable binding. Returns the range of the
+    /// renameable text (attribute string or step text) — for <c>.feature</c> files, paired
+    /// with a <see cref="PlaceholderRange.Placeholder"/> carrying the binding's abstract
+    /// expression (e.g. <c>"the second number is {int}"</c>) instead of the concrete step
+    /// text — or <c>null</c> if rename is not available at this position.
     /// </summary>
-    public async Task<LspRange?> HandlePrepareRenameAsync(
+    /// <remarks>
+    /// Seeding the rename box with the abstract expression, rather than the concrete text
+    /// literally in the buffer, is deliberate (issue #33 follow-up): a spec-compliant client
+    /// has no buffer text to anchor a partial in-place edit against when the placeholder
+    /// text doesn't appear in the document, so it can only submit the box's full edited
+    /// content as <c>newName</c> — turning an inherently ambiguous "did the user edit the
+    /// wording, the parameter value, or an arbitrary fragment?" problem into an unambiguous
+    /// one: <c>newName</c> is always the complete new abstract expression.
+    /// </remarks>
+    public async Task<RangeOrPlaceholderRange?> HandlePrepareRenameAsync(
         PrepareRenameParams request,
         CancellationToken   cancellationToken)
     {
@@ -170,7 +181,18 @@ public sealed class StepRenameHandler
                 return null;
             }
 
-            return stepRange;
+            // When ambiguous (2+ candidate bindings), a plain F2 rename would fall back to the
+            // first candidate anyway (see HandleRenameAsync's position-based fallback) — pick
+            // the same one here so the placeholder shown matches what would actually be renamed.
+            var matchedBinding = featureBindings[0];
+            var sourceLiteral  = await FindAttributeLiteralAsync(uri, matchedBinding);
+            var sourceExpression = sourceLiteral?.Token.ValueText ?? matchedBinding.Expression ?? string.Empty;
+
+            return new PlaceholderRange
+            {
+                Range       = stepRange,
+                Placeholder = sourceExpression
+            };
         }
 
         return null;
