@@ -188,6 +188,20 @@ public sealed class StepRenameHandler
             var sourceLiteral  = await FindAttributeLiteralAsync(uri, matchedBinding);
             var sourceExpression = sourceLiteral?.Token.ValueText ?? matchedBinding.Expression ?? string.Empty;
 
+            // Known cosmetic quirk (confirmed live in VS and VS Code, issue #33 follow-up): when
+            // a user pre-selects a sub-span of the concrete step text before invoking F2 (e.g.
+            // "added" in "the two numbers are added"), the client computes that selection's
+            // offset relative to Range.Start and reapplies the same numeric offset into
+            // Placeholder to decide what to pre-highlight in the rename box. Placeholder is a
+            // different string than the concrete text whenever a parameter's rendered width
+            // differs from its abstract token (here "are" → "{Verb}", +3 chars), so everything
+            // after the parameter shifts and the pre-highlighted substring lands a few characters
+            // off from what the user actually selected (e.g. "b} summed" instead of "summed").
+            // This is inherent to the offset math being reused across two different-length
+            // strings — the LSP PrepareRenameResult protocol has no field to specify which
+            // sub-span of Placeholder to highlight independently of Range — and is harmless: the
+            // box's full content is still correct, and whatever the user submits becomes newName
+            // in full regardless of what was pre-highlighted.
             return new PlaceholderRange
             {
                 Range       = stepRange,
