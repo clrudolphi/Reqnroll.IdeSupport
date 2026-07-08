@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Configuration;
@@ -59,6 +60,12 @@ public static class ServiceCollectionExtensions
         return services
             .AddSingleton(new ClientIdeContext(clientIde, logLevel))
             .AddSingleton<IDeveroomLogger, LspDeveroomLogger>()
+            // Makes ILogger<T> resolvable for any code that prefers the standard abstraction
+            // (e.g. a third-party dependency's constructor) — routed through the same
+            // IDeveroomLogger sink via DeveroomLoggerAdapter, not a second log store. App-level
+            // code should keep using IDeveroomLogger directly; see Program.cs's remarks (issue #84).
+            .AddSingleton<ILoggerFactory>(sp => new DeveroomLoggerFactory(sp.GetRequiredService<IDeveroomLogger>()))
+            .AddSingleton(typeof(ILogger<>), typeof(Logger<>))
             .AddSingleton<IIdeScope, LspIdeScope>()
             .AddSingleton<IMonitoringService>(sp => NullMonitoringService.Instance)
             // Telemetry: emit telemetry/event notifications, optionally mirrored to a local JSONL

@@ -1,13 +1,12 @@
 #nullable enable
 
 using System;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.FindAllReferences;
 using Microsoft.VisualStudio.Shell.TableManager;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
 
@@ -18,13 +17,12 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
 internal sealed class FindUnusedStepDefinitionsRenderer
 {
     private readonly IServiceProvider _serviceProvider;
-    private readonly TraceSource      _traceSource;
-    private readonly IDeveroomLogger  _fileLogger = new SynchronousFileLogger();
+    private readonly ILogger<FindUnusedStepDefinitionsRenderer> _logger;
 
-    public FindUnusedStepDefinitionsRenderer(IServiceProvider serviceProvider, TraceSource traceSource)
+    public FindUnusedStepDefinitionsRenderer(IServiceProvider serviceProvider, ILogger<FindUnusedStepDefinitionsRenderer> logger)
     {
         _serviceProvider = serviceProvider;
-        _traceSource     = traceSource;
+        _logger          = logger;
     }
 
     public async Task RenderAsync(
@@ -36,10 +34,7 @@ internal sealed class FindUnusedStepDefinitionsRenderer
         var far = _serviceProvider.GetService(typeof(SVsFindAllReferences)) as IFindAllReferencesService;
         if (far is null)
         {
-            _traceSource.TraceEvent(TraceEventType.Warning, 0,
-                "FindUnusedStepDefinitionsRenderer: IFindAllReferencesService not available");
-            _fileLogger.LogWarning(
-                "FindUnusedStepDefinitionsRenderer: IFindAllReferencesService not available.");
+            _logger.LogWarning("FindUnusedStepDefinitionsRenderer: IFindAllReferencesService not available.");
             return;
         }
 
@@ -51,10 +46,7 @@ internal sealed class FindUnusedStepDefinitionsRenderer
         var window = far.StartSearch(label);
         if (window is null)
         {
-            _traceSource.TraceEvent(TraceEventType.Warning, 0,
-                "FindUnusedStepDefinitionsRenderer: StartSearch returned null window");
-            _fileLogger.LogWarning(
-                "FindUnusedStepDefinitionsRenderer: StartSearch returned null window.");
+            _logger.LogWarning("FindUnusedStepDefinitionsRenderer: StartSearch returned null window.");
             return;
         }
 
@@ -70,10 +62,8 @@ internal sealed class FindUnusedStepDefinitionsRenderer
         // produce "[Definition:Unknown]".  "description" is also omitted — declaring it causes
         // VS to auto-generate a Description column that duplicates the Code column text.
 
-        _traceSource.TraceInformation(
-            "FindUnusedStepDefinitionsRenderer: opened FAR window '{0}' with {1} item(s)",
+        _logger.LogInformation(
+            "FindUnusedStepDefinitionsRenderer: opened FAR window {Label} with {ItemCount} item(s)",
             label, count);
-        _fileLogger.LogInfo(
-            $"FindUnusedStepDefinitionsRenderer: opened FAR window '{label}' with {count} item(s).");
     }
 }

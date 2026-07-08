@@ -2,10 +2,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.Commands;
 using Microsoft.VisualStudio.Extensibility.Editor;
@@ -27,8 +27,11 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.GoToHooks;
 internal sealed class GoToHooksCommand : Command
 {
     private readonly GoToHooksState  _state;
-    private readonly TraceSource     _traceSource;
-    private readonly IDeveroomLogger _fileLogger = new SynchronousFileLogger();
+    private readonly ILogger<GoToHooksCommand> _logger;
+    // NavigationPickerHelper (shared with FindStepUsages/RenameStep-adjacent navigation code,
+    // out of scope for the ILogger<T> migration) still takes IDeveroomLogger — resolve the
+    // shared DI-registered singleton sink for that one call rather than a second ad hoc logger.
+    private readonly IDeveroomLogger _fileLogger;
 
     // guidSHLMainMenu (vsshlids.h) — the VS shell's built-in command set.
     private static readonly Guid GuidSHLMainMenu = new("{D309F791-903F-11D0-9EFC-00A0C911004F}");
@@ -37,10 +40,11 @@ internal sealed class GoToHooksCommand : Command
     // context menu (IDM_VS_CTXT_CODEWIN) that hosts "Go To Definition" / "Find All References".
     private const int IDG_VS_CODEWIN_NAVIGATETOLOCATION = 0x02B1;
 
-    public GoToHooksCommand(GoToHooksState state, TraceSource traceSource)
+    public GoToHooksCommand(GoToHooksState state, ILogger<GoToHooksCommand> logger, IDeveroomLogger fileLogger)
     {
-        _state       = state;
-        _traceSource = traceSource;
+        _state      = state;
+        _logger     = logger;
+        _fileLogger = fileLogger;
     }
 
     public override CommandConfiguration CommandConfiguration => new("Go to Hooks")
@@ -62,19 +66,19 @@ internal sealed class GoToHooksCommand : Command
     {
         try
         {
-            _fileLogger.LogInfo("GoToHooksCommand: invoked.");
+            _logger.LogInformation("GoToHooksCommand: invoked.");
 
             var service = _state.Service;
             if (service is null)
             {
-                _fileLogger.LogWarning("GoToHooksCommand: LSP server not yet initialized.");
+                _logger.LogWarning("GoToHooksCommand: LSP server not yet initialized.");
                 return;
             }
 
             var textView = await context.GetActiveTextViewAsync(cancellationToken).ConfigureAwait(false);
             if (textView is null)
             {
-                _fileLogger.LogWarning("GoToHooksCommand: no active text view.");
+                _logger.LogWarning("GoToHooksCommand: no active text view.");
                 return;
             }
 
@@ -84,8 +88,8 @@ internal sealed class GoToHooksCommand : Command
             var lineNum  = line.LineNumber;
             var charNum  = caretPos.Offset - line.Text.Start;
 
-            _fileLogger.LogInfo(
-                $"GoToHooksCommand: uri='{fileUri}', caret line={lineNum} char={charNum}.");
+            _logger.LogInformation(
+                "GoToHooksCommand: uri={FileUri}, caret line={LineNum} char={CharNum}.", fileUri, lineNum, charNum);
 
             var result = await service
                 .GoToHooksAsync(fileUri, lineNum, charNum, cancellationToken)
@@ -93,11 +97,11 @@ internal sealed class GoToHooksCommand : Command
 
             if (result.Hooks.Count == 0)
             {
-                _fileLogger.LogInfo("GoToHooksCommand: no applicable hooks at this position.");
+                _logger.LogInformation("GoToHooksCommand: no applicable hooks at this position.");
                 return;
             }
 
-            _fileLogger.LogInfo($"GoToHooksCommand: {result.Hooks.Count} hook(s) found.");
+            _logger.LogInformation("GoToHooksCommand: {HookCount} hook(s) found.", result.Hooks.Count);
 
             var targets = BuildTargets(result.Hooks);
             await NavigationPickerHelper.PickAndNavigateAsync(
@@ -109,8 +113,7 @@ internal sealed class GoToHooksCommand : Command
         }
         catch (Exception ex)
         {
-            _fileLogger.LogWarning($"GoToHooksCommand: failed: {ex}");
-            _traceSource.TraceEvent(TraceEventType.Error, 0, "GoToHooksCommand: failed: {0}", ex);
+            _logger.LogError(ex, "GoToHooksCommand: failed.");
         }
     }
 

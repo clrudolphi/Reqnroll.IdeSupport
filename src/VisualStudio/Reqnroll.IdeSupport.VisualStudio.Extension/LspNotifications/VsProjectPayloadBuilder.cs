@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using EnvDTE;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Shell;
 using Newtonsoft.Json;
 using Reqnroll.IdeSupport.VisualStudio.SDKIntegration;
@@ -27,7 +27,7 @@ internal static class VsProjectPayloadBuilder
         Project project,
         string workspaceFolder,
         IServiceProvider serviceProvider,
-        TraceSource trace)
+        ILogger logger)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
 
@@ -37,7 +37,7 @@ internal static class VsProjectPayloadBuilder
         var outputAssemblyPath = VsUtils.GetOutputAssemblyPath(project) ?? string.Empty;
         var tfm = VsUtils.GetTargetFrameworkMoniker(project) ?? string.Empty;
 
-        var packageRefs = GetPackageReferences(project, serviceProvider, trace);
+        var packageRefs = GetPackageReferences(project, serviceProvider, logger);
 
         var paramsObj = new
         {
@@ -52,12 +52,12 @@ internal static class VsProjectPayloadBuilder
         return JsonConvert.SerializeObject(paramsObj, Formatting.None);
     }
 
-    public static string BuildProjectFilesParamsJson(Project project, TraceSource trace)
+    public static string BuildProjectFilesParamsJson(Project project, ILogger logger)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
 
         var tfm     = VsUtils.GetTargetFrameworkMoniker(project) ?? string.Empty;
-        var entries = BuildProjectFileEntries(project, trace);
+        var entries = BuildProjectFileEntries(project, logger);
 
         var paramsObj = new
         {
@@ -70,7 +70,7 @@ internal static class VsProjectPayloadBuilder
         return JsonConvert.SerializeObject(paramsObj, Formatting.None);
     }
 
-    private static object[] BuildProjectFileEntries(Project project, TraceSource trace)
+    private static object[] BuildProjectFileEntries(Project project, ILogger logger)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         try
@@ -104,14 +104,14 @@ internal static class VsProjectPayloadBuilder
         }
         catch (Exception ex)
         {
-            trace.TraceEvent(TraceEventType.Warning, 0,
-                "VsProjectPayloadBuilder: Could not enumerate project items for '{0}': {1}",
-                project.Name, ex.Message);
+            logger.LogWarning(ex,
+                "VsProjectPayloadBuilder: could not enumerate project items for {ProjectName}",
+                project.Name);
             return Array.Empty<object>();
         }
     }
 
-    private static object[] GetPackageReferences(Project project, IServiceProvider serviceProvider, TraceSource trace)
+    private static object[] GetPackageReferences(Project project, IServiceProvider serviceProvider, ILogger logger)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         try
@@ -127,9 +127,9 @@ internal static class VsProjectPayloadBuilder
         }
         catch (Exception ex)
         {
-            trace.TraceEvent(TraceEventType.Warning, 0,
-                "VsProjectPayloadBuilder: Could not read NuGet packages for '{0}': {1}",
-                project.Name, ex.Message);
+            logger.LogWarning(ex,
+                "VsProjectPayloadBuilder: could not read NuGet packages for {ProjectName}",
+                project.Name);
             return Array.Empty<object>();
         }
     }

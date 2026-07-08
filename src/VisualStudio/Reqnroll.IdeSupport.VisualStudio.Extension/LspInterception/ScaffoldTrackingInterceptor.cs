@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspNotifications;
 
@@ -26,16 +26,16 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 internal sealed class ScaffoldTrackingInterceptor : ILspMessageInterceptor
 {
     private readonly Func<VsProjectEventMonitor?> _getMonitor;
-    private readonly TraceSource _trace;
+    private readonly ILogger<ScaffoldTrackingInterceptor> _logger;
     private readonly ConcurrentDictionary<string, byte> _pendingFiles
         = new(StringComparer.OrdinalIgnoreCase);
 
     public ScaffoldTrackingInterceptor(
         Func<VsProjectEventMonitor?> getMonitor,
-        TraceSource                  trace)
+        ILogger<ScaffoldTrackingInterceptor> logger)
     {
         _getMonitor = getMonitor ?? throw new ArgumentNullException(nameof(getMonitor));
-        _trace      = trace      ?? throw new ArgumentNullException(nameof(trace));
+        _logger     = logger     ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task<LspInterceptorResult> InterceptAsync(
@@ -85,8 +85,8 @@ internal sealed class ScaffoldTrackingInterceptor : ILspMessageInterceptor
                     continue;
 
                 _pendingFiles.TryAdd(path, 0);
-                _trace.TraceInformation(
-                    "ScaffoldTrackingInterceptor: Tracking scaffolded file '{0}'",
+                _logger.LogInformation(
+                    "ScaffoldTrackingInterceptor: tracking scaffolded file {FileName}",
                     Path.GetFileName(path));
             }
         }
@@ -112,14 +112,14 @@ internal sealed class ScaffoldTrackingInterceptor : ILspMessageInterceptor
         var monitor = _getMonitor();
         if (monitor is null)
         {
-            _trace.TraceEvent(TraceEventType.Warning, 0,
-                "ScaffoldTrackingInterceptor: VsProjectEventMonitor not available for '{0}'",
+            _logger.LogWarning(
+                "ScaffoldTrackingInterceptor: VsProjectEventMonitor not available for {FileName}",
                 Path.GetFileName(path));
             return;
         }
 
-        _trace.TraceInformation(
-            "ScaffoldTrackingInterceptor: Injecting projectFiles delta before didOpen for '{0}'",
+        _logger.LogInformation(
+            "ScaffoldTrackingInterceptor: injecting projectFiles delta before didOpen for {FileName}",
             Path.GetFileName(path));
 
         await monitor.SendScaffoldedFileAsync(path, ct).ConfigureAwait(false);

@@ -1,13 +1,12 @@
 #nullable enable
 
 using System;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.Commands;
 using Microsoft.VisualStudio.Extensibility.Editor;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
@@ -21,20 +20,16 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 internal sealed class FindStepUsagesCommand : Command
 {
     private readonly FindStepUsagesState _state;
-    private readonly TraceSource _traceSource;
-    // VisualStudio.Extensibility's TraceSource is NOT routed to the shared reqnroll-vs-ext-*.log
-    // file, so command diagnostics would be invisible there.  Log through the same SynchronousFileLogger
-    // the language client and LSP server use so a single run produces a complete diagnostic trail.
-    private readonly IDeveroomLogger _fileLogger = new SynchronousFileLogger();
+    private readonly ILogger<FindStepUsagesCommand> _logger;
 
-    // Inject only the registered shared-state singleton + SDK TraceSource — both guaranteed
+    // Inject only the registered shared-state singleton + the shared ILogger<T> — both guaranteed
     // resolvable.  Do NOT inject ReqnrollLanguageClient: contribution classes are not documented
     // as injectable into other contributions, and an unresolvable ctor dependency makes the
     // framework fail command construction silently (menu item shows, click does nothing).
-    public FindStepUsagesCommand(FindStepUsagesState state, TraceSource traceSource)
+    public FindStepUsagesCommand(FindStepUsagesState state, ILogger<FindStepUsagesCommand> logger)
     {
-        _state = state;
-        _traceSource = traceSource;
+        _state  = state;
+        _logger = logger;
     }
 
     // guidSHLMainMenu — the Visual Studio shell's built-in command set (vsshlids.h).
@@ -72,15 +67,15 @@ internal sealed class FindStepUsagesCommand : Command
     {
         try
         {
-            _fileLogger.LogInfo("FindStepUsagesCommand: invoked.");
+            _logger.LogInformation("FindStepUsagesCommand: invoked.");
 
             var service  = _state.Service;
             var renderer = _state.Renderer;
             if (service is null || renderer is null)
             {
-                _fileLogger.LogWarning(
-                    "FindStepUsagesCommand: LSP server not yet initialized " +
-                    $"(service={(service is null ? "null" : "set")}, renderer={(renderer is null ? "null" : "set")}).");
+                _logger.LogWarning(
+                    "FindStepUsagesCommand: LSP server not yet initialized (service={ServiceState}, renderer={RendererState}).",
+                    service is null ? "null" : "set", renderer is null ? "null" : "set");
                 VsUtils.ShowStatusBarMessage("Reqnroll: LSP server not yet initialized — open a .feature file to activate it.");
                 return;
             }
@@ -88,7 +83,7 @@ internal sealed class FindStepUsagesCommand : Command
             var textView = await context.GetActiveTextViewAsync(cancellationToken).ConfigureAwait(false);
             if (textView is null)
             {
-                _fileLogger.LogWarning("FindStepUsagesCommand: No active text view in client context.");
+                _logger.LogWarning("FindStepUsagesCommand: no active text view in client context.");
                 return;
             }
 
@@ -98,16 +93,16 @@ internal sealed class FindStepUsagesCommand : Command
             var lineNum  = line.LineNumber;                 // 0-based, matches LSP convention
             var charNum  = caretPos.Offset - line.Text.Start; // 0-based column
 
-            _fileLogger.LogInfo(
-                $"FindStepUsagesCommand: active view uri='{fileUri}', caret line={lineNum} char={charNum}.");
+            _logger.LogInformation(
+                "FindStepUsagesCommand: active view uri={FileUri}, caret line={LineNum} char={CharNum}.", fileUri, lineNum, charNum);
 
             var result = await service.FindUsagesAsync(fileUri, lineNum, charNum, cancellationToken)
                 .ConfigureAwait(false);
 
             if (!result.IsBinding)
             {
-                _fileLogger.LogInfo(
-                    $"FindStepUsagesCommand: caret is not on a binding at {fileUri}:{lineNum} — nothing to show.");
+                _logger.LogInformation(
+                    "FindStepUsagesCommand: caret is not on a binding at {FileUri}:{LineNum} — nothing to show.", fileUri, lineNum);
                 return;
             }
 
@@ -116,17 +111,16 @@ internal sealed class FindStepUsagesCommand : Command
                 ? "0 usages"
                 : $"{count} usage{(count == 1 ? "" : "s")} of step definition";
 
-            _fileLogger.LogInfo(
-                $"FindStepUsagesCommand: binding resolved with {count} usage(s); rendering '{label}'.");
+            _logger.LogInformation(
+                "FindStepUsagesCommand: binding resolved with {UsageCount} usage(s); rendering {Label}.", count, label);
 
             await renderer.RenderAsync(label, result, cancellationToken).ConfigureAwait(false);
 
-            _fileLogger.LogInfo("FindStepUsagesCommand: render complete.");
+            _logger.LogInformation("FindStepUsagesCommand: render complete.");
         }
         catch (Exception ex)
         {
-            _fileLogger.LogWarning($"FindStepUsagesCommand: failed: {ex}");
-            _traceSource.TraceEvent(TraceEventType.Error, 0, "FindStepUsagesCommand: failed: {0}", ex);
+            _logger.LogError(ex, "FindStepUsagesCommand: failed.");
         }
     }
 }

@@ -2,13 +2,12 @@
 #pragma warning disable VSEXTPREVIEW_CODELENS
 
 using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.Editor;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
@@ -33,13 +32,14 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
 internal sealed class StepCodeLensProvider : ExtensionPart, ICodeLensProvider
 {
     private readonly StepCodeLensState _state;
-    private readonly TraceSource       _traceSource;
-    private readonly IDeveroomLogger   _fileLogger = new SynchronousFileLogger();
+    private readonly ILogger<StepCodeLensProvider> _logger;
+    private readonly ILoggerFactory _loggerFactory;
 
-    public StepCodeLensProvider(StepCodeLensState state, TraceSource traceSource)
+    public StepCodeLensProvider(StepCodeLensState state, ILogger<StepCodeLensProvider> logger, ILoggerFactory loggerFactory)
     {
-        _state       = state;
-        _traceSource = traceSource;
+        _state         = state;
+        _logger        = logger;
+        _loggerFactory = loggerFactory;
     }
 
     // Apply to C# files only.
@@ -68,9 +68,11 @@ internal sealed class StepCodeLensProvider : ExtensionPart, ICodeLensProvider
 
         // Record this method's start line so GetLabelAsync can bound its attribute lookback.
         _state.RegisterMethodLine(fileUri.ToString(), startLine);
-        _fileLogger.LogInfo($"StepCodeLensProvider.TryCreateCodeLensAsync: registered method at line {startLine} (0-based) in {fileUri}");
+        _logger.LogInformation(
+            "StepCodeLensProvider.TryCreateCodeLensAsync: registered method at line {StartLine} (0-based) in {FileUri}",
+            startLine, fileUri);
 
-        var lens = new StepCodeLens(_state, _traceSource, fileUri, startLine);
+        var lens = new StepCodeLens(_state, _loggerFactory.CreateLogger<StepCodeLens>(), fileUri, startLine);
         return Task.FromResult<CodeLens?>(lens);
     }
 }
@@ -82,19 +84,18 @@ internal sealed class StepCodeLensProvider : ExtensionPart, ICodeLensProvider
 internal sealed class StepCodeLens : InvokableCodeLens
 {
     private readonly StepCodeLensState _state;
-    private readonly TraceSource       _traceSource;
-    private readonly IDeveroomLogger   _fileLogger = new SynchronousFileLogger();
+    private readonly ILogger<StepCodeLens> _logger;
     private readonly Uri               _fileUri;
     private readonly int               _methodStartLine;
 
     public StepCodeLens(
-        StepCodeLensState state,
-        TraceSource       traceSource,
-        Uri               fileUri,
-        int               methodStartLine)
+        StepCodeLensState      state,
+        ILogger<StepCodeLens>  logger,
+        Uri                    fileUri,
+        int                    methodStartLine)
     {
         _state           = state;
-        _traceSource     = traceSource;
+        _logger          = logger;
         _fileUri         = fileUri;
         _methodStartLine = methodStartLine;
         _state.RegisterLens(this, fileUri.ToString());
@@ -138,10 +139,10 @@ internal sealed class StepCodeLens : InvokableCodeLens
             var nextMethod = _state.GetNextMethodLine(_fileUri.ToString(), currentStartLine);
             var upperBound = nextMethod >= 0 ? nextMethod : currentStartLine + AttributeLookahead;
 
-            _fileLogger.LogInfo(
-                $"StepCodeLens.GetLabelAsync: method at line {currentStartLine} (0-based), " +
-                $"nextMethod={nextMethod}, upperBound={upperBound}, " +
-                $"serverLensLines=[{string.Join(",", lenses.Select(l => l.RangeLine))}]");
+            _logger.LogInformation(
+                "StepCodeLens.GetLabelAsync: method at line {CurrentStartLine} (0-based), " +
+                "nextMethod={NextMethod}, upperBound={UpperBound}, serverLensLines=[{ServerLensLines}]",
+                currentStartLine, nextMethod, upperBound, string.Join(",", lenses.Select(l => l.RangeLine)));
 
             // Server lens lines are at the method-declaration line (>= currentStartLine).
             var attrLenses = lenses
@@ -158,14 +159,15 @@ internal sealed class StepCodeLens : InvokableCodeLens
 
             var text    = totalUsages == 1 ? "1 step usage" : $"{totalUsages} step usages";
             var tooltip = "Reqnroll step usages for this binding";
-            _fileLogger.LogInfo(
-                $"StepCodeLens.GetLabelAsync: '{text}' for method at line {currentStartLine} in {_fileUri}");
+            _logger.LogInformation(
+                "StepCodeLens.GetLabelAsync: {Text} for method at line {CurrentStartLine} in {FileUri}",
+                text, currentStartLine, _fileUri);
             return new CodeLensLabel { Text = text, Tooltip = tooltip };
         }
         catch (Exception ex)
         {
-            _traceSource.TraceEvent(TraceEventType.Warning, 0,
-                "StepCodeLens.GetLabelAsync: failed for {0}:{1}: {2}", _fileUri, _methodStartLine, ex.Message);
+            _logger.LogWarning(ex,
+                "StepCodeLens.GetLabelAsync: failed for {FileUri}:{MethodStartLine}", _fileUri, _methodStartLine);
             return new CodeLensLabel { Text = string.Empty, Tooltip = string.Empty };
         }
     }
@@ -183,7 +185,7 @@ internal sealed class StepCodeLens : InvokableCodeLens
         var renderer     = _state.FindUsagesRenderer;
         if (findService is null || renderer is null)
         {
-            _fileLogger.LogWarning(
+            _logger.LogWarning(
                 "StepCodeLens.ExecuteAsync: LSP server not yet initialized — cannot invoke find usages.");
             return;
         }
@@ -209,8 +211,8 @@ internal sealed class StepCodeLens : InvokableCodeLens
 
             if (firstAttr is null) return;
 
-            _fileLogger.LogInfo(
-                $"StepCodeLens.ExecuteAsync: invoking find usages at {_fileUri}:{firstAttr.ArgLine}");
+            _logger.LogInformation(
+                "StepCodeLens.ExecuteAsync: invoking find usages at {FileUri}:{ArgLine}", _fileUri, firstAttr.ArgLine);
 
             var result = await findService
                 .FindUsagesAsync(_fileUri.ToString(), firstAttr.ArgLine, 0, cancellationToken)
@@ -227,9 +229,7 @@ internal sealed class StepCodeLens : InvokableCodeLens
         }
         catch (Exception ex)
         {
-            _fileLogger.LogWarning($"StepCodeLens.ExecuteAsync: failed: {ex}");
-            _traceSource.TraceEvent(TraceEventType.Error, 0,
-                "StepCodeLens.ExecuteAsync: failed: {0}", ex);
+            _logger.LogError(ex, "StepCodeLens.ExecuteAsync: failed.");
         }
     }
 

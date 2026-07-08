@@ -1,14 +1,13 @@
-using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.LanguageServer;
 using Microsoft.VisualStudio.RpcContracts.LanguageServerProvider;
 using Microsoft.VisualStudio.Shell;
 using Reqnroll.IdeSupport.Common.Analytics;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.CommentToggle;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
@@ -26,8 +25,8 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension;
 [VisualStudioContribution]
 internal class ReqnrollLanguageClient : LanguageServerProvider
 {
-    private readonly TraceSource _traceSource;
-    private readonly IDeveroomLogger _fileLogger;
+    private readonly ILogger<ReqnrollLanguageClient> _logger;
+    private readonly ILoggerFactory _loggerFactory;
     private readonly FindStepUsagesState _findStepUsagesState;
     private readonly FindUnusedStepDefinitionsState _findUnusedStepDefinitionsState;
     private readonly GoToHooksState _goToHooksState;
@@ -40,7 +39,8 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
     public ReqnrollLanguageClient(
         ExtensionCore container,
         VisualStudioExtensibility extensibilityObject,
-        TraceSource traceSource,
+        ILogger<ReqnrollLanguageClient> logger,
+        ILoggerFactory loggerFactory,
         FindStepUsagesState findStepUsagesState,
         FindUnusedStepDefinitionsState findUnusedStepDefinitionsState,
         GoToHooksState goToHooksState,
@@ -50,7 +50,8 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
         LspServerConnectionService connectionService)
         : base(container, extensibilityObject)
     {
-        _traceSource                    = traceSource;
+        _logger                         = logger;
+        _loggerFactory                  = loggerFactory;
         _findStepUsagesState            = findStepUsagesState;
         _findUnusedStepDefinitionsState = findUnusedStepDefinitionsState;
         _goToHooksState                 = goToHooksState;
@@ -67,11 +68,9 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
         // same as before this change. See ExtensionEntrypoint.OnInitializedAsync's remarks for the
         // corrected mechanism and the log evidence.
         _connectionService   = connectionService;
-        _fileLogger          = new SynchronousFileLogger();
-        _traceSource.TraceInformation("ReqnrollLanguageClient: Instance created.");
-        _fileLogger.LogInfo(
-            $"ReqnrollLanguageClient: VS extension loaded. " +
-            $"Assembly: {typeof(ReqnrollLanguageClient).Assembly.Location}");
+        _logger.LogInformation(
+            "ReqnrollLanguageClient: instance created. VS extension loaded. Assembly: {AssemblyLocation}",
+            typeof(ReqnrollLanguageClient).Assembly.Location);
     }
 
     /// <inheritdoc />
@@ -85,8 +84,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
     /// <inheritdoc />
     public override async Task<IDuplexPipe?> CreateServerConnectionAsync(CancellationToken cancellationToken)
     {
-        _traceSource.TraceInformation("ReqnrollLanguageClient: CreateServerConnectionAsync called — awaiting eager connection.");
-        _fileLogger.LogInfo("ReqnrollLanguageClient: CreateServerConnectionAsync — awaiting eager connection.");
+        _logger.LogInformation("ReqnrollLanguageClient: CreateServerConnectionAsync called — awaiting eager connection.");
 
         // Startup (process launch + pipe construction) was kicked off eagerly when
         // LspServerConnectionService was constructed — see its remarks. This just awaits
@@ -95,9 +93,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
 
         if (pipe is null)
         {
-            _traceSource.TraceEvent(TraceEventType.Error, 0,
-                "ReqnrollLanguageClient: LSP server connection unavailable. Disabling.");
-            _fileLogger.LogWarning("ReqnrollLanguageClient: LSP server connection unavailable. Disabling.");
+            _logger.LogError("ReqnrollLanguageClient: LSP server connection unavailable. Disabling.");
             Enabled = false;
             return null;
         }
@@ -116,31 +112,29 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
             var failMsg = initializationFailureInfo?.StatusMessage
                           ?? initializationFailureInfo?.Exception?.Message
                           ?? "(none)";
-            _traceSource.TraceEvent(TraceEventType.Error, 0,
-                "ReqnrollLanguageClient: Server initialization failed. Info: {0}", failMsg);
-            _fileLogger.LogWarning($"ReqnrollLanguageClient: Server initialization failed: {failMsg}");
+            _logger.LogError(
+                "ReqnrollLanguageClient: server initialization failed. Info: {FailMessage}", failMsg);
             Enabled = false;
             return;
         }
 
-        _traceSource.TraceInformation(
-            "ReqnrollLanguageClient: Server initialized successfully ({0}).",
+        _logger.LogInformation(
+            "ReqnrollLanguageClient: server initialized successfully ({ServerInitializationResult}).",
             serverInitializationResult);
-        _fileLogger.LogInfo($"ReqnrollLanguageClient: Server initialized successfully ({serverInitializationResult}).");
 
         // Start monitoring VS project events and flush the current solution state.
         var interceptingPipe = _connectionService.InterceptingPipe;
         if (interceptingPipe is not null)
         {
             // GoToHooksService and FindStepUsagesService use only
-            // LspInterceptingPipe + TraceSource — no COM, safe here.
-            _findStepUsagesState.Service            = new FindStepUsagesService(interceptingPipe, _traceSource);
-            _findUnusedStepDefinitionsState.Service = new FindUnusedStepDefinitionsService(interceptingPipe, _traceSource);
-            _goToHooksState.Service                 = new GoToHooksService(interceptingPipe, _traceSource);
-            _stepCodeLensState.Service              = new StepCodeLensService(interceptingPipe, _traceSource);
-            _commentToggleState.Service             = new CommentToggleService(interceptingPipe, _traceSource);
-            _renameStepState.Service                 = new RenameStepService(interceptingPipe, _traceSource);
-            _navigationBarSymbolService              = new GherkinNavigationBarSymbolService(interceptingPipe, _traceSource);
+            // LspInterceptingPipe + ILogger<T> — no COM, safe here.
+            _findStepUsagesState.Service            = new FindStepUsagesService(interceptingPipe, _loggerFactory.CreateLogger<FindStepUsagesService>());
+            _findUnusedStepDefinitionsState.Service = new FindUnusedStepDefinitionsService(interceptingPipe, _loggerFactory.CreateLogger<FindUnusedStepDefinitionsService>());
+            _goToHooksState.Service                 = new GoToHooksService(interceptingPipe, _loggerFactory.CreateLogger<GoToHooksService>());
+            _stepCodeLensState.Service              = new StepCodeLensService(interceptingPipe, _loggerFactory.CreateLogger<StepCodeLensService>());
+            _commentToggleState.Service             = new CommentToggleService(interceptingPipe, _loggerFactory.CreateLogger<CommentToggleService>());
+            _renameStepState.Service                 = new RenameStepService(interceptingPipe, _loggerFactory.CreateLogger<RenameStepService>());
+            _navigationBarSymbolService              = new GherkinNavigationBarSymbolService(interceptingPipe, _loggerFactory.CreateLogger<GherkinNavigationBarSymbolService>());
 
             // Set the VSSDK command filter redirect so the keyboard shortcut interception
             // for Edit.CommentSelection/UncommentSelection/ToggleLineComment calls our service.
@@ -160,38 +154,35 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
 
                 var serviceProvider = ServiceProvider.GlobalProvider;
                 _connectionService.AnalyticsTransmitter = ResolveMefService<IAnalyticsTransmitter>(serviceProvider);
-                _traceSource.TraceInformation(
-                    "ReqnrollLanguageClient: IAnalyticsTransmitter resolved: {0}",
+                _logger.LogInformation(
+                    "ReqnrollLanguageClient: IAnalyticsTransmitter resolved: {Resolved}",
                     _connectionService.AnalyticsTransmitter is not null ? "yes" : "no");
-                _findStepUsagesState.Renderer            = new FindStepUsagesRenderer(serviceProvider, _traceSource);
-                _findUnusedStepDefinitionsState.Renderer = new FindUnusedStepDefinitionsRenderer(serviceProvider, _traceSource);
+                _findStepUsagesState.Renderer            = new FindStepUsagesRenderer(serviceProvider, _loggerFactory.CreateLogger<FindStepUsagesRenderer>());
+                _findUnusedStepDefinitionsState.Renderer = new FindUnusedStepDefinitionsRenderer(serviceProvider, _loggerFactory.CreateLogger<FindUnusedStepDefinitionsRenderer>());
 
                 // F18 — reuse F14 find-usages components for the code-lens click action.
                 _stepCodeLensState.FindUsagesService  = _findStepUsagesState.Service;
                 _stepCodeLensState.FindUsagesRenderer = _findStepUsagesState.Renderer;
 
-                _fileLogger.LogInfo("ReqnrollLanguageClient: Creating VsProjectEventMonitor.");
+                _logger.LogInformation("ReqnrollLanguageClient: creating VsProjectEventMonitor.");
                 _connectionService.ProjectMonitor = new VsProjectEventMonitor(
-                    interceptingPipe, _traceSource, serviceProvider);
+                    interceptingPipe, _loggerFactory.CreateLogger<VsProjectEventMonitor>(), serviceProvider);
 
-                _fileLogger.LogInfo("ReqnrollLanguageClient: Sending initial projects.");
+                _logger.LogInformation("ReqnrollLanguageClient: sending initial projects.");
                 await _connectionService.ProjectMonitor
                     .SendInitialProjectsAsync(cancellationToken)
                     .ConfigureAwait(false);
 
-                _fileLogger.LogInfo("ReqnrollLanguageClient: Flushing .feature stub frames.");
+                _logger.LogInformation("ReqnrollLanguageClient: flushing .feature stub frames.");
                 await VsStubFrameInitializer.ForceInitFeatureStubsAsync(
-                        ServiceProvider.GlobalProvider, _traceSource, cancellationToken)
+                        ServiceProvider.GlobalProvider, _logger, cancellationToken)
                     .ConfigureAwait(false);
 
-                _fileLogger.LogInfo("ReqnrollLanguageClient: Initial project flush complete.");
+                _logger.LogInformation("ReqnrollLanguageClient: initial project flush complete.");
             }
             catch (Exception ex)
             {
-                _traceSource.TraceEvent(TraceEventType.Warning, 0,
-                    "ReqnrollLanguageClient: Could not start project monitor: {0}", ex.Message);
-                _fileLogger.LogWarning(
-                    $"ReqnrollLanguageClient: Could not start project monitor: {ex.GetType().Name}: {ex.Message}");
+                _logger.LogWarning(ex, "ReqnrollLanguageClient: could not start project monitor.");
             }
         }
     }
@@ -202,7 +193,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
         ThreadHelper.ThrowIfNotOnUIThread();
         if (isDisposing)
         {
-            _fileLogger.LogInfo("ReqnrollLanguageClient: Disposing — shutting down server connection.");
+            _logger.LogInformation("ReqnrollLanguageClient: disposing — shutting down server connection.");
 
             // ProjectMonitor is UI-thread/COM-bound, so it is disposed here (this method already
             // asserts the UI thread above) rather than in LspServerConnectionService.Dispose.

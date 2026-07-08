@@ -1,13 +1,12 @@
 #nullable enable
 
 using System;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.FindAllReferences;
 using Microsoft.VisualStudio.Shell.TableManager;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 
@@ -20,15 +19,12 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 internal sealed class FindStepUsagesRenderer
 {
     private readonly IServiceProvider _serviceProvider;
-    private readonly TraceSource      _traceSource;
-    // TraceSource is not routed to the shared reqnroll-vs-ext-*.log; mirror the key
-    // diagnostics there so a failure to open the window is visible in a single run.
-    private readonly IDeveroomLogger  _fileLogger = new SynchronousFileLogger();
+    private readonly ILogger<FindStepUsagesRenderer> _logger;
 
-    public FindStepUsagesRenderer(IServiceProvider serviceProvider, TraceSource traceSource)
+    public FindStepUsagesRenderer(IServiceProvider serviceProvider, ILogger<FindStepUsagesRenderer> logger)
     {
         _serviceProvider = serviceProvider;
-        _traceSource     = traceSource;
+        _logger          = logger;
     }
 
     /// <summary>
@@ -46,18 +42,14 @@ internal sealed class FindStepUsagesRenderer
         var far = _serviceProvider.GetService(typeof(SVsFindAllReferences)) as IFindAllReferencesService;
         if (far is null)
         {
-            _traceSource.TraceEvent(TraceEventType.Warning, 0,
-                "FindStepUsagesRenderer: IFindAllReferencesService not available");
-            _fileLogger.LogWarning("FindStepUsagesRenderer: IFindAllReferencesService not available.");
+            _logger.LogWarning("FindStepUsagesRenderer: IFindAllReferencesService not available.");
             return;
         }
 
         var window = far.StartSearch(label);
         if (window is null)
         {
-            _traceSource.TraceEvent(TraceEventType.Warning, 0,
-                "FindStepUsagesRenderer: StartSearch returned null window");
-            _fileLogger.LogWarning("FindStepUsagesRenderer: StartSearch returned null window.");
+            _logger.LogWarning("FindStepUsagesRenderer: StartSearch returned null window.");
             return;
         }
 
@@ -70,10 +62,8 @@ internal sealed class FindStepUsagesRenderer
             StandardTableKeyNames.ProjectName,
             "description");
 
-        _traceSource.TraceInformation(
-            "FindStepUsagesRenderer: opened FAR window '{0}' with {1} location(s)",
+        _logger.LogInformation(
+            "FindStepUsagesRenderer: opened FAR window {Label} with {LocationCount} location(s)",
             label, result.Locations.Count);
-        _fileLogger.LogInfo(
-            $"FindStepUsagesRenderer: opened FAR window '{label}' with {result.Locations.Count} location(s).");
     }
 }

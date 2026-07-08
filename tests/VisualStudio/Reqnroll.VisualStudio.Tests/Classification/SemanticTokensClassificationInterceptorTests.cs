@@ -1,8 +1,8 @@
 using System;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json.Linq;
 using Reqnroll.IdeSupport.VisualStudio.Extension.Classification;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
@@ -22,7 +22,7 @@ public class SemanticTokensClassificationInterceptorTests
     private static (SemanticTokenClassificationStore store, SemanticTokensClassificationInterceptor sut) Create()
     {
         var store = new SemanticTokenClassificationStore();
-        return (store, new SemanticTokensClassificationInterceptor(store, new TraceSource("test")));
+        return (store, new SemanticTokensClassificationInterceptor(store, NullLogger<SemanticTokensClassificationInterceptor>.Instance));
     }
 
     private static LspMessage Receive(JObject body) => new(LspMessageDirection.Receive, body, DateTimeOffset.Now);

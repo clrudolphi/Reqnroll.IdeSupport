@@ -7,7 +7,6 @@ using Reqnroll.IdeSupport.Common.Analytics;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Wizards.VsIntegration;
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -35,27 +34,28 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
 {
     public const string PackageGuidString = "8d5fe503-e038-4079-9e45-697e0dcb3758";
 
-    private static readonly TraceSource TraceSource = new("ReqnrollPluginPackage", SourceLevels.Information);
-    private SynchronousFileLogger _fileLogger = null!;
+    private IDeveroomLogger _logger = new DeveroomNullLogger();
     private IAnalyticsTransmitter? _analyticsTransmitter;
 
     protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
     {
         await base.InitializeAsync(cancellationToken, progress);
 
-        _fileLogger = new SynchronousFileLogger();
-        _fileLogger.LogInfo("ReqnrollPluginPackage: InitializeAsync started.");
-
-        TraceSource.TraceInformation("Package initialised; waiting for solution load.");
-        _fileLogger.LogInfo("Waiting for solution load...");
-
-        // Resolve analytics transmitter for telemetry flush on shutdown.
-        // Resolved early so it's available for the full package lifecycle.
+        // Resolve the shared MEF-exported IDeveroomLogger (issue #84) rather than a private
+        // ad-hoc SynchronousFileLogger + a second, unlistened-to TraceSource. Resolved early
+        // (alongside IAnalyticsTransmitter below) so it's available for the full package lifecycle;
+        // falls back to a no-op logger only if the component model isn't ready yet.
         {
             var sp = await GetServiceAsync(typeof(SComponentModel)) as IServiceProvider;
             if (sp != null)
+            {
+                _logger = VsUtils.ResolveMefDependency<IDeveroomLogger>(sp) ?? new DeveroomNullLogger();
                 _analyticsTransmitter = VsUtils.ResolveMefDependency<IAnalyticsTransmitter>(sp);
+            }
         }
+
+        _logger.LogInfo("ReqnrollPluginPackage: InitializeAsync started.");
+        _logger.LogInfo("Waiting for solution load...");
 
         await WaitForSolutionLoadAsync(cancellationToken);
 
@@ -69,19 +69,18 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
         // TODO(Q23): reinstate a non-racing/idempotent way to start the LSP when the
         // foreground tab is a .cs file and no feature file is open.
 
-        _fileLogger.LogInfo("Solution loaded.");
+        _logger.LogInfo("Solution loaded.");
 
         // Show the Welcome (first install) or Upgrade (version change) dialog
         // if appropriate, after a short delay so VS can finish initializing.
         await RunWelcomeServiceAsync(cancellationToken);
 
-        _fileLogger.LogInfo("Package initialisation complete.");
-        TraceSource.TraceInformation("Package initialisation complete.");
+        _logger.LogInfo("Package initialisation complete.");
     }
 
     private async Task RunWelcomeServiceAsync(CancellationToken cancellationToken)
     {
-        _fileLogger.LogInfo("RunWelcomeServiceAsync: starting.");
+        _logger.LogInfo("RunWelcomeServiceAsync: starting.");
         try
         {
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
@@ -89,78 +88,66 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
             var sp = ServiceProvider.GlobalProvider;
 
             // Resolve MEF services
-            _fileLogger.LogInfo("RunWelcomeServiceAsync: resolving IRegistryManager...");
+            _logger.LogInfo("RunWelcomeServiceAsync: resolving IRegistryManager...");
             var registryManager = VsUtils.ResolveMefDependency<IRegistryManager>(sp);
             if (registryManager is null)
             {
-                _fileLogger.LogInfo("RunWelcomeServiceAsync: IRegistryManager not available, skipping.");
-                TraceSource.TraceEvent(TraceEventType.Warning, 0,
-                    "RunWelcomeService: IRegistryManager not available, skipping.");
+                _logger.LogWarning("RunWelcomeServiceAsync: IRegistryManager not available, skipping.");
                 return;
             }
-            _fileLogger.LogInfo("RunWelcomeServiceAsync: IRegistryManager resolved OK.");
+            _logger.LogInfo("RunWelcomeServiceAsync: IRegistryManager resolved OK.");
 
-            _fileLogger.LogInfo("RunWelcomeServiceAsync: resolving IVersionProvider...");
+            _logger.LogInfo("RunWelcomeServiceAsync: resolving IVersionProvider...");
             var versionProvider = VsUtils.ResolveMefDependency<IVersionProvider>(sp);
             if (versionProvider is null)
             {
-                _fileLogger.LogInfo("RunWelcomeServiceAsync: IVersionProvider not available, skipping.");
-                TraceSource.TraceEvent(TraceEventType.Warning, 0,
-                    "RunWelcomeService: IVersionProvider not available, skipping.");
+                _logger.LogWarning("RunWelcomeServiceAsync: IVersionProvider not available, skipping.");
                 return;
             }
-            _fileLogger.LogInfo("RunWelcomeServiceAsync: IVersionProvider resolved OK. Version=" + versionProvider.GetExtensionVersion());
+            _logger.LogInfo("RunWelcomeServiceAsync: IVersionProvider resolved OK. Version=" + versionProvider.GetExtensionVersion());
 
-            _fileLogger.LogInfo("RunWelcomeServiceAsync: resolving IFileSystemForIDE...");
+            _logger.LogInfo("RunWelcomeServiceAsync: resolving IFileSystemForIDE...");
             var fileSystem = VsUtils.ResolveMefDependency<IFileSystemForIDE>(sp);
             if (fileSystem is null)
             {
-                _fileLogger.LogInfo("RunWelcomeServiceAsync: IFileSystemForIDE not available, skipping.");
-                TraceSource.TraceEvent(TraceEventType.Warning, 0,
-                    "RunWelcomeService: IFileSystemForIDE not available, skipping.");
+                _logger.LogWarning("RunWelcomeServiceAsync: IFileSystemForIDE not available, skipping.");
                 return;
             }
-            _fileLogger.LogInfo("RunWelcomeServiceAsync: IFileSystemForIDE resolved OK.");
+            _logger.LogInfo("RunWelcomeServiceAsync: IFileSystemForIDE resolved OK.");
 
-            _fileLogger.LogInfo("RunWelcomeServiceAsync: resolving IIdeScope...");
+            _logger.LogInfo("RunWelcomeServiceAsync: resolving IIdeScope...");
             var ideScope = VsUtils.ResolveMefDependency<IIdeScope>(sp);
             if (ideScope is null)
             {
-                _fileLogger.LogInfo("RunWelcomeServiceAsync: IIdeScope not available, skipping.");
-                TraceSource.TraceEvent(TraceEventType.Warning, 0,
-                    "RunWelcomeService: IIdeScope not available, skipping.");
+                _logger.LogWarning("RunWelcomeServiceAsync: IIdeScope not available, skipping.");
                 return;
             }
-            _fileLogger.LogInfo("RunWelcomeServiceAsync: IIdeScope resolved OK.");
+            _logger.LogInfo("RunWelcomeServiceAsync: IIdeScope resolved OK.");
 
             // Create the dialog service (manual creation, not MEF-exported)
-            _fileLogger.LogInfo("RunWelcomeServiceAsync: resolving IVsUIShell...");
+            _logger.LogInfo("RunWelcomeServiceAsync: resolving IVsUIShell...");
             var vsUiShell = sp.GetService(typeof(SVsUIShell)) as IVsUIShell;
             if (vsUiShell is null)
             {
-                _fileLogger.LogInfo("RunWelcomeServiceAsync: IVsUIShell not available, skipping.");
-                TraceSource.TraceEvent(TraceEventType.Warning, 0,
-                    "RunWelcomeService: IVsUIShell not available, skipping.");
+                _logger.LogWarning("RunWelcomeServiceAsync: IVsUIShell not available, skipping.");
                 return;
             }
-            _fileLogger.LogInfo("RunWelcomeServiceAsync: IVsUIShell resolved OK.");
+            _logger.LogInfo("RunWelcomeServiceAsync: IVsUIShell resolved OK.");
 
             var monitoringService = ideScope.MonitoringService;
             var dialogService = new VsWizardDialogService(vsUiShell, monitoringService);
 
-            _fileLogger.LogInfo("RunWelcomeServiceAsync: creating WelcomeService...");
+            _logger.LogInfo("RunWelcomeServiceAsync: creating WelcomeService...");
             var welcomeService = new WelcomeService(
                 registryManager, versionProvider, dialogService, fileSystem);
 
-            _fileLogger.LogInfo("RunWelcomeServiceAsync: calling OnIdeScopeActivityStarted...");
+            _logger.LogInfo("RunWelcomeServiceAsync: calling OnIdeScopeActivityStarted...");
             welcomeService.OnIdeScopeActivityStarted(ideScope);
-            _fileLogger.LogInfo("RunWelcomeServiceAsync: OnIdeScopeActivityStarted returned (dialog scheduled with 7s delay).");
+            _logger.LogInfo("RunWelcomeServiceAsync: OnIdeScopeActivityStarted returned (dialog scheduled with 7s delay).");
         }
         catch (Exception ex)
         {
-            _fileLogger.LogInfo("RunWelcomeServiceAsync: FAILED: " + ex.GetType().Name + ": " + ex.Message);
-            TraceSource.TraceEvent(TraceEventType.Warning, 0,
-                "RunWelcomeService: Failed: {0}", ex.Message);
+            _logger.LogException(ex, "RunWelcomeServiceAsync: Failed");
         }
     }
 
@@ -187,7 +174,7 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         }
 
-        TraceSource.TraceInformation("WaitForSolutionLoadAsync: max attempts reached, proceeding anyway.");
+        _logger.LogInfo("WaitForSolutionLoadAsync: max attempts reached, proceeding anyway.");
     }
 
     protected override void Dispose(bool disposing)

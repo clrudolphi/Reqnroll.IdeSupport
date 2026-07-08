@@ -2,7 +2,6 @@
 
 using System;
 using System.ComponentModel.Composition;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio;
@@ -13,6 +12,7 @@ using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.TextManager.Interop;
 using Microsoft.VisualStudio.Utilities;
+using Reqnroll.IdeSupport.Common.Diagnostics;
 
 namespace Reqnroll.IdeSupport.VisualStudio;
 
@@ -43,11 +43,13 @@ public sealed class CommentToggleCommandFilter : IOleCommandTarget
     internal sealed class TextViewCreationListener : IVsTextViewCreationListener
     {
         private readonly IVsEditorAdaptersFactoryService _editorAdapter;
+        private readonly IDeveroomLogger _logger;
 
         [ImportingConstructor]
-        public TextViewCreationListener(IVsEditorAdaptersFactoryService editorAdapter)
+        public TextViewCreationListener(IVsEditorAdaptersFactoryService editorAdapter, IDeveroomLogger logger)
         {
             _editorAdapter = editorAdapter;
+            _logger = logger;
         }
 
         public void VsTextViewCreated(IVsTextView textViewAdapter)
@@ -57,7 +59,7 @@ public sealed class CommentToggleCommandFilter : IOleCommandTarget
             // before its WPF wrapper is linked into the adapter factory, so GetWpfTextView
             // returns null at this point and would cause a silent early-return that skips
             // AddCommandFilter entirely.  The WPF view is resolved lazily in Exec instead.
-            var filter = new CommentToggleCommandFilter(textViewAdapter, _editorAdapter);
+            var filter = new CommentToggleCommandFilter(textViewAdapter, _editorAdapter, _logger);
 
             // AddCommandFilter outputs the next target in the chain.
             // The filter intercepts comment commands before the default handler sees them.
@@ -78,17 +80,18 @@ public sealed class CommentToggleCommandFilter : IOleCommandTarget
 
     private readonly IVsTextView                     _vsTextView;
     private readonly IVsEditorAdaptersFactoryService _editorAdapter;
-    private readonly TraceSource                     _traceSource = new("CommentToggleCommandFilter", SourceLevels.Information);
+    private readonly IDeveroomLogger                 _logger;
 
     // Resolved on first Exec call; null until then.
     private IWpfTextView? _wpfTextView;
 
     private IOleCommandTarget? _nextCommandTarget;
 
-    private CommentToggleCommandFilter(IVsTextView vsTextView, IVsEditorAdaptersFactoryService editorAdapter)
+    private CommentToggleCommandFilter(IVsTextView vsTextView, IVsEditorAdaptersFactoryService editorAdapter, IDeveroomLogger logger)
     {
         _vsTextView    = vsTextView;
         _editorAdapter = editorAdapter;
+        _logger        = logger;
     }
 
     // ── IOleCommandTarget ─────────────────────────────────────────────────
@@ -105,8 +108,8 @@ public sealed class CommentToggleCommandFilter : IOleCommandTarget
             _wpfTextView ??= _editorAdapter.GetWpfTextView(_vsTextView);
             if (_wpfTextView is null)
             {
-                _traceSource.TraceInformation(
-                    "CommentToggleCommandFilter: WPF view not available for command id={0}, ignoring.", commandId);
+                _logger.LogInfo(
+                    $"CommentToggleCommandFilter: WPF view not available for command id={commandId}, ignoring.");
                 return VSConstants.S_OK;
             }
 
@@ -118,9 +121,8 @@ public sealed class CommentToggleCommandFilter : IOleCommandTarget
                 var startLine = selection.Start.Position.GetContainingLine().LineNumber;
                 var endLine   = selection.End.Position.GetContainingLine().LineNumber;
 
-                _traceSource.TraceInformation(
-                    "CommentToggleCommandFilter: redirecting command id={0} uri='{1}' lines[{2}..{3}]",
-                    commandId, fileUri, startLine, endLine);
+                _logger.LogInfo(
+                    $"CommentToggleCommandFilter: redirecting command id={commandId} uri='{fileUri}' lines[{startLine}..{endLine}]");
 
                 _ = Task.Run(async () =>
                 {
@@ -131,16 +133,14 @@ public sealed class CommentToggleCommandFilter : IOleCommandTarget
                     }
                     catch (Exception ex)
                     {
-                        _traceSource.TraceEvent(TraceEventType.Error, 0,
-                            "CommentToggleCommandFilter: redirect failed: {0}", ex);
+                        _logger.LogException(ex, "CommentToggleCommandFilter: redirect failed");
                     }
                 });
             }
             else
             {
-                _traceSource.TraceInformation(
-                    "CommentToggleCommandFilter: redirect not available — ignoring command id={0}",
-                    commandId);
+                _logger.LogInfo(
+                    $"CommentToggleCommandFilter: redirect not available — ignoring command id={commandId}");
             }
 
             return VSConstants.S_OK;
@@ -184,8 +184,7 @@ public sealed class CommentToggleCommandFilter : IOleCommandTarget
         }
         catch (Exception ex)
         {
-            _traceSource.TraceEvent(TraceEventType.Warning, 0,
-                "CommentToggleCommandFilter: failed to get file URI: {0}", ex.Message);
+            _logger.LogWarning($"CommentToggleCommandFilter: failed to get file URI: {ex.Message}");
         }
 
         return string.Empty;

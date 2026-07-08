@@ -1,10 +1,9 @@
 #nullable enable
 
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.CommentToggle;
@@ -23,13 +22,12 @@ internal sealed class CommentToggleService
     private const string ExecuteCommandMethod = "workspace/executeCommand";
 
     private readonly LspInterceptingPipe _pipe;
-    private readonly TraceSource         _traceSource;
-    private readonly IDeveroomLogger     _fileLogger = new SynchronousFileLogger();
+    private readonly ILogger<CommentToggleService> _logger;
 
-    public CommentToggleService(LspInterceptingPipe pipe, TraceSource traceSource)
+    public CommentToggleService(LspInterceptingPipe pipe, ILogger<CommentToggleService> logger)
     {
-        _pipe        = pipe;
-        _traceSource = traceSource;
+        _pipe   = pipe;
+        _logger = logger;
     }
 
     /// <summary>
@@ -44,21 +42,20 @@ internal sealed class CommentToggleService
     {
         var paramsJson = BuildParams(fileUri, startLine, endLine);
 
-        _traceSource.TraceInformation(
-            "CommentToggleService: sending workspace/executeCommand reqnroll.toggleComment " +
-            "uri={0} lines[{1}..{2}]", fileUri, startLine, endLine);
-        _fileLogger.LogInfo(
-            $"CommentToggleService: sending reqnroll.toggleComment params={paramsJson}");
+        _logger.LogInformation(
+            "CommentToggleService: sending workspace/executeCommand reqnroll.toggleComment uri={FileUri} lines[{StartLine}..{EndLine}]",
+            fileUri, startLine, endLine);
+        _logger.LogInformation(
+            "CommentToggleService: sending reqnroll.toggleComment params={ParamsJson}", paramsJson);
 
         var result = await _pipe
             .SendRequestToServerAsync(ExecuteCommandMethod, paramsJson, cancellationToken)
             .ConfigureAwait(false);
 
-        _fileLogger.LogInfo(
-            $"CommentToggleService: server response = {(result is null ? "<null>" : result.ToString())}");
+        _logger.LogInformation(
+            "CommentToggleService: server response = {Result}", result is null ? "<null>" : result.ToString());
 
-        _traceSource.TraceInformation(
-            "CommentToggleService: server acknowledged reqnroll.toggleComment");
+        _logger.LogInformation("CommentToggleService: server acknowledged reqnroll.toggleComment");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

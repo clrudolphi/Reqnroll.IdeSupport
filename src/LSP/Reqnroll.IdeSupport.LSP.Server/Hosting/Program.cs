@@ -28,6 +28,30 @@ using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Hosting;
 
+/// <remarks>
+/// <para>
+/// <b>Logging split (issue #84):</b> app-level code in this server (handlers, discovery,
+/// workspace/document services, etc.) logs exclusively through the DI-registered
+/// <see cref="IDeveroomLogger"/> singleton (<see cref="Logging.LspDeveroomLogger"/>), consumed via
+/// the <c>LogInfo</c>/<c>LogWarning</c>/<c>LogError</c>/... extension methods in
+/// <see cref="DeveroomLoggerExtensions"/> — this is deliberate and should stay the pattern for new
+/// app-level code, rather than switching individual classes to <c>ILogger&lt;T&gt;</c>.
+/// </para>
+/// <para>
+/// Separately, <c>ILogger&lt;T&gt;</c> (<see cref="Microsoft.Extensions.Logging"/>) is registered
+/// too (see <see cref="ServiceCollectionExtensions.AddReqnrollLspCoreServices"/>) and is what
+/// OmniSharp's own internals log through — request dispatch, DryIoc, JSON-RPC plumbing — routed by
+/// <see cref="ProtocolLoggerProvider"/> into the same <see cref="IDeveroomLogger"/> sink (via the
+/// shared <see cref="DeveroomLoggerAdapter"/>) so there is one physical set of log files, not two
+/// divergent stores, even though the two APIs remain distinct at the call site. Any new code that
+/// specifically needs <c>ILogger&lt;T&gt;</c> (e.g. to satisfy a third-party library's constructor)
+/// can resolve it from DI and it will land in the same place.
+/// </para>
+/// <para>
+/// The three log-level dials below (<c>--log-level</c>, <c>--protocol-log-level</c>, <c>--trace</c>)
+/// remain intentionally independent — see each parameter's remarks on <see cref="ConfigureServer"/>.
+/// </para>
+/// </remarks>
 public class Program
 {
     public static async Task Main(string[] args)
@@ -259,16 +283,10 @@ public class Program
     /// <summary>
     /// Maps the <see cref="IDeveroomLogger"/> verbosity scale onto
     /// <see cref="Microsoft.Extensions.Logging.LogLevel"/> for the OmniSharp protocol-logging pipeline.
+    /// Delegates to the canonical, shared conversion in <see cref="DeveroomLogLevelConverter"/> so
+    /// there is exactly one <see cref="TraceLevel"/>/<see cref="LogLevel"/> mapping in the codebase.
     /// </summary>
-    internal static LogLevel ToLogLevel(TraceLevel level) => level switch
-    {
-        TraceLevel.Off     => LogLevel.None,
-        TraceLevel.Error   => LogLevel.Error,
-        TraceLevel.Warning => LogLevel.Warning,
-        TraceLevel.Info    => LogLevel.Information,
-        TraceLevel.Verbose => LogLevel.Trace,
-        _                  => LogLevel.Warning
-    };
+    internal static LogLevel ToLogLevel(TraceLevel level) => DeveroomLogLevelConverter.ToLogLevel(level);
 
     /// <summary>Returns the value following <paramref name="flag"/> in <paramref name="args"/>, or <see langword="null"/> when absent.</summary>
     internal static string? ParseArg(string[] args, string flag)

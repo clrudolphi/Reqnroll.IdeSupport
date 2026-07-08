@@ -1,11 +1,10 @@
 #nullable enable
 
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
@@ -33,17 +32,12 @@ internal sealed class FindStepUsagesService
     private const string RequestMethod = "reqnroll/findStepUsages";
 
     private readonly LspInterceptingPipe _pipe;
-    private readonly TraceSource         _traceSource;
-    // TraceSource is not routed to the shared reqnroll-vs-ext-*.log, and the injected
-    // request/response bypasses the inspector log (the response is consumed before the
-    // interceptors run).  Mirror the raw server result here so the one signal that pins down
-    // client-side vs server-side failure is visible in a single diagnostic run.
-    private readonly IDeveroomLogger     _fileLogger = new SynchronousFileLogger();
+    private readonly ILogger<FindStepUsagesService> _logger;
 
-    public FindStepUsagesService(LspInterceptingPipe pipe, TraceSource traceSource)
+    public FindStepUsagesService(LspInterceptingPipe pipe, ILogger<FindStepUsagesService> logger)
     {
-        _pipe        = pipe;
-        _traceSource = traceSource;
+        _pipe   = pipe;
+        _logger = logger;
     }
 
     /// <summary>
@@ -58,11 +52,11 @@ internal sealed class FindStepUsagesService
     {
         var paramsJson = BuildParams(fileUri, line0, char0);
 
-        _traceSource.TraceInformation(
-            "FindStepUsagesService: querying {0} at {1}:{2}:{3}", RequestMethod, fileUri, line0, char0);
+        _logger.LogInformation(
+            "FindStepUsagesService: querying {RequestMethod} at {FileUri}:{Line0}:{Char0}", RequestMethod, fileUri, line0, char0);
 
-        _fileLogger.LogInfo(
-            $"FindStepUsagesService: sending {RequestMethod} params={paramsJson}");
+        _logger.LogInformation(
+            "FindStepUsagesService: sending {RequestMethod} params={ParamsJson}", RequestMethod, paramsJson);
 
         var result = await _pipe
             .SendRequestToServerAsync(RequestMethod, paramsJson, cancellationToken)
@@ -71,14 +65,14 @@ internal sealed class FindStepUsagesService
         // NOTE: use the parameterless JToken.ToString() — the overload that takes
         // Newtonsoft.Json.Formatting throws MissingMethodException against the Newtonsoft version
         // that VS loads at runtime.
-        _fileLogger.LogInfo(
-            $"FindStepUsagesService: raw server result = {(result is null ? "<null>" : result.ToString())}");
+        _logger.LogInformation(
+            "FindStepUsagesService: raw server result = {Result}", result is null ? "<null>" : result.ToString());
 
         // Map transport result → three-state StepUsagesResult. The mapping is a pure function
         // (MapResult) so it can be unit-tested without a live pipe.
         var mapped = MapResult(result);
-        _traceSource.TraceInformation(
-            "FindStepUsagesService: {0}",
+        _logger.LogInformation(
+            "FindStepUsagesService: {ResultSummary}",
             mapped.IsBinding ? $"{mapped.Locations.Count} location(s) returned" : "NotABinding (fall through)");
         return mapped;
     }

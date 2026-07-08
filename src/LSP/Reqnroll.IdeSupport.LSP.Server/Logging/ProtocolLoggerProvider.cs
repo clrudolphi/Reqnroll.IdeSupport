@@ -51,50 +51,9 @@ public sealed class ProtocolLoggerProvider : ILoggerProvider
             .Add(new SynchronousFileLogger(idePrefix, "protocol", protocolLogLevel));
     }
 
-    public ILogger CreateLogger(string categoryName) => new ProtocolLoggerAdapter(categoryName, _logger);
+    public ILogger CreateLogger(string categoryName) => new DeveroomLoggerAdapter(categoryName, _logger);
 
     public void Dispose()
     {
     }
-}
-
-/// <summary>Adapts a single <see cref="Microsoft.Extensions.Logging"/> category onto <see cref="IDeveroomLogger"/>.</summary>
-internal sealed class ProtocolLoggerAdapter : ILogger
-{
-    private readonly string _categoryName;
-    private readonly IDeveroomLogger _logger;
-
-    public ProtocolLoggerAdapter(string categoryName, IDeveroomLogger logger)
-    {
-        _categoryName = categoryName;
-        _logger = logger;
-    }
-
-    // The .NET logging pipeline already applies logging.SetMinimumLevel(...) before this
-    // method is ever invoked, so no further filtering is needed here — only the
-    // IDeveroomLogger sink's own level (protocolLogLevel) applies from this point on.
-    public bool IsEnabled(LogLevel logLevel) => true;
-
-    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-        Func<TState, Exception?, string> formatter)
-    {
-        _logger.Log(new LogMessage(ToTraceLevel(logLevel), formatter(state, exception), _categoryName, exception));
-    }
-
-    public IDisposable BeginScope<TState>(TState state) => NullScope.Instance;
-
-    private sealed class NullScope : IDisposable
-    {
-        public static readonly NullScope Instance = new();
-        public void Dispose() { }
-    }
-
-    internal static TraceLevel ToTraceLevel(LogLevel level) => level switch
-    {
-        LogLevel.Trace or LogLevel.Debug => TraceLevel.Verbose,
-        LogLevel.Information             => TraceLevel.Info,
-        LogLevel.Warning                 => TraceLevel.Warning,
-        LogLevel.Error or LogLevel.Critical => TraceLevel.Error,
-        _                                 => TraceLevel.Off,
-    };
 }

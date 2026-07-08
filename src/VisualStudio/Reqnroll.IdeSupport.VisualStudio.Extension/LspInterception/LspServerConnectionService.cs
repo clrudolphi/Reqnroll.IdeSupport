@@ -4,10 +4,10 @@ using System.IO;
 using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Shell;
 using Nerdbank.Streams;
 using Reqnroll.IdeSupport.Common.Analytics;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.Classification;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspNotifications;
 using Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
@@ -43,8 +43,8 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 /// </remarks>
 internal sealed class LspServerConnectionService : IDisposable
 {
-    private readonly TraceSource _traceSource;
-    private readonly IDeveroomLogger _fileLogger;
+    private readonly ILogger<LspServerConnectionService> _logger;
+    private readonly ILoggerFactory _loggerFactory;
     private readonly StepCodeLensState _stepCodeLensState;
 
     // JoinableTask (not a plain Task) so GetConnectionAsync's await is JTF-aware — avoids the
@@ -58,14 +58,14 @@ internal sealed class LspServerConnectionService : IDisposable
     private ChildProcessJob? _childJob;
     private bool _disposed;
 
-    public LspServerConnectionService(TraceSource traceSource, StepCodeLensState stepCodeLensState)
+    public LspServerConnectionService(
+        ILogger<LspServerConnectionService> logger, ILoggerFactory loggerFactory, StepCodeLensState stepCodeLensState)
     {
-        _traceSource       = traceSource       ?? throw new ArgumentNullException(nameof(traceSource));
+        _logger            = logger            ?? throw new ArgumentNullException(nameof(logger));
+        _loggerFactory     = loggerFactory     ?? throw new ArgumentNullException(nameof(loggerFactory));
         _stepCodeLensState = stepCodeLensState ?? throw new ArgumentNullException(nameof(stepCodeLensState));
-        _fileLogger        = new SynchronousFileLogger();
 
-        _traceSource.TraceInformation("LspServerConnectionService: Instance created — starting server eagerly.");
-        _fileLogger.LogInfo("LspServerConnectionService: Instance created — starting server eagerly.");
+        _logger.LogInformation("LspServerConnectionService: instance created — starting server eagerly.");
 
         // Fire off immediately; not awaited here. Consumers (ReqnrollLanguageClient) await
         // GetConnectionAsync() whenever they're ready, which may be well after this completes.
@@ -132,14 +132,11 @@ internal sealed class LspServerConnectionService : IDisposable
     {
         var serverExe = ResolveServerExePath(typeof(LspServerConnectionService).Assembly.Location);
 
-        _traceSource.TraceInformation("LspServerConnectionService: Starting server. Server exe path: {0}", serverExe);
-        _fileLogger.LogInfo($"LspServerConnectionService: Starting server — server exe: {serverExe}");
+        _logger.LogInformation("LspServerConnectionService: starting server. Server exe path: {ServerExe}", serverExe);
 
         if (!File.Exists(serverExe))
         {
-            _traceSource.TraceEvent(TraceEventType.Error, 0,
-                "LspServerConnectionService: Server executable not found at '{0}'.", serverExe);
-            _fileLogger.LogWarning($"LspServerConnectionService: Server executable not found: {serverExe}");
+            _logger.LogError("LspServerConnectionService: server executable not found at {ServerExe}.", serverExe);
             return null;
         }
 
@@ -163,7 +160,7 @@ internal sealed class LspServerConnectionService : IDisposable
             // handshake (and hence CreateServerConnectionAsync) may happen. Must not be awaited
             // here — it can take up to ~60s (waiting for solution load) and must not delay
             // returning the pipe to VS. See LspProjectPreloadPusher's remarks.
-            _ = LspProjectPreloadPusher.PushAsync(_serverProcess.Id, _traceSource, CancellationToken.None);
+            _ = LspProjectPreloadPusher.PushAsync(_serverProcess.Id, _logger, CancellationToken.None);
 
             // Assign to a kill-on-close Job Object so the server is terminated by the OS
             // when this VS process exits, even if Dispose is never called.
@@ -174,18 +171,17 @@ internal sealed class LspServerConnectionService : IDisposable
             }
             catch (Exception ex)
             {
-                _traceSource.TraceEvent(TraceEventType.Warning, 0,
-                    "LspServerConnectionService: Could not assign server to Job Object: {0}", ex.Message);
+                _logger.LogWarning(ex, "LspServerConnectionService: could not assign server to Job Object.");
             }
 
             _serverProcess.ErrorDataReceived += (_, e) =>
             {
                 if (e.Data is not null)
-                    _traceSource.TraceEvent(TraceEventType.Warning, 0, "LSPServer stderr: {0}", e.Data);
+                    _logger.LogWarning("LSPServer stderr: {StdErr}", e.Data);
             };
             _serverProcess.BeginErrorReadLine();
 
-            _traceSource.TraceInformation("LspServerConnectionService: Server process started (PID {0}).", _serverProcess.Id);
+            _logger.LogInformation("LspServerConnectionService: server process started (PID {ProcessId}).", _serverProcess.Id);
 
             IDuplexPipe rawPipe = new DuplexPipe(
                 _serverProcess.StandardOutput.BaseStream.UsePipeReader(),
@@ -194,26 +190,28 @@ internal sealed class LspServerConnectionService : IDisposable
             // Build the LSP Inspector log file path, unique per session.
             var logDir  = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Reqnroll");
             var logFile = Path.Combine(logDir, $"reqnroll-vs-inspector-{DateTime.Now:yyyyMMdd-HHmmss}.log");
-            _fileLogger.LogInfo($"LspServerConnectionService: Server process started (PID {_serverProcess.Id}). Inspector log: {logFile}");
-            _inspectorLogger = new LspInspectorLogger(logFile, _traceSource);
+            _logger.LogInformation(
+                "LspServerConnectionService: server process started (PID {ProcessId}). Inspector log: {LogFile}",
+                _serverProcess.Id, logFile);
+            _inspectorLogger = new LspInspectorLogger(logFile, _loggerFactory.CreateLogger<LspInspectorLogger>());
 
             // Observes semanticTokens traffic (both directions) and caches the decoded tokens so the
             // editor classifier can colour .feature files with Reqnroll's custom classifications,
             // bypassing VS's fixed built-in token-type→classification table. One instance is shared
             // by both pipelines so it sees requests (VS→Server) and their responses (Server→VS).
             var semanticTokensInterceptor = new SemanticTokensClassificationInterceptor(
-                SemanticTokenClassificationStore.Instance, _traceSource);
+                SemanticTokenClassificationStore.Instance, _loggerFactory.CreateLogger<SemanticTokensClassificationInterceptor>());
 
             // Tracks .cs files created by the scaffold code action and injects a
             // reqnroll/projectFiles delta before the server sees textDocument/didOpen.
             // Uses a lazy reference because ProjectMonitor is set well after the pipe exists.
             var scaffoldInterceptor = new ScaffoldTrackingInterceptor(
-                () => ProjectMonitor, _traceSource);
+                () => ProjectMonitor, _loggerFactory.CreateLogger<ScaffoldTrackingInterceptor>());
 
             // Watches textDocument/didChange on .cs files and invalidates code lenses
             // so VS re-queries the server for updated usage counts after a binding edit.
             var codeLensRefreshInterceptor = new CodeLensRefreshInterceptor(
-                _stepCodeLensState, _traceSource);
+                _stepCodeLensState, _loggerFactory.CreateLogger<CodeLensRefreshInterceptor>());
 
             // Send pipeline:   VS → [logger, semanticTokens, scaffold, codeLensRefresh] → Server
             // Receive pipeline: Server → [logger, semanticTokens, scaffold, codeLensRefresh, telemetry] → VS
@@ -224,11 +222,13 @@ internal sealed class LspServerConnectionService : IDisposable
 
             // Telemetry interceptor: lazy reference because AnalyticsTransmitter is resolved
             // from MEF on the main thread during OnServerInitializationResultAsync.
-            var telemetryInterceptor = new TelemetryEventInterceptor(() => AnalyticsTransmitter, _traceSource);
+            var telemetryInterceptor = new TelemetryEventInterceptor(
+                () => AnalyticsTransmitter, _loggerFactory.CreateLogger<TelemetryEventInterceptor>());
             var receiveInterceptors = new ILspMessageInterceptor[]
                 { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor, codeLensRefreshInterceptor, telemetryInterceptor };
 
-            _interceptingPipe = new LspInterceptingPipe(rawPipe, sendInterceptors, receiveInterceptors, _traceSource);
+            _interceptingPipe = new LspInterceptingPipe(
+                rawPipe, sendInterceptors, receiveInterceptors, _loggerFactory.CreateLogger<LspInterceptingPipe>());
             // Pass CancellationToken.None: the pumps must live for the entire connection
             // lifetime, not just for the duration of this async creation call. The pipe's
             // own internal CTS (cancelled in Dispose) provides the shutdown signal.
@@ -238,12 +238,7 @@ internal sealed class LspServerConnectionService : IDisposable
         }
         catch (Exception ex)
         {
-            _traceSource.TraceEvent(TraceEventType.Error, 0,
-                "LspServerConnectionService: Failed to start server: {0}", ex);
-            // Surfaced to the file log too (not just TraceSource) — a server-start exception here
-            // otherwise leaves no trace in reqnroll-vs-ext-debug-*.log, only in VS's own trace
-            // listener output, which isn't accessible when debugging from collected user logs.
-            _fileLogger.LogWarning($"LspServerConnectionService: StartAsync failed: {ex}");
+            _logger.LogError(ex, "LspServerConnectionService: failed to start server.");
             return null;
         }
     }
@@ -253,7 +248,7 @@ internal sealed class LspServerConnectionService : IDisposable
         if (_disposed) return;
         _disposed = true;
 
-        _fileLogger.LogInfo("LspServerConnectionService: Disposing — shutting down server connection.");
+        _logger.LogInformation("LspServerConnectionService: disposing — shutting down server connection.");
 
         // ProjectMonitor is disposed by ReqnrollLanguageClient.Dispose (UI-thread-bound, COM event
         // unsubscription) whenever the provider deactivates — not here, since this service's Dispose
