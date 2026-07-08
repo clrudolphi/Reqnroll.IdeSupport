@@ -53,6 +53,13 @@ internal sealed class GherkinDropdownBarClient : IVsDropdownBarClient, IDisposab
     private IReadOnlyList<GherkinSymbolNode> _roots            = Array.Empty<GherkinSymbolNode>();
     private IReadOnlyList<GherkinSymbolNode> _structureEntries = Array.Empty<GherkinSymbolNode>();
 
+    // Issue #83: a successful-but-empty fetch during the startup window (server hasn't finished
+    // computing bindings yet) must not be trusted as final the way a genuinely-empty file would be —
+    // otherwise the combo can get stuck empty until some unrelated event (caret move, buffer edit)
+    // happens to call ScheduleRefresh() again. Bounded so a genuinely empty file still settles.
+    private bool _hasSeenNonEmptyStructure;
+    private int  _emptyResultRetriesRemaining = 5;
+
     public GherkinDropdownBarClient(
         IVsTextView vsTextView,
         IVsEditorAdaptersFactoryService editorAdapter,
@@ -158,6 +165,23 @@ internal sealed class GherkinDropdownBarClient : IVsDropdownBarClient, IDisposab
 
             _roots            = roots;
             _structureEntries = GherkinNavigationBarLayout.BuildStructureEntries(_roots);
+
+            if (_structureEntries.Count > 0)
+            {
+                _hasSeenNonEmptyStructure = true;
+            }
+            else if (!_hasSeenNonEmptyStructure && _emptyResultRetriesRemaining > 0)
+            {
+                _emptyResultRetriesRemaining--;
+                ApplyCaretPosition();
+                _logger.LogVerbose(
+                    $"GherkinDropdownBarClient: '{_fileUri}' fetched 0 structure entries before any non-empty " +
+                    $"result — server may not have finished computing bindings yet, retrying " +
+                    $"({_emptyResultRetriesRemaining} attempt(s) left).");
+                ScheduleRefresh();
+                return;
+            }
+
             ApplyCaretPosition();
 
             _logger.LogVerbose(
