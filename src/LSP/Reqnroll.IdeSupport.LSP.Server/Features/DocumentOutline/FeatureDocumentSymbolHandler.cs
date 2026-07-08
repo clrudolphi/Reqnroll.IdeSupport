@@ -57,7 +57,7 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
     public DocumentSymbolRegistrationOptions GetRegistrationOptions(
         DocumentSymbolCapability capability, ClientCapabilities clientCapabilities)
     {
-        _hierarchicalSupport = capability.HierarchicalDocumentSymbolSupport;
+        _hierarchicalSupport = capability?.HierarchicalDocumentSymbolSupport ?? true;
         return new() { DocumentSelector = FeatureSelector };
     }
 
