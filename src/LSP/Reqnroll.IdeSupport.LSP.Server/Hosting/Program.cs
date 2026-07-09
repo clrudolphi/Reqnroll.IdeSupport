@@ -38,14 +38,19 @@ namespace Reqnroll.IdeSupport.LSP.Server.Hosting;
 /// app-level code, rather than switching individual classes to <c>ILogger&lt;T&gt;</c>.
 /// </para>
 /// <para>
-/// Separately, <c>ILogger&lt;T&gt;</c> (<see cref="Microsoft.Extensions.Logging"/>) is registered
-/// too (see <see cref="ServiceCollectionExtensions.AddReqnrollLspCoreServices"/>) and is what
-/// OmniSharp's own internals log through — request dispatch, DryIoc, JSON-RPC plumbing — routed by
-/// <see cref="ProtocolLoggerProvider"/> into the same <see cref="IDeveroomLogger"/> sink (via the
-/// shared <see cref="DeveroomLoggerAdapter"/>) so there is one physical set of log files, not two
-/// divergent stores, even though the two APIs remain distinct at the call site. Any new code that
-/// specifically needs <c>ILogger&lt;T&gt;</c> (e.g. to satisfy a third-party library's constructor)
-/// can resolve it from DI and it will land in the same place.
+/// Separately, <c>ILogger&lt;T&gt;</c> (<see cref="Microsoft.Extensions.Logging"/>) is what
+/// OmniSharp's own internals log through — request dispatch, DryIoc, JSON-RPC plumbing. That
+/// pipeline is established by <see cref="ConfigureServer"/>'s <c>options.ConfigureLogging(...)</c>
+/// call (<c>SetMinimumLevel</c>, <c>AddLanguageProtocolLogging</c>,
+/// <see cref="ProtocolLoggerProvider"/>) directly into <c>options.Services</c>, gated by its own
+/// <c>--protocol-log-level</c> and writing to a dedicated <c>reqnroll-*-protocol-*.log</c> file via
+/// the shared <see cref="DeveroomLoggerAdapter"/> — deliberately a separate store from the app-level
+/// <see cref="IDeveroomLogger"/> "server" log. <b>Do not re-register <c>ILoggerFactory</c>/<c>ILogger&lt;&gt;</c>
+/// anywhere else in this DI container</b> (e.g. in
+/// <see cref="ServiceCollectionExtensions.AddReqnrollLspCoreServices"/>) — a later registration wins
+/// the last-registration-wins resolution and silently replaces this one, which previously caused
+/// every OmniSharp-internal message to leak into the app-level "server" log at whatever
+/// <c>--log-level</c> happened to be, instead of its own file gated by <c>--protocol-log-level</c>.
 /// </para>
 /// <para>
 /// The three log-level dials below (<c>--log-level</c>, <c>--protocol-log-level</c>, <c>--trace</c>)
