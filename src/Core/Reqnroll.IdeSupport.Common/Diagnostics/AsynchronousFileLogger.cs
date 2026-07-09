@@ -41,12 +41,15 @@ public class AsynchronousFileLogger : IIdeSupportLogger, IDisposable
 
     internal static string GetLogFile(string ide, string role)
     {
+        // PID is included so that concurrent instances (e.g. two VS windows, each with its own
+        // extension host and LSP server process) never append to the same log file.
+        var pid = Process.GetCurrentProcess().Id;
         return Path.Combine(Environment.GetFolderPath(
                 Environment.SpecialFolder.LocalApplicationData), "Reqnroll",
 #if DEBUG
-            $"reqnroll-{ide}-{role}-debug-{DateTime.UtcNow:yyyyMMdd}.log");
+            $"reqnroll-{ide}-{role}-debug-{DateTime.UtcNow:yyyyMMdd}-{pid}.log");
 #else
-            $"reqnroll-{ide}-{role}-{DateTime.Now:yyyyMMdd}.log");
+            $"reqnroll-{ide}-{role}-{DateTime.Now:yyyyMMdd}-{pid}.log");
 #endif
     }
 
