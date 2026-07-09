@@ -532,17 +532,24 @@ public sealed class StepRenameHandler
             _logger.LogVerbose("StepRenameHandler: VS applied workspace/applyEdit");
         }
 
-        // Invalidate the match cache for feature files that were modified by the rename.
-        // When a feature file is closed at rename time, no didChange notification fires,
-        // so the server's in-memory match cache would otherwise retain the old step text
-        // until the file is re-opened and re-parsed.
+        // Invalidate the match cache for CLOSED feature files that were modified by the rename.
+        // When a feature file is closed at rename time, no didChange notification fires, so the
+        // server's in-memory match cache would otherwise retain the old step text until the file
+        // is re-opened and re-parsed. For OPEN files, applying the edit (via workspace/applyEdit
+        // for VS, or natively for other clients) already triggers a real textDocument/didChange,
+        // which reparses and correctly rebuilds the match cache through the normal sync pipeline
+        // — invalidating here too would race with that rebuild. Losing that race (which happens
+        // reliably, since this runs after awaiting the VS applyEdit round-trip) leaves the cache
+        // empty with nothing left to repopulate it, since the file's content isn't changing
+        // again: confirmed live as inlay hints silently disappearing for the whole file post-rename.
         foreach (var changedUri in changes.Keys)
         {
             var changedPath = changedUri.GetFileSystemPath();
-            if (!string.IsNullOrEmpty(changedPath) && changedPath.EndsWith(".feature", StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrEmpty(changedPath) && changedPath.EndsWith(".feature", StringComparison.OrdinalIgnoreCase) &&
+                !_documentBuffer.TryGet(changedUri, out _))
             {
                 _matchService.InvalidateAllForDocument(changedUri.ToString());
-                _logger.LogVerbose($"StepRenameHandler: invalidated match cache for '{changedUri}'");
+                _logger.LogVerbose($"StepRenameHandler: invalidated match cache for closed '{changedUri}'");
             }
         }
 

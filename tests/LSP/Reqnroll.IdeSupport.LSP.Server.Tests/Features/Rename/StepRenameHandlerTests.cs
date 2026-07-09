@@ -1161,6 +1161,170 @@ public class StepRenameHandlerTests
         csEdit[0].NewText.Should().Be("\"to be and not to be\"");
     }
 
+    // ── Regression (#82 follow-up): confirmed live in VS — after a successful rename, inlay
+    //    hints silently disappeared for every step in the open feature file. HandleRenameAsync
+    //    unconditionally invalidated the .feature match cache for every modified feature file,
+    //    including ones still open in the editor. But applying the edit already triggers a real
+    //    textDocument/didChange for open files, which reparses and correctly rebuilds the match
+    //    cache through the normal sync pipeline — running our own invalidate afterward (it runs
+    //    after awaiting the VS applyEdit round-trip, so it reliably loses that race) wipes out
+    //    the freshly-rebuilt cache with nothing left to repopulate it, since the file's content
+    //    isn't changing again. Invalidation should only apply to closed files, which never get a
+    //    didChange and so would otherwise never get reparsed at all. ─────────────────────────────
+
+    [Fact]
+    public async Task Rename_does_not_invalidate_the_match_cache_for_an_open_feature_file()
+    {
+        var featureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+        var csUri = DocumentUri.FromFileSystemPath("/workspace/Steps.cs");
+
+        const string csText =
+            "using Reqnroll;\n" +
+            "namespace N\n" +
+            "{\n" +
+            "    [Binding]\n" +
+            "    public class Steps\n" +
+            "    {\n" +
+            "        [Then(\"to be or not to be\")]\n" +
+            "        public void ThenToBeOrNotToBe() { }\n" +
+            "    }\n" +
+            "}\n";
+        const string featureText = "Feature: F\nScenario: S\n\tThen to be or not to be\n";
+
+        // Both files are open — this is what makes applying the edit trigger a real didChange
+        // (and thus a correct reparse) rather than needing our own invalidation as a fallback.
+        SetupBuffers((csUri, csText), (featureUri, featureText));
+
+        var binding = MakeBinding(
+            ScenarioBlock.Then,
+            new Regex("^to be or not to be$"),
+            specifiedExpression: "to be or not to be",
+            line: 8, column: 9,
+            method: "Steps.ThenToBeOrNotToBe()");
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { binding }));
+
+        var project = MakeTestProject();
+        _scopeManager.ResolveOwners(featureUri).Returns(new[] { project });
+
+        var matchSet = MakeFeatureMatchSet(
+            featureUri.ToString(), binding,
+            "Then", "to be or not to be", stepLine: 2, stepChar: 5);
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+            .Returns(ci =>
+            {
+                ci[1] = matchSet;
+                return true;
+            });
+
+        var snapshot = new LspTextSnapshot(featureUri.ToString(), 1, featureText);
+        const string stepText = "to be or not to be";
+        var stepOffset = featureText.IndexOf("\tThen " + stepText) + "\tThen ".Length;
+        var usageMatch = new StepBindingMatch(
+            featureUri.ToString(),
+            GherkinRange.FromPoint(snapshot, startOffset: stepOffset, length: stepText.Length),
+            MatchResult.CreateMultiMatch(new[]
+            {
+                MatchResultItem.CreateMatch(binding, ParameterMatch.NotMatch)
+            }));
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(new[] { usageMatch });
+
+        var sut = CreateSut();
+        await sut.HandleSelectRenameTargetAsync(
+            new SelectRenameTargetParams { Uri = featureUri.ToString(), Version = 0, AttributeIndex = 0 },
+            CancellationToken.None);
+
+        var result = await sut.HandleRenameAsync(
+            new RenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 14),
+                NewName = "to be and not to be"
+            },
+            CancellationToken.None);
+
+        result.Should().NotBeNull();
+        _matchService.DidNotReceive().InvalidateAllForDocument(featureUri.ToString());
+    }
+
+    [Fact]
+    public async Task Rename_still_invalidates_the_match_cache_for_a_closed_feature_file()
+    {
+        var featureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+        var csUri = DocumentUri.FromFileSystemPath("/workspace/Steps.cs");
+
+        const string csText =
+            "using Reqnroll;\n" +
+            "namespace N\n" +
+            "{\n" +
+            "    [Binding]\n" +
+            "    public class Steps\n" +
+            "    {\n" +
+            "        [Then(\"to be or not to be\")]\n" +
+            "        public void ThenToBeOrNotToBe() { }\n" +
+            "    }\n" +
+            "}\n";
+
+        // Only the .cs file is open; the .feature file is closed, so applying the edit will not
+        // produce a didChange for it, and our own invalidation is the only way its stale match
+        // cache entry ever gets cleared.
+        SetupBuffers((csUri, csText));
+
+        var binding = MakeBinding(
+            ScenarioBlock.Then,
+            new Regex("^to be or not to be$"),
+            specifiedExpression: "to be or not to be",
+            line: 8, column: 9,
+            method: "Steps.ThenToBeOrNotToBe()");
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { binding }));
+
+        var project = MakeTestProject();
+        _scopeManager.ResolveOwners(featureUri).Returns(new[] { project });
+
+        const string featureText = "Feature: F\nScenario: S\n\tThen to be or not to be\n";
+        var matchSet = MakeFeatureMatchSet(
+            featureUri.ToString(), binding,
+            "Then", "to be or not to be", stepLine: 2, stepChar: 5);
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+            .Returns(ci =>
+            {
+                ci[1] = matchSet;
+                return true;
+            });
+
+        var snapshot = new LspTextSnapshot(featureUri.ToString(), 1, featureText);
+        const string stepText = "to be or not to be";
+        var stepOffset = featureText.IndexOf("\tThen " + stepText) + "\tThen ".Length;
+        var usageMatch = new StepBindingMatch(
+            featureUri.ToString(),
+            GherkinRange.FromPoint(snapshot, startOffset: stepOffset, length: stepText.Length),
+            MatchResult.CreateMultiMatch(new[]
+            {
+                MatchResultItem.CreateMatch(binding, ParameterMatch.NotMatch)
+            }));
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(new[] { usageMatch });
+
+        var sut = CreateSut();
+        await sut.HandleSelectRenameTargetAsync(
+            new SelectRenameTargetParams { Uri = featureUri.ToString(), Version = 0, AttributeIndex = 0 },
+            CancellationToken.None);
+
+        var result = await sut.HandleRenameAsync(
+            new RenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 14),
+                NewName = "to be and not to be"
+            },
+            CancellationToken.None);
+
+        result.Should().NotBeNull();
+        _matchService.Received(1).InvalidateAllForDocument(featureUri.ToString());
+    }
+
     [Fact]
     public async Task Rename_from_feature_without_session_resolves_binding_via_match_cache()
     {
