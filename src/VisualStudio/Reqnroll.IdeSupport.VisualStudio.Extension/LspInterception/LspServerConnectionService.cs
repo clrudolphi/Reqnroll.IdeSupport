@@ -63,6 +63,14 @@ internal sealed class LspServerConnectionService : IDisposable
     // back to Kill(). See Dispose()/ShutdownServerAsync.
     private const int GracefulExitTimeoutMs = 3000;
 
+    // How long to wait for a response to a `shutdown` request we send ourselves, when VS's own
+    // client hasn't sent one by the time Dispose() runs. Confirmed empirically (see git history
+    // for issue #81) that VS's async LSP-client-stop sequence does not reliably send `shutdown`
+    // during VsShellUtilities.ShutdownToken-triggered teardown — a full 1000ms passive wait for it
+    // never once observed one — so rather than wait on a request that may never arrive, we send it
+    // ourselves on the still-live pipe via LspInterceptingPipe.SendRequestToServerAsync.
+    private const int ShutdownRequestTimeoutMs = 2000;
+
     public LspServerConnectionService(
         ILogger<LspServerConnectionService> logger, ILoggerFactory loggerFactory, StepCodeLensState stepCodeLensState)
     {
@@ -267,11 +275,11 @@ internal sealed class LspServerConnectionService : IDisposable
         // may run off the UI thread at extension unload and VsProjectEventMonitor.Dispose() asserts
         // ThreadHelper.ThrowIfNotOnUIThread(). It is set to null there too.
 
-        var shutdownObserved  = _shutdownHandshakeInterceptor?.ShutdownObserved ?? false;
-        var interceptingPipe  = _interceptingPipe;
-        var inspectorLogger   = _inspectorLogger;
-        var serverProcess     = _serverProcess;
-        var childJob          = _childJob;
+        var shutdownHandshakeInterceptor = _shutdownHandshakeInterceptor;
+        var interceptingPipe             = _interceptingPipe;
+        var inspectorLogger              = _inspectorLogger;
+        var serverProcess                = _serverProcess;
+        var childJob                     = _childJob;
 
         _interceptingPipe = null;
         _inspectorLogger  = null;
@@ -283,15 +291,17 @@ internal sealed class LspServerConnectionService : IDisposable
         // not be awaited here — Task.Run hands it to the thread pool so nothing runs synchronously
         // on the caller's thread. Dispose() keeps returning immediately, as before. ChildProcessJob
         // remains the safety net for VS itself terminating early.
-        _ = Task.Run(() => ShutdownServerAsync(shutdownObserved, interceptingPipe, serverProcess, inspectorLogger, childJob));
+        _ = Task.Run(() => ShutdownServerAsync(shutdownHandshakeInterceptor, interceptingPipe, serverProcess, inspectorLogger, childJob));
     }
 
     /// <summary>
-    /// Terminates the server process, preferring a graceful <c>exit</c> negotiation over a hard
-    /// <c>Kill()</c> when the LSP <c>shutdown</c> handshake was observed on this connection.
+    /// Terminates the server process, preferring a graceful <c>shutdown</c>/<c>exit</c> negotiation
+    /// over a hard <c>Kill()</c>. Uses the handshake already observed on this connection if VS's own
+    /// client sent one; otherwise initiates <c>shutdown</c> itself, since VS's client cannot be
+    /// relied on to do so during this teardown path.
     /// </summary>
     private async Task ShutdownServerAsync(
-        bool shutdownObserved,
+        ShutdownHandshakeInterceptor? shutdownHandshakeInterceptor,
         LspInterceptingPipe? interceptingPipe,
         Process? serverProcess,
         LspInspectorLogger? inspectorLogger,
@@ -299,6 +309,35 @@ internal sealed class LspServerConnectionService : IDisposable
     {
         try
         {
+            var shutdownObserved = shutdownHandshakeInterceptor?.ShutdownObserved ?? false;
+
+            // VS's own client did not send `shutdown` on this connection. Rather than wait on a
+            // request that's been confirmed not to arrive, send it ourselves on the still-live
+            // pipe — we're a legitimate LSP client from the server's point of view — and treat any
+            // response (success or error) as license to proceed to `exit`, per the LSP spec.
+            if (!shutdownObserved && interceptingPipe is not null)
+            {
+                _logger.LogInformation(
+                    "LspServerConnectionService: shutdown not observed from VS's client — sending our own shutdown request.");
+
+                using var shutdownCts = new CancellationTokenSource(ShutdownRequestTimeoutMs);
+                await interceptingPipe.SendRequestToServerAsync("shutdown", null, shutdownCts.Token)
+                    .ConfigureAwait(false);
+
+                if (shutdownCts.IsCancellationRequested)
+                {
+                    _logger.LogWarning(
+                        "LspServerConnectionService: our own shutdown request did not receive a response within {TimeoutMs}ms; falling back to Kill().",
+                        ShutdownRequestTimeoutMs);
+                }
+                else
+                {
+                    shutdownObserved = true;
+                    _logger.LogInformation(
+                        "LspServerConnectionService: server responded to our own shutdown request.");
+                }
+            }
+
             if (shutdownObserved && interceptingPipe is not null && serverProcess is not null)
             {
                 // Per the LSP spec, `exit` is only valid after a `shutdown` response was received.
