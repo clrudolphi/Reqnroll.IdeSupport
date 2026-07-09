@@ -694,6 +694,110 @@ public class StepRenameHandlerTests
             "a synthetic whole-line range was the bug this regression guards against");
     }
 
+    // ── Regression (#82 follow-up): confirmed live in VS — after a successful rename, invoking
+    //    F2 again on the same step showed the OLD (pre-rename) text in the "Rename to:" box,
+    //    even though the editor and the .cs file both visibly showed the new text. Root cause:
+    //    IDocumentBufferService deliberately never tracks .cs files (only .feature — see
+    //    TextDocumentSyncHandler), so FindAttributeLiteralAsync's buffer lookup was always a
+    //    no-op for .cs paths and it fell back to disk — which a rename applied via
+    //    workspace/applyEdit never touches (edits only reach the buffer, not disk, until saved).
+    //    A second rename attempt before saving therefore always read the pre-rename text back
+    //    off disk. StepRenameHandler now remembers its own last-computed .cs edit and prefers it
+    //    over disk for exactly this window. ──────────────────────────────────────────────────
+
+    [Fact]
+    public async Task PrepareRename_after_a_rename_reflects_the_new_text_not_the_stale_disk_copy()
+    {
+        var featureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+        var csUri = DocumentUri.FromFileSystemPath("/workspace/Steps.cs");
+
+        const string csText =
+            "using Reqnroll;\n" +
+            "namespace N\n" +
+            "{\n" +
+            "    [Binding]\n" +
+            "    public class Steps\n" +
+            "    {\n" +
+            "        [Then(\"to be or not to be\")]\n" +
+            "        public void ThenToBeOrNotToBe() { }\n" +
+            "    }\n" +
+            "}\n";
+        // Registered once, up front — matching production, where .cs files are never re-synced
+        // into the buffer after a rename, so this stays the only (stale) copy available anywhere
+        // outside the handler's own memory of its edit.
+        SetupBuffers((csUri, csText));
+
+        var binding = MakeBinding(
+            ScenarioBlock.Then,
+            new Regex("^to be or not to be$"),
+            specifiedExpression: "to be or not to be",
+            line: 8, column: 9,
+            method: "Steps.ThenToBeOrNotToBe()");
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { binding }));
+
+        var project = MakeTestProject();
+        _scopeManager.ResolveOwners(featureUri).Returns(new[] { project });
+        _scopeManager.GetProjectForUri(featureUri).Returns(project);
+
+        const string featureText = "Feature: F\nScenario: S\n\tThen to be or not to be\n";
+        var matchSet = MakeFeatureMatchSet(
+            featureUri.ToString(), binding,
+            "Then", "to be or not to be", stepLine: 2, stepChar: 5);
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+            .Returns(ci =>
+            {
+                ci[1] = matchSet;
+                return true;
+            });
+
+        var snapshot = new LspTextSnapshot(featureUri.ToString(), 1, featureText);
+        const string stepText = "to be or not to be";
+        var stepOffset = featureText.IndexOf("\tThen " + stepText) + "\tThen ".Length;
+        var usageMatch = new StepBindingMatch(
+            featureUri.ToString(),
+            GherkinRange.FromPoint(snapshot, startOffset: stepOffset, length: stepText.Length),
+            MatchResult.CreateMultiMatch(new[]
+            {
+                MatchResultItem.CreateMatch(binding, ParameterMatch.NotMatch)
+            }));
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(new[] { usageMatch });
+
+        var sut = CreateSut();
+
+        // First rename: succeeds, edits the .cs attribute to "to be and not to be". The buffer
+        // set up above is never updated by this — it stays frozen at the pre-rename text, same
+        // as production where a rename applied via workspace/applyEdit is never re-synced back
+        // into a buffer we track (.cs isn't tracked at all) and is never saved to disk.
+        await sut.HandleSelectRenameTargetAsync(
+            new SelectRenameTargetParams { Uri = featureUri.ToString(), Version = 0, AttributeIndex = 0 },
+            CancellationToken.None);
+        var renameResult = await sut.HandleRenameAsync(
+            new RenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 14),
+                NewName = "to be and not to be"
+            },
+            CancellationToken.None);
+        renameResult.Should().NotBeNull();
+
+        // Second attempt, same step, before any save or reopen — this is what F2 does.
+        var prepareResult = await sut.HandlePrepareRenameAsync(
+            new PrepareRenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 10)
+            },
+            CancellationToken.None);
+
+        prepareResult.Should().NotBeNull();
+        prepareResult!.PlaceholderRange!.Placeholder.Should().Be("to be and not to be",
+            "the second prepareRename must reflect the first rename's edit, not the stale " +
+            "pre-rename text still sitting in the (untouched) buffer/disk copy");
+    }
+
     // ── Regression (#82 follow-up): FindBindingsAtFeatureStep used to re-derive its own
     //    start/end-character bounds check from step.Range.StartLinePosition/EndLinePosition —
     //    the exact narrow, exact-text-span-only check #101 fixed on StepBindingMatch.Contains,
