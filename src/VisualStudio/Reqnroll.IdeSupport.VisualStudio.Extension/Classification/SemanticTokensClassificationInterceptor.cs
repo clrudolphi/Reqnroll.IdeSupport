@@ -103,8 +103,10 @@ internal sealed class SemanticTokensClassificationInterceptor : ILspMessageInter
 
         // Both semanticTokens/full and the full form of semanticTokens/full/delta carry a flat
         // "data" int array. (Edit-style delta results carry "edits" instead — skipped here; the
-        // next full response will refresh.)
-        if (message.Body["result"]?["data"] is not JArray data) return;
+        // next full response will refresh.) "result" itself may be a non-JObject JValue, which
+        // must be checked before indexing since only JObject indexers tolerate a missing key.
+        if (message.Body["result"] is not JObject result) return;
+        if (result["data"] is not JArray data) return;
 
         var tokens = Decode(data, _store.Legend);
         _store.SetTokens(fileKey, tokens);

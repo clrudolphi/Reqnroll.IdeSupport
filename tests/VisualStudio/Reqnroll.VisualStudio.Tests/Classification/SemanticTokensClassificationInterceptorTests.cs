@@ -68,6 +68,14 @@ public class SemanticTokensClassificationInterceptorTests
         },
     });
 
+    private static LspMessage SemanticTokensRequest(string uri, int id) => new(LspMessageDirection.Send, new JObject
+    {
+        ["jsonrpc"] = "2.0",
+        ["id"] = id,
+        ["method"] = "textDocument/semanticTokens/full",
+        ["params"] = new JObject { ["textDocument"] = new JObject { ["uri"] = uri } },
+    }, DateTimeOffset.Now);
+
     private static LspMessage PushNotification(string uri, int[] data) => Receive(new JObject
     {
         ["jsonrpc"] = "2.0",
@@ -172,5 +180,53 @@ public class SemanticTokensClassificationInterceptorTests
 
         result.Should().Be(LspInterceptorResult.PassThrough);
         logger.WarningLogged.Should().BeFalse("a non-JObject result is a routine case, not a failure");
+    }
+
+    [Fact]
+    public async Task Matched_response_with_array_result_does_not_throw_or_log_a_warning()
+    {
+        var store = new SemanticTokenClassificationStore();
+        var logger = new WarningTrackingLogger();
+        var sut = new SemanticTokensClassificationInterceptor(store, logger);
+
+        await sut.InterceptAsync(SemanticTokensRequest("file:///c:/w/A.feature", 7), CancellationToken.None);
+
+        // A malformed/unexpected server reply whose "result" is a JArray rather than an object.
+        var response = Receive(new JObject
+        {
+            ["jsonrpc"] = "2.0",
+            ["id"] = 7,
+            ["result"] = new JArray(1, 2, 3),
+        });
+
+        var result = await sut.InterceptAsync(response, CancellationToken.None);
+
+        result.Should().Be(LspInterceptorResult.PassThrough);
+        logger.WarningLogged.Should().BeFalse("a non-JObject result is a routine case, not a failure");
+        store.TryGetTokens(SemanticTokenClassificationStore.NormalizeKey("file:///c:/w/A.feature")!, out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Matched_response_with_scalar_result_does_not_throw_or_log_a_warning()
+    {
+        var store = new SemanticTokenClassificationStore();
+        var logger = new WarningTrackingLogger();
+        var sut = new SemanticTokensClassificationInterceptor(store, logger);
+
+        await sut.InterceptAsync(SemanticTokensRequest("file:///c:/w/A.feature", 8), CancellationToken.None);
+
+        // A malformed/unexpected server reply whose "result" is a bare boolean.
+        var response = Receive(new JObject
+        {
+            ["jsonrpc"] = "2.0",
+            ["id"] = 8,
+            ["result"] = true,
+        });
+
+        var result = await sut.InterceptAsync(response, CancellationToken.None);
+
+        result.Should().Be(LspInterceptorResult.PassThrough);
+        logger.WarningLogged.Should().BeFalse("a non-JObject result is a routine case, not a failure");
+        store.TryGetTokens(SemanticTokenClassificationStore.NormalizeKey("file:///c:/w/A.feature")!, out _).Should().BeFalse();
     }
 }
