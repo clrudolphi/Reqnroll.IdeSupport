@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Diagnostics;
@@ -26,7 +26,7 @@ public class StepRenameHandlerTests
     private readonly IBindingMatchService          _matchService   = Substitute.For<IBindingMatchService>();
     private readonly ILspWorkspaceScopeManager     _scopeManager   = Substitute.For<ILspWorkspaceScopeManager>();
     private readonly IProjectBindingRegistryLookup _registryLookup = Substitute.For<IProjectBindingRegistryLookup>();
-    private readonly IDeveroomLogger               _logger         = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger               _logger         = Substitute.For<IIdeSupportLogger>();
     private readonly IDocumentBufferService         _documentBuffer = Substitute.For<IDocumentBufferService>();
 
     private static readonly DocumentUri CsUri = DocumentUri.FromFileSystemPath("/workspace/Steps.cs");

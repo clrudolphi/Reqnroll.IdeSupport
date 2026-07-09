@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Collections.Generic;
@@ -43,13 +43,13 @@ public sealed class FindStepUsagesHandler
     private readonly IBindingMatchService         _matchService;
     private readonly ILspWorkspaceScopeManager    _scopeManager;
     private readonly IProjectBindingRegistryLookup _registryLookup;
-    private readonly IDeveroomLogger               _logger;
+    private readonly IIdeSupportLogger               _logger;
 
     public FindStepUsagesHandler(
         IBindingMatchService          matchService,
         ILspWorkspaceScopeManager     scopeManager,
         IProjectBindingRegistryLookup registryLookup,
-        IDeveroomLogger               logger)
+        IIdeSupportLogger               logger)
     {
         _matchService   = matchService;
         _scopeManager   = scopeManager;

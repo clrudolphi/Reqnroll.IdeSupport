@@ -1,4 +1,4 @@
-using Reqnroll.IdeSupport.Common.Diagnostics;
+﻿using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
@@ -6,7 +6,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Tests.Discovery;
 
 public class OutProcReqnrollConnectorFactoryTests
 {
-    private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
     private readonly LspIdeScope _ideScope;
     private readonly string _folder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
 

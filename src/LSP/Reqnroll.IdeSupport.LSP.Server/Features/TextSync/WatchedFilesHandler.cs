@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -35,14 +35,14 @@ public class WatchedFilesHandler : IDidChangeWatchedFilesHandler
 {
     private readonly ILspWorkspaceScopeManager    _scopeManager;
     private readonly IMediator                    _mediator;
-    private readonly IDeveroomLogger              _logger;
+    private readonly IIdeSupportLogger              _logger;
     private readonly IEditorConfigOptionsProvider _editorConfigProvider;
     private readonly ICSharpBindingDiscoveryService _csharpDiscoveryService;
 
     public WatchedFilesHandler(
         ILspWorkspaceScopeManager scopeManager,
         IMediator mediator,
-        IDeveroomLogger logger,
+        IIdeSupportLogger logger,
         IEditorConfigOptionsProvider editorConfigProvider,
         ICSharpBindingDiscoveryService csharpDiscoveryService)
     {

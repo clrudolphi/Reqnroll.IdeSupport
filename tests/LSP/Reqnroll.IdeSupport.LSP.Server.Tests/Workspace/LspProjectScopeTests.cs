@@ -1,4 +1,4 @@
-using Reqnroll.IdeSupport.Common.Diagnostics;
+﻿using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
@@ -6,7 +6,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Tests.Workspace;
 
 public class LspProjectScopeTests
 {
-    private readonly LspIdeScope _ideScope = new(Substitute.For<IDeveroomLogger>());
+    private readonly LspIdeScope _ideScope = new(Substitute.For<IIdeSupportLogger>());
     private readonly string _root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
 
     private LspProjectScope CreateSut() => new(_root, _ideScope);

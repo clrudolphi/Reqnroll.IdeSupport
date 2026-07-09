@@ -1,4 +1,4 @@
-using OmniSharp.Extensions.LanguageServer.Protocol;
+﻿using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
 
@@ -21,7 +21,7 @@ public class GherkinDocumentTaggerService : IGherkinDocumentTaggerService
     private readonly IProjectBindingRegistryLookup _registryLookup;
     private readonly ISemanticTokenService         _semanticTokenService;
     private readonly IBindingMatchService          _bindingMatchService;
-    private readonly IDeveroomLogger               _logger;
+    private readonly IIdeSupportLogger               _logger;
     private readonly IDocumentBufferService        _documentBufferService;
     private readonly ILspWorkspaceScopeManager     _scopeManager;
 
@@ -32,7 +32,7 @@ public class GherkinDocumentTaggerService : IGherkinDocumentTaggerService
         ISemanticTokenService         semanticTokenService,
         IBindingMatchService          bindingMatchService,
         ILspWorkspaceScopeManager     scopeManager,
-        IDeveroomLogger               logger)
+        IIdeSupportLogger               logger)
     {
         _documentBufferService = documentBufferService;
         _tagParser             = tagParser;

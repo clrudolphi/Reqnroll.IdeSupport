@@ -1,4 +1,4 @@
-#nullable disable
+﻿#nullable disable
 using EnvDTE;
 using Microsoft.VisualStudio.Shell;
 using Reqnroll.IdeSupport.Common;
@@ -29,7 +29,7 @@ public class VsIdeScope : IVsIdeScope
     public VsIdeScope([Import(typeof(SVsServiceProvider))] IServiceProvider serviceProvider,
         IMonitoringService monitoringService,
         IFileSystemForIDE fileSystem,
-        Reqnroll.IdeSupport.VisualStudio.Diagnostics.DeveroomCompositeLogger compositeLogger)
+        Reqnroll.IdeSupport.VisualStudio.Diagnostics.IdeSupportCompositeLogger compositeLogger)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         Logger = compositeLogger;
@@ -49,7 +49,7 @@ public class VsIdeScope : IVsIdeScope
 
     public bool IsSolutionLoaded { get; private set; }
 
-    public IDeveroomLogger Logger { get; }
+    public IIdeSupportLogger Logger { get; }
     public IMonitoringService MonitoringService { get; }
     public IIdeActions Actions { get; }
     public IFileSystemForIDE FileSystem { get; }

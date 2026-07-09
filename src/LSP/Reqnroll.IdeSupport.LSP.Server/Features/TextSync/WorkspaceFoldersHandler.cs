@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
@@ -15,9 +15,9 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 public class WorkspaceFoldersHandler : IDidChangeWorkspaceFoldersHandler
 {
     private readonly ILspWorkspaceScopeManager _scopeManager;
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
 
-    public WorkspaceFoldersHandler(ILspWorkspaceScopeManager scopeManager, IDeveroomLogger logger)
+    public WorkspaceFoldersHandler(ILspWorkspaceScopeManager scopeManager, IIdeSupportLogger logger)
     {
         _scopeManager = scopeManager;
         _logger = logger;

@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
@@ -16,13 +16,13 @@ public class ReqnrollConfigChangedHandler : INotificationHandler<ReqnrollConfigC
     private readonly IDocumentBufferService _documentBufferService;
     private readonly IGherkinDocumentTaggerService _taggerService;
     private readonly IMediator _mediator;
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
 
     public ReqnrollConfigChangedHandler(
         IDocumentBufferService documentBufferService,
         IGherkinDocumentTaggerService taggerService,
         IMediator mediator,
-        IDeveroomLogger logger)
+        IIdeSupportLogger logger)
     {
         _documentBufferService = documentBufferService;
         _taggerService = taggerService;

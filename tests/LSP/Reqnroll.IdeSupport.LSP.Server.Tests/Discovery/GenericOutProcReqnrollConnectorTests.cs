@@ -1,4 +1,4 @@
-using Reqnroll.IdeSupport.Common.Configuration;
+﻿using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
@@ -18,7 +18,7 @@ public class GenericOutProcReqnrollConnectorTests
         public TestableGenericConnector(string tfm, string extensionFolder)
             : base(
                 new DeveroomConfiguration(),
-                Substitute.For<IDeveroomLogger>(),
+                Substitute.For<IIdeSupportLogger>(),
                 TargetFrameworkMoniker.Create(tfm),
                 extensionFolder,
                 ProcessorArchitectureSetting.UseSystem,

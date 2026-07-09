@@ -1,4 +1,4 @@
-using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
+﻿using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Configuration;
@@ -23,7 +23,7 @@ public sealed class GherkinFormattingHandler
     private readonly IDocumentBufferService _documentBufferService;
     private readonly IEditorConfigOptionsProvider _editorConfigOptionsProvider;
     private readonly IDeveroomConfigurationProvider _configurationProvider;
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
     private readonly GherkinDocumentFormatter _formatter = new();
 
     private static readonly TextDocumentSelector FeatureSelector = new(
@@ -33,7 +33,7 @@ public sealed class GherkinFormattingHandler
         IDocumentBufferService documentBufferService,
         IEditorConfigOptionsProvider editorConfigOptionsProvider,
         IDeveroomConfigurationProvider configurationProvider,
-        IDeveroomLogger logger)
+        IIdeSupportLogger logger)
     {
         _documentBufferService = documentBufferService;
         _editorConfigOptionsProvider = editorConfigOptionsProvider;

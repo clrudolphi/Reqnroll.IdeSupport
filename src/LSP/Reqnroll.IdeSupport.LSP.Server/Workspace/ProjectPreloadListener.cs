@@ -1,4 +1,4 @@
-using System.IO.Pipes;
+﻿using System.IO.Pipes;
 using System.Text;
 using Newtonsoft.Json.Linq;
 using Reqnroll.IdeSupport.Common.Diagnostics;
@@ -36,7 +36,7 @@ internal static class ProjectPreloadListener
     /// </param>
     public static async Task RunAsync(
         ILspWorkspaceScopeManager scopeManager,
-        IDeveroomLogger logger,
+        IIdeSupportLogger logger,
         CancellationToken cancellationToken,
         string? pipeName = null)
     {
@@ -71,7 +71,7 @@ internal static class ProjectPreloadListener
     private static async Task ProcessConnectionAsync(
         NamedPipeServerStream pipe,
         ILspWorkspaceScopeManager scopeManager,
-        IDeveroomLogger logger,
+        IIdeSupportLogger logger,
         CancellationToken cancellationToken)
     {
         using var reader = new StreamReader(pipe, Encoding.UTF8, false, 4096, leaveOpen: true);

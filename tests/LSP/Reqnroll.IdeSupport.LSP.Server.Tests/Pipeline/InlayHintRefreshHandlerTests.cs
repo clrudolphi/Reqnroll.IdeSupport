@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
@@ -13,7 +13,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Tests.Pipeline;
 public class InlayHintRefreshHandlerTests
 {
     private readonly ILanguageServerFacade _languageServer = Substitute.For<ILanguageServerFacade>();
-    private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
 
     private InlayHintRefreshHandler CreateSut() => new(_languageServer, _logger);
 

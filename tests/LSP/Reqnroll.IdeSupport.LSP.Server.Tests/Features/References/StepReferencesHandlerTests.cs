@@ -1,4 +1,4 @@
-using OmniSharp.Extensions.LanguageServer.Protocol;
+﻿using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
@@ -19,7 +19,7 @@ public class StepReferencesHandlerTests
     private readonly IBindingMatchService          _matchService    = Substitute.For<IBindingMatchService>();
     private readonly ILspWorkspaceScopeManager     _scopeManager    = Substitute.For<ILspWorkspaceScopeManager>();
     private readonly IProjectBindingRegistryLookup _registryLookup  = Substitute.For<IProjectBindingRegistryLookup>();
-    private readonly IDeveroomLogger               _logger          = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger               _logger          = Substitute.For<IIdeSupportLogger>();
 
     private static readonly DocumentUri CsUri =
         DocumentUri.FromFileSystemPath("/workspace/Steps.cs");
@@ -188,7 +188,7 @@ public class StepReferencesHandlerTests
     [Fact]
     public async Task Handle_passes_owner_filter_to_FindUsages_when_owners_are_known()
     {
-        var ideScope = new LspIdeScope(Substitute.For<IDeveroomLogger>());
+        var ideScope = new LspIdeScope(Substitute.For<IIdeSupportLogger>());
         var project  = new LspReqnrollProject(
             new Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectLoadedParams
             {

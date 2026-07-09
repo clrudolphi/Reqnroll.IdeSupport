@@ -1,4 +1,4 @@
-using Reqnroll.IdeSupport.Common.Configuration;
+﻿using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.LSP.Connector.Models;
@@ -10,7 +10,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Tests.Discovery;
 
 public class ConnectorDiscoveryServiceTests : IDisposable
 {
-    private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
     private readonly IOutProcConnectorFactory _factory = Substitute.For<IOutProcConnectorFactory>();
     private readonly string _projectFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
     private readonly string _assemblyPath;
@@ -37,7 +37,7 @@ public class ConnectorDiscoveryServiceTests : IDisposable
         public FakeConnector(DiscoveryResult result)
             : base(
                 new DeveroomConfiguration(),
-                Substitute.For<IDeveroomLogger>(),
+                Substitute.For<IIdeSupportLogger>(),
                 TargetFrameworkMoniker.Create(".NETCoreApp,Version=v8.0"),
                 AppContext.BaseDirectory,
                 ProcessorArchitectureSetting.UseSystem,
@@ -197,7 +197,7 @@ public class ConnectorDiscoveryServiceTests : IDisposable
         public ThrowingConnector()
             : base(
                 new DeveroomConfiguration(),
-                Substitute.For<IDeveroomLogger>(),
+                Substitute.For<IIdeSupportLogger>(),
                 TargetFrameworkMoniker.Create(".NETCoreApp,Version=v8.0"),
                 AppContext.BaseDirectory,
                 ProcessorArchitectureSetting.UseSystem,

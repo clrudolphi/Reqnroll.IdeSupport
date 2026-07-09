@@ -1,6 +1,6 @@
-namespace Reqnroll.VisualStudio.VsxStubs.ProjectSystem;
+﻿namespace Reqnroll.VisualStudio.VsxStubs.ProjectSystem;
 
-public class StubLogger : IDeveroomLogger
+public class StubLogger : IIdeSupportLogger
 {
     public StubLogger()
     {

@@ -1,4 +1,4 @@
-using Reqnroll.IdeSupport.LSP.Core.Documents;
+﻿using Reqnroll.IdeSupport.LSP.Core.Documents;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.VisualStudio.VsxStubs.LspStubs;
 
@@ -9,7 +9,7 @@ public class BindingMatchServiceTests
     private const string Uri       = "file:///c:/proj/feature1.feature";
     private const string SecondUri = "file:///c:/proj/feature2.feature";
 
-    private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
     private readonly IMonitoringService _monitoringService = Substitute.For<IMonitoringService>();
     private readonly IDeveroomConfigurationProvider _configProvider = Substitute.For<IDeveroomConfigurationProvider>();
 

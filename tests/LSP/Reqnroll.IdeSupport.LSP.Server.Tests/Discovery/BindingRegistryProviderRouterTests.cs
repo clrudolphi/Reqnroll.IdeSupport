@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
@@ -13,7 +13,7 @@ public class BindingRegistryProviderRouterTests : IDisposable
     private readonly ILspWorkspaceScopeManager _scopeManager = Substitute.For<ILspWorkspaceScopeManager>();
     private readonly IMediator                 _mediator     = Substitute.For<IMediator>();
     private readonly IBindingMatchService      _matchService = Substitute.For<IBindingMatchService>();
-    private readonly IDeveroomLogger            _logger       = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger            _logger       = Substitute.For<IIdeSupportLogger>();
     private readonly LspIdeScope               _ideScope;
     private readonly string                    _folder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
     private readonly LspReqnrollProject        _project;

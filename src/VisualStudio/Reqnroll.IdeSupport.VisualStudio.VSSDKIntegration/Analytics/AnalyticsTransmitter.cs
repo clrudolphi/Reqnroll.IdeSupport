@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.ComponentModel.Composition;
@@ -34,7 +34,7 @@ public class AnalyticsTransmitter : IAnalyticsTransmitter, IAsyncDisposable
 {
     private readonly TelemetryClient _telemetryClient;
     private readonly IEnableAnalyticsChecker _enableAnalyticsChecker;
-    private readonly IDeveroomLogger? _logger;
+    private readonly IIdeSupportLogger? _logger;
     private readonly ITelemetryDebugLog _debugLog;
 
     [ImportingConstructor]
@@ -42,7 +42,7 @@ public class AnalyticsTransmitter : IAnalyticsTransmitter, IAsyncDisposable
         IEnableAnalyticsChecker enableAnalyticsChecker,
         IUserUniqueIdStore userUniqueIdStore,
         IVersionProvider versionProvider,
-        Reqnroll.IdeSupport.VisualStudio.Diagnostics.DeveroomCompositeLogger? logger = null)
+        Reqnroll.IdeSupport.VisualStudio.Diagnostics.IdeSupportCompositeLogger? logger = null)
         : this(CreateClient(userUniqueIdStore, versionProvider), enableAnalyticsChecker, logger,
             TelemetryDebugLog.FromEnvironment())
     {
@@ -56,7 +56,7 @@ public class AnalyticsTransmitter : IAnalyticsTransmitter, IAsyncDisposable
     internal AnalyticsTransmitter(
         TelemetryClient telemetryClient,
         IEnableAnalyticsChecker enableAnalyticsChecker,
-        IDeveroomLogger? logger = null,
+        IIdeSupportLogger? logger = null,
         ITelemetryDebugLog? debugLog = null)
     {
         _telemetryClient = telemetryClient;

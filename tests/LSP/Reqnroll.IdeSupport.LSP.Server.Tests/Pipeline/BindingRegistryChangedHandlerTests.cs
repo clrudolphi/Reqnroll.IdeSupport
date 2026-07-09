@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
@@ -29,9 +29,9 @@ public class BindingRegistryChangedHandlerTests : IDisposable
     private readonly IMediator                    _mediator      = Substitute.For<IMediator>();
     private readonly ICSharpBindingDiscoveryService _csharpDiscovery = Substitute.For<ICSharpBindingDiscoveryService>();
     private readonly IFeatureRescanDebouncer      _rescanDebouncer = Substitute.For<IFeatureRescanDebouncer>();
-    private readonly IDeveroomLogger              _logger        = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger              _logger        = Substitute.For<IIdeSupportLogger>();
 
-    private readonly IDeveroomLogger _ideLogger = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger _ideLogger = Substitute.For<IIdeSupportLogger>();
     private readonly LspIdeScope     _ideScope;
 
     // Two on-disk roots — project folder and linked/external folder.

@@ -1,4 +1,4 @@
-namespace Reqnroll.VisualStudio.VsxStubs.ProjectSystem;
+﻿namespace Reqnroll.VisualStudio.VsxStubs.ProjectSystem;
 
 public class StubIdeScope : IIdeScope, IDisposable
 {
@@ -41,9 +41,9 @@ public class StubIdeScope : IIdeScope, IDisposable
     public IDictionary<string, IWpfTextView> OpenViews { get; } = new Dictionary<string, IWpfTextView>();
     public StubLogger StubLogger { get; } = new();
 
-    public DeveroomCompositeLogger CompositeLogger { get; } = new()
+    public IdeSupportCompositeLogger CompositeLogger { get; } = new()
     {
-        new DeveroomDebugLogger()
+        new IdeSupportDebugLogger()
     };
 
     public StubWindowManager StubWindowManager { get; } = new();
@@ -57,7 +57,7 @@ public class StubIdeScope : IIdeScope, IDisposable
         textBuffer.Properties.GetOrCreateSingletonProperty(typeof(IProjectScope),
             () => ProjectScopes.SingleOrDefault() as IProjectScope ?? new VoidProjectScope(this));
 
-    public IDeveroomLogger Logger => CompositeLogger;
+    public IIdeSupportLogger Logger => CompositeLogger;
     public IIdeActions Actions { get; set; }
     public IDeveroomWindowManager WindowManager => StubWindowManager;
     public IFileSystemForIDE FileSystem { get; private set; } = new MockFileSystemForVs();

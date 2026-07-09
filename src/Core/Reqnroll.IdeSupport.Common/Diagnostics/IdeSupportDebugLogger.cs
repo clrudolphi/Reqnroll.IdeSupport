@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 
 namespace Reqnroll.IdeSupport.Common.Diagnostics;
 
-public class DeveroomDebugLogger : IDeveroomLogger
+public class IdeSupportDebugLogger : IIdeSupportLogger
 {
 #if DEBUG
     public const TraceLevel DefaultDebugTraceLevel = TraceLevel.Verbose;
@@ -12,7 +12,7 @@ public class DeveroomDebugLogger : IDeveroomLogger
 #endif
     public TraceLevel Level { get; }
 
-    public DeveroomDebugLogger(TraceLevel level = DefaultDebugTraceLevel)
+    public IdeSupportDebugLogger(TraceLevel level = DefaultDebugTraceLevel)
     {
         Level = level;
         var env = Environment.GetEnvironmentVariable("REQNROLLVS_DEBUG");

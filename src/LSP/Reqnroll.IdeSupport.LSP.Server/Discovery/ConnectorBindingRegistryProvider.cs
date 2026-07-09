@@ -1,4 +1,4 @@
-using Reqnroll.IdeSupport.Common.Diagnostics;
+﻿using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
@@ -28,7 +28,7 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
 
     private readonly LspReqnrollProject _project;
     private readonly IConnectorDiscoveryService _discoveryService;
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
     private readonly ILspTelemetryService? _telemetryService;
 
     // Last-good state.  Volatile so readers always see the latest write.
@@ -47,7 +47,7 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
     /// Creates a provider backed by the default connector-based discovery service
     /// (generic/custom connector selected per project configuration).
     /// </summary>
-    public ConnectorBindingRegistryProvider(LspReqnrollProject project, IDeveroomLogger logger)
+    public ConnectorBindingRegistryProvider(LspReqnrollProject project, IIdeSupportLogger logger)
         : this(project, new ConnectorDiscoveryService(logger, new OutProcReqnrollConnectorFactory(logger)), logger, null)
     {
     }
@@ -60,7 +60,7 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
     public ConnectorBindingRegistryProvider(
         LspReqnrollProject project,
         IConnectorDiscoveryService discoveryService,
-        IDeveroomLogger logger)
+        IIdeSupportLogger logger)
         : this(project, discoveryService, logger, null)
     {
     }
@@ -71,7 +71,7 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
     public ConnectorBindingRegistryProvider(
         LspReqnrollProject project,
         IConnectorDiscoveryService discoveryService,
-        IDeveroomLogger logger,
+        IIdeSupportLogger logger,
         ILspTelemetryService? telemetryService)
     {
         _project          = project;

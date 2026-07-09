@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Tests.Gherkin.Parsing;
@@ -15,7 +15,7 @@ public class DeveroomGherkinParserTests
 Feature: Addition
 @tag
 ",
-            new DeveroomNullLogger(), out var gherkinDocument, out var errors);
+            new IdeSupportNullLogger(), out var gherkinDocument, out var errors);
         gherkinDocument.Should().NotBeNull();
         result.Should().BeFalse();
     }
@@ -33,7 +33,7 @@ Scenario: Add two numbers
 		| foo |
 		| bar \
 ",
-            new DeveroomNullLogger(), out var gherkinDocument, out var errors);
+            new IdeSupportNullLogger(), out var gherkinDocument, out var errors);
         gherkinDocument.Should().NotBeNull();
         result.Should().BeFalse();
     }
@@ -51,7 +51,7 @@ Scenario: Add two numbers
 		| foo |
 		| bar
 ",
-            new DeveroomNullLogger(), out var gherkinDocument, out var errors);
+            new IdeSupportNullLogger(), out var gherkinDocument, out var errors);
         gherkinDocument.Should().NotBeNull();
         result.Should().BeFalse();
     }
@@ -68,7 +68,7 @@ Scenario: Add two numbers
   Given I have added
     ```
 ",
-            new DeveroomNullLogger(), out var gherkinDocument, out var errors);
+            new IdeSupportNullLogger(), out var gherkinDocument, out var errors);
         gherkinDocument.Should().NotBeNull();
         result.Should().BeFalse();
     }

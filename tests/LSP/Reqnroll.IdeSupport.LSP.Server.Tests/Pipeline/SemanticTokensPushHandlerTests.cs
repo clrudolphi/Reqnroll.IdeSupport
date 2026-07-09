@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
@@ -15,7 +15,7 @@ public class SemanticTokensPushHandlerTests
 {
     private readonly ILanguageServerFacade _facade = Substitute.For<ILanguageServerFacade>();
     private readonly ISemanticTokenService _tokenService = Substitute.For<ISemanticTokenService>();
-    private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
 
     private static readonly DocumentUri FeatureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
 

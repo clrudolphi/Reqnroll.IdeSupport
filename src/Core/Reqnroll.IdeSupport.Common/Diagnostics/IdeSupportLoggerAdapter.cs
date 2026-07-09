@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Diagnostics;
@@ -8,10 +8,10 @@ namespace Reqnroll.IdeSupport.Common.Diagnostics;
 
 /// <summary>
 /// Canonical <see cref="TraceLevel"/> &lt;-&gt; <see cref="LogLevel"/> mapping, shared by every
-/// place that bridges <see cref="IDeveroomLogger"/> (our app-level logging API) onto
+/// place that bridges <see cref="IIdeSupportLogger"/> (our app-level logging API) onto
 /// <see cref="Microsoft.Extensions.Logging"/>'s <c>ILogger</c>/<c>ILogger&lt;T&gt;</c> abstractions.
 /// </summary>
-public static class DeveroomLogLevelConverter
+public static class IdeSupportLogLevelConverter
 {
     public static TraceLevel ToTraceLevel(LogLevel level) => level switch
     {
@@ -33,24 +33,24 @@ public static class DeveroomLogLevelConverter
     };
 }
 
-/// <summary>Adapts a single <see cref="Microsoft.Extensions.Logging"/> category onto an <see cref="IDeveroomLogger"/> sink.</summary>
-public sealed class DeveroomLoggerAdapter : ILogger
+/// <summary>Adapts a single <see cref="Microsoft.Extensions.Logging"/> category onto an <see cref="IIdeSupportLogger"/> sink.</summary>
+public sealed class IdeSupportLoggerAdapter : ILogger
 {
     private readonly string _categoryName;
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
 
-    public DeveroomLoggerAdapter(string categoryName, IDeveroomLogger logger)
+    public IdeSupportLoggerAdapter(string categoryName, IIdeSupportLogger logger)
     {
         _categoryName = categoryName;
         _logger = logger;
     }
 
-    public bool IsEnabled(LogLevel logLevel) => _logger.IsLogging(DeveroomLogLevelConverter.ToTraceLevel(logLevel));
+    public bool IsEnabled(LogLevel logLevel) => _logger.IsLogging(IdeSupportLogLevelConverter.ToTraceLevel(logLevel));
 
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
         Func<TState, Exception?, string> formatter)
     {
-        _logger.Log(new LogMessage(DeveroomLogLevelConverter.ToTraceLevel(logLevel), formatter(state, exception),
+        _logger.Log(new LogMessage(IdeSupportLogLevelConverter.ToTraceLevel(logLevel), formatter(state, exception),
             _categoryName, exception));
     }
 
@@ -64,20 +64,20 @@ public sealed class DeveroomLoggerAdapter : ILogger
 }
 
 /// <summary>
-/// Bridges a single <see cref="IDeveroomLogger"/> sink onto the standard
+/// Bridges a single <see cref="IIdeSupportLogger"/> sink onto the standard
 /// <see cref="ILoggerFactory"/>/<see cref="ILogger{TCategoryName}"/> abstractions, so that
 /// consumers can be written against <c>ILogger&lt;T&gt;</c> while still writing through the same
-/// file/debug sink as everything else using <see cref="IDeveroomLogger"/> directly.
+/// file/debug sink as everything else using <see cref="IIdeSupportLogger"/> directly.
 /// </summary>
-public sealed class DeveroomLoggerFactory : ILoggerFactory
+public sealed class IdeSupportLoggerFactory : ILoggerFactory
 {
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
 
-    public DeveroomLoggerFactory(IDeveroomLogger logger) => _logger = logger;
+    public IdeSupportLoggerFactory(IIdeSupportLogger logger) => _logger = logger;
 
-    public ILogger CreateLogger(string categoryName) => new DeveroomLoggerAdapter(categoryName, _logger);
+    public ILogger CreateLogger(string categoryName) => new IdeSupportLoggerAdapter(categoryName, _logger);
 
-    // Single sink by design - IDeveroomLogger already fans out via DeveroomCompositeLogger when needed.
+    // Single sink by design - IIdeSupportLogger already fans out via IdeSupportCompositeLogger when needed.
     public void AddProvider(ILoggerProvider provider) { }
 
     public void Dispose() { }

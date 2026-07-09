@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Collections.Generic;
@@ -59,13 +59,13 @@ public sealed class GoToHooksHandler
 
     private readonly IDocumentBufferService        _bufferService;
     private readonly IProjectBindingRegistryLookup _registryLookup;
-    private readonly IDeveroomLogger               _logger;
+    private readonly IIdeSupportLogger               _logger;
     private readonly ILspTelemetryService?          _telemetryService;
 
     public GoToHooksHandler(
         IDocumentBufferService        bufferService,
         IProjectBindingRegistryLookup registryLookup,
-        IDeveroomLogger               logger,
+        IIdeSupportLogger               logger,
         ILspTelemetryService?         telemetryService = null)
     {
         _bufferService  = bufferService;

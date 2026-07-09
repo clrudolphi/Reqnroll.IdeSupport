@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
@@ -6,7 +6,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Tests.Workspace;
 
 public class LspWorkspaceScopeManagerTests : IDisposable
 {
-    private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
     private readonly IMediator _mediator = Substitute.For<IMediator>();
     private readonly LspIdeScope _ideScope;
     private readonly LspWorkspaceScopeManager _sut;

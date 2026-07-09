@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Collections.Generic;
@@ -40,7 +40,7 @@ internal sealed class GherkinDropdownBarClient : IVsDropdownBarClient, IDisposab
     private readonly IVsTextView    _vsTextView;
     private readonly IVsEditorAdaptersFactoryService _editorAdapter;
     private readonly IVsUIShell     _uiShell;
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
     private readonly DispatcherTimer _refreshTimer;
 
     private IVsDropdownBarManager? _dropdownBarManager;
@@ -77,7 +77,7 @@ internal sealed class GherkinDropdownBarClient : IVsDropdownBarClient, IDisposab
         IVsTextView vsTextView,
         IVsEditorAdaptersFactoryService editorAdapter,
         IVsUIShell uiShell,
-        IDeveroomLogger logger)
+        IIdeSupportLogger logger)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
 

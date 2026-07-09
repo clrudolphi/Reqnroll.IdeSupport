@@ -1,4 +1,4 @@
-using Reqnroll.IdeSupport.Common;
+﻿using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
@@ -19,7 +19,7 @@ public class GenericOutProcReqnrollConnector : OutProcReqnrollConnector
 
     public GenericOutProcReqnrollConnector(
         DeveroomConfiguration configuration,
-        IDeveroomLogger logger,
+        IIdeSupportLogger logger,
         TargetFrameworkMoniker targetFrameworkMoniker,
         string extensionFolder,
         ProcessorArchitectureSetting processorArchitecture,

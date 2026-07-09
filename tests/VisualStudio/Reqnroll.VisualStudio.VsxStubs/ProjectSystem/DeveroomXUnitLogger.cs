@@ -1,6 +1,6 @@
-namespace Reqnroll.VisualStudio.VsxStubs.ProjectSystem;
+﻿namespace Reqnroll.VisualStudio.VsxStubs.ProjectSystem;
 
-public class DeveroomXUnitLogger : IDeveroomLogger
+public class DeveroomXUnitLogger : IIdeSupportLogger
 {
     private readonly Stopwatch _stopwatch;
     private readonly ITestOutputHelper _testOutputHelper;

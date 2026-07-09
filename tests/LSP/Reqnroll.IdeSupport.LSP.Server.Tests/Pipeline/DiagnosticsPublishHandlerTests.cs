@@ -1,4 +1,4 @@
-using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Diagnostics;
@@ -27,7 +27,7 @@ public class DiagnosticsPublishHandlerTests
     private readonly ILspWorkspaceScopeManager _scopeManager   = Substitute.For<ILspWorkspaceScopeManager>();
     private readonly IDiagnosticsAggregator    _aggregator     = Substitute.For<IDiagnosticsAggregator>();
     private readonly ILanguageServerFacade     _facade         = Substitute.For<ILanguageServerFacade>();
-    private readonly IDeveroomLogger            _logger         = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger            _logger         = Substitute.For<IIdeSupportLogger>();
 
     private static readonly DocumentUri FeatureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
 

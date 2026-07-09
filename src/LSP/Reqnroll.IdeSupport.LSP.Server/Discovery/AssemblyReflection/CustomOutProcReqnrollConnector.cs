@@ -8,7 +8,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
 
 public class CustomOutProcReqnrollConnector : OutProcReqnrollConnector
 {
-    public CustomOutProcReqnrollConnector(DeveroomConfiguration configuration, IDeveroomLogger logger, TargetFrameworkMoniker targetFrameworkMoniker, string extensionFolder, ProcessorArchitectureSetting processorArchitecture, ProjectSettings projectSettings, IMonitoringService monitoringService) : base(configuration, logger, targetFrameworkMoniker, extensionFolder, processorArchitecture, projectSettings, monitoringService)
+    public CustomOutProcReqnrollConnector(DeveroomConfiguration configuration, IIdeSupportLogger logger, TargetFrameworkMoniker targetFrameworkMoniker, string extensionFolder, ProcessorArchitectureSetting processorArchitecture, ProjectSettings projectSettings, IMonitoringService monitoringService) : base(configuration, logger, targetFrameworkMoniker, extensionFolder, processorArchitecture, projectSettings, monitoringService)
     {
     }
 

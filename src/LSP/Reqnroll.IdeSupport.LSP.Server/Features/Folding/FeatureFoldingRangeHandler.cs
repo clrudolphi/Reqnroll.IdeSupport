@@ -1,4 +1,4 @@
-using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Folding;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
@@ -23,12 +23,12 @@ public sealed class FeatureFoldingRangeHandler
 {
     private readonly IDocumentBufferService        _documentBufferService;
     private readonly IGherkinFoldingRangeService    _foldingService;
-    private readonly IDeveroomLogger               _logger;
+    private readonly IIdeSupportLogger               _logger;
 
     public FeatureFoldingRangeHandler(
         IDocumentBufferService documentBufferService,
         IGherkinFoldingRangeService foldingService,
-        IDeveroomLogger logger)
+        IIdeSupportLogger logger)
     {
         _documentBufferService = documentBufferService;
         _foldingService         = foldingService;

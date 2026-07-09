@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.ComponentModel.Composition;
@@ -43,10 +43,10 @@ public sealed class CommentToggleCommandFilter : IOleCommandTarget
     internal sealed class TextViewCreationListener : IVsTextViewCreationListener
     {
         private readonly IVsEditorAdaptersFactoryService _editorAdapter;
-        private readonly IDeveroomLogger _logger;
+        private readonly IIdeSupportLogger _logger;
 
         [ImportingConstructor]
-        public TextViewCreationListener(IVsEditorAdaptersFactoryService editorAdapter, IDeveroomLogger logger)
+        public TextViewCreationListener(IVsEditorAdaptersFactoryService editorAdapter, IIdeSupportLogger logger)
         {
             _editorAdapter = editorAdapter;
             _logger = logger;
@@ -80,14 +80,14 @@ public sealed class CommentToggleCommandFilter : IOleCommandTarget
 
     private readonly IVsTextView                     _vsTextView;
     private readonly IVsEditorAdaptersFactoryService _editorAdapter;
-    private readonly IDeveroomLogger                 _logger;
+    private readonly IIdeSupportLogger                 _logger;
 
     // Resolved on first Exec call; null until then.
     private IWpfTextView? _wpfTextView;
 
     private IOleCommandTarget? _nextCommandTarget;
 
-    private CommentToggleCommandFilter(IVsTextView vsTextView, IVsEditorAdaptersFactoryService editorAdapter, IDeveroomLogger logger)
+    private CommentToggleCommandFilter(IVsTextView vsTextView, IVsEditorAdaptersFactoryService editorAdapter, IIdeSupportLogger logger)
     {
         _vsTextView    = vsTextView;
         _editorAdapter = editorAdapter;

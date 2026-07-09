@@ -1,4 +1,4 @@
-using Reqnroll.IdeSupport.Common.Configuration;
+﻿using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Documents;
 using Reqnroll.VisualStudio.VsxStubs.LspStubs;
@@ -8,13 +8,13 @@ namespace Reqnroll.IdeSupport.LSP.Core.Tests.Gherkin.Parsing;
 
 public class DeveroomTagParserTests
 {
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
     private readonly IMonitoringService _monitoringService;
     private readonly IDeveroomConfigurationProvider _configProvider;
 
     public DeveroomTagParserTests()
     {
-        _logger = Substitute.For<IDeveroomLogger>();
+        _logger = Substitute.For<IIdeSupportLogger>();
         _monitoringService = Substitute.For<IMonitoringService>();
         _configProvider = Substitute.For<IDeveroomConfigurationProvider>();
         _configProvider.GetConfiguration().Returns(new DeveroomConfiguration());

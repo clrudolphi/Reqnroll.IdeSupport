@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Collections.Generic;
@@ -48,7 +48,7 @@ public sealed record CorpusFingerprint(
         var registry = await BuildRegistryAsync(Path.Combine(corpusRoot, "Bindings")).ConfigureAwait(false);
 
         var tagParser = new DeveroomTagParser(
-            new DeveroomNullLogger(), NullMonitoringService.Instance, new DefaultConfigurationProvider());
+            new IdeSupportNullLogger(), NullMonitoringService.Instance, new DefaultConfigurationProvider());
 
         var featureFiles = Directory
             .EnumerateFiles(Path.Combine(corpusRoot, "Features"), "*.feature", SearchOption.AllDirectories)
@@ -93,7 +93,7 @@ public sealed record CorpusFingerprint(
     {
         var parser = new DeveroomGherkinParser(
             ReqnrollGherkinDialectProvider.Get("en"), NullMonitoringService.Instance);
-        parser.ParseAndCollectErrors(featureText, new DeveroomNullLogger(), out var doc, out _);
+        parser.ParseAndCollectErrors(featureText, new IdeSupportNullLogger(), out var doc, out _);
         if (doc?.Feature is null) return;
 
         foreach (var container in EnumerateStepsContainers(doc.Feature))

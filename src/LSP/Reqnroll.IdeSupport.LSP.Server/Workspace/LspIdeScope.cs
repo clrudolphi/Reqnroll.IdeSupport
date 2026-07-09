@@ -1,4 +1,4 @@
-using Reqnroll.IdeSupport.Common;
+﻿using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Workspace;
@@ -10,7 +10,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Workspace;
 /// </summary>
 public sealed class LspIdeScope : IIdeScope
 {
-    public LspIdeScope(IDeveroomLogger logger)
+    public LspIdeScope(IIdeSupportLogger logger)
     {
         Logger = logger;
         FileSystem = new FileSystemForIDE();
@@ -19,7 +19,7 @@ public sealed class LspIdeScope : IIdeScope
     }
 
     public bool IsSolutionLoaded => true;
-    public IDeveroomLogger Logger { get; }
+    public IIdeSupportLogger Logger { get; }
     public IMonitoringService MonitoringService { get; }
     public IIdeActions Actions { get; }
     public IFileSystemForIDE FileSystem { get; }
@@ -28,9 +28,9 @@ public sealed class LspIdeScope : IIdeScope
 
     private sealed class LspIdeActions : IIdeActions
     {
-        private readonly IDeveroomLogger _logger;
+        private readonly IIdeSupportLogger _logger;
 
-        public LspIdeActions(IDeveroomLogger logger) => _logger = logger;
+        public LspIdeActions(IIdeSupportLogger logger) => _logger = logger;
 
         public void ShowError(string description, Exception exception)
             => _logger.LogError($"{description}: {exception}");

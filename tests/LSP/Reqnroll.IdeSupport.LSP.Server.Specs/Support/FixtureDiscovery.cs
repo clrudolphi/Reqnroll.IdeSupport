@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
@@ -47,7 +47,7 @@ public static class FixtureDiscovery
     /// <see cref="LspReqnrollProject"/>, so discovery shares the production configuration
     /// resolution (default configuration → generic connector).
     /// </summary>
-    private static IProjectScope BuildScope(IDeveroomLogger logger)
+    private static IProjectScope BuildScope(IIdeSupportLogger logger)
     {
         var ideScope = new LspIdeScope(logger);
         var info = new ReqnrollProjectLoadedParams
@@ -61,7 +61,7 @@ public static class FixtureDiscovery
         return new LspReqnrollProject(info, ideScope);
     }
 
-    private sealed class SilentDeveroomLogger : IDeveroomLogger
+    private sealed class SilentDeveroomLogger : IIdeSupportLogger
     {
         public TraceLevel Level => TraceLevel.Off;
         public void Log(LogMessage message) { }

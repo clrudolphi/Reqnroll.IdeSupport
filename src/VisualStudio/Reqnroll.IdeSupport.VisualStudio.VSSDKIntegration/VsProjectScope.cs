@@ -1,4 +1,4 @@
-#nullable disable
+﻿#nullable disable
 
 using EnvDTE;
 using Reqnroll.IdeSupport.Common;
@@ -28,7 +28,7 @@ public class VsProjectScope : IProjectScope
         Debug.Assert(ProjectFolder != null, "VsxHelper.IsSolutionProject ensures a not-null ProjectFolder");
     }
 
-    private IDeveroomLogger Logger => IdeScope.Logger;
+    private IIdeSupportLogger Logger => IdeScope.Logger;
     private IMonitoringService MonitoringService => IdeScope.MonitoringService;
     public ConcurrentDictionary<Type, object> Properties { get; } = new();
     public string ProjectFolder { get; }

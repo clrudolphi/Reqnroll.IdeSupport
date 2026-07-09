@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Collections.Generic;
@@ -29,9 +29,9 @@ internal sealed class GoToHooksCommand : Command
     private readonly GoToHooksState  _state;
     private readonly ILogger<GoToHooksCommand> _logger;
     // NavigationPickerHelper (shared with FindStepUsages/RenameStep-adjacent navigation code,
-    // out of scope for the ILogger<T> migration) still takes IDeveroomLogger — resolve the
+    // out of scope for the ILogger<T> migration) still takes IIdeSupportLogger — resolve the
     // shared DI-registered singleton sink for that one call rather than a second ad hoc logger.
-    private readonly IDeveroomLogger _fileLogger;
+    private readonly IIdeSupportLogger _fileLogger;
 
     // guidSHLMainMenu (vsshlids.h) — the VS shell's built-in command set.
     private static readonly Guid GuidSHLMainMenu = new("{D309F791-903F-11D0-9EFC-00A0C911004F}");
@@ -40,7 +40,7 @@ internal sealed class GoToHooksCommand : Command
     // context menu (IDM_VS_CTXT_CODEWIN) that hosts "Go To Definition" / "Find All References".
     private const int IDG_VS_CODEWIN_NAVIGATETOLOCATION = 0x02B1;
 
-    public GoToHooksCommand(GoToHooksState state, ILogger<GoToHooksCommand> logger, IDeveroomLogger fileLogger)
+    public GoToHooksCommand(GoToHooksState state, ILogger<GoToHooksCommand> logger, IIdeSupportLogger fileLogger)
     {
         _state      = state;
         _logger     = logger;
