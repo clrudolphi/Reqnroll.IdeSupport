@@ -694,6 +694,55 @@ public class StepRenameHandlerTests
             "a synthetic whole-line range was the bug this regression guards against");
     }
 
+    // ── Regression (#82 follow-up): FindBindingsAtFeatureStep used to re-derive its own
+    //    start/end-character bounds check from step.Range.StartLinePosition/EndLinePosition —
+    //    the exact narrow, exact-text-span-only check #101 fixed on StepBindingMatch.Contains,
+    //    just reimplemented here without picking up that fix. A cursor on the step's keyword or
+    //    leading indentation (as opposed to the concrete step text itself) would silently return
+    //    zero bindings, so F2 rename showed no prompt at all — confirmed from a manual VS
+    //    session's server logs where 4 of 5 F2 attempts on the same step line failed this way. ──
+
+    [Fact]
+    public async Task PrepareRename_from_feature_resolves_when_cursor_is_on_the_keyword_not_the_step_text()
+    {
+        var featureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+        var binding = MakeBinding(
+            ScenarioBlock.Then,
+            new Regex("^to be or not to be$"),
+            specifiedExpression: "to be or not to be",
+            line: 8, column: 9,
+            method: "Steps.ThenToBeOrNotToBe()");
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { binding }));
+
+        var project = MakeTestProject();
+        _scopeManager.ResolveOwners(featureUri).Returns(new[] { project });
+        _scopeManager.GetProjectForUri(featureUri).Returns(project);
+
+        var matchSet = MakeFeatureMatchSet(
+            featureUri.ToString(), binding,
+            "Then", "to be or not to be", stepLine: 2, stepChar: 5);
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+            .Returns(ci =>
+            {
+                ci[1] = matchSet;
+                return true;
+            });
+
+        // Line is "\tThen to be or not to be" — the step text span starts at character 6.
+        // Character 2 sits on "Then" itself, well before that span.
+        var result = await CreateSut().HandlePrepareRenameAsync(
+            new PrepareRenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 2)
+            },
+            CancellationToken.None);
+
+        result.Should().NotBeNull("a cursor on the step's keyword should still resolve the binding");
+        result!.PlaceholderRange!.Placeholder.Should().Be("to be or not to be");
+    }
+
     // ── Regression (issue #47): prepareRename at a position with no renameable binding must
     //    return null quietly rather than throwing. The textDocument/prepareRename JSON-RPC
     //    handler in LanguageServerOptionsExtensions passes this return value straight through

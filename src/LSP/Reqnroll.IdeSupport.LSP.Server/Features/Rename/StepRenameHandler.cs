@@ -719,22 +719,22 @@ public sealed class StepRenameHandler
                 if (step.Result is null || !(step.Result.HasDefined || step.Result.HasAmbiguous))
                     continue;
 
-                // Check if cursor falls within the step's range
-                var startPos = step.Range.StartLinePosition;
-                var endPos   = step.Range.EndLinePosition;
-                if (position.Line >= startPos.Line &&
-                    position.Line <= endPos.Line)
+                // Tolerate a cursor anywhere on the step's line(s), not just within the exact
+                // step-text span (e.g. on the keyword or leading indentation) — this used to
+                // compare position.Character directly against step.Range's own start/end
+                // character, the same narrow exact-text-span bug #101 fixed for Go to Definition,
+                // just re-derived independently here rather than shared (see #82 follow-up).
+                var snapshot  = step.Range.Snapshot;
+                var startLine = snapshot.GetLineFromLineNumber(step.Range.StartLinePosition.Line);
+                var endLine   = snapshot.GetLineFromLineNumber(step.Range.EndLinePosition.Line);
+                var offset    = snapshot.ToOffset(position.Line, position.Character);
+                if (offset >= startLine.Start && offset <= endLine.End)
                 {
-                    var stepStartChar = (position.Line == startPos.Line) ? startPos.Character : 0;
-                    var stepEndChar   = (position.Line == endPos.Line)   ? endPos.Character   : int.MaxValue;
-                    if (position.Character >= stepStartChar && position.Character <= stepEndChar)
+                    matchedRange ??= step.Range.ToLspRange();
+                    foreach (var item in step.Result.Items)
                     {
-                        matchedRange ??= step.Range.ToLspRange();
-                        foreach (var item in step.Result.Items)
-                        {
-                            if (item.MatchedStepDefinition != null)
-                                matchedBindings.Add(item.MatchedStepDefinition);
-                        }
+                        if (item.MatchedStepDefinition != null)
+                            matchedBindings.Add(item.MatchedStepDefinition);
                     }
                 }
             }
