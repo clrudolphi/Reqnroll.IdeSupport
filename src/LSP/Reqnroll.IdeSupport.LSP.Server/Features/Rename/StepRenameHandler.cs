@@ -46,13 +46,7 @@ public sealed class StepRenameHandler
     private readonly IIdeSupportLogger               _logger;
     private readonly IDocumentBufferService        _documentBuffer;
     private readonly RenameSessionManager          _sessionManager;
-
-    // IDocumentBufferService deliberately never tracks .cs files, and a rename applied via
-    // workspace/applyEdit is never saved to disk — so this is the only record of a .cs file's
-    // content immediately after a rename edits it, until the client reopens or saves the file.
-    // Keyed by DocumentUri.ToString(). See FindAttributeLiteralAsync.
-    private readonly ConcurrentDictionary<string, string> _lastKnownCsContent = new();
-
+    private readonly ICSharpFileTextCache          _csharpFileTextCache;
     private readonly ICSharpBindingDiscoveryService _csharpDiscoveryService;
     private readonly ILanguageServerFacade         _languageServer;
     private readonly ClientIdeContext              _clientIdeContext;
@@ -64,6 +58,7 @@ public sealed class StepRenameHandler
         IProjectBindingRegistryLookup registryLookup,
         IIdeSupportLogger               logger,
         IDocumentBufferService        documentBuffer,
+        ICSharpFileTextCache          csharpFileTextCache,
         ICSharpBindingDiscoveryService csharpDiscoveryService,
         ILanguageServerFacade         languageServer,
         ClientIdeContext              clientIdeContext,
@@ -75,6 +70,7 @@ public sealed class StepRenameHandler
         _logger          = logger;
         _documentBuffer  = documentBuffer;
         _sessionManager  = new RenameSessionManager();
+        _csharpFileTextCache = csharpFileTextCache;
         _csharpDiscoveryService = csharpDiscoveryService;
         _languageServer  = languageServer;
         _clientIdeContext = clientIdeContext;
@@ -570,7 +566,7 @@ public sealed class StepRenameHandler
         if (csFileUri is not null && newCsText != null)
         {
             await _csharpDiscoveryService.UpdateFromSourceAsync(csFileUri, newCsText, isOpen: false, cancellationToken);
-            _lastKnownCsContent[csFileUri.ToString()] = newCsText;
+            _csharpFileTextCache.Update(csFileUri, newCsText);
             _logger.LogVerbose($"StepRenameHandler: self-refreshed C# binding registry for '{csFileUri}'");
         }
 
@@ -848,22 +844,21 @@ public sealed class StepRenameHandler
             }
         }
 
-        // Get file text: our own last-computed edit for this file (if any), the document
-        // buffer, or disk as a last resort. IDocumentBufferService deliberately never tracks
-        // .cs files (see TextDocumentSyncHandler — only .cs bindings are re-discovered from
-        // didOpen/didChange text, the raw text itself is never cached), so the buffer branch
-        // below is a no-op for .cs paths today; it's kept in case that ever changes. Without
-        // _lastKnownCsContent, a rename applied via workspace/applyEdit is never saved to disk,
-        // so re-invoking rename on the same step before saving would silently read the
-        // pre-rename text back off disk and show a stale placeholder (confirmed live).
+        // Get file text: the live .cs text cache (updated by every didOpen/didChange for this
+        // file, from any source — not just our own rename edits, see ICSharpFileTextCache), the
+        // Gherkin document buffer (never actually populated for .cs paths — kept in case that
+        // ever changes), or disk as a last resort. Without the cache, a .cs edit applied via
+        // workspace/applyEdit is never saved to disk, so re-invoking rename on the same step
+        // before saving would silently read the pre-edit text back off disk and show a stale
+        // placeholder (confirmed live).
         string? fileText = null;
         var csUri = string.Equals(uri.GetFileSystemPath(), csPath, StringComparison.OrdinalIgnoreCase)
             ? uri
             : DocumentUri.FromFileSystemPath(csPath);
-        if (_lastKnownCsContent.TryGetValue(csUri.ToString(), out var knownText))
+        if (_csharpFileTextCache.TryGet(csUri, out var cachedText) && cachedText != null)
         {
-            fileText = knownText;
-            _logger.LogVerbose($"StepRenameHandler: FindAttributeLiteralAsync — got text from last-known rename edit ({fileText.Length} chars)");
+            fileText = cachedText;
+            _logger.LogVerbose($"StepRenameHandler: FindAttributeLiteralAsync — got text from live cache ({fileText.Length} chars)");
         }
         else if (_documentBuffer.TryGet(csUri, out var buffer) && buffer?.Text != null)
         {

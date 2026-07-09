@@ -36,6 +36,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistryChangedNotification>
 {
     private readonly IDocumentBufferService         _documentBufferService;
+    private readonly ICSharpFileTextCache           _csharpFileTextCache;
     private readonly IGherkinDocumentTaggerService   _taggerService;
     private readonly ILspWorkspaceScopeManager       _scopeManager;
     private readonly ILanguageServerFacade            _languageServer;
@@ -47,6 +48,7 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
 
     public BindingRegistryChangedHandler(
         IDocumentBufferService documentBufferService,
+        ICSharpFileTextCache csharpFileTextCache,
         IGherkinDocumentTaggerService taggerService,
         ILspWorkspaceScopeManager scopeManager,
         ILanguageServerFacade languageServer,
@@ -57,6 +59,7 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
         IIdeSupportLogger logger)
     {
         _documentBufferService  = documentBufferService;
+        _csharpFileTextCache    = csharpFileTextCache;
         _taggerService          = taggerService;
         _scopeManager           = scopeManager;
         _languageServer         = languageServer;
@@ -370,19 +373,22 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
         if (string.IsNullOrEmpty(projectFolder))
             return [];
 
-        // 1. Open, project-owned .cs buffers — unsaved edits override the DLL regardless of mtime.
+        // 1. Open, project-owned .cs files — unsaved edits override the DLL regardless of mtime.
         //    Folder-prefix (not the index) is used deliberately: at startup the membership baseline
         //    may not have arrived, and these files are known to be in the editor anyway.
+        //    IDocumentBufferService never holds .cs content (Gherkin-only, by design) — this reads
+        //    from ICSharpFileTextCache instead, which TextDocumentSyncHandler keeps live for every
+        //    open .cs file regardless of what triggered the last edit.
         var openByPath = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var buffer in _documentBufferService.All)
+        foreach (var entry in _csharpFileTextCache.All)
         {
-            var path = buffer.Uri.GetFileSystemPath();
+            var path = entry.Uri.GetFileSystemPath();
             if (!string.IsNullOrEmpty(path)
                 && path!.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrEmpty(buffer.Text)
+                && !string.IsNullOrEmpty(entry.Text)
                 && path.StartsWith(projectFolder, StringComparison.OrdinalIgnoreCase))
             {
-                openByPath[path] = buffer.Text;
+                openByPath[path] = entry.Text;
             }
         }
 

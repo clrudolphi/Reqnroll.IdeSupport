@@ -31,6 +31,7 @@ public class StepRenameHandlerTests
     private readonly IProjectBindingRegistryLookup _registryLookup = Substitute.For<IProjectBindingRegistryLookup>();
     private readonly IIdeSupportLogger               _logger         = Substitute.For<IIdeSupportLogger>();
     private readonly IDocumentBufferService         _documentBuffer = Substitute.For<IDocumentBufferService>();
+    private readonly ICSharpFileTextCache          _csharpFileTextCache = new CSharpFileTextCache();
     private readonly ICSharpBindingDiscoveryService _csharpDiscoveryService = Substitute.For<ICSharpBindingDiscoveryService>();
     private readonly ILanguageServerFacade         _languageServer = Substitute.For<ILanguageServerFacade>();
     private readonly ClientIdeContext              _clientIdeContext = new(ide: null);
@@ -59,15 +60,15 @@ public class StepRenameHandlerTests
 
     private StepRenameHandler CreateSut() =>
         new(_matchService, _scopeManager, _registryLookup, _logger, _documentBuffer,
-            _csharpDiscoveryService, _languageServer, _clientIdeContext);
+            _csharpFileTextCache, _csharpDiscoveryService, _languageServer, _clientIdeContext);
 
     private StepRenameHandler CreateSutForVisualStudio() =>
         new(_matchService, _scopeManager, _registryLookup, _logger, _documentBuffer,
-            _csharpDiscoveryService, _languageServer, new ClientIdeContext("visualstudio"));
+            _csharpFileTextCache, _csharpDiscoveryService, _languageServer, new ClientIdeContext("visualstudio"));
 
     private StepRenameHandler CreateSutWithTelemetry(ILspTelemetryService telemetry) =>
         new(_matchService, _scopeManager, _registryLookup, _logger, _documentBuffer,
-            _csharpDiscoveryService, _languageServer, _clientIdeContext, telemetry);
+            _csharpFileTextCache, _csharpDiscoveryService, _languageServer, _clientIdeContext, telemetry);
 
     private void SetupBuffer(string csText)
     {

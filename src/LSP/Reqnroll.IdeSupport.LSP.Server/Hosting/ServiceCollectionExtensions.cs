@@ -128,6 +128,7 @@ public static class ServiceCollectionExtensions
     {
         return services
             .AddSingleton<IDocumentBufferService, DocumentBufferService>()
+            .AddSingleton<ICSharpFileTextCache, CSharpFileTextCache>()
             // BindingMatchService holds the per-document match cache; it must be a singleton
             // so the cache survives across requests and is shared by the tagger (writer) and
             // the Go to Definition / diagnostics consumers (readers).
