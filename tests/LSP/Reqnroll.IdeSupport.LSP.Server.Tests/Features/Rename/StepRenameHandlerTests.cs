@@ -239,6 +239,47 @@ public class StepRenameHandlerTests
     }
 
     [Fact]
+    public async Task Rename_returns_null_and_does_not_refresh_caches_when_VS_rejects_the_edit()
+    {
+        const string csText =
+            "using Reqnroll;\n" +
+            "namespace N\n" +
+            "{\n" +
+            "    [Binding]\n" +
+            "    public class Steps\n" +
+            "    {\n" +
+            "        [Given(\"the first number is {int}\")]\n" +
+            "        public void GivenTheFirstNumberIs(int number) { }\n" +
+            "    }\n" +
+            "}\n";
+        SetupBuffer(csText);
+
+        var binding = MakeBinding(
+            ScenarioBlock.Given,
+            new Regex("^the first number is (.*)$"),
+            specifiedExpression: "the first number is (.*)",
+            line: 8, column: 9);
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { binding }));
+
+        // Override the default "Applied = true" fixture stub with a rejection.
+        var rejectedReturns = Substitute.For<IResponseRouterReturns>();
+        rejectedReturns.Returning<ApplyWorkspaceEditResponse>(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new ApplyWorkspaceEditResponse { Applied = false, FailureReason = "locked" }));
+        _languageServer.SendRequest(Arg.Any<string>(), Arg.Any<ApplyWorkspaceEditParams>())
+            .Returns(rejectedReturns);
+
+        var result = await CreateSutForVisualStudio().HandleRenameAsync(
+            RenameAt(line: 7, character: 8, newName: "the renamed number is {int}"),
+            CancellationToken.None);
+
+        result.Should().BeNull("VS reported the edit was not applied, so the rename did not actually happen");
+        await _csharpDiscoveryService.DidNotReceive().UpdateFromSourceAsync(
+            Arg.Any<DocumentUri>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        _matchService.DidNotReceive().InvalidateAllForDocument(Arg.Any<string>());
+    }
+
+    [Fact]
     public async Task Rename_from_non_visual_studio_client_does_not_push_workspace_applyEdit()
     {
         const string csText =

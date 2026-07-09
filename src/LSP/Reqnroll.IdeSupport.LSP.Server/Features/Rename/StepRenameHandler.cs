@@ -458,20 +458,14 @@ public sealed class StepRenameHandler
         }
 
         // ── 5. Build .cs file edit ────────────────────────────────────────────
-        // Self-refresh the C# binding registry for the edited .cs file directly, right here where
-        // the edit is computed (see #82). Unlike the .feature match cache invalidation below,
-        // there is no file-system watcher for .cs content changes, and we cannot assume the
-        // client will echo back a textDocument/didChange for a file that may be closed — so the
-        // server applies its own computed edit immediately rather than waiting on a round-trip
-        // notification. This covers both VS and VS Code, and any redundant didChange-triggered
-        // refresh the client's own sync machinery fires afterward is harmless (idempotent — same
-        // content, same result).
+        DocumentUri? csFileUri = null;
+        string? newCsText = null;
         if (sourceLiteral != null)
         {
             var csEdit = BuildCSharpEdit(sourceLiteral, effectiveNewName);
             if (csEdit != null)
             {
-                var csFileUri = path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+                csFileUri = path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
                     ? uri
                     : DocumentUri.FromFileSystemPath(binding.Implementation!.SourceLocation!.SourceFile);
                 if (!changes.TryGetValue(csFileUri, out var list))
@@ -484,37 +478,14 @@ public sealed class StepRenameHandler
                 // Computed directly from the same Roslyn span BuildCSharpEdit used, so this is
                 // exact regardless of whether the .cs file is open or closed in the editor.
                 var sourceText = await sourceLiteral.SyntaxTree!.GetTextAsync(cancellationToken);
-                var newCsText = sourceText
+                newCsText = sourceText
                     .WithChanges(new Microsoft.CodeAnalysis.Text.TextChange(sourceLiteral.Token.Span, csEdit.NewText))
                     .ToString();
-
-                await _csharpDiscoveryService.UpdateFromSourceAsync(csFileUri, newCsText, isOpen: false, cancellationToken);
-                _logger.LogVerbose($"StepRenameHandler: self-refreshed C# binding registry for '{csFileUri}'");
             }
         }
 
         if (changes.Count == 0)
             return null;
-
-        // Invalidate the match cache for feature files that were modified by the rename.
-        // When a feature file is closed at rename time, no didChange notification fires,
-        // so the server's in-memory match cache would otherwise retain the old step text
-        // until the file is re-opened and re-parsed.
-        foreach (var changedUri in changes.Keys)
-        {
-            var changedPath = changedUri.GetFileSystemPath();
-            if (!string.IsNullOrEmpty(changedPath) && changedPath.EndsWith(".feature", StringComparison.OrdinalIgnoreCase))
-            {
-                _matchService.InvalidateAllForDocument(changedUri.ToString());
-                _logger.LogVerbose($"StepRenameHandler: invalidated match cache for '{changedUri}'");
-            }
-        }
-
-        // Telemetry
-        _telemetryService?.SendEvent("Rename step command executed", new()
-        {
-            ["Erroneous"] = false,
-        });
 
         var workspaceEdit = new WorkspaceEdit
         {
@@ -527,6 +498,13 @@ public sealed class StepRenameHandler
         // instead, the same mechanism already proven for F13 (CommentToggleHandler). Other
         // clients (e.g. VS Code) apply the returned WorkspaceEdit natively and must NOT also
         // receive this push, or the edit would be applied twice.
+        //
+        // The push is awaited and its Applied flag checked *before* touching any server-side
+        // cache below: if VS rejects or fails to apply the edit (e.g. a locked/read-only file,
+        // or the user having closed the document with unsaved conflicting changes), the actual
+        // buffer/file content never changed, so self-refreshing the registry or invalidating the
+        // match cache here would desync server state from reality — the registry would claim the
+        // rename succeeded while the source still has the old text.
         if (_clientIdeContext.IsVisualStudio)
         {
             var pushParams = new ApplyWorkspaceEditParams
@@ -542,10 +520,50 @@ public sealed class StepRenameHandler
                 }
             };
 
-            await _languageServer.SendRequest(LspMethodNames.WorkspaceApplyEdit, pushParams)
+            var response = await _languageServer.SendRequest(LspMethodNames.WorkspaceApplyEdit, pushParams)
                 .Returning<ApplyWorkspaceEditResponse>(cancellationToken);
-            _logger.LogVerbose("StepRenameHandler: pushed workspace/applyEdit for VS");
+
+            if (response is not { Applied: true })
+            {
+                _logger.LogVerbose($"StepRenameHandler: VS rejected workspace/applyEdit (reason: '{response?.FailureReason}') — not refreshing server caches");
+                return null;
+            }
+
+            _logger.LogVerbose("StepRenameHandler: VS applied workspace/applyEdit");
         }
+
+        // Invalidate the match cache for feature files that were modified by the rename.
+        // When a feature file is closed at rename time, no didChange notification fires,
+        // so the server's in-memory match cache would otherwise retain the old step text
+        // until the file is re-opened and re-parsed.
+        foreach (var changedUri in changes.Keys)
+        {
+            var changedPath = changedUri.GetFileSystemPath();
+            if (!string.IsNullOrEmpty(changedPath) && changedPath.EndsWith(".feature", StringComparison.OrdinalIgnoreCase))
+            {
+                _matchService.InvalidateAllForDocument(changedUri.ToString());
+                _logger.LogVerbose($"StepRenameHandler: invalidated match cache for '{changedUri}'");
+            }
+        }
+
+        // Self-refresh the C# binding registry for the edited .cs file directly, rather than
+        // relying on a client-echoed textDocument/didChange (there is no file-system watcher for
+        // .cs content changes, and a closed file may never round-trip one at all). For VS Code
+        // (no confirmed-apply signal available) this is optimistic, same as the .feature
+        // invalidation above; for VS it only runs once workspace/applyEdit has been confirmed
+        // applied. Any redundant didChange-triggered refresh the client's own sync machinery
+        // fires afterward is harmless (idempotent — same content, same result).
+        if (csFileUri is not null && newCsText != null)
+        {
+            await _csharpDiscoveryService.UpdateFromSourceAsync(csFileUri, newCsText, isOpen: false, cancellationToken);
+            _logger.LogVerbose($"StepRenameHandler: self-refreshed C# binding registry for '{csFileUri}'");
+        }
+
+        // Telemetry
+        _telemetryService?.SendEvent("Rename step command executed", new()
+        {
+            ["Erroneous"] = false,
+        });
 
         return workspaceEdit;
     }
