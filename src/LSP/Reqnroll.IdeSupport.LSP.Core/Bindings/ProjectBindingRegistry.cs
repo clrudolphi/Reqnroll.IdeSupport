@@ -316,17 +316,31 @@ public record ProjectBindingRegistry
     }
 
     /// <summary>
-    /// Finds the first step-definition binding whose source location matches
-    /// <paramref name="location"/> (file path, line, and column). Returns
-    /// <see langword="null"/> when no binding matches.
+    /// Finds the first step-definition binding whose source location covers
+    /// <paramref name="location"/> (same file, line within leeway — see <see cref="CoversQuery"/>).
+    /// Returns <see langword="null"/> when no binding matches.
     /// </summary>
     public ProjectStepDefinitionBinding? FindBindingAtLocation(SourceLocation location)
     {
         return StepDefinitions
             .FirstOrDefault(b => b.Implementation.SourceLocation != null &&
-                string.Equals(b.Implementation.SourceLocation.SourceFile, location.SourceFile, StringComparison.OrdinalIgnoreCase) &&
-                b.Implementation.SourceLocation.SourceFileLine == location.SourceFileLine &&
-                b.Implementation.SourceLocation.SourceFileColumn == location.SourceFileColumn);
+                CoversQuery(b.Implementation.SourceLocation, location));
+    }
+
+    // Mirrors BindingMatchService.SameLocation / BindingRegistryProviderRouter.CoversQuery:
+    // Roslyn-path bindings point at the method identifier, connector-path bindings only store
+    // the method-body start (no end) — neither is the attribute line itself, which is typically
+    // 1-2 lines above. Column is intentionally ignored: Gherkin/C# line-oriented lookups like
+    // this should match anywhere on the relevant line(s), not an exact column (see #101, #106).
+    private static bool CoversQuery(SourceLocation binding, SourceLocation query)
+    {
+        if (!string.Equals(binding.SourceFile, query.SourceFile, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var endLine = binding.SourceFileEndLine ?? binding.SourceFileLine;
+        const int attributeLeeway = 2;
+        return query.SourceFileLine >= (binding.SourceFileLine - attributeLeeway)
+               && query.SourceFileLine <= endLine;
     }
 
     private static string NormalizePath(string path)
