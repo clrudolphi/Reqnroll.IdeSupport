@@ -9,8 +9,9 @@ namespace Reqnroll.VisualStudio.Tests.RenameStep;
 /// <summary>
 /// Client-side parsing of a <c>textDocument/rename</c> JSON result into a
 /// <see cref="RenameWorkspaceEdit"/> (<see cref="RenameStepService.ParseWorkspaceEdit"/>).
-/// This is the seam between the LSP wire format and the VS <c>WorkspaceEditApplier</c>, so it
-/// owns URI→local-path conversion and the bottom-to-top edit ordering the applier relies on.
+/// The server applies the edit itself via <c>workspace/applyEdit</c> (see #82); this parsed
+/// result is now used only to detect success/failure (a non-null result means the server had
+/// an edit to apply) for the rename command's status-bar messaging.
 /// </summary>
 public class ParseWorkspaceEditTests
 {

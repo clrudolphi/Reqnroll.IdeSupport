@@ -10,6 +10,8 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Diagnostics;
@@ -23,6 +25,7 @@ using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Core.Rename;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Documents;
+using Reqnroll.IdeSupport.LSP.Server.Hosting;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
@@ -43,6 +46,9 @@ public sealed class StepRenameHandler
     private readonly IIdeSupportLogger               _logger;
     private readonly IDocumentBufferService        _documentBuffer;
     private readonly RenameSessionManager          _sessionManager;
+    private readonly ICSharpBindingDiscoveryService _csharpDiscoveryService;
+    private readonly ILanguageServerFacade         _languageServer;
+    private readonly ClientIdeContext              _clientIdeContext;
     private readonly ILspTelemetryService?         _telemetryService;
 
     public StepRenameHandler(
@@ -51,6 +57,9 @@ public sealed class StepRenameHandler
         IProjectBindingRegistryLookup registryLookup,
         IIdeSupportLogger               logger,
         IDocumentBufferService        documentBuffer,
+        ICSharpBindingDiscoveryService csharpDiscoveryService,
+        ILanguageServerFacade         languageServer,
+        ClientIdeContext              clientIdeContext,
         ILspTelemetryService?         telemetryService = null)
     {
         _matchService    = matchService;
@@ -59,6 +68,9 @@ public sealed class StepRenameHandler
         _logger          = logger;
         _documentBuffer  = documentBuffer;
         _sessionManager  = new RenameSessionManager();
+        _csharpDiscoveryService = csharpDiscoveryService;
+        _languageServer  = languageServer;
+        _clientIdeContext = clientIdeContext;
         _telemetryService = telemetryService;
     }
 
@@ -446,20 +458,38 @@ public sealed class StepRenameHandler
         }
 
         // ── 5. Build .cs file edit ────────────────────────────────────────────
+        // Self-refresh the C# binding registry for the edited .cs file directly, right here where
+        // the edit is computed (see #82). Unlike the .feature match cache invalidation below,
+        // there is no file-system watcher for .cs content changes, and we cannot assume the
+        // client will echo back a textDocument/didChange for a file that may be closed — so the
+        // server applies its own computed edit immediately rather than waiting on a round-trip
+        // notification. This covers both VS and VS Code, and any redundant didChange-triggered
+        // refresh the client's own sync machinery fires afterward is harmless (idempotent — same
+        // content, same result).
         if (sourceLiteral != null)
         {
             var csEdit = BuildCSharpEdit(sourceLiteral, effectiveNewName);
             if (csEdit != null)
             {
-                var csUri = path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+                var csFileUri = path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
                     ? uri
                     : DocumentUri.FromFileSystemPath(binding.Implementation!.SourceLocation!.SourceFile);
-                if (!changes.TryGetValue(csUri, out var list))
+                if (!changes.TryGetValue(csFileUri, out var list))
                 {
                     list = new List<TextEdit>();
-                    changes[csUri] = list;
+                    changes[csFileUri] = list;
                 }
                 list.Add(csEdit);
+
+                // Computed directly from the same Roslyn span BuildCSharpEdit used, so this is
+                // exact regardless of whether the .cs file is open or closed in the editor.
+                var sourceText = await sourceLiteral.SyntaxTree!.GetTextAsync(cancellationToken);
+                var newCsText = sourceText
+                    .WithChanges(new Microsoft.CodeAnalysis.Text.TextChange(sourceLiteral.Token.Span, csEdit.NewText))
+                    .ToString();
+
+                await _csharpDiscoveryService.UpdateFromSourceAsync(csFileUri, newCsText, isOpen: false, cancellationToken);
+                _logger.LogVerbose($"StepRenameHandler: self-refreshed C# binding registry for '{csFileUri}'");
             }
         }
 
@@ -486,10 +516,38 @@ public sealed class StepRenameHandler
             ["Erroneous"] = false,
         });
 
-        return new WorkspaceEdit
+        var workspaceEdit = new WorkspaceEdit
         {
             Changes = changes.ToDictionary(kvp => kvp.Key, kvp => (IEnumerable<TextEdit>)kvp.Value)
         };
+
+        // VS's Rename Step command sends textDocument/rename over a custom interception pipe
+        // that swallows this method's return value before VS's built-in LSP client ever sees it
+        // (see #82) — so VS needs the edit pushed via a genuine workspace/applyEdit request
+        // instead, the same mechanism already proven for F13 (CommentToggleHandler). Other
+        // clients (e.g. VS Code) apply the returned WorkspaceEdit natively and must NOT also
+        // receive this push, or the edit would be applied twice.
+        if (_clientIdeContext.IsVisualStudio)
+        {
+            var pushParams = new ApplyWorkspaceEditParams
+            {
+                Edit = new WorkspaceEdit
+                {
+                    DocumentChanges = new Container<WorkspaceEditDocumentChange>(
+                        changes.Select(kvp => new WorkspaceEditDocumentChange(new TextDocumentEdit
+                        {
+                            TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = kvp.Key, Version = null },
+                            Edits = new TextEditContainer(kvp.Value)
+                        })))
+                }
+            };
+
+            await _languageServer.SendRequest(LspMethodNames.WorkspaceApplyEdit, pushParams)
+                .Returning<ApplyWorkspaceEditResponse>(cancellationToken);
+            _logger.LogVerbose("StepRenameHandler: pushed workspace/applyEdit for VS");
+        }
+
+        return workspaceEdit;
     }
 
     // ── Custom request handlers ─────────────────────────────────────────────────

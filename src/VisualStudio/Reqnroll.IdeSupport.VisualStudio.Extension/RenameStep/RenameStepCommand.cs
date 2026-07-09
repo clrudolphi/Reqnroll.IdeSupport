@@ -20,16 +20,14 @@ internal sealed class RenameStepCommand : Command
 {
     private readonly RenameStepState _state;
     private readonly ILogger<RenameStepCommand> _logger;
-    private readonly ILoggerFactory _loggerFactory;
 
     private static readonly Guid GuidSHLMainMenu = new("{D309F791-903F-11D0-9EFC-00A0C911004F}");
     private const int IDG_VS_CODEWIN_NAVIGATETOLOCATION = 0x02B1;
 
-    public RenameStepCommand(RenameStepState state, ILogger<RenameStepCommand> logger, ILoggerFactory loggerFactory)
+    public RenameStepCommand(RenameStepState state, ILogger<RenameStepCommand> logger)
     {
-        _state         = state;
-        _logger        = logger;
-        _loggerFactory = loggerFactory;
+        _state  = state;
+        _logger = logger;
     }
 
     public override CommandConfiguration CommandConfiguration => new("Rename Step")
@@ -157,15 +155,9 @@ internal sealed class RenameStepCommand : Command
                 return;
             }
 
+            // The server already applied the edit natively via workspace/applyEdit before this
+            // request's response reached us (see #82) — nothing left to apply here.
             _logger.LogInformation("RenameStepCommand: rename result = {Result}", result);
-
-            // Step 6: Apply the WorkspaceEdit (buffer-first for open documents)
-            if (result is not null)
-            {
-                var applier = new WorkspaceEditApplier(service, _loggerFactory.CreateLogger<WorkspaceEditApplier>());
-                await applier.ApplyAsync(result, cancellationToken).ConfigureAwait(false);
-            }
-
             _logger.LogInformation("RenameStepCommand: rename completed successfully.");
             VsUtils.ShowStatusBarMessage("Reqnroll: Step renamed successfully.");
         }

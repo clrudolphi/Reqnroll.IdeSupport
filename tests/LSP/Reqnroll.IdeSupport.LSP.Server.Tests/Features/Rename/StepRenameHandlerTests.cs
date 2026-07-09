@@ -1,6 +1,8 @@
 ﻿using System.Text.RegularExpressions;
+using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Core.Documents;
@@ -14,6 +16,7 @@ using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Documents;
 using Reqnroll.IdeSupport.LSP.Server.Features.Rename;
+using Reqnroll.IdeSupport.LSP.Server.Hosting;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
@@ -28,6 +31,9 @@ public class StepRenameHandlerTests
     private readonly IProjectBindingRegistryLookup _registryLookup = Substitute.For<IProjectBindingRegistryLookup>();
     private readonly IIdeSupportLogger               _logger         = Substitute.For<IIdeSupportLogger>();
     private readonly IDocumentBufferService         _documentBuffer = Substitute.For<IDocumentBufferService>();
+    private readonly ICSharpBindingDiscoveryService _csharpDiscoveryService = Substitute.For<ICSharpBindingDiscoveryService>();
+    private readonly ILanguageServerFacade         _languageServer = Substitute.For<ILanguageServerFacade>();
+    private readonly ClientIdeContext              _clientIdeContext = new(ide: null);
 
     private static readonly DocumentUri CsUri = DocumentUri.FromFileSystemPath("/workspace/Steps.cs");
     private static string CsPath => CsUri.GetFileSystemPath();
@@ -40,13 +46,28 @@ public class StepRenameHandlerTests
                      .Returns(Array.Empty<LspReqnrollProject>());
         _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
                      .Returns(System.Array.Empty<StepBindingMatch>());
+
+        // The client defaults to non-VS (ClientIdeContext with ide: null), so the
+        // workspace/applyEdit push (VS-only, see #82) is not exercised unless a test
+        // opts in via CreateSutForVisualStudio.
+        var fakeReturns = Substitute.For<IResponseRouterReturns>();
+        fakeReturns.Returning<ApplyWorkspaceEditResponse>(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new ApplyWorkspaceEditResponse { Applied = true }));
+        _languageServer.SendRequest(Arg.Any<string>(), Arg.Any<ApplyWorkspaceEditParams>())
+            .Returns(fakeReturns);
     }
 
     private StepRenameHandler CreateSut() =>
-        new(_matchService, _scopeManager, _registryLookup, _logger, _documentBuffer);
+        new(_matchService, _scopeManager, _registryLookup, _logger, _documentBuffer,
+            _csharpDiscoveryService, _languageServer, _clientIdeContext);
+
+    private StepRenameHandler CreateSutForVisualStudio() =>
+        new(_matchService, _scopeManager, _registryLookup, _logger, _documentBuffer,
+            _csharpDiscoveryService, _languageServer, new ClientIdeContext("visualstudio"));
 
     private StepRenameHandler CreateSutWithTelemetry(ILspTelemetryService telemetry) =>
-        new(_matchService, _scopeManager, _registryLookup, _logger, _documentBuffer, telemetry);
+        new(_matchService, _scopeManager, _registryLookup, _logger, _documentBuffer,
+            _csharpDiscoveryService, _languageServer, _clientIdeContext, telemetry);
 
     private void SetupBuffer(string csText)
     {
@@ -139,6 +160,115 @@ public class StepRenameHandlerTests
         edits.Should().ContainSingle();
         edits[0].NewText.Should().Be("\"the renamed number is {int}\"");
         edits[0].Range.Start.Line.Should().Be(6, "the attribute literal lives on 0-based line 6");
+    }
+
+    // ── Issue #82: the server self-refreshes the C# binding registry for the edited .cs file
+    //    directly (no round-trip through a client didChange notification), and pushes a
+    //    workspace/applyEdit request only when talking to VS — the client whose custom
+    //    interception pipe swallows the textDocument/rename response before VS's built-in LSP
+    //    client can apply it. Other clients (e.g. VS Code) apply the returned WorkspaceEdit
+    //    natively and must not also receive the push, or the edit would be applied twice. ──────
+
+    [Fact]
+    public async Task Rename_self_refreshes_the_csharp_binding_registry_with_the_edited_content()
+    {
+        const string csText =
+            "using Reqnroll;\n" +
+            "namespace N\n" +
+            "{\n" +
+            "    [Binding]\n" +
+            "    public class Steps\n" +
+            "    {\n" +
+            "        [Given(\"the first number is {int}\")]\n" +
+            "        public void GivenTheFirstNumberIs(int number) { }\n" +
+            "    }\n" +
+            "}\n";
+        SetupBuffer(csText);
+
+        var binding = MakeBinding(
+            ScenarioBlock.Given,
+            new Regex("^the first number is (.*)$"),
+            specifiedExpression: "the first number is (.*)",
+            line: 8, column: 9);
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { binding }));
+
+        var result = await CreateSut().HandleRenameAsync(
+            RenameAt(line: 7, character: 8, newName: "the renamed number is {int}"),
+            CancellationToken.None);
+
+        result.Should().NotBeNull();
+        await _csharpDiscoveryService.Received(1).UpdateFromSourceAsync(
+            CsUri,
+            Arg.Is<string>(t => t.Contains("\"the renamed number is {int}\"")),
+            isOpen: false,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Rename_from_visual_studio_pushes_workspace_applyEdit()
+    {
+        const string csText =
+            "using Reqnroll;\n" +
+            "namespace N\n" +
+            "{\n" +
+            "    [Binding]\n" +
+            "    public class Steps\n" +
+            "    {\n" +
+            "        [Given(\"the first number is {int}\")]\n" +
+            "        public void GivenTheFirstNumberIs(int number) { }\n" +
+            "    }\n" +
+            "}\n";
+        SetupBuffer(csText);
+
+        var binding = MakeBinding(
+            ScenarioBlock.Given,
+            new Regex("^the first number is (.*)$"),
+            specifiedExpression: "the first number is (.*)",
+            line: 8, column: 9);
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { binding }));
+
+        var result = await CreateSutForVisualStudio().HandleRenameAsync(
+            RenameAt(line: 7, character: 8, newName: "the renamed number is {int}"),
+            CancellationToken.None);
+
+        result.Should().NotBeNull();
+        _languageServer.Received(1).SendRequest(
+            "workspace/applyEdit", Arg.Any<ApplyWorkspaceEditParams>());
+    }
+
+    [Fact]
+    public async Task Rename_from_non_visual_studio_client_does_not_push_workspace_applyEdit()
+    {
+        const string csText =
+            "using Reqnroll;\n" +
+            "namespace N\n" +
+            "{\n" +
+            "    [Binding]\n" +
+            "    public class Steps\n" +
+            "    {\n" +
+            "        [Given(\"the first number is {int}\")]\n" +
+            "        public void GivenTheFirstNumberIs(int number) { }\n" +
+            "    }\n" +
+            "}\n";
+        SetupBuffer(csText);
+
+        var binding = MakeBinding(
+            ScenarioBlock.Given,
+            new Regex("^the first number is (.*)$"),
+            specifiedExpression: "the first number is (.*)",
+            line: 8, column: 9);
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { binding }));
+
+        var result = await CreateSut().HandleRenameAsync(
+            RenameAt(line: 7, character: 8, newName: "the renamed number is {int}"),
+            CancellationToken.None);
+
+        result.Should().NotBeNull();
+        _languageServer.DidNotReceive().SendRequest(
+            "workspace/applyEdit", Arg.Any<ApplyWorkspaceEditParams>());
     }
 
     // ── Multiple same-type attributes on one method are disambiguated by the resolved
