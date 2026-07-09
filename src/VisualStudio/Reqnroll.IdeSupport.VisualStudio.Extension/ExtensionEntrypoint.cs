@@ -2,7 +2,9 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Extensibility;
+using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.CommentToggle;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
@@ -30,6 +32,19 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension
         protected override void InitializeServices(IServiceCollection serviceCollection)
         {
             base.InitializeServices(serviceCollection);
+
+            // Single, shared logging sink for the whole extension (issue #84): previously ~20
+            // classes each `new`'d their own SynchronousFileLogger (mostly defaulting to
+            // TraceLevel.Warning, silently dropping LogInfo) while also taking a DI-injected
+            // TraceSource that nothing ever attached a listener to. One DeveroomCompositeLogger,
+            // registered once and consumed everywhere via ILogger<T>, replaces both.
+            var logger = new DeveroomCompositeLogger()
+                .Add(new DeveroomDebugLogger())
+                .Add(new SynchronousFileLogger("vs", "ext", TraceLevel.Info));
+            serviceCollection.AddSingleton<IDeveroomLogger>(logger);
+            serviceCollection.AddSingleton<ILoggerFactory>(sp =>
+                new DeveroomLoggerFactory(sp.GetRequiredService<IDeveroomLogger>()));
+            serviceCollection.AddSingleton(typeof(ILogger<>), typeof(Logger<>));
 
             // Shared holder for the runtime-created F14 "Find Step Usages" components.  Registering
             // it here makes it resolvable by constructor injection in both ReqnrollLanguageClient
@@ -74,8 +89,8 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension
         /// </remarks>
         protected override Task OnInitializedAsync(VisualStudioExtensibility extensibility, CancellationToken cancellationToken)
         {
-            var traceSource = ServiceProvider.GetRequiredService<TraceSource>();
-            traceSource.TraceInformation(
+            var logger = ServiceProvider.GetRequiredService<ILogger<ExtensionEntrypoint>>();
+            logger.LogInformation(
                 "ExtensionEntrypoint: OnInitializedAsync — resolving LspServerConnectionService eagerly.");
 
             // Resolving (not just registering) is what triggers construction of the singleton,

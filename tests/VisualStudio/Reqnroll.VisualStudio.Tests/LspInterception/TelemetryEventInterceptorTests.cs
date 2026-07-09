@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json.Linq;
 using Reqnroll.IdeSupport.Common.Analytics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
@@ -26,7 +26,7 @@ public class TelemetryEventInterceptorTests
     }
 
     private static TelemetryEventInterceptor Create(IAnalyticsTransmitter? transmitter) =>
-        new(() => transmitter, new TraceSource("test"));
+        new(() => transmitter, NullLogger<TelemetryEventInterceptor>.Instance);
 
     private static LspMessage Receive(JObject body) => new(LspMessageDirection.Receive, body, DateTimeOffset.Now);
     private static LspMessage Send(JObject body)    => new(LspMessageDirection.Send,    body, DateTimeOffset.Now);

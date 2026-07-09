@@ -1,8 +1,8 @@
 using System;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json.Linq;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 using Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
@@ -21,7 +21,7 @@ namespace Reqnroll.VisualStudio.Tests.LspInterception;
 public class CodeLensRefreshInterceptorTests
 {
     private static CodeLensRefreshInterceptor Create() =>
-        new(new StepCodeLensState(), new TraceSource("test"));
+        new(new StepCodeLensState(), NullLogger<CodeLensRefreshInterceptor>.Instance);
 
     private static LspMessage Send(JObject body)    => new(LspMessageDirection.Send,    body, DateTimeOffset.Now);
     private static LspMessage Receive(JObject body) => new(LspMessageDirection.Receive, body, DateTimeOffset.Now);

@@ -2,11 +2,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
@@ -21,19 +20,17 @@ internal sealed class FindUnusedStepDefinitionsService
     private const string RequestMethod = "reqnroll/findUnusedStepDefinitions";
 
     private readonly LspInterceptingPipe _pipe;
-    private readonly TraceSource         _traceSource;
-    private readonly IDeveroomLogger     _fileLogger = new SynchronousFileLogger();
+    private readonly ILogger<FindUnusedStepDefinitionsService> _logger;
 
-    public FindUnusedStepDefinitionsService(LspInterceptingPipe pipe, TraceSource traceSource)
+    public FindUnusedStepDefinitionsService(LspInterceptingPipe pipe, ILogger<FindUnusedStepDefinitionsService> logger)
     {
-        _pipe        = pipe;
-        _traceSource = traceSource;
+        _pipe   = pipe;
+        _logger = logger;
     }
 
     public async Task<UnusedStepDefinitionsResult> FindUnusedAsync(CancellationToken cancellationToken)
     {
-        _traceSource.TraceInformation("FindUnusedStepDefinitionsService: sending {0}", RequestMethod);
-        _fileLogger.LogInfo($"FindUnusedStepDefinitionsService: sending {RequestMethod}");
+        _logger.LogInformation("FindUnusedStepDefinitionsService: sending {RequestMethod}", RequestMethod);
 
         // Empty params object — the server ignores the body.
         const string emptyParams = "{}";
@@ -42,13 +39,12 @@ internal sealed class FindUnusedStepDefinitionsService
             .SendRequestToServerAsync(RequestMethod, emptyParams, cancellationToken)
             .ConfigureAwait(false);
 
-        _fileLogger.LogInfo(
-            $"FindUnusedStepDefinitionsService: raw result = " +
-            $"{(result is null ? "<null>" : result.ToString())}");
+        _logger.LogInformation(
+            "FindUnusedStepDefinitionsService: raw result = {Result}", result is null ? "<null>" : result.ToString());
 
         var mapped = MapResult(result);
-        _traceSource.TraceInformation(
-            "FindUnusedStepDefinitionsService: {0} unused step definition(s)", mapped.Items.Count);
+        _logger.LogInformation(
+            "FindUnusedStepDefinitionsService: {ItemCount} unused step definition(s)", mapped.Items.Count);
         return mapped;
     }
 

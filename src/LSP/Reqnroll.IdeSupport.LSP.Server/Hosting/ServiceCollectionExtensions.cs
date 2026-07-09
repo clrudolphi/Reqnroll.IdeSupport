@@ -59,6 +59,15 @@ public static class ServiceCollectionExtensions
         return services
             .AddSingleton(new ClientIdeContext(clientIde, logLevel))
             .AddSingleton<IDeveroomLogger, LspDeveroomLogger>()
+            // Do NOT also register ILoggerFactory/ILogger<> here: Program.ConfigureServer's
+            // options.ConfigureLogging(...) already establishes the real Microsoft.Extensions.Logging
+            // pipeline (SetMinimumLevel, AddLanguageProtocolLogging, ProtocolLoggerProvider) in this
+            // same IServiceCollection, before this method runs. A later AddSingleton<ILoggerFactory>
+            // here would win the last-registration-wins resolution and silently replace it — which
+            // is exactly what happened here originally: OmniSharp-internal ILogger<T> messages leaked
+            // into the app-level "server" log file gated by --log-level instead of their own
+            // "protocol" file gated by the independent --protocol-log-level. Any new code that wants
+            // ILogger<T> gets the correctly-configured one for free from that existing pipeline.
             .AddSingleton<IIdeScope, LspIdeScope>()
             .AddSingleton<IMonitoringService>(sp => NullMonitoringService.Instance)
             // Telemetry: emit telemetry/event notifications, optionally mirrored to a local JSONL

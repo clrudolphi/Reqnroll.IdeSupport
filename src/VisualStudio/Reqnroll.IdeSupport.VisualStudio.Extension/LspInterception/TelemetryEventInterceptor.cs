@@ -1,7 +1,7 @@
 using System;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using Reqnroll.IdeSupport.Common.Analytics;
 
@@ -24,14 +24,14 @@ internal sealed class TelemetryEventInterceptor : ILspMessageInterceptor
     private const string TelemetryEventMethod = "telemetry/event";
 
     private readonly Func<IAnalyticsTransmitter?> _getTransmitter;
-    private readonly TraceSource _trace;
+    private readonly ILogger<TelemetryEventInterceptor> _logger;
 
     public TelemetryEventInterceptor(
         Func<IAnalyticsTransmitter?> getTransmitter,
-        TraceSource trace)
+        ILogger<TelemetryEventInterceptor> logger)
     {
         _getTransmitter = getTransmitter ?? throw new ArgumentNullException(nameof(getTransmitter));
-        _trace          = trace          ?? throw new ArgumentNullException(nameof(trace));
+        _logger         = logger         ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public Task<LspInterceptorResult> InterceptAsync(
@@ -48,7 +48,7 @@ internal sealed class TelemetryEventInterceptor : ILspMessageInterceptor
         var transmitter = _getTransmitter();
         if (transmitter is null)
         {
-            _trace.TraceEvent(TraceEventType.Warning, 0,
+            _logger.LogWarning(
                 "TelemetryEventInterceptor: IAnalyticsTransmitter not available; dropping event.");
             return Task.FromResult(LspInterceptorResult.PassThrough);
         }
@@ -58,7 +58,7 @@ internal sealed class TelemetryEventInterceptor : ILspMessageInterceptor
             var eventName = message.Body["params"]?["eventName"]?.Value<string>();
             if (string.IsNullOrEmpty(eventName))
             {
-                _trace.TraceEvent(TraceEventType.Warning, 0,
+                _logger.LogWarning(
                     "TelemetryEventInterceptor: telemetry/event without eventName; dropping.");
                 return Task.FromResult(LspInterceptorResult.PassThrough);
             }
@@ -79,14 +79,13 @@ internal sealed class TelemetryEventInterceptor : ILspMessageInterceptor
 
             transmitter.TransmitEvent(new Reqnroll.IdeSupport.Common.Analytics.GenericEvent(eventName!, properties));
 
-            _trace.TraceEvent(TraceEventType.Information, 0,
-                "TelemetryEventInterceptor: Forwarded telemetry/event '{0}' ({1} props)",
+            _logger.LogInformation(
+                "TelemetryEventInterceptor: forwarded telemetry/event {EventName} ({PropertyCount} props)",
                 eventName, properties.Count);
         }
         catch (Exception ex)
         {
-            _trace.TraceEvent(TraceEventType.Warning, 0,
-                "TelemetryEventInterceptor: Error forwarding telemetry/event: {0}", ex.Message);
+            _logger.LogWarning(ex, "TelemetryEventInterceptor: error forwarding telemetry/event.");
         }
 
         // Always pass through so the message continues to other interceptors and VS.

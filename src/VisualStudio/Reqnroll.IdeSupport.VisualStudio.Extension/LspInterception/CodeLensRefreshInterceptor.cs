@@ -1,9 +1,9 @@
 #nullable enable
 
 using System;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
 
@@ -24,17 +24,17 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 internal sealed class CodeLensRefreshInterceptor : ILspMessageInterceptor
 {
     private readonly StepCodeLensState _state;
-    private readonly TraceSource       _traceSource;
+    private readonly ILogger<CodeLensRefreshInterceptor> _logger;
 
     // Debounce: don't invalidate more than once per 500ms for the same file.
     private static readonly TimeSpan DebounceInterval = TimeSpan.FromMilliseconds(500);
     private string? _lastFileUri;
     private DateTime _lastInvalidation = DateTime.MinValue;
 
-    public CodeLensRefreshInterceptor(StepCodeLensState state, TraceSource traceSource)
+    public CodeLensRefreshInterceptor(StepCodeLensState state, ILogger<CodeLensRefreshInterceptor> logger)
     {
-        _state       = state;
-        _traceSource = traceSource;
+        _state  = state;
+        _logger = logger;
     }
 
     public Task<LspInterceptorResult> InterceptAsync(
@@ -56,7 +56,7 @@ internal sealed class CodeLensRefreshInterceptor : ILspMessageInterceptor
             if (string.Equals(method, "reqnroll/refreshCodeLens", StringComparison.Ordinal))
             {
                 InvalidateOnUiThread(uri: null);
-                _traceSource.TraceInformation(
+                _logger.LogInformation(
                     "CodeLensRefreshInterceptor: refreshed all tracked lenses on server signal.");
             }
             return Task.FromResult(LspInterceptorResult.PassThrough);
@@ -88,8 +88,8 @@ internal sealed class CodeLensRefreshInterceptor : ILspMessageInterceptor
 
         InvalidateOnUiThread(uri);
 
-        _traceSource.TraceInformation(
-            "CodeLensRefreshInterceptor: invalidated lenses for '{0}'", uri);
+        _logger.LogInformation(
+            "CodeLensRefreshInterceptor: invalidated lenses for {Uri}", uri);
 
         return Task.FromResult(LspInterceptorResult.PassThrough);
     }

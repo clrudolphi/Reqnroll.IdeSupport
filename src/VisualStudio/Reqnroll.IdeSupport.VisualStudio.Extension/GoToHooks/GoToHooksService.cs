@@ -1,11 +1,10 @@
 #nullable enable
 
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.GoToHooks;
@@ -25,13 +24,12 @@ internal sealed class GoToHooksService
     private const string RequestMethod = "reqnroll/goToHooks";
 
     private readonly LspInterceptingPipe _pipe;
-    private readonly TraceSource         _traceSource;
-    private readonly IDeveroomLogger     _fileLogger = new SynchronousFileLogger();
+    private readonly ILogger<GoToHooksService> _logger;
 
-    public GoToHooksService(LspInterceptingPipe pipe, TraceSource traceSource)
+    public GoToHooksService(LspInterceptingPipe pipe, ILogger<GoToHooksService> logger)
     {
-        _pipe        = pipe;
-        _traceSource = traceSource;
+        _pipe = pipe;
+        _logger = logger;
     }
 
     /// <summary>
@@ -46,20 +44,20 @@ internal sealed class GoToHooksService
     {
         var paramsJson = BuildParams(fileUri, line0, char0);
 
-        _traceSource.TraceInformation(
-            "GoToHooksService: querying {0} at {1}:{2}:{3}", RequestMethod, fileUri, line0, char0);
-        _fileLogger.LogInfo(
-            $"GoToHooksService: sending {RequestMethod} params={paramsJson}");
+        _logger.LogInformation(
+            "GoToHooksService: querying {RequestMethod} at {FileUri}:{Line0}:{Char0}", RequestMethod, fileUri, line0, char0);
+        _logger.LogInformation(
+            "GoToHooksService: sending {RequestMethod} params={ParamsJson}", RequestMethod, paramsJson);
 
         var result = await _pipe
             .SendRequestToServerAsync(RequestMethod, paramsJson, cancellationToken)
             .ConfigureAwait(false);
 
-        _fileLogger.LogInfo(
-            $"GoToHooksService: raw server result = {(result is null ? "<null>" : result.ToString())}");
+        _logger.LogInformation(
+            "GoToHooksService: raw server result = {Result}", result is null ? "<null>" : result.ToString());
 
         var mapped = MapResult(result);
-        _traceSource.TraceInformation("GoToHooksService: {0} hook(s) returned", mapped.Hooks.Count);
+        _logger.LogInformation("GoToHooksService: {HookCount} hook(s) returned", mapped.Hooks.Count);
         return mapped;
     }
 

@@ -46,10 +46,11 @@ public class ProtocolLoggerProviderTests
     }
 
     [Fact]
-    public void IsEnabled_is_always_true_because_SetMinimumLevel_already_filtered_upstream()
+    public void IsEnabled_reflects_the_underlying_IDeveroomLogger_level()
     {
-        var adapter = new ProtocolLoggerAdapter("cat", new CapturingLogger());
+        var adapter = new DeveroomLoggerAdapter("cat", new CapturingLogger());
 
+        // CapturingLogger.Level is Verbose, so every LogLevel maps to something at or below it.
         adapter.IsEnabled(LogLevel.Trace).Should().BeTrue();
         adapter.IsEnabled(LogLevel.Critical).Should().BeTrue();
     }
@@ -57,7 +58,7 @@ public class ProtocolLoggerProviderTests
     [Fact]
     public void BeginScope_returns_a_disposable_that_does_not_throw()
     {
-        var adapter = new ProtocolLoggerAdapter("cat", new CapturingLogger());
+        var adapter = new DeveroomLoggerAdapter("cat", new CapturingLogger());
 
         var scope = adapter.BeginScope("state");
 
@@ -76,6 +77,6 @@ public class ProtocolLoggerProviderTests
     [InlineData(LogLevel.None, TraceLevel.Off)]
     public void ToTraceLevel_maps_each_LogLevel(LogLevel logLevel, TraceLevel expected)
     {
-        ProtocolLoggerAdapter.ToTraceLevel(logLevel).Should().Be(expected);
+        DeveroomLogLevelConverter.ToTraceLevel(logLevel).Should().Be(expected);
     }
 }
