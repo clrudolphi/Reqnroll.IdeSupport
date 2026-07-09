@@ -214,8 +214,18 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
             NavigationBarRedirect.FetchDocumentSymbolsAsync = null;
 
             // _connectionService itself is NOT disposed here: it's a DI-owned singleton whose
-            // lifetime spans the whole extension session, not just this provider instance. The DI
-            // container disposes it (tearing down the server process/pipe) on extension unload.
+            // lifetime spans the whole extension session, not just this provider instance.
+            //
+            // This method may in fact never run at all: VS talks to the generated
+            // ILanguageServerProviderService wrapper (decompiled from
+            // Microsoft.VisualStudio.Extensibility.dll), whose Dispose() is an empty method body
+            // that never forwards to this class. Confirmed no "disposing" log line from this method
+            // has ever appeared across any recorded VS session. LspServerConnectionService disposal
+            // is instead wired in ExtensionEntrypoint.OnInitializedAsync to
+            // Microsoft.VisualStudio.Shell.VsShellUtilities.ShutdownToken — the classic, static,
+            // shell-level signal confirmed by logging to actually fire on window close (unlike
+            // ExtensionCore.ShutdownToken, registered there too but empirically dead). See git
+            // history for issue #81.
         }
 
         base.Dispose(isDisposing);

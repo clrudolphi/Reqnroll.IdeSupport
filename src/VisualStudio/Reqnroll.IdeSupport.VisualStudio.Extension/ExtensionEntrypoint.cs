@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Extensibility;
+using Microsoft.VisualStudio.Shell;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.CommentToggle;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
@@ -95,7 +96,33 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension
 
             // Resolving (not just registering) is what triggers construction of the singleton,
             // whose own constructor kicks off server process launch — see LspServerConnectionService.
-            ServiceProvider.GetRequiredService<LspServerConnectionService>();
+            var connectionService = ServiceProvider.GetRequiredService<LspServerConnectionService>();
+
+            // None of VS.Extensibility's own disposal paths reaches this singleton: the generated
+            // ILanguageServerProvider wrapper (LanguageServerProviderService, decompiled from
+            // Microsoft.VisualStudio.Extensibility.dll) has an empty Dispose() body that never
+            // forwards to ReqnrollLanguageClient; ExtensionCore.Dispose(bool) never disposes the DI
+            // container this singleton lives in; and even ExtensionCore.ShutdownToken (cancelled
+            // inside that same Dispose(bool)) was confirmed by logging to never fire on a normal
+            // window-close of an in-proc (RequiresInProcessHosting) extension — devenv.exe appears
+            // to tear down without ever calling ExtensionCore.Dispose() at all in that case.
+            //
+            // Microsoft.VisualStudio.Shell.VsShellUtilities.ShutdownToken is the classic, static,
+            // shell-level signal instead: driven directly by the shell's own shutdown broadcast
+            // rather than any per-object Dispose() chain, and documented as firing *earlier* than
+            // package-level disposal tokens (see AsyncPackage.DisposalToken remarks). Registering
+            // on both costs nothing — LspServerConnectionService.Dispose() is idempotent — but this
+            // one is the signal actually expected to fire; see git history for issue #81.
+            VsShellUtilities.ShutdownToken.Register(() =>
+            {
+                logger.LogInformation("ExtensionEntrypoint: VsShellUtilities.ShutdownToken fired — disposing LspServerConnectionService.");
+                connectionService.Dispose();
+            });
+            ShutdownToken.Register(() =>
+            {
+                logger.LogInformation("ExtensionEntrypoint: ExtensionCore.ShutdownToken fired — disposing LspServerConnectionService.");
+                connectionService.Dispose();
+            });
 
             return Task.CompletedTask;
         }
