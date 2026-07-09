@@ -20,6 +20,7 @@ public static class LspMethodNames
     public const string ReqnrollRefreshCodeLens = "reqnroll/refreshCodeLens";
     public const string ReqnrollSemanticTokens = "reqnroll/semanticTokens";
     public const string ReqnrollDocumentSymbolHierarchical = "reqnroll/documentSymbolHierarchical";
+    public const string ReqnrollDocumentActivated = "reqnroll/documentActivated";
 
     // ── Standard LSP Methods ────────────────────────────────────────────────
     public const string TextDocumentSemanticTokensFull = "textDocument/semanticTokens/full";

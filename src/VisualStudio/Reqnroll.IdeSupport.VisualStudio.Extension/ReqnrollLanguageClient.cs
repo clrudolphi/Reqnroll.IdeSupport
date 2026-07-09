@@ -166,7 +166,8 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
 
                 _logger.LogInformation("ReqnrollLanguageClient: creating VsProjectEventMonitor.");
                 _connectionService.ProjectMonitor = new VsProjectEventMonitor(
-                    interceptingPipe, _loggerFactory.CreateLogger<VsProjectEventMonitor>(), serviceProvider);
+                    interceptingPipe, _loggerFactory.CreateLogger<VsProjectEventMonitor>(), serviceProvider,
+                    _connectionService.ActivationState);
 
                 _logger.LogInformation("ReqnrollLanguageClient: sending initial projects.");
                 await _connectionService.ProjectMonitor

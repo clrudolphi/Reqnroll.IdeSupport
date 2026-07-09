@@ -46,6 +46,7 @@ internal sealed class LspServerConnectionService : IDisposable
     private readonly ILogger<LspServerConnectionService> _logger;
     private readonly ILoggerFactory _loggerFactory;
     private readonly StepCodeLensState _stepCodeLensState;
+    private readonly DocumentActivationState _activationState = new();
 
     // JoinableTask (not a plain Task) so GetConnectionAsync's await is JTF-aware — avoids the
     // VSTHRD003 "awaiting a foreign task" analyzer error for a task started outside the awaiting
@@ -105,6 +106,15 @@ internal sealed class LspServerConnectionService : IDisposable
     /// <see cref="ScaffoldTrackingInterceptor"/>, which is constructed before this is known.
     /// </summary>
     public VsProjectEventMonitor? ProjectMonitor { get; set; }
+
+    /// <summary>
+    /// Shared with <see cref="VsProjectEventMonitor"/> (constructed later, post-init) so both the
+    /// send-pump-driven <see cref="DocumentActivationTrackingInterceptor"/> and the UI-thread
+    /// <c>WindowActivated</c> listener observe/update the same per-file activation state
+    /// (issue #85). Owned here rather than by either consumer since it must outlive and be
+    /// constructed before both.
+    /// </summary>
+    public DocumentActivationState ActivationState => _activationState;
 
     /// <summary>
     /// Awaits the (already-started) server process and pipe construction.
@@ -226,19 +236,26 @@ internal sealed class LspServerConnectionService : IDisposable
             var codeLensRefreshInterceptor = new CodeLensRefreshInterceptor(
                 _stepCodeLensState, _loggerFactory.CreateLogger<CodeLensRefreshInterceptor>());
 
+            // Drives DocumentActivationState's didOpen/didClose transitions (issue #85) and, in
+            // the activation-before-open case, sends reqnroll/documentActivated itself right
+            // after re-forwarding didOpen. Uses a lazy reference for the same reason as above:
+            // this pipe doesn't exist yet at the point the interceptor is constructed.
+            var documentActivationInterceptor = new DocumentActivationTrackingInterceptor(
+                _activationState, () => _interceptingPipe, _loggerFactory.CreateLogger<DocumentActivationTrackingInterceptor>());
+
             // Watches the shutdown request/response handshake so Dispose() knows whether a
             // graceful `exit` is safe to request instead of killing the process outright.
             _shutdownHandshakeInterceptor = new ShutdownHandshakeInterceptor(
                 _loggerFactory.CreateLogger<ShutdownHandshakeInterceptor>());
 
-            // Send pipeline:   VS → [logger, semanticTokens, scaffold, codeLensRefresh, shutdownHandshake] → Server
+            // Send pipeline:   VS → [logger, semanticTokens, scaffold, codeLensRefresh, documentActivation, shutdownHandshake] → Server
             // Receive pipeline: Server → [logger, semanticTokens, scaffold, codeLensRefresh, shutdownHandshake, telemetry] → VS
             // codeLensRefresh is on both pipelines: send watches .cs didChange; receive watches the
             // server's reqnroll/refreshCodeLens push after a full registry replacement.
             // shutdownHandshake is on both pipelines: send captures the outgoing shutdown request id;
             // receive watches for the matching response.
             var sendInterceptors = new ILspMessageInterceptor[]
-                { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor, codeLensRefreshInterceptor, _shutdownHandshakeInterceptor };
+                { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor, codeLensRefreshInterceptor, documentActivationInterceptor, _shutdownHandshakeInterceptor };
 
             // Telemetry interceptor: lazy reference because AnalyticsTransmitter is resolved
             // from MEF on the main thread during OnServerInitializationResultAsync.
