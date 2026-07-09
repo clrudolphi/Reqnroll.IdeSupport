@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 
@@ -24,16 +24,17 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.Classification;
 internal sealed class SemanticTokensClassificationInterceptor : ILspMessageInterceptor
 {
     private readonly SemanticTokenClassificationStore _store;
-    private readonly TraceSource _traceSource;
+    private readonly ILogger<SemanticTokensClassificationInterceptor> _logger;
 
     // Outstanding semanticTokens request id → normalized file key.
     private readonly ConcurrentDictionary<string, string> _pendingByRequestId =
         new ConcurrentDictionary<string, string>(StringComparer.Ordinal);
 
-    public SemanticTokensClassificationInterceptor(SemanticTokenClassificationStore store, TraceSource traceSource)
+    public SemanticTokensClassificationInterceptor(
+        SemanticTokenClassificationStore store, ILogger<SemanticTokensClassificationInterceptor> logger)
     {
-        _store = store ?? throw new ArgumentNullException(nameof(store));
-        _traceSource = traceSource ?? throw new ArgumentNullException(nameof(traceSource));
+        _store  = store  ?? throw new ArgumentNullException(nameof(store));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public Task<LspInterceptorResult> InterceptAsync(LspMessage message, CancellationToken cancellationToken)
@@ -62,8 +63,7 @@ internal sealed class SemanticTokensClassificationInterceptor : ILspMessageInter
         }
         catch (Exception ex)
         {
-            _traceSource.TraceEvent(TraceEventType.Warning, 0,
-                "SemanticTokensClassificationInterceptor: failed to process message: {0}", ex.Message);
+            _logger.LogWarning(ex, "SemanticTokensClassificationInterceptor: failed to process message.");
         }
 
         return Task.FromResult(LspInterceptorResult.PassThrough);
@@ -78,19 +78,22 @@ internal sealed class SemanticTokensClassificationInterceptor : ILspMessageInter
 
         var tokens = Decode(data, _store.Legend);
         _store.SetTokens(fileKey, tokens);
-        _traceSource.TraceInformation(
-            "SemanticTokensClassificationInterceptor: stored {0} pushed tokens for {1}.", tokens.Count, fileKey);
+        _logger.LogInformation(
+            "SemanticTokensClassificationInterceptor: stored {TokenCount} pushed tokens for {FileKey}.", tokens.Count, fileKey);
     }
 
     private void CaptureLegendIfPresent(LspMessage message)
     {
-        // The initialize response carries the server's semantic-token legend.
-        var tokenTypes = message.Body["result"]?["capabilities"]?["semanticTokensProvider"]?["legend"]?["tokenTypes"] as JArray;
+        // The initialize response carries the server's semantic-token legend. Every other response's
+        // "result" is shaped differently (JArray, scalar JValue, etc.) and must be skipped without
+        // indexing into it, since only JObject indexers tolerate a missing key.
+        if (message.Body["result"] is not JObject result) return;
+        var tokenTypes = result["capabilities"]?["semanticTokensProvider"]?["legend"]?["tokenTypes"] as JArray;
         if (tokenTypes is null) return;
 
         _store.SetLegend(tokenTypes.Select(t => t.Value<string>() ?? string.Empty).ToArray());
-        _traceSource.TraceInformation(
-            "SemanticTokensClassificationInterceptor: captured legend ({0} token types).", tokenTypes.Count);
+        _logger.LogInformation(
+            "SemanticTokensClassificationInterceptor: captured legend ({TokenTypeCount} token types).", tokenTypes.Count);
     }
 
     private void CaptureTokensIfMatched(LspMessage message)
@@ -100,13 +103,15 @@ internal sealed class SemanticTokensClassificationInterceptor : ILspMessageInter
 
         // Both semanticTokens/full and the full form of semanticTokens/full/delta carry a flat
         // "data" int array. (Edit-style delta results carry "edits" instead — skipped here; the
-        // next full response will refresh.)
-        if (message.Body["result"]?["data"] is not JArray data) return;
+        // next full response will refresh.) "result" itself may be a non-JObject JValue, which
+        // must be checked before indexing since only JObject indexers tolerate a missing key.
+        if (message.Body["result"] is not JObject result) return;
+        if (result["data"] is not JArray data) return;
 
         var tokens = Decode(data, _store.Legend);
         _store.SetTokens(fileKey, tokens);
-        _traceSource.TraceInformation(
-            "SemanticTokensClassificationInterceptor: stored {0} tokens for {1}.", tokens.Count, fileKey);
+        _logger.LogInformation(
+            "SemanticTokensClassificationInterceptor: stored {TokenCount} tokens for {FileKey}.", tokens.Count, fileKey);
     }
 
     private static bool IsSemanticTokensMethod(string? method) =>

@@ -28,6 +28,35 @@ using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Hosting;
 
+/// <remarks>
+/// <para>
+/// <b>Logging split (issue #84):</b> app-level code in this server (handlers, discovery,
+/// workspace/document services, etc.) logs exclusively through the DI-registered
+/// <see cref="IIdeSupportLogger"/> singleton (<see cref="Logging.LspIdeSupportLogger"/>), consumed via
+/// the <c>LogInfo</c>/<c>LogWarning</c>/<c>LogError</c>/... extension methods in
+/// <see cref="IdeSupportLoggerExtensions"/> — this is deliberate and should stay the pattern for new
+/// app-level code, rather than switching individual classes to <c>ILogger&lt;T&gt;</c>.
+/// </para>
+/// <para>
+/// Separately, <c>ILogger&lt;T&gt;</c> (<see cref="Microsoft.Extensions.Logging"/>) is what
+/// OmniSharp's own internals log through — request dispatch, DryIoc, JSON-RPC plumbing. That
+/// pipeline is established by <see cref="ConfigureServer"/>'s <c>options.ConfigureLogging(...)</c>
+/// call (<c>SetMinimumLevel</c>, <c>AddLanguageProtocolLogging</c>,
+/// <see cref="ProtocolLoggerProvider"/>) directly into <c>options.Services</c>, gated by its own
+/// <c>--protocol-log-level</c> and writing to a dedicated <c>reqnroll-*-protocol-*.log</c> file via
+/// the shared <see cref="IdeSupportLoggerAdapter"/> — deliberately a separate store from the app-level
+/// <see cref="IIdeSupportLogger"/> "server" log. <b>Do not re-register <c>ILoggerFactory</c>/<c>ILogger&lt;&gt;</c>
+/// anywhere else in this DI container</b> (e.g. in
+/// <see cref="ServiceCollectionExtensions.AddReqnrollLspCoreServices"/>) — a later registration wins
+/// the last-registration-wins resolution and silently replaces this one, which previously caused
+/// every OmniSharp-internal message to leak into the app-level "server" log at whatever
+/// <c>--log-level</c> happened to be, instead of its own file gated by <c>--protocol-log-level</c>.
+/// </para>
+/// <para>
+/// The three log-level dials below (<c>--log-level</c>, <c>--protocol-log-level</c>, <c>--trace</c>)
+/// remain intentionally independent — see each parameter's remarks on <see cref="ConfigureServer"/>.
+/// </para>
+/// </remarks>
 public class Program
 {
     public static async Task Main(string[] args)
@@ -41,7 +70,7 @@ public class Program
         // Each IDE's glue component may pass --log-level <level> (Off/Error/Warning/Info/Verbose)
         // when spawning the server. Defaults to Warning when absent so a normal session doesn't
         // write maximum-verbosity logs indefinitely; pass --log-level Verbose for full tracing.
-        // Controls ONLY our own app-level IDeveroomLogger file (reqnroll-*-server-*.log).
+        // Controls ONLY our own app-level IIdeSupportLogger file (reqnroll-*-server-*.log).
         var logLevel = ParseLogLevel(args);
 
         // --protocol-log-level <level> is the equivalent dial for OmniSharp's own internal
@@ -76,7 +105,7 @@ public class Program
 
             using var preloadCts = new CancellationTokenSource();
             var scopeManager = server.Services.GetRequiredService<ILspWorkspaceScopeManager>();
-            var logger       = server.Services.GetRequiredService<IDeveroomLogger>();
+            var logger       = server.Services.GetRequiredService<IIdeSupportLogger>();
             var preloadTask  = ProjectPreloadListener.RunAsync(scopeManager, logger, preloadCts.Token);
 
             await server.Initialize(CancellationToken.None).ConfigureAwait(false);
@@ -124,7 +153,7 @@ public class Program
     /// </param>
     /// <param name="logLevel">
     /// The <c>--log-level</c> verbosity requested by the client, defaulting to
-    /// <see cref="TraceLevel.Warning"/>. Drives only the file-backed <see cref="IDeveroomLogger"/>
+    /// <see cref="TraceLevel.Warning"/>. Drives only the file-backed <see cref="IIdeSupportLogger"/>
     /// (our own app-level logging) — deliberately independent of <paramref name="protocolLogLevel"/>.
     /// </param>
     /// <param name="initialTrace">
@@ -257,18 +286,12 @@ public class Program
     }
 
     /// <summary>
-    /// Maps the <see cref="IDeveroomLogger"/> verbosity scale onto
+    /// Maps the <see cref="IIdeSupportLogger"/> verbosity scale onto
     /// <see cref="Microsoft.Extensions.Logging.LogLevel"/> for the OmniSharp protocol-logging pipeline.
+    /// Delegates to the canonical, shared conversion in <see cref="IdeSupportLogLevelConverter"/> so
+    /// there is exactly one <see cref="TraceLevel"/>/<see cref="LogLevel"/> mapping in the codebase.
     /// </summary>
-    internal static LogLevel ToLogLevel(TraceLevel level) => level switch
-    {
-        TraceLevel.Off     => LogLevel.None,
-        TraceLevel.Error   => LogLevel.Error,
-        TraceLevel.Warning => LogLevel.Warning,
-        TraceLevel.Info    => LogLevel.Information,
-        TraceLevel.Verbose => LogLevel.Trace,
-        _                  => LogLevel.Warning
-    };
+    internal static LogLevel ToLogLevel(TraceLevel level) => IdeSupportLogLevelConverter.ToLogLevel(level);
 
     /// <summary>Returns the value following <paramref name="flag"/> in <paramref name="args"/>, or <see langword="null"/> when absent.</summary>
     internal static string? ParseArg(string[] args, string flag)

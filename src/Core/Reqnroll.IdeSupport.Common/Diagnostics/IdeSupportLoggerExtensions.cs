@@ -1,4 +1,4 @@
-using Reqnroll.IdeSupport.Common.Diagnostics;
+﻿using Reqnroll.IdeSupport.Common.Diagnostics;
 //using Reqnroll.IdeSupport.VisualStudio.Monitoring;
 using System;
 using System.Diagnostics;
@@ -6,40 +6,40 @@ using System.Runtime.CompilerServices;
 
 namespace Reqnroll.IdeSupport.Common.Diagnostics;
 
-public static class DeveroomLoggerExtensions
+public static class IdeSupportLoggerExtensions
 {
-    public static bool IsLogging(this IDeveroomLogger logger, TraceLevel messageLevel)
+    public static bool IsLogging(this IIdeSupportLogger logger, TraceLevel messageLevel)
         => messageLevel <= logger.Level;
 
-    public static void LogError(this IDeveroomLogger logger, string message,
+    public static void LogError(this IIdeSupportLogger logger, string message,
         [CallerMemberName] string callerName = "???")
     {
         var msg = new LogMessage(TraceLevel.Error, message, callerName);
         logger.Log(msg);
     }
 
-    public static void LogWarning(this IDeveroomLogger logger, string message,
+    public static void LogWarning(this IIdeSupportLogger logger, string message,
         [CallerMemberName] string callerName = "???")
     {
         var msg = new LogMessage(TraceLevel.Warning, message, callerName);
         logger.Log(msg);
     }
 
-    public static void LogInfo(this IDeveroomLogger logger, string message,
+    public static void LogInfo(this IIdeSupportLogger logger, string message,
         [CallerMemberName] string callerName = "???")
     {
         var msg = new LogMessage(TraceLevel.Info, message, callerName);
         logger.Log(msg);
     }
 
-    public static void LogVerbose(this IDeveroomLogger logger, string message,
+    public static void LogVerbose(this IIdeSupportLogger logger, string message,
         [CallerMemberName] string callerName = "???")
     {
         var msg = new LogMessage(TraceLevel.Verbose, message, callerName);
         logger.Log(msg);
     }
 
-    public static void LogVerbose(this IDeveroomLogger logger, Func<string> message,
+    public static void LogVerbose(this IIdeSupportLogger logger, Func<string> message,
         [CallerMemberName] string callerName = "???")
     {
         if (!logger.IsLogging(TraceLevel.Verbose)) return;
@@ -48,14 +48,14 @@ public static class DeveroomLoggerExtensions
         logger.Log(msg);
     }
 
-    public static void LogException(this IDeveroomLogger logger, IMonitoringService monitoringService, Exception ex,
+    public static void LogException(this IIdeSupportLogger logger, IMonitoringService monitoringService, Exception ex,
         string message = "Exception", [CallerMemberName] string callerName = "???")
     {
         monitoringService.MonitorError(ex);
         LogException(logger, ex, message, callerName);
     }
 
-    public static void LogException(this IDeveroomLogger logger, Exception ex, string message = "Exception",
+    public static void LogException(this IIdeSupportLogger logger, Exception ex, string message = "Exception",
         [CallerMemberName] string callerName = "???")
     {
         //Debug.Fail(ex.ToString());
@@ -63,7 +63,7 @@ public static class DeveroomLoggerExtensions
         logger.Log(msg);
     }
 
-    public static void LogVerboseException(this IDeveroomLogger logger, IMonitoringService monitoringService,
+    public static void LogVerboseException(this IIdeSupportLogger logger, IMonitoringService monitoringService,
         Exception ex, string message = "Exception", [CallerMemberName] string callerName = "???")
     {
         monitoringService.MonitorError(ex, false);
@@ -71,8 +71,8 @@ public static class DeveroomLoggerExtensions
         logger.Log(msg);
     }
 
-    //TODO: merge IDeveroomLogger with IMonitoringService
-    public static void LogDebugException(this IDeveroomLogger logger, Exception ex, string message = "Exception",
+    //TODO: merge IIdeSupportLogger with IMonitoringService
+    public static void LogDebugException(this IIdeSupportLogger logger, Exception ex, string message = "Exception",
         [CallerMemberName] string callerName = "???")
     {
         var msg = new LogMessage(TraceLevel.Verbose, message, callerName, ex);
@@ -80,7 +80,7 @@ public static class DeveroomLoggerExtensions
     }
 
 
-    public static void Trace(this IDeveroomLogger logger, Stopwatch sw, string message = "",
+    public static void Trace(this IIdeSupportLogger logger, Stopwatch sw, string message = "",
         [CallerFilePath] string callerFilePath = "?", [CallerLineNumber] int callerLineNumber = 0,
         [CallerMemberName] string callerName = "???")
     {
@@ -88,7 +88,7 @@ public static class DeveroomLoggerExtensions
             Trace(logger, $"{sw.Elapsed} {message}", callerFilePath, callerLineNumber, callerName);
     }
 
-    public static void Trace(this IDeveroomLogger logger, string message = "",
+    public static void Trace(this IIdeSupportLogger logger, string message = "",
         [CallerFilePath] string callerFilePath = "?", [CallerLineNumber] int callerLineNumber = 0,
         [CallerMemberName] string callerName = "???")
     {

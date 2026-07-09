@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System.Text.RegularExpressions;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -25,7 +25,7 @@ public class FeatureDefinitionHandlerTests
     private BindingMatchService            _matchService  = new();
     private readonly IDocumentBufferService    _bufferService = Substitute.For<IDocumentBufferService>();
     private readonly ILspWorkspaceScopeManager _scopeManager  = Substitute.For<ILspWorkspaceScopeManager>();
-    private readonly IDeveroomLogger           _logger        = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger           _logger        = Substitute.For<IIdeSupportLogger>();
 
     // "Feature: F\nScenario: S\n    Given a step\n"
     // Line 0: "Feature: F"         offsets  0–9  (\n at 10)
@@ -343,7 +343,7 @@ public class FeatureDefinitionHandlerTests
     [Fact]
     public async Task Handle_uses_primary_owner_key_to_query_match_set_Async()
     {
-        var ideScope = new LspIdeScope(Substitute.For<IDeveroomLogger>());
+        var ideScope = new LspIdeScope(Substitute.For<IIdeSupportLogger>());
         var project  = new LspReqnrollProject(
             new Protocol.ReqnrollProjectLoadedParams
             {

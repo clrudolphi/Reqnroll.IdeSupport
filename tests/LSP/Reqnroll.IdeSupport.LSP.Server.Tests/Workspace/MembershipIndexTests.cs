@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Pipeline;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
@@ -14,7 +14,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Tests.Workspace;
 /// </summary>
 public class MembershipIndexTests : IAsyncLifetime
 {
-    private readonly IDeveroomLogger _logger   = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger _logger   = Substitute.For<IIdeSupportLogger>();
     private readonly IMediator       _mediator = Substitute.For<IMediator>();
     private readonly LspIdeScope     _ideScope;
     private readonly LspWorkspaceScopeManager _sut;
@@ -670,6 +670,59 @@ public class MembershipIndexTests : IAsyncLifetime
 
         _ = _mediator.Received(1).Publish(
             Arg.Is<BindingRegistryChangedNotification>(n => !n.IsFullReplacement),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Delta_removing_a_binding_file_includes_it_in_RemovedBindingFilePaths()
+    {
+        // Issue #94: deleting a .cs step-definition file must be surfaced so the registry can
+        // strip its stale bindings, not just the membership index.
+        var p = ProjectParams();
+        await _sut.HandleProjectLoadedAsync(p, CancellationToken.None);
+        var stepsFile = CsFile("Steps");
+
+        await _sut.HandleProjectFilesAsync(
+            BaselineParams(p.ProjectFile, p.TargetFrameworkMoniker,
+                (stepsFile, ProjectFileRole.Binding)),
+            CancellationToken.None);
+        _mediator.ClearReceivedCalls();
+
+        await _sut.HandleProjectFilesAsync(
+            DeltaParams(p.ProjectFile, p.TargetFrameworkMoniker,
+                (stepsFile, ProjectFileRole.Binding, false)),
+            CancellationToken.None);
+
+        _ = _mediator.Received(1).Publish(
+            Arg.Is<BindingRegistryChangedNotification>(n =>
+                n.RemovedBindingFilePaths != null &&
+                n.RemovedBindingFilePaths.Contains(stepsFile)),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Delta_removing_a_feature_file_does_not_populate_RemovedBindingFilePaths()
+    {
+        // Only Binding-role removals matter here — a removed .feature file has no bindings to
+        // strip from the registry.
+        var p = ProjectParams();
+        await _sut.HandleProjectLoadedAsync(p, CancellationToken.None);
+        var featureFile = Feature("old");
+
+        await _sut.HandleProjectFilesAsync(
+            BaselineParams(p.ProjectFile, p.TargetFrameworkMoniker,
+                (featureFile, ProjectFileRole.Feature)),
+            CancellationToken.None);
+        _mediator.ClearReceivedCalls();
+
+        await _sut.HandleProjectFilesAsync(
+            DeltaParams(p.ProjectFile, p.TargetFrameworkMoniker,
+                (featureFile, ProjectFileRole.Feature, false)),
+            CancellationToken.None);
+
+        _ = _mediator.Received(1).Publish(
+            Arg.Is<BindingRegistryChangedNotification>(n =>
+                n.RemovedBindingFilePaths == null || n.RemovedBindingFilePaths.Count == 0),
             Arg.Any<CancellationToken>());
     }
 

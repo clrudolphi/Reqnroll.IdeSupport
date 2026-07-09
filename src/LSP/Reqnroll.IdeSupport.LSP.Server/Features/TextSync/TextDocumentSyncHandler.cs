@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
@@ -29,7 +29,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private readonly ICSharpBindingDiscoveryService _csharpDiscoveryService;
     private readonly IMediator _mediator;
     private readonly ILanguageServerFacade _languageServer;
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
 
     private static readonly TextDocumentSelector _documentSelector = new(
         new TextDocumentFilter { Pattern = "**/*.feature" },
@@ -45,7 +45,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         ICSharpBindingDiscoveryService csharpDiscoveryService,
         IMediator mediator,
         ILanguageServerFacade languageServer,
-        IDeveroomLogger logger)
+        IIdeSupportLogger logger)
     {
         _documentBufferService = documentBufferService;
         _taggerService = taggerService;

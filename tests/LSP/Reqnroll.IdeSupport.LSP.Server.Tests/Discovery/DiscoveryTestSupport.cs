@@ -1,4 +1,4 @@
-using Reqnroll.IdeSupport.Common;
+﻿using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
@@ -67,5 +67,5 @@ internal static class DiscoveryTestSupport
         return project;
     }
 
-    public static IDeveroomLogger SilentLogger() => Substitute.For<IDeveroomLogger>();
+    public static IIdeSupportLogger SilentLogger() => Substitute.For<IIdeSupportLogger>();
 }

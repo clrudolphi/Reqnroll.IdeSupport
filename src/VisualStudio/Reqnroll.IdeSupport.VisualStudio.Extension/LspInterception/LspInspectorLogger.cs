@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -19,7 +19,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 internal sealed class LspInspectorLogger : ILspMessageInterceptor, IDisposable
 {
     private readonly string _logFilePath;
-    private readonly TraceSource _traceSource;
+    private readonly ILogger<LspInspectorLogger> _logger;
     private readonly SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
 
     // Tracks in-flight request timestamps keyed by JSON-RPC id (as string) so that responses
@@ -33,10 +33,10 @@ internal sealed class LspInspectorLogger : ILspMessageInterceptor, IDisposable
     /// Initialises the logger and creates (or truncates) the log file at
     /// <paramref name="logFilePath"/>.
     /// </summary>
-    public LspInspectorLogger(string logFilePath, TraceSource traceSource)
+    public LspInspectorLogger(string logFilePath, ILogger<LspInspectorLogger> logger)
     {
         _logFilePath = logFilePath ?? throw new ArgumentNullException(nameof(logFilePath));
-        _traceSource = traceSource ?? throw new ArgumentNullException(nameof(traceSource));
+        _logger      = logger      ?? throw new ArgumentNullException(nameof(logger));
 
         try
         {
@@ -47,12 +47,11 @@ internal sealed class LspInspectorLogger : ILspMessageInterceptor, IDisposable
                 bufferSize: 4096,
                 leaveOpen: false);
             _writer.AutoFlush = true;
-            _traceSource.TraceInformation("LspInspectorLogger: Writing LSP Inspector log to '{0}'.", logFilePath);
+            _logger.LogInformation("LspInspectorLogger: writing LSP Inspector log to {LogFilePath}.", logFilePath);
         }
         catch (Exception ex)
         {
-            _traceSource.TraceEvent(TraceEventType.Error, 0,
-                "LspInspectorLogger: Failed to open log file '{0}': {1}", logFilePath, ex.Message);
+            _logger.LogError(ex, "LspInspectorLogger: failed to open log file {LogFilePath}.", logFilePath);
         }
     }
 
@@ -70,8 +69,7 @@ internal sealed class LspInspectorLogger : ILspMessageInterceptor, IDisposable
         }
         catch (Exception ex)
         {
-            _traceSource.TraceEvent(TraceEventType.Warning, 0,
-                "LspInspectorLogger: Error writing log entry: {0}", ex.Message);
+            _logger.LogWarning(ex, "LspInspectorLogger: error writing log entry.");
         }
         finally
         {

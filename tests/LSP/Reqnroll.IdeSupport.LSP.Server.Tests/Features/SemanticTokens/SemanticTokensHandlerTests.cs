@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens;
@@ -10,7 +10,7 @@ public class SemanticTokensHandlerTests
 {
     private readonly ISemanticTokenService _tokenService = Substitute.For<ISemanticTokenService>();
     private readonly IDocumentBufferService _bufferService = Substitute.For<IDocumentBufferService>();
-    private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
 
     private static readonly DocumentUri FeatureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
     private static readonly DocumentUri NonFeatureUri = DocumentUri.FromFileSystemPath("/workspace/test.cs");

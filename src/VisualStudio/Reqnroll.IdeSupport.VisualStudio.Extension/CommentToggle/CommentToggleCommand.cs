@@ -1,13 +1,12 @@
 #nullable enable
 
 using System;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.Commands;
 using Microsoft.VisualStudio.Extensibility.Editor;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.CommentToggle;
 
@@ -34,13 +33,12 @@ internal sealed class CommentToggleCommand : Command
     private const int IDG_VS_CODEWIN_FINDREF = 0x02B1;
 
     private readonly CommentToggleState _state;
-    private readonly TraceSource        _traceSource;
-    private readonly IDeveroomLogger    _fileLogger = new SynchronousFileLogger();
+    private readonly ILogger<CommentToggleCommand> _logger;
 
-    public CommentToggleCommand(CommentToggleState state, TraceSource traceSource)
+    public CommentToggleCommand(CommentToggleState state, ILogger<CommentToggleCommand> logger)
     {
-        _state       = state;
-        _traceSource = traceSource;
+        _state  = state;
+        _logger = logger;
     }
 
     public override CommandConfiguration CommandConfiguration => new("Comment/Uncomment")
@@ -61,19 +59,19 @@ internal sealed class CommentToggleCommand : Command
     {
         try
         {
-            _fileLogger.LogInfo("CommentToggleCommand: invoked.");
+            _logger.LogInformation("CommentToggleCommand: invoked.");
 
             var service = _state.Service;
             if (service is null)
             {
-                _fileLogger.LogWarning("CommentToggleCommand: LSP server not yet initialized.");
+                _logger.LogWarning("CommentToggleCommand: LSP server not yet initialized.");
                 return;
             }
 
             var textView = await context.GetActiveTextViewAsync(cancellationToken).ConfigureAwait(false);
             if (textView is null)
             {
-                _fileLogger.LogWarning("CommentToggleCommand: no active text view.");
+                _logger.LogWarning("CommentToggleCommand: no active text view.");
                 return;
             }
 
@@ -92,31 +90,30 @@ internal sealed class CommentToggleCommand : Command
                 var line = startPos.GetContainingLine();
                 startLine = line.LineNumber;
                 endLine   = line.LineNumber;
-                _fileLogger.LogInfo(
-                    $"CommentToggleCommand: no selection — using current line {startLine}.");
+                _logger.LogInformation(
+                    "CommentToggleCommand: no selection — using current line {StartLine}.", startLine);
             }
             else
             {
                 startLine = startPos.GetContainingLine().LineNumber;
                 endLine   = endPos.GetContainingLine().LineNumber;
-                _fileLogger.LogInfo(
-                    $"CommentToggleCommand: selection lines [{startLine}..{endLine}].");
+                _logger.LogInformation(
+                    "CommentToggleCommand: selection lines [{StartLine}..{EndLine}].", startLine, endLine);
             }
 
-            _traceSource.TraceInformation(
-                "CommentToggleCommand: uri='{0}', lines [{1}..{2}]",
+            _logger.LogInformation(
+                "CommentToggleCommand: uri={FileUri}, lines [{StartLine}..{EndLine}]",
                 fileUri, startLine, endLine);
 
             await service
                 .ToggleCommentAsync(fileUri, startLine, endLine, cancellationToken)
                 .ConfigureAwait(false);
 
-            _fileLogger.LogInfo("CommentToggleCommand: completed successfully.");
+            _logger.LogInformation("CommentToggleCommand: completed successfully.");
         }
         catch (Exception ex)
         {
-            _fileLogger.LogWarning($"CommentToggleCommand: failed: {ex}");
-            _traceSource.TraceEvent(TraceEventType.Error, 0, "CommentToggleCommand: failed: {0}", ex);
+            _logger.LogError(ex, "CommentToggleCommand: failed.");
         }
     }
 }

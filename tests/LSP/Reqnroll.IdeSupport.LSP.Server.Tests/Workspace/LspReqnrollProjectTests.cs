@@ -1,4 +1,4 @@
-using Reqnroll.IdeSupport.Common.Diagnostics;
+﻿using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
@@ -6,7 +6,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Tests.Workspace;
 
 public class LspReqnrollProjectTests
 {
-    private readonly LspIdeScope _ideScope = new(Substitute.For<IDeveroomLogger>());
+    private readonly LspIdeScope _ideScope = new(Substitute.For<IIdeSupportLogger>());
 
     private static ReqnrollProjectLoadedParams Params(
         string outputAssemblyPath = @"C:\repo\proj\bin\Debug\net8.0\Proj.dll",

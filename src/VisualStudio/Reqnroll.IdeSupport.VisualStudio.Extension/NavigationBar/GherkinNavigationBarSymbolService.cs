@@ -2,11 +2,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 using Reqnroll.IdeSupport.VisualStudio.NavigationBar;
 
@@ -31,14 +30,12 @@ internal sealed class GherkinNavigationBarSymbolService
     private const string RequestMethod = "reqnroll/documentSymbolHierarchical";
 
     private readonly LspInterceptingPipe _pipe;
-    private readonly TraceSource         _traceSource;
-    // Info-level explicitly — SynchronousFileLogger()'s default (Warning) silently drops LogInfo.
-    private readonly IDeveroomLogger     _fileLogger = new SynchronousFileLogger(level: System.Diagnostics.TraceLevel.Info);
+    private readonly ILogger<GherkinNavigationBarSymbolService> _logger;
 
-    public GherkinNavigationBarSymbolService(LspInterceptingPipe pipe, TraceSource traceSource)
+    public GherkinNavigationBarSymbolService(LspInterceptingPipe pipe, ILogger<GherkinNavigationBarSymbolService> logger)
     {
-        _pipe        = pipe;
-        _traceSource = traceSource;
+        _pipe   = pipe;
+        _logger = logger;
     }
 
     public async Task<IReadOnlyList<GherkinSymbolNode>> FetchSymbolsAsync(
@@ -46,8 +43,8 @@ internal sealed class GherkinNavigationBarSymbolService
     {
         var paramsJson = BuildParams(fileUri);
 
-        _traceSource.TraceInformation(
-            "GherkinNavigationBarSymbolService: querying {0} for {1}", RequestMethod, fileUri);
+        _logger.LogInformation(
+            "GherkinNavigationBarSymbolService: querying {RequestMethod} for {FileUri}", RequestMethod, fileUri);
 
         var result = await _pipe
             .SendRequestToServerAsync(RequestMethod, paramsJson, cancellationToken)
@@ -55,8 +52,9 @@ internal sealed class GherkinNavigationBarSymbolService
 
         var mapped = MapResult(result as JArray);
 
-        _fileLogger.LogInfo(
-            $"GherkinNavigationBarSymbolService: uri='{fileUri}' mapped {mapped.Count} top-level symbol(s).");
+        _logger.LogInformation(
+            "GherkinNavigationBarSymbolService: uri={FileUri} mapped {SymbolCount} top-level symbol(s).",
+            fileUri, mapped.Count);
 
         return mapped;
     }

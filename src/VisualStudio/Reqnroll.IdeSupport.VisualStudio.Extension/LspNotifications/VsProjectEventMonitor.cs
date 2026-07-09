@@ -1,17 +1,16 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnvDTE;
 using EnvDTE80;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Newtonsoft.Json;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 using Reqnroll.IdeSupport.VisualStudio.SDKIntegration;
 
@@ -38,17 +37,10 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.LspNotifications;
 internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocumentsEvents2
 {
     private readonly LspInterceptingPipe    _pipe;
-    private readonly TraceSource            _trace;
+    private readonly ILogger<VsProjectEventMonitor> _logger;
     private readonly DTE2                   _dte;
     private readonly IServiceProvider       _serviceProvider;
     private readonly DocumentActivationState _activationState;
-
-    // TraceSource above is kept for consistency with this class's existing logging, but per issue
-    // #84 nothing ever attaches a listener to it in this codebase — TraceInformation/TraceEvent
-    // calls on it are silently discarded. The new WindowActivated/documentActivated logging (#85)
-    // uses this file logger instead so it's actually inspectable; Info-level explicitly since
-    // SynchronousFileLogger()'s default (Warning) would drop LogInfo the same way.
-    private readonly IDeveroomLogger _fileLogger = new SynchronousFileLogger(level: TraceLevel.Info);
 
     // DTE event sinks — must be kept alive as fields.
     private readonly SolutionEvents _solutionEvents;
@@ -65,13 +57,13 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
 
     public VsProjectEventMonitor(
         LspInterceptingPipe pipe,
-        TraceSource trace,
+        ILogger<VsProjectEventMonitor> logger,
         IServiceProvider serviceProvider,
         DocumentActivationState activationState)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         _pipe            = pipe            ?? throw new ArgumentNullException(nameof(pipe));
-        _trace           = trace           ?? throw new ArgumentNullException(nameof(trace));
+        _logger          = logger          ?? throw new ArgumentNullException(nameof(logger));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _activationState = activationState ?? throw new ArgumentNullException(nameof(activationState));
 
@@ -95,12 +87,12 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
             ErrorHandler.Succeeded(_trackProjectDocuments.AdviseTrackProjectDocumentsEvents(
                 this, out _trackProjectDocumentsCookie)))
         {
-            _trace.TraceInformation("VsProjectEventMonitor: Subscribed to IVsTrackProjectDocumentsEvents2.");
+            _logger.LogInformation("VsProjectEventMonitor: subscribed to IVsTrackProjectDocumentsEvents2.");
         }
         else
         {
-            _trace.TraceEvent(TraceEventType.Warning, 0,
-                "VsProjectEventMonitor: Could not subscribe to IVsTrackProjectDocumentsEvents2; " +
+            _logger.LogWarning(
+                "VsProjectEventMonitor: could not subscribe to IVsTrackProjectDocumentsEvents2; " +
                 "per-file add/remove/rename will not be reflected until the next build or solution reload.");
             _trackProjectDocuments = null;
         }
@@ -143,8 +135,8 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
             var project = FindProjectContaining(filePath);
             if (project is null)
             {
-                _trace.TraceEvent(TraceEventType.Warning, 0,
-                    "VsProjectEventMonitor: No project found for scaffolded file '{0}'", filePath);
+                _logger.LogWarning(
+                    "VsProjectEventMonitor: no project found for scaffolded file {FilePath}", filePath);
                 return;
             }
 
@@ -160,15 +152,14 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
             await _pipe.SendNotificationToServerAsync("reqnroll/projectFiles", paramsJson, ct)
                        .ConfigureAwait(false);
 
-            _trace.TraceInformation(
-                "VsProjectEventMonitor: Sent projectFiles delta for scaffolded file '{0}' in '{1}'",
+            _logger.LogInformation(
+                "VsProjectEventMonitor: sent projectFiles delta for scaffolded file {FileName} in {ProjectName}",
                 Path.GetFileName(filePath), project.Name);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
-            _trace.TraceEvent(TraceEventType.Warning, 0,
-                "VsProjectEventMonitor: SendScaffoldedFileAsync failed for '{0}': {1}",
-                filePath, ex.Message);
+            _logger.LogWarning(ex,
+                "VsProjectEventMonitor: SendScaffoldedFileAsync failed for {FilePath}", filePath);
         }
     }
 
@@ -184,8 +175,8 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
         var featureUri = "file:///" + filePath.Replace('\\', '/');
         var paramsJson = $"{{\"uri\":\"{featureUri}\"}}";
 
-        _fileLogger.LogInfo(
-            $"VsProjectEventMonitor: Sending documentActivated for '{Path.GetFileName(filePath)}'");
+        _logger.LogInformation(
+            "VsProjectEventMonitor: sending documentActivated for {FileName}", Path.GetFileName(filePath));
 
         return _pipe.SendNotificationToServerAsync("reqnroll/documentActivated", paramsJson, ct);
     }
@@ -247,8 +238,9 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
         // debugging: a prior run showed zero reqnroll/documentActivated sends despite the tabs'
         // views clearly having been created, and there was no log evidence to say whether
         // WindowActivated simply never fired or fired and no-op'd).
-        _fileLogger.LogInfo(
-            $"VsProjectEventMonitor: WindowActivated fired, gotFocus.Caption='{TryGetCaption(gotFocus)}', document='{TryGetDocumentPath(gotFocus)}'.");
+        _logger.LogInformation(
+            "VsProjectEventMonitor: WindowActivated fired, gotFocus.Caption={Caption}, document={DocumentPath}",
+            TryGetCaption(gotFocus), TryGetDocumentPath(gotFocus));
 
         FireAndForget(ct => HandleWindowActivatedAsync(gotFocus, ct));
     }
@@ -263,8 +255,9 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
             return;
 
         var action = _activationState.OnWindowActivated(filePath);
-        _fileLogger.LogInfo(
-            $"VsProjectEventMonitor: WindowActivated for '{Path.GetFileName(filePath)}' — state action = {action}.");
+        _logger.LogInformation(
+            "VsProjectEventMonitor: WindowActivated for {FileName} — state action = {Action}",
+            Path.GetFileName(filePath), action);
 
         if (action != DocumentActivationAction.SendNow)
             return;
@@ -312,17 +305,16 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
                 return;
 
             var paramsJson = VsProjectPayloadBuilder.BuildProjectLoadedParamsJson(
-                project, GetSolutionFolder(), _serviceProvider, _trace);
+                project, GetSolutionFolder(), _serviceProvider, _logger);
             await _pipe.SendNotificationToServerAsync("reqnroll/projectLoaded", paramsJson, ct)
                        .ConfigureAwait(false);
 
-            _trace.TraceInformation(
-                "VsProjectEventMonitor: Sent projectLoaded for '{0}'", project.Name);
+            _logger.LogInformation(
+                "VsProjectEventMonitor: sent projectLoaded for {ProjectName}", project.Name);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
-            _trace.TraceEvent(TraceEventType.Warning, 0,
-                "VsProjectEventMonitor: Failed to send projectLoaded for project: {0}", ex.Message);
+            _logger.LogWarning(ex, "VsProjectEventMonitor: failed to send projectLoaded for project.");
         }
     }
 
@@ -341,13 +333,12 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
             await _pipe.SendNotificationToServerAsync("reqnroll/projectUnloaded", paramsJson, ct)
                        .ConfigureAwait(false);
 
-            _trace.TraceInformation(
-                "VsProjectEventMonitor: Sent projectUnloaded for '{0}'", project.Name);
+            _logger.LogInformation(
+                "VsProjectEventMonitor: sent projectUnloaded for {ProjectName}", project.Name);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
-            _trace.TraceEvent(TraceEventType.Warning, 0,
-                "VsProjectEventMonitor: Failed to send projectUnloaded: {0}", ex.Message);
+            _logger.LogWarning(ex, "VsProjectEventMonitor: failed to send projectUnloaded.");
         }
     }
 
@@ -360,18 +351,17 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
             if (!IsSolutionProject(project))
                 return;
 
-            var paramsJson = VsProjectPayloadBuilder.BuildProjectFilesParamsJson(project, _trace);
+            var paramsJson = VsProjectPayloadBuilder.BuildProjectFilesParamsJson(project, _logger);
             await _pipe.SendNotificationToServerAsync("reqnroll/projectFiles", paramsJson, ct)
                        .ConfigureAwait(false);
 
-            _trace.TraceInformation(
-                "VsProjectEventMonitor: Sent projectFiles baseline for '{0}'", project.Name);
+            _logger.LogInformation(
+                "VsProjectEventMonitor: sent projectFiles baseline for {ProjectName}", project.Name);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
-            _trace.TraceEvent(TraceEventType.Warning, 0,
-                "VsProjectEventMonitor: Failed to send projectFiles for '{0}': {1}",
-                project.Name, ex.Message);
+            _logger.LogWarning(ex,
+                "VsProjectEventMonitor: failed to send projectFiles for {ProjectName}", project.Name);
         }
     }
 
@@ -498,15 +488,14 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
             await _pipe.SendNotificationToServerAsync("reqnroll/projectFiles", paramsJson, ct)
                        .ConfigureAwait(false);
 
-            _trace.TraceInformation(
-                "VsProjectEventMonitor: Sent projectFiles delta ({0} entrie(s)) for '{1}'",
+            _logger.LogInformation(
+                "VsProjectEventMonitor: sent projectFiles delta ({EntryCount} entrie(s)) for {ProjectName}",
                 entries.Count, project.Name);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
-            _trace.TraceEvent(TraceEventType.Warning, 0,
-                "VsProjectEventMonitor: Failed to send projectFiles delta for '{0}': {1}",
-                project.Name, ex.Message);
+            _logger.LogWarning(ex,
+                "VsProjectEventMonitor: failed to send projectFiles delta for {ProjectName}", project.Name);
         }
     }
 
@@ -589,8 +578,7 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
             }
             catch (Exception ex)
             {
-                _trace.TraceEvent(TraceEventType.Warning, 0,
-                    "VsProjectEventMonitor: Background task failed: {0}", ex.Message);
+                _logger.LogWarning(ex, "VsProjectEventMonitor: background task failed.");
             }
         });
     }

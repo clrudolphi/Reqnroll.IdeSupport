@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
@@ -27,14 +27,14 @@ public sealed class CommentToggleHandler : IExecuteCommandHandler
     private readonly IDocumentBufferService   _documentBufferService;
     private readonly ICommentToggleService     _toggleService;
     private readonly ILanguageServerFacade     _languageServer;
-    private readonly IDeveroomLogger           _logger;
+    private readonly IIdeSupportLogger           _logger;
     private readonly ILspTelemetryService?     _telemetryService;
 
     public CommentToggleHandler(
         IDocumentBufferService documentBufferService,
         ICommentToggleService toggleService,
         ILanguageServerFacade languageServer,
-        IDeveroomLogger logger,
+        IIdeSupportLogger logger,
         ILspTelemetryService? telemetryService = null)
     {
         _documentBufferService = documentBufferService;

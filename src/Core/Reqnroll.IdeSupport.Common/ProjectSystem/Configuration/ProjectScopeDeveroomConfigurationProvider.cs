@@ -1,4 +1,4 @@
-#nullable disable
+﻿#nullable disable
 using System;
 using System.Xml.XPath;
 using System.Xml.Linq;
@@ -31,7 +31,7 @@ public class ProjectScopeDeveroomConfigurationProvider : IDeveroomConfigurationP
         //_projectScope.IdeScope.WeakProjectsBuilt += ProjectSystemOnProjectsBuilt;
     }
 
-    private IDeveroomLogger Logger => _projectScope.IdeScope.Logger;
+    private IIdeSupportLogger Logger => _projectScope.IdeScope.Logger;
     private IMonitoringService MonitoringService => _projectScope.IdeScope.MonitoringService;
     private IFileSystemForIDE FileSystem => _projectScope.IdeScope.FileSystem;
 

@@ -2,11 +2,11 @@ using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
@@ -39,7 +39,7 @@ internal sealed class LspInterceptingPipe : IDisposable
     private readonly IDuplexPipe                       _serverPipe;
     private readonly IReadOnlyList<ILspMessageInterceptor> _sendInterceptors;
     private readonly IReadOnlyList<ILspMessageInterceptor> _receiveInterceptors;
-    private readonly TraceSource                       _traceSource;
+    private readonly ILogger<LspInterceptingPipe>       _logger;
 
     // The two Pipe objects whose Reader/Writer ends form the VS-facing IDuplexPipe.
     // VS reads from _toVsPipe.Reader; VS writes to _fromVsPipe.Writer.
@@ -76,17 +76,17 @@ internal sealed class LspInterceptingPipe : IDisposable
     /// <param name="receiveInterceptors">
     /// Interceptors applied to messages travelling Server → VS.
     /// </param>
-    /// <param name="traceSource">Trace sink for pump-level diagnostics.</param>
+    /// <param name="logger">Logging sink for pump-level diagnostics.</param>
     public LspInterceptingPipe(
         IDuplexPipe serverPipe,
         IReadOnlyList<ILspMessageInterceptor> sendInterceptors,
         IReadOnlyList<ILspMessageInterceptor> receiveInterceptors,
-        TraceSource traceSource)
+        ILogger<LspInterceptingPipe> logger)
     {
         _serverPipe          = serverPipe          ?? throw new ArgumentNullException(nameof(serverPipe));
         _sendInterceptors    = sendInterceptors    ?? throw new ArgumentNullException(nameof(sendInterceptors));
         _receiveInterceptors = receiveInterceptors ?? throw new ArgumentNullException(nameof(receiveInterceptors));
-        _traceSource         = traceSource         ?? throw new ArgumentNullException(nameof(traceSource));
+        _logger              = logger              ?? throw new ArgumentNullException(nameof(logger));
 
         // VS reads from _toVsPipe.Reader and writes to _fromVsPipe.Writer.
         VsFacingPipe = new DuplexPipeAdapter(_toVsPipe.Reader, _fromVsPipe.Writer);
@@ -177,9 +177,9 @@ internal sealed class LspInterceptingPipe : IDisposable
                     }
                     catch (Exception ex)
                     {
-                        _traceSource.TraceEvent(TraceEventType.Warning, 0,
-                            "LspInterceptingPipe: DriveLetterUriNormalizer threw on message {0}: {1}",
-                            body.ToString(), ex);
+                        _logger.LogWarning(ex,
+                            "LspInterceptingPipe: DriveLetterUriNormalizer threw on message {Body}",
+                            body.ToString());
                     }
                 }
 
@@ -197,8 +197,7 @@ internal sealed class LspInterceptingPipe : IDisposable
         catch (OperationCanceledException) { /* normal shutdown */ }
         catch (Exception ex)
         {
-            _traceSource.TraceEvent(TraceEventType.Error, 0,
-                "LspInterceptingPipe [{0}] pump faulted: {1}", direction, ex);
+            _logger.LogError(ex, "LspInterceptingPipe [{Direction}] pump faulted.", direction);
         }
         finally
         {
@@ -416,9 +415,9 @@ internal sealed class LspInterceptingPipe : IDisposable
             }
             catch (Exception ex)
             {
-                _traceSource.TraceEvent(TraceEventType.Warning, 0,
-                    "LspInterceptingPipe: Interceptor '{0}' threw: {1}",
-                    interceptor.GetType().Name, ex.Message);
+                _logger.LogWarning(ex,
+                    "LspInterceptingPipe: interceptor {InterceptorType} threw.",
+                    interceptor.GetType().Name);
             }
         }
 
@@ -462,8 +461,8 @@ internal sealed class LspInterceptingPipe : IDisposable
             _serverPipe.Output.Advance(headerBytes.Length + bodyBytes.Length);
             await _serverPipe.Output.FlushAsync(cancellationToken).ConfigureAwait(false);
 
-            _traceSource.TraceInformation(
-                "LspInterceptingPipe: Injected notification '{0}' ({1} bytes)", method, bodyBytes.Length);
+            _logger.LogInformation(
+                "LspInterceptingPipe: injected notification {Method} ({ByteCount} bytes)", method, bodyBytes.Length);
         }
         finally
         {
@@ -527,8 +526,8 @@ internal sealed class LspInterceptingPipe : IDisposable
                 _serverPipe.Output.Advance(headerBytes.Length + bodyBytes.Length);
                 await _serverPipe.Output.FlushAsync(cancellationToken).ConfigureAwait(false);
 
-                _traceSource.TraceInformation(
-                    "LspInterceptingPipe: Injected request '{0}' id={1} ({2} bytes)", method, id, bodyBytes.Length);
+                _logger.LogInformation(
+                    "LspInterceptingPipe: injected request {Method} id={Id} ({ByteCount} bytes)", method, id, bodyBytes.Length);
             }
             finally
             {
@@ -539,8 +538,8 @@ internal sealed class LspInterceptingPipe : IDisposable
         }
         catch (OperationCanceledException)
         {
-            _traceSource.TraceInformation(
-                "LspInterceptingPipe: Request '{0}' id={1} cancelled", method, id);
+            _logger.LogInformation(
+                "LspInterceptingPipe: request {Method} id={Id} cancelled", method, id);
             return null;
         }
         finally
@@ -573,8 +572,8 @@ internal sealed class LspInterceptingPipe : IDisposable
         else
             tcs.TrySetResult(body["result"]);
 
-        _traceSource.TraceInformation(
-            "LspInterceptingPipe: Consumed correlated response id={0}", id);
+        _logger.LogInformation(
+            "LspInterceptingPipe: consumed correlated response id={Id}", id);
         return true;
     }
 

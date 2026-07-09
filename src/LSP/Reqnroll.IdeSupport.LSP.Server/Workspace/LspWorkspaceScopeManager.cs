@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Diagnostics;
@@ -15,7 +15,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Workspace;
 public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDisposable
 {
     private readonly IIdeScope _ideScope;
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
     private readonly IMediator _mediator;
 
     private readonly ConcurrentDictionary<string, LspProjectScope> _scopes
@@ -33,7 +33,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
     // would normally trigger is deferred here until the project actually loads.
     private readonly ConcurrentDictionary<ProjectKey, bool> _pendingFullRescan = new();
 
-    public LspWorkspaceScopeManager(IIdeScope ideScope, IDeveroomLogger logger, IMediator mediator)
+    public LspWorkspaceScopeManager(IIdeScope ideScope, IIdeSupportLogger logger, IMediator mediator)
     {
         _ideScope  = ideScope;
         _logger    = logger;
@@ -253,6 +253,16 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
             }
             ApplyDelta(key, parameters.Files);
 
+            // A binding-role file removed from the project (e.g. the user deletes a .cs
+            // step-definition file) must also have its stale entries purged from the project's
+            // binding registry -- otherwise the step keeps showing as bound until the next full
+            // build (issue #94). The membership index alone doesn't drive matching; the registry
+            // does, so BindingRegistryChangedHandler is handed the removed paths to reconcile.
+            var removedBindingPaths = parameters.Files
+                .Where(entry => !entry.Added && entry.Role == ProjectFileRole.Binding)
+                .Select(entry => entry.Path)
+                .ToList();
+
             // The delta may re-attribute a file that's already open (e.g. Solution Explorer
             // rename: the client's didClose/didOpen for the new URI typically reaches the server
             // before this delta does, so its first parse/diagnostics pass ran with zero owners).
@@ -262,7 +272,8 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
             if (deltaProject is not null)
             {
                 _ = _mediator.Publish(
-                    new BindingRegistryChangedNotification(deltaProject, false),
+                    new BindingRegistryChangedNotification(
+                        deltaProject, false, removedBindingPaths),
                     cancellationToken);
             }
             return;

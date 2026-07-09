@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.ComponentModel.Composition;
@@ -33,17 +33,17 @@ internal sealed class GherkinDropdownBarTextViewCreationListener : IVsTextViewCr
 {
     private readonly IVsEditorAdaptersFactoryService _editorAdapter;
     private readonly SVsServiceProvider _serviceProvider;
-    // Info/Verbose so attach/retry diagnostics are actually visible — SynchronousFileLogger()'s
-    // default level (Warning) silently drops them, which cost real debugging time on this feature.
-    private readonly IDeveroomLogger _logger = new SynchronousFileLogger(level: System.Diagnostics.TraceLevel.Verbose);
+    private readonly IIdeSupportLogger _logger;
 
     [ImportingConstructor]
     public GherkinDropdownBarTextViewCreationListener(
         IVsEditorAdaptersFactoryService editorAdapter,
-        SVsServiceProvider serviceProvider)
+        SVsServiceProvider serviceProvider,
+        IIdeSupportLogger logger)
     {
         _editorAdapter = editorAdapter;
         _serviceProvider = serviceProvider;
+        _logger = logger;
     }
 
     public void VsTextViewCreated(IVsTextView textViewAdapter)

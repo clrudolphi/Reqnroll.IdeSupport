@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
 using System.Text;
@@ -7,8 +6,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnvDTE;
 using EnvDTE80;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Shell;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.SDKIntegration;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.LspNotifications;
@@ -38,7 +37,7 @@ internal static class LspProjectPreloadPusher
     /// named after <paramref name="serverProcessId"/>. Best-effort: any failure is logged and
     /// swallowed — the real <see cref="VsProjectEventMonitor"/> path is the fallback of record.
     /// </summary>
-    public static async Task PushAsync(int serverProcessId, TraceSource trace, CancellationToken cancellationToken)
+    public static async Task PushAsync(int serverProcessId, ILogger logger, CancellationToken cancellationToken)
     {
         try
         {
@@ -61,8 +60,8 @@ internal static class LspProjectPreloadPusher
                     continue;
 
                 var loadedJson = VsProjectPayloadBuilder.BuildProjectLoadedParamsJson(
-                    project, GetSolutionFolder(solution), serviceProvider, trace);
-                var filesJson = VsProjectPayloadBuilder.BuildProjectFilesParamsJson(project, trace);
+                    project, GetSolutionFolder(solution), serviceProvider, logger);
+                var filesJson = VsProjectPayloadBuilder.BuildProjectFilesParamsJson(project, logger);
 
                 await WriteEnvelopeAsync(pipe, "reqnroll/projectLoaded", loadedJson, cancellationToken)
                     .ConfigureAwait(false);
@@ -70,13 +69,12 @@ internal static class LspProjectPreloadPusher
                     .ConfigureAwait(false);
             }
 
-            trace.TraceInformation("LspProjectPreloadPusher: Pushed initial project state to preload pipe.");
+            logger.LogInformation("LspProjectPreloadPusher: pushed initial project state to preload pipe.");
         }
         catch (OperationCanceledException) { /* extension shutting down or pipe never appeared in time */ }
         catch (Exception ex)
         {
-            trace.TraceEvent(TraceEventType.Warning, 0,
-                "LspProjectPreloadPusher: Failed to push preload data: {0}", ex.Message);
+            logger.LogWarning(ex, "LspProjectPreloadPusher: failed to push preload data.");
         }
     }
 
@@ -111,7 +109,7 @@ internal static class LspProjectPreloadPusher
     private static async Task WriteEnvelopeAsync(
         NamedPipeClientStream pipe, string method, string paramsJson, CancellationToken cancellationToken)
     {
-        var line = $"{{\"method\":{JsonEscape(method)},\"params\":{paramsJson}}}\n";
+        var line  = $"{{\"method\":{JsonEscape(method)},\"params\":{paramsJson}}}\n";
         var bytes = Utf8NoBom.GetBytes(line);
         await pipe.WriteAsync(bytes, 0, bytes.Length, cancellationToken).ConfigureAwait(false);
         await pipe.FlushAsync(cancellationToken).ConfigureAwait(false);

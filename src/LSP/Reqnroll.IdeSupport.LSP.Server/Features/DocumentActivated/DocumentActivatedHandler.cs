@@ -31,13 +31,13 @@ public sealed class DocumentActivatedHandler
     private readonly IGherkinDocumentTaggerService _taggerService;
     private readonly IDocumentBufferService        _documentBufferService;
     private readonly IMediator                     _mediator;
-    private readonly IDeveroomLogger                _logger;
+    private readonly IIdeSupportLogger                _logger;
 
     public DocumentActivatedHandler(
         IGherkinDocumentTaggerService taggerService,
         IDocumentBufferService        documentBufferService,
         IMediator                     mediator,
-        IDeveroomLogger                logger)
+        IIdeSupportLogger                logger)
     {
         _taggerService         = taggerService;
         _documentBufferService = documentBufferService;

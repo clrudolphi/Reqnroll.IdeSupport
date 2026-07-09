@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System.Text.RegularExpressions;
 using OmniSharp.Extensions.LanguageServer.Protocol;
@@ -26,7 +26,7 @@ public class GoToStepDefinitionsHandlerTests
     private BindingMatchService             _matchService  = new();
     private readonly IDocumentBufferService     _bufferService = Substitute.For<IDocumentBufferService>();
     private readonly ILspWorkspaceScopeManager  _scopeManager  = Substitute.For<ILspWorkspaceScopeManager>();
-    private readonly IDeveroomLogger            _logger        = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger            _logger        = Substitute.For<IIdeSupportLogger>();
 
     // Feature layout — same as FeatureDefinitionHandlerTests:
     // Line 0: "Feature: F"         offsets  0–9  (\n at 10)

@@ -1,4 +1,4 @@
-using AwesomeAssertions;
+﻿using AwesomeAssertions;
 using NSubstitute;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
@@ -21,8 +21,8 @@ public class FindUnusedStepDefinitionsHandlerTests
         Substitute.For<IProjectBindingRegistryLookup>();
     private readonly IBindingMatchService _matchService =
         Substitute.For<IBindingMatchService>();
-    private readonly IDeveroomLogger _logger =
-        Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger _logger =
+        Substitute.For<IIdeSupportLogger>();
 
     private FindUnusedStepDefinitionsHandler CreateSut() =>
         new(_registryLookup, _matchService, _logger);

@@ -1,6 +1,6 @@
 #nullable enable
 
-using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
@@ -35,14 +35,14 @@ internal static class VsStubFrameInitializer
     /// </summary>
     public static async Task ForceInitFeatureStubsAsync(
         IServiceProvider serviceProvider,
-        TraceSource traceSource,
+        ILogger logger,
         CancellationToken cancellationToken)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
         var rdt = serviceProvider.GetService(typeof(SVsRunningDocumentTable)) as IVsRunningDocumentTable;
         if (rdt != null)
-            TryForceInitRdtStubs(rdt, serviceProvider, traceSource);
+            TryForceInitRdtStubs(rdt, serviceProvider, logger);
     }
 
     // ── RDT stub scan ───────────────────────────────────────────────────────
@@ -50,7 +50,7 @@ internal static class VsStubFrameInitializer
     private static bool TryForceInitRdtStubs(
         IVsRunningDocumentTable rdt,
         IServiceProvider serviceProvider,
-        TraceSource traceSource)
+        ILogger logger)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
 
@@ -75,8 +75,8 @@ internal static class VsStubFrameInitializer
             // If document data is already initialized, skip.
             if (docData != IntPtr.Zero)
             {
-                traceSource.TraceInformation(
-                    "VsStubFrameInitializer: '{0}' is already initialized — skipping.", moniker);
+                logger.LogInformation(
+                    "VsStubFrameInitializer: {Moniker} is already initialized — skipping.", moniker);
                 continue;
             }
 
@@ -87,8 +87,8 @@ internal static class VsStubFrameInitializer
             if (VsShellUtilities.IsDocumentOpen(serviceProvider, moniker, Guid.Empty,
                     out var hier, out _, out var frame))
             {
-                traceSource.TraceInformation(
-                    "VsStubFrameInitializer: forcing init of stub '{0}' via window frame.", moniker);
+                logger.LogInformation(
+                    "VsStubFrameInitializer: forcing init of stub {Moniker} via window frame.", moniker);
                 _ = frame.GetProperty((int)__VSFPROPID.VSFPROPID_DocData, out var _);
 
                 // After initialization, ensure the document has a real project hierarchy
@@ -101,15 +101,15 @@ internal static class VsStubFrameInitializer
                         var dte = serviceProvider.GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
                         if (dte != null)
                         {
-                            traceSource.TraceInformation(
-                                "VsStubFrameInitializer: reopening '{0}' through DTE for project context.", moniker);
+                            logger.LogInformation(
+                                "VsStubFrameInitializer: reopening {Moniker} through DTE for project context.", moniker);
                             dte.ItemOperations.OpenFile(moniker);
                         }
                     }
                     catch (Exception ex)
                     {
-                        traceSource.TraceEvent(TraceEventType.Warning, 0,
-                            "VsStubFrameInitializer: could not set project context for '{0}': {1}", moniker, ex.Message);
+                        logger.LogWarning(ex,
+                            "VsStubFrameInitializer: could not set project context for {Moniker}", moniker);
                     }
                 }
             }

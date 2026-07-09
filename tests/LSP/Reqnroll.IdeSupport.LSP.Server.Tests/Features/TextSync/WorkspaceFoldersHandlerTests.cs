@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
@@ -9,7 +9,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Tests.Features.TextSync;
 public class WorkspaceFoldersHandlerTests
 {
     private readonly ILspWorkspaceScopeManager _scopeManager = Substitute.For<ILspWorkspaceScopeManager>();
-    private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
 
     private WorkspaceFoldersHandler CreateSut() => new(_scopeManager, _logger);
 

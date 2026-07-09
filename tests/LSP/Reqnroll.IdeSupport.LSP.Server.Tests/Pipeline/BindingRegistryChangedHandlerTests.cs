@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
@@ -29,9 +29,9 @@ public class BindingRegistryChangedHandlerTests : IDisposable
     private readonly IMediator                    _mediator      = Substitute.For<IMediator>();
     private readonly ICSharpBindingDiscoveryService _csharpDiscovery = Substitute.For<ICSharpBindingDiscoveryService>();
     private readonly IFeatureRescanDebouncer      _rescanDebouncer = Substitute.For<IFeatureRescanDebouncer>();
-    private readonly IDeveroomLogger              _logger        = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger              _logger        = Substitute.For<IIdeSupportLogger>();
 
-    private readonly IDeveroomLogger _ideLogger = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger _ideLogger = Substitute.For<IIdeSupportLogger>();
     private readonly LspIdeScope     _ideScope;
 
     // Two on-disk roots — project folder and linked/external folder.
@@ -488,6 +488,62 @@ public class BindingRegistryChangedHandlerTests : IDisposable
             Arg.Any<LspReqnrollProject>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
 
         project.Dispose();
+    }
+
+    // ── Removed-binding-file cleanup (issue #94) ──────────────────────────────
+
+    [Fact]
+    public async Task Handle_removes_bindings_for_deleted_binding_file()
+    {
+        var deletedPath = Path.Combine(_projectFolder, "DeletedSteps.cs");
+        _scopeManager.HasBaselineForProject(_project).Returns(true);
+        _scopeManager.GetIndexedFeatureFiles(_project).Returns(Array.Empty<string>());
+
+        await CreateSut().Handle(
+            new BindingRegistryChangedNotification(
+                _project, IsFullReplacement: false, RemovedBindingFilePaths: new[] { deletedPath }),
+            CancellationToken.None);
+
+        await _csharpDiscovery.Received(1).UpdateFromSourceForProjectAsync(
+            _project,
+            Arg.Is<string>(p => PathEq(p, deletedPath)),
+            string.Empty,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_without_removed_paths_does_not_call_removal()
+    {
+        _scopeManager.HasBaselineForProject(_project).Returns(true);
+        _scopeManager.GetIndexedFeatureFiles(_project).Returns(Array.Empty<string>());
+
+        await CreateSut().Handle(
+            new BindingRegistryChangedNotification(_project, IsFullReplacement: false),
+            CancellationToken.None);
+
+        await _csharpDiscovery.DidNotReceive().UpdateFromSourceForProjectAsync(
+            Arg.Any<LspReqnrollProject>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_continues_when_removal_throws_for_one_file()
+    {
+        var badPath  = Path.Combine(_projectFolder, "Bad.cs");
+        var goodPath = Path.Combine(_projectFolder, "Good.cs");
+        _scopeManager.HasBaselineForProject(_project).Returns(true);
+        _scopeManager.GetIndexedFeatureFiles(_project).Returns(Array.Empty<string>());
+
+        _csharpDiscovery
+            .UpdateFromSourceForProjectAsync(_project, badPath, string.Empty, Arg.Any<CancellationToken>())
+            .Returns<Task>(_ => throw new InvalidOperationException("boom"));
+
+        await CreateSut().Handle(
+            new BindingRegistryChangedNotification(
+                _project, IsFullReplacement: false, RemovedBindingFilePaths: new[] { badPath, goodPath }),
+            CancellationToken.None);
+
+        await _csharpDiscovery.Received(1).UpdateFromSourceForProjectAsync(
+            _project, goodPath, string.Empty, Arg.Any<CancellationToken>());
     }
 
     // ── Code-lens refresh signal after full replacement ──────────────────────

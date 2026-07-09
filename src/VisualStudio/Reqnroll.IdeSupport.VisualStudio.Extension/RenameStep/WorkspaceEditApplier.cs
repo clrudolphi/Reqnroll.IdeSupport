@@ -2,15 +2,14 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.TextManager.Interop;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.RenameStep;
 
@@ -23,17 +22,14 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.RenameStep;
 internal sealed class WorkspaceEditApplier
 {
     private readonly RenameStepService _service;
-    private readonly IDeveroomLogger   _logger;
-    private readonly TraceSource       _traceSource;
+    private readonly ILogger<WorkspaceEditApplier> _logger;
 
     public WorkspaceEditApplier(
         RenameStepService service,
-        IDeveroomLogger   logger,
-        TraceSource       traceSource)
+        ILogger<WorkspaceEditApplier> logger)
     {
-        _service     = service;
-        _logger      = logger;
-        _traceSource = traceSource;
+        _service = service;
+        _logger  = logger;
     }
 
     /// <summary>
@@ -51,6 +47,7 @@ internal sealed class WorkspaceEditApplier
             _logger.LogWarning("WorkspaceEditApplier: no file edits to apply.");
             return;
         }
+
 
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
@@ -103,7 +100,7 @@ internal sealed class WorkspaceEditApplier
                 ApplyEditToBuffer(textLines, edit);
             }
 
-            _logger.LogInfo($"WorkspaceEditApplier: applied edits via text buffer for '{localPath}'.");
+            _logger.LogInformation("WorkspaceEditApplier: applied edits via text buffer for {LocalPath}.", localPath);
             NotifyDidChange(localPath, ReadBufferText(textLines), cancellationToken);
             return true;
         }
@@ -125,7 +122,7 @@ internal sealed class WorkspaceEditApplier
         var newContent = ApplyEditsToText(fileText, textEdits);
         System.IO.File.WriteAllText(localPath, newContent);
 
-        _logger.LogInfo($"WorkspaceEditApplier: wrote '{localPath}'.");
+        _logger.LogInformation("WorkspaceEditApplier: wrote {LocalPath}.", localPath);
         NotifyDidChange(localPath, newContent, cancellationToken);
     }
 
@@ -171,7 +168,7 @@ internal sealed class WorkspaceEditApplier
             return;
 
         _ = _service.SendDidChangeAsync(localPath, newContent, cancellationToken);
-        _logger.LogInfo($"WorkspaceEditApplier: sent didChange for '{localPath}'.");
+        _logger.LogInformation("WorkspaceEditApplier: sent didChange for {LocalPath}.", localPath);
     }
 
     /// <summary>
@@ -203,7 +200,7 @@ internal sealed class WorkspaceEditApplier
                 null);
 
             if (editHr != 0)
-                Trace.WriteLine(
+                System.Diagnostics.Trace.WriteLine(
                     $"WorkspaceEditApplier: ReplaceLines failed (hr=0x{editHr:X8}) " +
                     $"at ({edit.StartLine},{edit.StartChar})-({edit.EndLine},{edit.EndChar})");
         }

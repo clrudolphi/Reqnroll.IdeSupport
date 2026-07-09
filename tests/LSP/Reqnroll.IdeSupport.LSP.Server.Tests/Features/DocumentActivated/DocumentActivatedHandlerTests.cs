@@ -14,7 +14,7 @@ public class DocumentActivatedHandlerTests
     private readonly IDocumentBufferService _bufferService = new DocumentBufferService();
     private readonly IGherkinDocumentTaggerService _taggerService = Substitute.For<IGherkinDocumentTaggerService>();
     private readonly IMediator _mediator = Substitute.For<IMediator>();
-    private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
 
     private static readonly DocumentUri FeatureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
 

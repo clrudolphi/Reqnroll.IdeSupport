@@ -2,7 +2,10 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Extensibility;
+using Microsoft.VisualStudio.Shell;
+using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.CommentToggle;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
@@ -30,6 +33,19 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension
         protected override void InitializeServices(IServiceCollection serviceCollection)
         {
             base.InitializeServices(serviceCollection);
+
+            // Single, shared logging sink for the whole extension (issue #84): previously ~20
+            // classes each `new`'d their own SynchronousFileLogger (mostly defaulting to
+            // TraceLevel.Warning, silently dropping LogInfo) while also taking a DI-injected
+            // TraceSource that nothing ever attached a listener to. One IdeSupportCompositeLogger,
+            // registered once and consumed everywhere via ILogger<T>, replaces both.
+            var logger = new IdeSupportCompositeLogger()
+                .Add(new IdeSupportDebugLogger())
+                .Add(new SynchronousFileLogger("vs", "ext", TraceLevel.Info));
+            serviceCollection.AddSingleton<IIdeSupportLogger>(logger);
+            serviceCollection.AddSingleton<ILoggerFactory>(sp =>
+                new IdeSupportLoggerFactory(sp.GetRequiredService<IIdeSupportLogger>()));
+            serviceCollection.AddSingleton(typeof(ILogger<>), typeof(Logger<>));
 
             // Shared holder for the runtime-created F14 "Find Step Usages" components.  Registering
             // it here makes it resolvable by constructor injection in both ReqnrollLanguageClient
@@ -74,13 +90,39 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension
         /// </remarks>
         protected override Task OnInitializedAsync(VisualStudioExtensibility extensibility, CancellationToken cancellationToken)
         {
-            var traceSource = ServiceProvider.GetRequiredService<TraceSource>();
-            traceSource.TraceInformation(
+            var logger = ServiceProvider.GetRequiredService<ILogger<ExtensionEntrypoint>>();
+            logger.LogInformation(
                 "ExtensionEntrypoint: OnInitializedAsync — resolving LspServerConnectionService eagerly.");
 
             // Resolving (not just registering) is what triggers construction of the singleton,
             // whose own constructor kicks off server process launch — see LspServerConnectionService.
-            ServiceProvider.GetRequiredService<LspServerConnectionService>();
+            var connectionService = ServiceProvider.GetRequiredService<LspServerConnectionService>();
+
+            // None of VS.Extensibility's own disposal paths reaches this singleton: the generated
+            // ILanguageServerProvider wrapper (LanguageServerProviderService, decompiled from
+            // Microsoft.VisualStudio.Extensibility.dll) has an empty Dispose() body that never
+            // forwards to ReqnrollLanguageClient; ExtensionCore.Dispose(bool) never disposes the DI
+            // container this singleton lives in; and even ExtensionCore.ShutdownToken (cancelled
+            // inside that same Dispose(bool)) was confirmed by logging to never fire on a normal
+            // window-close of an in-proc (RequiresInProcessHosting) extension — devenv.exe appears
+            // to tear down without ever calling ExtensionCore.Dispose() at all in that case.
+            //
+            // Microsoft.VisualStudio.Shell.VsShellUtilities.ShutdownToken is the classic, static,
+            // shell-level signal instead: driven directly by the shell's own shutdown broadcast
+            // rather than any per-object Dispose() chain, and documented as firing *earlier* than
+            // package-level disposal tokens (see AsyncPackage.DisposalToken remarks). Registering
+            // on both costs nothing — LspServerConnectionService.Dispose() is idempotent — but this
+            // one is the signal actually expected to fire; see git history for issue #81.
+            VsShellUtilities.ShutdownToken.Register(() =>
+            {
+                logger.LogInformation("ExtensionEntrypoint: VsShellUtilities.ShutdownToken fired — disposing LspServerConnectionService.");
+                connectionService.Dispose();
+            });
+            ShutdownToken.Register(() =>
+            {
+                logger.LogInformation("ExtensionEntrypoint: ExtensionCore.ShutdownToken fired — disposing LspServerConnectionService.");
+                connectionService.Dispose();
+            });
 
             return Task.CompletedTask;
         }

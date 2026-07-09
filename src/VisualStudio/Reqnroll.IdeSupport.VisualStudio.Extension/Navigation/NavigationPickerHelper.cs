@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System.Collections.Generic;
 using System.IO;
@@ -24,7 +24,7 @@ internal static class NavigationPickerHelper
 {
     public static async Task PickAndNavigateAsync(
         IReadOnlyList<NavigationTarget> targets,
-        IDeveroomLogger                 logger,
+        IIdeSupportLogger                 logger,
         string                          promptTitle,
         CancellationToken               cancellationToken)
     {
@@ -57,7 +57,7 @@ internal static class NavigationPickerHelper
 
     private static async Task NavigateToAsync(
         NavigationTarget  target,
-        IDeveroomLogger   logger,
+        IIdeSupportLogger   logger,
         CancellationToken cancellationToken)
     {
         if (!File.Exists(target.FilePath))

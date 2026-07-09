@@ -4,10 +4,10 @@ using System.IO;
 using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Shell;
 using Nerdbank.Streams;
 using Reqnroll.IdeSupport.Common.Analytics;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.Classification;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspNotifications;
 using Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
@@ -43,8 +43,8 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 /// </remarks>
 internal sealed class LspServerConnectionService : IDisposable
 {
-    private readonly TraceSource _traceSource;
-    private readonly IDeveroomLogger _fileLogger;
+    private readonly ILogger<LspServerConnectionService> _logger;
+    private readonly ILoggerFactory _loggerFactory;
     private readonly StepCodeLensState _stepCodeLensState;
     private readonly DocumentActivationState _activationState = new();
 
@@ -57,16 +57,29 @@ internal sealed class LspServerConnectionService : IDisposable
     private LspInspectorLogger? _inspectorLogger;
     private LspInterceptingPipe? _interceptingPipe;
     private ChildProcessJob? _childJob;
+    private ShutdownHandshakeInterceptor? _shutdownHandshakeInterceptor;
     private bool _disposed;
 
-    public LspServerConnectionService(TraceSource traceSource, StepCodeLensState stepCodeLensState)
-    {
-        _traceSource       = traceSource       ?? throw new ArgumentNullException(nameof(traceSource));
-        _stepCodeLensState = stepCodeLensState ?? throw new ArgumentNullException(nameof(stepCodeLensState));
-        _fileLogger        = new SynchronousFileLogger();
+    // How long to wait for the server to self-terminate after a graceful `exit` before falling
+    // back to Kill(). See Dispose()/ShutdownServerAsync.
+    private const int GracefulExitTimeoutMs = 3000;
 
-        _traceSource.TraceInformation("LspServerConnectionService: Instance created — starting server eagerly.");
-        _fileLogger.LogInfo("LspServerConnectionService: Instance created — starting server eagerly.");
+    // How long to wait for a response to a `shutdown` request we send ourselves, when VS's own
+    // client hasn't sent one by the time Dispose() runs. Confirmed empirically (see git history
+    // for issue #81) that VS's async LSP-client-stop sequence does not reliably send `shutdown`
+    // during VsShellUtilities.ShutdownToken-triggered teardown — a full 1000ms passive wait for it
+    // never once observed one — so rather than wait on a request that may never arrive, we send it
+    // ourselves on the still-live pipe via LspInterceptingPipe.SendRequestToServerAsync.
+    private const int ShutdownRequestTimeoutMs = 2000;
+
+    public LspServerConnectionService(
+        ILogger<LspServerConnectionService> logger, ILoggerFactory loggerFactory, StepCodeLensState stepCodeLensState)
+    {
+        _logger            = logger            ?? throw new ArgumentNullException(nameof(logger));
+        _loggerFactory     = loggerFactory     ?? throw new ArgumentNullException(nameof(loggerFactory));
+        _stepCodeLensState = stepCodeLensState ?? throw new ArgumentNullException(nameof(stepCodeLensState));
+
+        _logger.LogInformation("LspServerConnectionService: instance created — starting server eagerly.");
 
         // Fire off immediately; not awaited here. Consumers (ReqnrollLanguageClient) await
         // GetConnectionAsync() whenever they're ready, which may be well after this completes.
@@ -142,14 +155,11 @@ internal sealed class LspServerConnectionService : IDisposable
     {
         var serverExe = ResolveServerExePath(typeof(LspServerConnectionService).Assembly.Location);
 
-        _traceSource.TraceInformation("LspServerConnectionService: Starting server. Server exe path: {0}", serverExe);
-        _fileLogger.LogInfo($"LspServerConnectionService: Starting server — server exe: {serverExe}");
+        _logger.LogInformation("LspServerConnectionService: starting server. Server exe path: {ServerExe}", serverExe);
 
         if (!File.Exists(serverExe))
         {
-            _traceSource.TraceEvent(TraceEventType.Error, 0,
-                "LspServerConnectionService: Server executable not found at '{0}'.", serverExe);
-            _fileLogger.LogWarning($"LspServerConnectionService: Server executable not found: {serverExe}");
+            _logger.LogError("LspServerConnectionService: server executable not found at {ServerExe}.", serverExe);
             return null;
         }
 
@@ -173,7 +183,7 @@ internal sealed class LspServerConnectionService : IDisposable
             // handshake (and hence CreateServerConnectionAsync) may happen. Must not be awaited
             // here — it can take up to ~60s (waiting for solution load) and must not delay
             // returning the pipe to VS. See LspProjectPreloadPusher's remarks.
-            _ = LspProjectPreloadPusher.PushAsync(_serverProcess.Id, _traceSource, CancellationToken.None);
+            _ = LspProjectPreloadPusher.PushAsync(_serverProcess.Id, _logger, CancellationToken.None);
 
             // Assign to a kill-on-close Job Object so the server is terminated by the OS
             // when this VS process exits, even if Dispose is never called.
@@ -184,18 +194,17 @@ internal sealed class LspServerConnectionService : IDisposable
             }
             catch (Exception ex)
             {
-                _traceSource.TraceEvent(TraceEventType.Warning, 0,
-                    "LspServerConnectionService: Could not assign server to Job Object: {0}", ex.Message);
+                _logger.LogWarning(ex, "LspServerConnectionService: could not assign server to Job Object.");
             }
 
             _serverProcess.ErrorDataReceived += (_, e) =>
             {
                 if (e.Data is not null)
-                    _traceSource.TraceEvent(TraceEventType.Warning, 0, "LSPServer stderr: {0}", e.Data);
+                    _logger.LogWarning("LSPServer stderr: {StdErr}", e.Data);
             };
             _serverProcess.BeginErrorReadLine();
 
-            _traceSource.TraceInformation("LspServerConnectionService: Server process started (PID {0}).", _serverProcess.Id);
+            _logger.LogInformation("LspServerConnectionService: server process started (PID {ProcessId}).", _serverProcess.Id);
 
             IDuplexPipe rawPipe = new DuplexPipe(
                 _serverProcess.StandardOutput.BaseStream.UsePipeReader(),
@@ -204,48 +213,59 @@ internal sealed class LspServerConnectionService : IDisposable
             // Build the LSP Inspector log file path, unique per session.
             var logDir  = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Reqnroll");
             var logFile = Path.Combine(logDir, $"reqnroll-vs-inspector-{DateTime.Now:yyyyMMdd-HHmmss}.log");
-            _fileLogger.LogInfo($"LspServerConnectionService: Server process started (PID {_serverProcess.Id}). Inspector log: {logFile}");
-            _inspectorLogger = new LspInspectorLogger(logFile, _traceSource);
+            _logger.LogInformation(
+                "LspServerConnectionService: server process started (PID {ProcessId}). Inspector log: {LogFile}",
+                _serverProcess.Id, logFile);
+            _inspectorLogger = new LspInspectorLogger(logFile, _loggerFactory.CreateLogger<LspInspectorLogger>());
 
             // Observes semanticTokens traffic (both directions) and caches the decoded tokens so the
             // editor classifier can colour .feature files with Reqnroll's custom classifications,
             // bypassing VS's fixed built-in token-type→classification table. One instance is shared
             // by both pipelines so it sees requests (VS→Server) and their responses (Server→VS).
             var semanticTokensInterceptor = new SemanticTokensClassificationInterceptor(
-                SemanticTokenClassificationStore.Instance, _traceSource);
+                SemanticTokenClassificationStore.Instance, _loggerFactory.CreateLogger<SemanticTokensClassificationInterceptor>());
 
             // Tracks .cs files created by the scaffold code action and injects a
             // reqnroll/projectFiles delta before the server sees textDocument/didOpen.
             // Uses a lazy reference because ProjectMonitor is set well after the pipe exists.
             var scaffoldInterceptor = new ScaffoldTrackingInterceptor(
-                () => ProjectMonitor, _traceSource);
+                () => ProjectMonitor, _loggerFactory.CreateLogger<ScaffoldTrackingInterceptor>());
 
             // Watches textDocument/didChange on .cs files and invalidates code lenses
             // so VS re-queries the server for updated usage counts after a binding edit.
             var codeLensRefreshInterceptor = new CodeLensRefreshInterceptor(
-                _stepCodeLensState, _traceSource);
+                _stepCodeLensState, _loggerFactory.CreateLogger<CodeLensRefreshInterceptor>());
 
             // Drives DocumentActivationState's didOpen/didClose transitions (issue #85) and, in
             // the activation-before-open case, sends reqnroll/documentActivated itself right
             // after re-forwarding didOpen. Uses a lazy reference for the same reason as above:
             // this pipe doesn't exist yet at the point the interceptor is constructed.
             var documentActivationInterceptor = new DocumentActivationTrackingInterceptor(
-                _activationState, () => _interceptingPipe, _traceSource);
+                _activationState, () => _interceptingPipe, _loggerFactory.CreateLogger<DocumentActivationTrackingInterceptor>());
 
-            // Send pipeline:   VS → [logger, semanticTokens, scaffold, codeLensRefresh, documentActivation] → Server
-            // Receive pipeline: Server → [logger, semanticTokens, scaffold, codeLensRefresh, telemetry] → VS
+            // Watches the shutdown request/response handshake so Dispose() knows whether a
+            // graceful `exit` is safe to request instead of killing the process outright.
+            _shutdownHandshakeInterceptor = new ShutdownHandshakeInterceptor(
+                _loggerFactory.CreateLogger<ShutdownHandshakeInterceptor>());
+
+            // Send pipeline:   VS → [logger, semanticTokens, scaffold, codeLensRefresh, documentActivation, shutdownHandshake] → Server
+            // Receive pipeline: Server → [logger, semanticTokens, scaffold, codeLensRefresh, shutdownHandshake, telemetry] → VS
             // codeLensRefresh is on both pipelines: send watches .cs didChange; receive watches the
             // server's reqnroll/refreshCodeLens push after a full registry replacement.
+            // shutdownHandshake is on both pipelines: send captures the outgoing shutdown request id;
+            // receive watches for the matching response.
             var sendInterceptors = new ILspMessageInterceptor[]
-                { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor, codeLensRefreshInterceptor, documentActivationInterceptor };
+                { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor, codeLensRefreshInterceptor, documentActivationInterceptor, _shutdownHandshakeInterceptor };
 
             // Telemetry interceptor: lazy reference because AnalyticsTransmitter is resolved
             // from MEF on the main thread during OnServerInitializationResultAsync.
-            var telemetryInterceptor = new TelemetryEventInterceptor(() => AnalyticsTransmitter, _traceSource);
+            var telemetryInterceptor = new TelemetryEventInterceptor(
+                () => AnalyticsTransmitter, _loggerFactory.CreateLogger<TelemetryEventInterceptor>());
             var receiveInterceptors = new ILspMessageInterceptor[]
-                { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor, codeLensRefreshInterceptor, telemetryInterceptor };
+                { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor, codeLensRefreshInterceptor, _shutdownHandshakeInterceptor, telemetryInterceptor };
 
-            _interceptingPipe = new LspInterceptingPipe(rawPipe, sendInterceptors, receiveInterceptors, _traceSource);
+            _interceptingPipe = new LspInterceptingPipe(
+                rawPipe, sendInterceptors, receiveInterceptors, _loggerFactory.CreateLogger<LspInterceptingPipe>());
             // Pass CancellationToken.None: the pumps must live for the entire connection
             // lifetime, not just for the duration of this async creation call. The pipe's
             // own internal CTS (cancelled in Dispose) provides the shutdown signal.
@@ -255,12 +275,7 @@ internal sealed class LspServerConnectionService : IDisposable
         }
         catch (Exception ex)
         {
-            _traceSource.TraceEvent(TraceEventType.Error, 0,
-                "LspServerConnectionService: Failed to start server: {0}", ex);
-            // Surfaced to the file log too (not just TraceSource) — a server-start exception here
-            // otherwise leaves no trace in reqnroll-vs-ext-debug-*.log, only in VS's own trace
-            // listener output, which isn't accessible when debugging from collected user logs.
-            _fileLogger.LogWarning($"LspServerConnectionService: StartAsync failed: {ex}");
+            _logger.LogError(ex, "LspServerConnectionService: failed to start server.");
             return null;
         }
     }
@@ -270,24 +285,118 @@ internal sealed class LspServerConnectionService : IDisposable
         if (_disposed) return;
         _disposed = true;
 
-        _fileLogger.LogInfo("LspServerConnectionService: Disposing — shutting down server connection.");
+        _logger.LogInformation("LspServerConnectionService: disposing — shutting down server connection.");
 
         // ProjectMonitor is disposed by ReqnrollLanguageClient.Dispose (UI-thread-bound, COM event
         // unsubscription) whenever the provider deactivates — not here, since this service's Dispose
         // may run off the UI thread at extension unload and VsProjectEventMonitor.Dispose() asserts
         // ThreadHelper.ThrowIfNotOnUIThread(). It is set to null there too.
 
-        _interceptingPipe?.Dispose();
+        var shutdownHandshakeInterceptor = _shutdownHandshakeInterceptor;
+        var interceptingPipe             = _interceptingPipe;
+        var inspectorLogger              = _inspectorLogger;
+        var serverProcess                = _serverProcess;
+        var childJob                     = _childJob;
+
         _interceptingPipe = null;
+        _inspectorLogger  = null;
+        _serverProcess    = null;
+        _childJob         = null;
 
-        _inspectorLogger?.Dispose();
-        _inspectorLogger = null;
+        // Dispose() may run on VS's UI thread (see ReqnrollLanguageClient.Dispose()'s
+        // ThreadHelper.ThrowIfNotOnUIThread()), so the graceful-exit-then-kill sequence below must
+        // not be awaited here — Task.Run hands it to the thread pool so nothing runs synchronously
+        // on the caller's thread. Dispose() keeps returning immediately, as before. ChildProcessJob
+        // remains the safety net for VS itself terminating early.
+        _ = Task.Run(() => ShutdownServerAsync(shutdownHandshakeInterceptor, interceptingPipe, serverProcess, inspectorLogger, childJob));
+    }
 
-        try { _serverProcess?.Kill(); } catch { /* best-effort */ }
-        _serverProcess?.Dispose();
-        _serverProcess = null;
+    /// <summary>
+    /// Terminates the server process, preferring a graceful <c>shutdown</c>/<c>exit</c> negotiation
+    /// over a hard <c>Kill()</c>. Uses the handshake already observed on this connection if VS's own
+    /// client sent one; otherwise initiates <c>shutdown</c> itself, since VS's client cannot be
+    /// relied on to do so during this teardown path.
+    /// </summary>
+    private async Task ShutdownServerAsync(
+        ShutdownHandshakeInterceptor? shutdownHandshakeInterceptor,
+        LspInterceptingPipe? interceptingPipe,
+        Process? serverProcess,
+        LspInspectorLogger? inspectorLogger,
+        ChildProcessJob? childJob)
+    {
+        try
+        {
+            var shutdownObserved = shutdownHandshakeInterceptor?.ShutdownObserved ?? false;
 
-        _childJob?.Dispose();
-        _childJob = null;
+            // VS's own client did not send `shutdown` on this connection. Rather than wait on a
+            // request that's been confirmed not to arrive, send it ourselves on the still-live
+            // pipe — we're a legitimate LSP client from the server's point of view — and treat any
+            // response (success or error) as license to proceed to `exit`, per the LSP spec.
+            if (!shutdownObserved && interceptingPipe is not null)
+            {
+                _logger.LogInformation(
+                    "LspServerConnectionService: shutdown not observed from VS's client — sending our own shutdown request.");
+
+                using var shutdownCts = new CancellationTokenSource(ShutdownRequestTimeoutMs);
+                await interceptingPipe.SendRequestToServerAsync("shutdown", null, shutdownCts.Token)
+                    .ConfigureAwait(false);
+
+                if (shutdownCts.IsCancellationRequested)
+                {
+                    _logger.LogWarning(
+                        "LspServerConnectionService: our own shutdown request did not receive a response within {TimeoutMs}ms; falling back to Kill().",
+                        ShutdownRequestTimeoutMs);
+                }
+                else
+                {
+                    shutdownObserved = true;
+                    _logger.LogInformation(
+                        "LspServerConnectionService: server responded to our own shutdown request.");
+                }
+            }
+
+            if (shutdownObserved && interceptingPipe is not null && serverProcess is not null)
+            {
+                // Per the LSP spec, `exit` is only valid after a `shutdown` response was received.
+                // Written directly onto the server-bound stream (bypassing the VS-facing pipe) so
+                // it goes out before the pipe below is torn down.
+                try
+                {
+                    await interceptingPipe.SendNotificationToServerAsync("exit", null, CancellationToken.None)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "LspServerConnectionService: failed to send exit notification; falling back to Kill().");
+                }
+            }
+
+            interceptingPipe?.Dispose();
+            inspectorLogger?.Dispose();
+
+            if (shutdownObserved && serverProcess is not null && serverProcess.WaitForExit(GracefulExitTimeoutMs))
+            {
+                _logger.LogInformation(
+                    "LspServerConnectionService: server exited gracefully (PID {ProcessId}).", serverProcess.Id);
+            }
+            else
+            {
+                if (shutdownObserved)
+                    _logger.LogWarning(
+                        "LspServerConnectionService: server did not self-terminate within {TimeoutMs}ms of `exit`; killing.",
+                        GracefulExitTimeoutMs);
+
+                try { serverProcess?.Kill(); } catch { /* best-effort */ }
+            }
+        }
+        finally
+        {
+            serverProcess?.Dispose();
+            // Disposing the Job Object closes its last handle, which triggers
+            // JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE — must happen only after the process has already
+            // exited or been killed above, never while a graceful exit is still in flight.
+            childJob?.Dispose();
+        }
     }
 }

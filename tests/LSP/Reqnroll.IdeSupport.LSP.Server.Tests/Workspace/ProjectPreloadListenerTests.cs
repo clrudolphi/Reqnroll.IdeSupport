@@ -1,4 +1,4 @@
-using System.IO.Pipes;
+﻿using System.IO.Pipes;
 using System.Text;
 using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
@@ -17,7 +17,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Tests.Workspace;
 /// </summary>
 public class ProjectPreloadListenerTests : IDisposable
 {
-    private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
     private readonly LspIdeScope _ideScope;
     private readonly LspWorkspaceScopeManager _scopeManager;
     private readonly string _root;

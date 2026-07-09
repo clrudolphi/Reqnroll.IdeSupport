@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
@@ -28,14 +28,14 @@ public sealed class FeatureDefinitionHandler : IDefinitionHandler
     private readonly IBindingMatchService      _matchService;
     private readonly IDocumentBufferService    _bufferService;
     private readonly ILspWorkspaceScopeManager _scopeManager;
-    private readonly IDeveroomLogger           _logger;
+    private readonly IIdeSupportLogger           _logger;
     private readonly IOperationDurationRecorder _recorder;
 
     public FeatureDefinitionHandler(
         IBindingMatchService      matchService,
         IDocumentBufferService    bufferService,
         ILspWorkspaceScopeManager scopeManager,
-        IDeveroomLogger           logger,
+        IIdeSupportLogger           logger,
         IOperationDurationRecorder? recorder = null)
     {
         _matchService  = matchService;

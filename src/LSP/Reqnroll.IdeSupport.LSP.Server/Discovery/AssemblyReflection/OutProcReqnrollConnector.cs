@@ -1,4 +1,4 @@
-#nullable disable
+﻿#nullable disable
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.Common.Diagnostics;
@@ -16,14 +16,14 @@ public abstract class OutProcReqnrollConnector
 
     protected readonly DeveroomConfiguration _configuration;
     protected readonly string _extensionFolder;
-    protected readonly IDeveroomLogger _logger;
+    protected readonly IIdeSupportLogger _logger;
     protected readonly IMonitoringService _monitoringService;
     protected readonly ProcessorArchitectureSetting _processorArchitecture;
     protected readonly ProjectSettings _projectSettings;
     protected readonly TargetFrameworkMoniker _targetFrameworkMoniker;
     protected NuGetVersion ReqnrollVersion => _projectSettings.ReqnrollVersion;
 
-    protected OutProcReqnrollConnector(DeveroomConfiguration configuration, IDeveroomLogger logger,
+    protected OutProcReqnrollConnector(DeveroomConfiguration configuration, IIdeSupportLogger logger,
         TargetFrameworkMoniker targetFrameworkMoniker, string extensionFolder,
         ProcessorArchitectureSetting processorArchitecture, ProjectSettings projectSettings,
         IMonitoringService monitoringService)

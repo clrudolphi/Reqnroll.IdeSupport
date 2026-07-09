@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System.Text.RegularExpressions;
 using OmniSharp.Extensions.LanguageServer.Protocol;
@@ -21,7 +21,7 @@ public class FeatureInlayHintHandlerTests
     private readonly BindingMatchService _matchService = new();
     private readonly ILspWorkspaceScopeManager _scopeManager = Substitute.For<ILspWorkspaceScopeManager>();
     private readonly IGherkinInlayHintService _hintService = new GherkinInlayHintService();
-    private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
 
     private static readonly DocumentUri FeatureUri =
         DocumentUri.FromFileSystemPath("/workspace/test.feature");

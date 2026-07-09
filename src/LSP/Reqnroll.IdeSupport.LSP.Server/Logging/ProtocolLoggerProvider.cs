@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
@@ -25,7 +25,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Logging;
 /// </remarks>
 public sealed class ProtocolLoggerProvider : ILoggerProvider
 {
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
 
     public ProtocolLoggerProvider(string? clientIde, TraceLevel protocolLogLevel)
         : this(BuildDefaultLogger(clientIde, protocolLogLevel))
@@ -33,12 +33,12 @@ public sealed class ProtocolLoggerProvider : ILoggerProvider
     }
 
     /// <summary>Test seam: bypasses the real file/debug sinks.</summary>
-    internal ProtocolLoggerProvider(IDeveroomLogger logger)
+    internal ProtocolLoggerProvider(IIdeSupportLogger logger)
     {
         _logger = logger;
     }
 
-    private static IDeveroomLogger BuildDefaultLogger(string? clientIde, TraceLevel protocolLogLevel)
+    private static IIdeSupportLogger BuildDefaultLogger(string? clientIde, TraceLevel protocolLogLevel)
     {
         var idePrefix = clientIde switch
         {
@@ -46,55 +46,14 @@ public sealed class ProtocolLoggerProvider : ILoggerProvider
             "vscode"       => "vscode",
             _              => "lsp"
         };
-        return new DeveroomCompositeLogger()
-            .Add(new DeveroomDebugLogger())
+        return new IdeSupportCompositeLogger()
+            .Add(new IdeSupportDebugLogger())
             .Add(new SynchronousFileLogger(idePrefix, "protocol", protocolLogLevel));
     }
 
-    public ILogger CreateLogger(string categoryName) => new ProtocolLoggerAdapter(categoryName, _logger);
+    public ILogger CreateLogger(string categoryName) => new IdeSupportLoggerAdapter(categoryName, _logger);
 
     public void Dispose()
     {
     }
-}
-
-/// <summary>Adapts a single <see cref="Microsoft.Extensions.Logging"/> category onto <see cref="IDeveroomLogger"/>.</summary>
-internal sealed class ProtocolLoggerAdapter : ILogger
-{
-    private readonly string _categoryName;
-    private readonly IDeveroomLogger _logger;
-
-    public ProtocolLoggerAdapter(string categoryName, IDeveroomLogger logger)
-    {
-        _categoryName = categoryName;
-        _logger = logger;
-    }
-
-    // The .NET logging pipeline already applies logging.SetMinimumLevel(...) before this
-    // method is ever invoked, so no further filtering is needed here — only the
-    // IDeveroomLogger sink's own level (protocolLogLevel) applies from this point on.
-    public bool IsEnabled(LogLevel logLevel) => true;
-
-    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-        Func<TState, Exception?, string> formatter)
-    {
-        _logger.Log(new LogMessage(ToTraceLevel(logLevel), formatter(state, exception), _categoryName, exception));
-    }
-
-    public IDisposable BeginScope<TState>(TState state) => NullScope.Instance;
-
-    private sealed class NullScope : IDisposable
-    {
-        public static readonly NullScope Instance = new();
-        public void Dispose() { }
-    }
-
-    internal static TraceLevel ToTraceLevel(LogLevel level) => level switch
-    {
-        LogLevel.Trace or LogLevel.Debug => TraceLevel.Verbose,
-        LogLevel.Information             => TraceLevel.Info,
-        LogLevel.Warning                 => TraceLevel.Warning,
-        LogLevel.Error or LogLevel.Critical => TraceLevel.Error,
-        _                                 => TraceLevel.Off,
-    };
 }

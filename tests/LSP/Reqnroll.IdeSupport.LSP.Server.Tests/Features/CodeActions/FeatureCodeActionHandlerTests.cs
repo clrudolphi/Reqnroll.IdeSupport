@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System.Text.RegularExpressions;
 using Gherkin;
@@ -34,7 +34,7 @@ public class FeatureCodeActionHandlerTests
     private readonly BindingMatchService         _matchService  = new();
     private readonly IStepScaffoldService        _scaffoldService = new StepScaffoldService();
     private readonly ILspWorkspaceScopeManager   _scopeManager  = Substitute.For<ILspWorkspaceScopeManager>();
-    private readonly IDeveroomLogger             _logger        = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger             _logger        = Substitute.For<IIdeSupportLogger>();
     private readonly IDeveroomConfigurationProvider _configProvider = Substitute.For<IDeveroomConfigurationProvider>();
 
     private const string FeatureText =

@@ -1,11 +1,10 @@
 #nullable enable
 
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
@@ -23,13 +22,12 @@ internal sealed class StepCodeLensService
     private const string RequestMethod = "textDocument/codeLens";
 
     private readonly LspInterceptingPipe _pipe;
-    private readonly TraceSource         _traceSource;
-    private readonly IDeveroomLogger     _fileLogger = new SynchronousFileLogger();
+    private readonly ILogger<StepCodeLensService> _logger;
 
-    public StepCodeLensService(LspInterceptingPipe pipe, TraceSource traceSource)
+    public StepCodeLensService(LspInterceptingPipe pipe, ILogger<StepCodeLensService> logger)
     {
-        _pipe        = pipe;
-        _traceSource = traceSource;
+        _pipe   = pipe;
+        _logger = logger;
     }
 
     /// <summary>
@@ -43,32 +41,31 @@ internal sealed class StepCodeLensService
     {
         var paramsJson = BuildParams(fileUri);
 
-        _fileLogger.LogInfo($"StepCodeLensService: requesting {RequestMethod} for {fileUri}");
-        _traceSource.TraceInformation("StepCodeLensService: requesting lenses for {0}", fileUri);
+        _logger.LogInformation("StepCodeLensService: requesting {RequestMethod} for {FileUri}", RequestMethod, fileUri);
 
         var result = await _pipe
             .SendRequestToServerAsync(RequestMethod, paramsJson, cancellationToken)
             .ConfigureAwait(false);
 
-        _fileLogger.LogInfo(
-            $"StepCodeLensService: raw result = {(result is null ? "<null>" : result.ToString())}");
+        _logger.LogInformation(
+            "StepCodeLensService: raw result = {Result}", result is null ? "<null>" : result.ToString());
 
         if (result is null || result.Type == JTokenType.Null)
         {
-            _traceSource.TraceInformation("StepCodeLensService: server returned null — no lenses");
+            _logger.LogInformation("StepCodeLensService: server returned null — no lenses");
             return System.Array.Empty<StepLensItem>();
         }
 
         if (result is JArray array)
         {
             var items = ParseItems(array);
-            _traceSource.TraceInformation(
-                "StepCodeLensService: {0} lens(es) returned for {1}", items.Count, fileUri);
+            _logger.LogInformation(
+                "StepCodeLensService: {LensCount} lens(es) returned for {FileUri}", items.Count, fileUri);
             return items;
         }
 
-        _traceSource.TraceInformation(
-            "StepCodeLensService: unexpected result token type {0} for {1}", result.Type, fileUri);
+        _logger.LogInformation(
+            "StepCodeLensService: unexpected result token type {TokenType} for {FileUri}", result.Type, fileUri);
         return System.Array.Empty<StepLensItem>();
     }
 

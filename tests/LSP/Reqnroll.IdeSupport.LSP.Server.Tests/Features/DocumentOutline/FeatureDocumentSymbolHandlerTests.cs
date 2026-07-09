@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -18,7 +18,7 @@ public class FeatureDocumentSymbolHandlerTests
 {
     private readonly IDocumentBufferService       _bufferService  = Substitute.For<IDocumentBufferService>();
     private readonly IGherkinDocumentSymbolService _symbolService  = Substitute.For<IGherkinDocumentSymbolService>();
-    private readonly IDeveroomLogger               _logger         = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger               _logger         = Substitute.For<IIdeSupportLogger>();
 
     private static readonly DocumentUri FeatureUri =
         DocumentUri.FromFileSystemPath("/workspace/test.feature");

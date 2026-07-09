@@ -1,4 +1,4 @@
-using OmniSharp.Extensions.LanguageServer.Protocol;
+﻿using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
@@ -24,12 +24,12 @@ namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
 public sealed class CSharpBindingDiscoveryService : ICSharpBindingDiscoveryService
 {
     private readonly ILspWorkspaceScopeManager _scopeManager;
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
     private readonly ILspTelemetryService? _telemetryService;
 
     public CSharpBindingDiscoveryService(
         ILspWorkspaceScopeManager scopeManager,
-        IDeveroomLogger logger,
+        IIdeSupportLogger logger,
         ILspTelemetryService? telemetryService = null)
     {
         _scopeManager = scopeManager;

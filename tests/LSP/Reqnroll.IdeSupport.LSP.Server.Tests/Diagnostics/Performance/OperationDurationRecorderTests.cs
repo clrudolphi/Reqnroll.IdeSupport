@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -14,7 +14,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Tests.Diagnostics.Performance;
 
 public class OperationDurationRecorderTests
 {
-    private sealed class CapturingLogger : IDeveroomLogger
+    private sealed class CapturingLogger : IIdeSupportLogger
     {
         public TraceLevel Level => TraceLevel.Verbose;
         public List<string> Messages { get; } = new();

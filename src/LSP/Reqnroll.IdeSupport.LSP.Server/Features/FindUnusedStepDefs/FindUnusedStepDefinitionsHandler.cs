@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Collections.Generic;
@@ -32,13 +32,13 @@ public sealed class FindUnusedStepDefinitionsHandler
 {
     private readonly IProjectBindingRegistryLookup _registryLookup;
     private readonly IBindingMatchService           _matchService;
-    private readonly IDeveroomLogger                _logger;
+    private readonly IIdeSupportLogger                _logger;
     private readonly ILspTelemetryService?          _telemetryService;
 
     public FindUnusedStepDefinitionsHandler(
         IProjectBindingRegistryLookup registryLookup,
         IBindingMatchService          matchService,
-        IDeveroomLogger               logger,
+        IIdeSupportLogger               logger,
         ILspTelemetryService?         telemetryService = null)
     {
         _registryLookup = registryLookup;

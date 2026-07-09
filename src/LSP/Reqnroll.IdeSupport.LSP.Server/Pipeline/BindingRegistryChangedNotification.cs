@@ -22,4 +22,5 @@ namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 /// </remarks>
 public record BindingRegistryChangedNotification(
     LspReqnrollProject Project,
-    bool IsFullReplacement = false) : INotification;
+    bool IsFullReplacement = false,
+    IReadOnlyCollection<string>? RemovedBindingFilePaths = null) : INotification;

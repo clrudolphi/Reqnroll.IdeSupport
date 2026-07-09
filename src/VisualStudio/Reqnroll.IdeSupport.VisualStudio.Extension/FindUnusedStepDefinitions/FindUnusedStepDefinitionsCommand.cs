@@ -1,12 +1,11 @@
 #nullable enable
 
 using System;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.Commands;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
@@ -20,15 +19,14 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
 internal sealed class FindUnusedStepDefinitionsCommand : Command
 {
     private readonly FindUnusedStepDefinitionsState _state;
-    private readonly TraceSource _traceSource;
-    private readonly IDeveroomLogger _fileLogger = new SynchronousFileLogger();
+    private readonly ILogger<FindUnusedStepDefinitionsCommand> _logger;
 
     public FindUnusedStepDefinitionsCommand(
         FindUnusedStepDefinitionsState state,
-        TraceSource traceSource)
+        ILogger<FindUnusedStepDefinitionsCommand> logger)
     {
-        _state       = state;
-        _traceSource = traceSource;
+        _state  = state;
+        _logger = logger;
     }
 
     public override CommandConfiguration CommandConfiguration => new("Find Unused Step Definitions")
@@ -42,34 +40,31 @@ internal sealed class FindUnusedStepDefinitionsCommand : Command
     {
         try
         {
-            _fileLogger.LogInfo("FindUnusedStepDefinitionsCommand: invoked.");
+            _logger.LogInformation("FindUnusedStepDefinitionsCommand: invoked.");
 
             var service  = _state.Service;
             var renderer = _state.Renderer;
             if (service is null || renderer is null)
             {
-                _fileLogger.LogWarning(
-                    "FindUnusedStepDefinitionsCommand: LSP server not yet initialized " +
-                    $"(service={(service is null ? "null" : "set")}, " +
-                    $"renderer={(renderer is null ? "null" : "set")}).");
+                _logger.LogWarning(
+                    "FindUnusedStepDefinitionsCommand: LSP server not yet initialized (service={ServiceState}, renderer={RendererState}).",
+                    service is null ? "null" : "set", renderer is null ? "null" : "set");
                 VsUtils.ShowStatusBarMessage("Reqnroll: LSP server not yet initialized — open a .feature file to activate it.");
                 return;
             }
 
             var result = await service.FindUnusedAsync(cancellationToken).ConfigureAwait(false);
 
-            _fileLogger.LogInfo(
-                $"FindUnusedStepDefinitionsCommand: {result.Items.Count} unused step definition(s).");
+            _logger.LogInformation(
+                "FindUnusedStepDefinitionsCommand: {ItemCount} unused step definition(s).", result.Items.Count);
 
             await renderer.RenderAsync(result, cancellationToken).ConfigureAwait(false);
 
-            _fileLogger.LogInfo("FindUnusedStepDefinitionsCommand: render complete.");
+            _logger.LogInformation("FindUnusedStepDefinitionsCommand: render complete.");
         }
         catch (Exception ex)
         {
-            _fileLogger.LogWarning($"FindUnusedStepDefinitionsCommand: failed: {ex}");
-            _traceSource.TraceEvent(TraceEventType.Error, 0,
-                "FindUnusedStepDefinitionsCommand: failed: {0}", ex);
+            _logger.LogError(ex, "FindUnusedStepDefinitionsCommand: failed.");
         }
     }
 }

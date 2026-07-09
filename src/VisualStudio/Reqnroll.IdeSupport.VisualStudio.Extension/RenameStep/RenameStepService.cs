@@ -1,12 +1,11 @@
 #nullable enable
 
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.RenameStep;
 
@@ -21,13 +20,12 @@ internal sealed class RenameStepService
     private const string RenameMethod = "textDocument/rename";
 
     private readonly LspInterception.LspInterceptingPipe _pipe;
-    private readonly TraceSource _traceSource;
-    private readonly IDeveroomLogger _fileLogger = new SynchronousFileLogger();
+    private readonly ILogger<RenameStepService> _logger;
 
-    public RenameStepService(LspInterception.LspInterceptingPipe pipe, TraceSource traceSource)
+    public RenameStepService(LspInterception.LspInterceptingPipe pipe, ILogger<RenameStepService> logger)
     {
-        _pipe = pipe;
-        _traceSource = traceSource;
+        _pipe   = pipe;
+        _logger = logger;
     }
 
     /// <summary>
@@ -41,8 +39,8 @@ internal sealed class RenameStepService
     {
         var paramsJson = BuildPositionParams(fileUri, line0, char0);
 
-        _traceSource.TraceInformation(
-            "RenameStepService: querying {0} at {1}:{2}:{3}", RenameTargetsMethod, fileUri, line0, char0);
+        _logger.LogInformation(
+            "RenameStepService: querying {RenameTargetsMethod} at {FileUri}:{Line0}:{Char0}", RenameTargetsMethod, fileUri, line0, char0);
 
         var result = await _pipe
             .SendRequestToServerAsync(RenameTargetsMethod, paramsJson, cancellationToken)
@@ -51,14 +49,13 @@ internal sealed class RenameStepService
         try
         {
             var mapped = MapTargets(result);
-            _traceSource.TraceInformation(
-                "RenameStepService: {0} target(s) returned", mapped?.Targets.Count ?? 0);
+            _logger.LogInformation(
+                "RenameStepService: {TargetCount} target(s) returned", mapped?.Targets.Count ?? 0);
             return mapped;
         }
         catch (System.Exception ex)
         {
-            _traceSource.TraceEvent(TraceEventType.Warning, 0,
-                "RenameStepService: failed to parse targets: {0}", ex.Message);
+            _logger.LogWarning(ex, "RenameStepService: failed to parse targets.");
             return null;
         }
     }
@@ -100,8 +97,8 @@ internal sealed class RenameStepService
         CancellationToken cancellationToken)
     {
         var paramsJson = $"{{\"uri\":{JsonEscape(fileUri)},\"version\":{version},\"attributeIndex\":{attributeIndex}}}";
-        _traceSource.TraceInformation(
-            "RenameStepService: sending {0} for attrIndex={1}", SelectRenameTargetMethod, attributeIndex);
+        _logger.LogInformation(
+            "RenameStepService: sending {SelectRenameTargetMethod} for attrIndex={AttributeIndex}", SelectRenameTargetMethod, attributeIndex);
 
         await _pipe
             .SendNotificationToServerAsync(SelectRenameTargetMethod, paramsJson, cancellationToken)
@@ -118,9 +115,8 @@ internal sealed class RenameStepService
         CancellationToken cancellationToken)
     {
         var paramsJson = BuildRenameParams(fileUri, line0, char0, newName);
-        _traceSource.TraceInformation(
-            "RenameStepService: sending {0} at {1}:{2}:{3}", RenameMethod, fileUri, line0, char0);
-        _fileLogger.LogInfo($"RenameStepService: sending {RenameMethod} at {fileUri}:{line0}:{char0}");
+        _logger.LogInformation(
+            "RenameStepService: sending {RenameMethod} at {FileUri}:{Line0}:{Char0}", RenameMethod, fileUri, line0, char0);
 
         var result = await _pipe
             .SendRequestToServerAsync(RenameMethod, paramsJson, cancellationToken)
@@ -129,7 +125,7 @@ internal sealed class RenameStepService
         if (result is null)
             return null;
 
-        _fileLogger.LogInfo($"RenameStepService: {RenameMethod} returned workspace edit");
+        _logger.LogInformation("RenameStepService: {RenameMethod} returned workspace edit", RenameMethod);
 
         return ParseWorkspaceEdit(result);
     }
@@ -212,8 +208,8 @@ internal sealed class RenameStepService
         var featureUri = "file:///" + localPath.Replace('\\', '/');
         var paramsJson = $"{{\"textDocument\":{{\"uri\":\"{featureUri}\",\"version\":1}},\"contentChanges\":[{{\"text\":{escapedContent}}}]}}";
 
-        _traceSource.TraceInformation(
-            "RenameStepService: sending textDocument/didChange for '{0}'", localPath);
+        _logger.LogInformation(
+            "RenameStepService: sending textDocument/didChange for {LocalPath}", localPath);
 
         return _pipe.SendNotificationToServerAsync("textDocument/didChange", paramsJson, cancellationToken);
     }

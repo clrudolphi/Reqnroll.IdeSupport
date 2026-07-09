@@ -1,4 +1,4 @@
-#nullable disable
+﻿#nullable disable
 
 using Gherkin.Ast;
 using Reqnroll.IdeSupport.Common;
@@ -20,7 +20,7 @@ public class DeveroomGherkinParser
     public IGherkinDialectProvider DialectProvider { get; }
     internal DeveroomGherkinAstBuilder AstBuilder => _astBuilder as DeveroomGherkinAstBuilder;
 
-    public bool ParseAndCollectErrors(string featureFileContent, IDeveroomLogger logger,
+    public bool ParseAndCollectErrors(string featureFileContent, IIdeSupportLogger logger,
         out DeveroomGherkinDocument gherkinDocument, out List<ParserException> parserErrors)
     {
         var reader = new StringReader(featureFileContent);

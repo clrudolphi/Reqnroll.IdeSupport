@@ -1,10 +1,9 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 
@@ -40,26 +39,18 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 /// </remarks>
 internal sealed class DocumentActivationTrackingInterceptor : ILspMessageInterceptor
 {
-    private readonly DocumentActivationState        _state;
-    private readonly Func<LspInterceptingPipe?>      _getPipe;
-    private readonly TraceSource                     _trace;
-
-    // TraceSource above is kept for call-site consistency with the rest of LspInterception (see
-    // ScaffoldTrackingInterceptor), but per issue #84 nothing ever attaches a listener to it in
-    // this codebase — TraceInformation/TraceEvent calls on it are silently discarded. Logging that
-    // actually needs to be inspectable (this class exists specifically to fix a hard-to-observe
-    // race — see #85) goes through this file logger instead, Info-level explicitly since
-    // SynchronousFileLogger()'s default (Warning) would drop LogInfo the same way.
-    private readonly IDeveroomLogger _fileLogger = new SynchronousFileLogger(level: TraceLevel.Info);
+    private readonly DocumentActivationState                        _state;
+    private readonly Func<LspInterceptingPipe?>                      _getPipe;
+    private readonly ILogger<DocumentActivationTrackingInterceptor>  _logger;
 
     public DocumentActivationTrackingInterceptor(
         DocumentActivationState       state,
         Func<LspInterceptingPipe?>    getPipe,
-        TraceSource                   trace)
+        ILogger<DocumentActivationTrackingInterceptor> logger)
     {
         _state   = state   ?? throw new ArgumentNullException(nameof(state));
         _getPipe = getPipe ?? throw new ArgumentNullException(nameof(getPipe));
-        _trace   = trace   ?? throw new ArgumentNullException(nameof(trace));
+        _logger  = logger  ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task<LspInterceptorResult> InterceptAsync(
@@ -71,8 +62,9 @@ internal sealed class DocumentActivationTrackingInterceptor : ILspMessageInterce
             if (UriToFeatureFilePath(message) is { } closedPath)
             {
                 _state.OnDidClose(closedPath);
-                _fileLogger.LogVerbose(
-                    $"DocumentActivationTrackingInterceptor: didClose for '{Path.GetFileName(closedPath)}' — activation state reset.");
+                _logger.LogTrace(
+                    "DocumentActivationTrackingInterceptor: didClose for {FileName} — activation state reset.",
+                    Path.GetFileName(closedPath));
             }
             return LspInterceptorResult.PassThrough;
         }
@@ -86,16 +78,18 @@ internal sealed class DocumentActivationTrackingInterceptor : ILspMessageInterce
         var action = _state.OnDidOpen(path);
         if (action != DocumentActivationAction.SendNow)
         {
-            _fileLogger.LogVerbose(
-                $"DocumentActivationTrackingInterceptor: didOpen for '{Path.GetFileName(path)}' — no pending activation, passthrough.");
+            _logger.LogTrace(
+                "DocumentActivationTrackingInterceptor: didOpen for {FileName} — no pending activation, passthrough.",
+                Path.GetFileName(path));
             return LspInterceptorResult.PassThrough;
         }
 
         var pipe = _getPipe();
         if (pipe is null)
         {
-            _fileLogger.LogWarning(
-                $"DocumentActivationTrackingInterceptor: pipe not available for '{Path.GetFileName(path)}'; letting didOpen pass through without an activation notification.");
+            _logger.LogWarning(
+                "DocumentActivationTrackingInterceptor: pipe not available for {FileName}; letting didOpen pass through without an activation notification.",
+                Path.GetFileName(path));
             return LspInterceptorResult.PassThrough;
         }
 
@@ -106,8 +100,9 @@ internal sealed class DocumentActivationTrackingInterceptor : ILspMessageInterce
         await pipe.SendNotificationToServerAsync("textDocument/didOpen", paramsJson, cancellationToken)
                   .ConfigureAwait(false);
 
-        _fileLogger.LogInfo(
-            $"DocumentActivationTrackingInterceptor: activation preceded didOpen for '{Path.GetFileName(path)}'; sending reqnroll/documentActivated now.");
+        _logger.LogInformation(
+            "DocumentActivationTrackingInterceptor: activation preceded didOpen for {FileName}; sending reqnroll/documentActivated now.",
+            Path.GetFileName(path));
 
         var activatedParamsJson = $"{{\"uri\":{Newtonsoft.Json.JsonConvert.ToString(message.Body["params"]?["textDocument"]?["uri"]?.Value<string>())}}}";
         await pipe.SendNotificationToServerAsync("reqnroll/documentActivated", activatedParamsJson, cancellationToken)

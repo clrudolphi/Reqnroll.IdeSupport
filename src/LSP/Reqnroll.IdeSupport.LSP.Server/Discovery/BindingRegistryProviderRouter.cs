@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
@@ -44,7 +44,7 @@ public sealed class BindingRegistryProviderRouter : IProjectBindingRegistryLooku
     private readonly ILspWorkspaceScopeManager _scopeManager;
     private readonly IMediator                 _mediator;
     private readonly IBindingMatchService      _matchService;
-    private readonly IDeveroomLogger            _logger;
+    private readonly IIdeSupportLogger            _logger;
     private readonly ILspTelemetryService?     _telemetryService;
 
     // Store (provider, handler) together so Dispose can unsubscribe by the exact delegate
@@ -58,7 +58,7 @@ public sealed class BindingRegistryProviderRouter : IProjectBindingRegistryLooku
         ILspWorkspaceScopeManager scopeManager,
         IMediator mediator,
         IBindingMatchService matchService,
-        IDeveroomLogger logger,
+        IIdeSupportLogger logger,
         ILspTelemetryService? telemetryService = null)
     {
         _scopeManager = scopeManager;

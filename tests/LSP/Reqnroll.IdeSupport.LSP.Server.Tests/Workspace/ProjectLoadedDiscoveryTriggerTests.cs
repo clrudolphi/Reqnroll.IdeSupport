@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
@@ -15,7 +15,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Tests.Workspace;
 /// </summary>
 public class ProjectLoadedDiscoveryTriggerTests : IDisposable
 {
-    private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
     private readonly IMediator _mediator = Substitute.For<IMediator>();
     private readonly IConnectorDiscoveryService _discovery = Substitute.For<IConnectorDiscoveryService>();
     private readonly LspIdeScope _ideScope;

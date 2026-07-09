@@ -11,7 +11,7 @@ namespace Reqnroll.IdeSupport.Common;
 public interface IIdeScope
 {
     bool IsSolutionLoaded { get; }
-    IDeveroomLogger Logger { get; }
+    IIdeSupportLogger Logger { get; }
     IMonitoringService MonitoringService { get; }
     IIdeActions Actions { get; }
     IFileSystemForIDE FileSystem { get; }

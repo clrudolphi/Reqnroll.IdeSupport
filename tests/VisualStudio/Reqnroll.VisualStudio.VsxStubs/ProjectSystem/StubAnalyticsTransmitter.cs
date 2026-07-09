@@ -1,11 +1,11 @@
-#nullable enable
+﻿#nullable enable
 namespace Reqnroll.VisualStudio.VsxStubs.ProjectSystem;
 
 public class StubAnalyticsTransmitter : IAnalyticsTransmitter, IEnumerable<IAnalyticsEvent>
 {
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
 
-    public StubAnalyticsTransmitter(IDeveroomLogger logger)
+    public StubAnalyticsTransmitter(IIdeSupportLogger logger)
     {
         _logger = logger;
     }

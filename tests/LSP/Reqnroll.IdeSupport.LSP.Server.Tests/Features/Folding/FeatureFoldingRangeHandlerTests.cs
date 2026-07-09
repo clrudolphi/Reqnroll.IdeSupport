@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Diagnostics;
@@ -17,7 +17,7 @@ public class FeatureFoldingRangeHandlerTests
 {
     private readonly IDocumentBufferService         _bufferService = Substitute.For<IDocumentBufferService>();
     private readonly IGherkinFoldingRangeService     _foldingService = Substitute.For<IGherkinFoldingRangeService>();
-    private readonly IDeveroomLogger                 _logger        = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger                 _logger        = Substitute.For<IIdeSupportLogger>();
 
     private static readonly DocumentUri FeatureUri =
         DocumentUri.FromFileSystemPath("/workspace/test.feature");

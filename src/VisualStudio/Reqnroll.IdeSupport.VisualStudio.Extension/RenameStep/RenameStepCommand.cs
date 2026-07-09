@@ -2,16 +2,15 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.Commands;
 using Microsoft.VisualStudio.Extensibility.Editor;
 using Microsoft.VisualStudio.Shell;
 using Newtonsoft.Json.Linq;
-using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.VisualStudio.Extension.Navigation;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.RenameStep;
@@ -20,16 +19,17 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.RenameStep;
 internal sealed class RenameStepCommand : Command
 {
     private readonly RenameStepState _state;
-    private readonly TraceSource     _traceSource;
-    private readonly IDeveroomLogger _fileLogger = new SynchronousFileLogger();
+    private readonly ILogger<RenameStepCommand> _logger;
+    private readonly ILoggerFactory _loggerFactory;
 
     private static readonly Guid GuidSHLMainMenu = new("{D309F791-903F-11D0-9EFC-00A0C911004F}");
     private const int IDG_VS_CODEWIN_NAVIGATETOLOCATION = 0x02B1;
 
-    public RenameStepCommand(RenameStepState state, TraceSource traceSource)
+    public RenameStepCommand(RenameStepState state, ILogger<RenameStepCommand> logger, ILoggerFactory loggerFactory)
     {
-        _state       = state;
-        _traceSource = traceSource;
+        _state         = state;
+        _logger        = logger;
+        _loggerFactory = loggerFactory;
     }
 
     public override CommandConfiguration CommandConfiguration => new("Rename Step")
@@ -48,12 +48,12 @@ internal sealed class RenameStepCommand : Command
     {
         try
         {
-            _fileLogger.LogInfo("RenameStepCommand: invoked.");
+            _logger.LogInformation("RenameStepCommand: invoked.");
 
             var service = _state.Service;
             if (service is null)
             {
-                _fileLogger.LogWarning("RenameStepCommand: LSP server not yet initialized.");
+                _logger.LogWarning("RenameStepCommand: LSP server not yet initialized.");
                 VsUtils.ShowStatusBarMessage("Reqnroll: LSP server not yet initialized.");
                 return;
             }
@@ -61,7 +61,7 @@ internal sealed class RenameStepCommand : Command
             var textView = await context.GetActiveTextViewAsync(cancellationToken).ConfigureAwait(false);
             if (textView is null)
             {
-                _fileLogger.LogWarning("RenameStepCommand: No active text view in client context.");
+                _logger.LogWarning("RenameStepCommand: no active text view in client context.");
                 return;
             }
 
@@ -71,7 +71,8 @@ internal sealed class RenameStepCommand : Command
             var lineNum  = line.LineNumber;
             var charNum  = caretPos.Offset - line.Text.Start;
 
-            _fileLogger.LogInfo($"RenameStepCommand: active view uri='{fileUri}', caret line={lineNum} char={charNum}.");
+            _logger.LogInformation(
+                "RenameStepCommand: active view uri={FileUri}, caret line={LineNum} char={CharNum}.", fileUri, lineNum, charNum);
 
             // Step 1: Get rename targets from the server
             var targets = await service.GetRenameTargetsAsync(fileUri, lineNum, charNum, cancellationToken)
@@ -79,7 +80,7 @@ internal sealed class RenameStepCommand : Command
 
             if (targets is null || targets.Targets.Count == 0)
             {
-                _fileLogger.LogInfo("RenameStepCommand: no renameable targets at cursor position.");
+                _logger.LogInformation("RenameStepCommand: no renameable targets at cursor position.");
                 VsUtils.ShowStatusBarMessage("Reqnroll: No step definition found to rename at this position.");
                 return;
             }
@@ -95,8 +96,9 @@ internal sealed class RenameStepCommand : Command
                 selectedAttributeIndex = item.AttributeIndex;
                 currentLabel           = item.Label;
                 currentExpression      = item.Expression;
-                _fileLogger.LogInfo(
-                    $"RenameStepCommand: single target, attributeIndex={selectedAttributeIndex}, label='{currentLabel}'.");
+                _logger.LogInformation(
+                    "RenameStepCommand: single target, attributeIndex={AttributeIndex}, label={Label}.",
+                    selectedAttributeIndex, currentLabel);
             }
             else
             {
@@ -109,7 +111,7 @@ internal sealed class RenameStepCommand : Command
                 var dialog = new NavigationPickerDialog("Choose step definition to rename", pickerTargets);
                 if (dialog.ShowModal() != true || dialog.SelectedIndex < 0)
                 {
-                    _fileLogger.LogInfo("RenameStepCommand: picker dismissed.");
+                    _logger.LogInformation("RenameStepCommand: picker dismissed.");
                     return;
                 }
 
@@ -117,8 +119,9 @@ internal sealed class RenameStepCommand : Command
                 selectedAttributeIndex = chosen.AttributeIndex;
                 currentLabel           = chosen.Label;
                 currentExpression      = chosen.Expression;
-                _fileLogger.LogInfo(
-                    $"RenameStepCommand: user selected target index={dialog.SelectedIndex}, attributeIndex={selectedAttributeIndex}.");
+                _logger.LogInformation(
+                    "RenameStepCommand: user selected target index={SelectedIndex}, attributeIndex={AttributeIndex}.",
+                    dialog.SelectedIndex, selectedAttributeIndex);
             }
 
             // Step 3: Tell the server which attribute was selected
@@ -136,11 +139,11 @@ internal sealed class RenameStepCommand : Command
                 "Enter the new step text:", "Rename Step", currentStepText);
             if (string.IsNullOrEmpty(newStepText))
             {
-                _fileLogger.LogInfo("RenameStepCommand: user cancelled rename dialog.");
+                _logger.LogInformation("RenameStepCommand: user cancelled rename dialog.");
                 return;
             }
 
-            _fileLogger.LogInfo($"RenameStepCommand: user entered new text '{newStepText}'.");
+            _logger.LogInformation("RenameStepCommand: user entered new text {NewStepText}.", newStepText);
 
             // Step 5: Send textDocument/rename via the service
             var result = await service.SendRenameRequestAsync(
@@ -149,27 +152,26 @@ internal sealed class RenameStepCommand : Command
 
             if (result is null)
             {
-                _traceSource.TraceInformation("RenameStepCommand: server returned null from rename.");
+                _logger.LogInformation("RenameStepCommand: server returned null from rename.");
                 VsUtils.ShowStatusBarMessage("Reqnroll: Rename failed.");
                 return;
             }
 
-            _fileLogger.LogInfo($"RenameStepCommand: rename result = {result}");
+            _logger.LogInformation("RenameStepCommand: rename result = {Result}", result);
 
             // Step 6: Apply the WorkspaceEdit (buffer-first for open documents)
             if (result is not null)
             {
-                var applier = new WorkspaceEditApplier(service, _fileLogger, _traceSource);
+                var applier = new WorkspaceEditApplier(service, _loggerFactory.CreateLogger<WorkspaceEditApplier>());
                 await applier.ApplyAsync(result, cancellationToken).ConfigureAwait(false);
             }
 
-            _fileLogger.LogInfo("RenameStepCommand: rename completed successfully.");
+            _logger.LogInformation("RenameStepCommand: rename completed successfully.");
             VsUtils.ShowStatusBarMessage("Reqnroll: Step renamed successfully.");
         }
         catch (Exception ex)
         {
-            _fileLogger.LogWarning($"RenameStepCommand: failed: {ex}");
-            _traceSource.TraceEvent(TraceEventType.Error, 0, "RenameStepCommand: failed: {0}", ex);
+            _logger.LogError(ex, "RenameStepCommand: failed.");
         }
     }
 

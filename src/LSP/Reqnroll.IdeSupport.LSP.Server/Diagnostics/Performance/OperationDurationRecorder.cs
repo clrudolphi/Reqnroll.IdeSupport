@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Collections.Generic;
@@ -26,14 +26,14 @@ public sealed class OperationDurationRecorder : IOperationDurationRecorder
     /// <summary>Telemetry event name. Listed in the public telemetry inventory.</summary>
     public const string PerfSampleEventName = "PerfSample";
 
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
     private readonly ClientIdeContext _ide;
     private readonly ILspTelemetryService? _telemetry;
     private readonly IPerfTelemetrySampler _sampler;
     private readonly ITraceService? _trace;
 
     public OperationDurationRecorder(
-        IDeveroomLogger logger,
+        IIdeSupportLogger logger,
         ClientIdeContext ide,
         ILspTelemetryService? telemetry = null,
         IPerfTelemetrySampler? sampler = null,
