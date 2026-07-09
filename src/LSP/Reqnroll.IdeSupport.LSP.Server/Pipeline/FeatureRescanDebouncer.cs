@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
@@ -9,10 +9,10 @@ public sealed class FeatureRescanDebouncer : IFeatureRescanDebouncer, IDisposabl
 {
     private const int DebounceMilliseconds = 500;
 
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
     private readonly ConcurrentDictionary<LspReqnrollProject, CancellationTokenSource> _pending = new();
 
-    public FeatureRescanDebouncer(IDeveroomLogger logger)
+    public FeatureRescanDebouncer(IIdeSupportLogger logger)
     {
         _logger = logger;
     }

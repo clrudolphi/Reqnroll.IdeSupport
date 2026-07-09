@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.Common.Diagnostics;
@@ -13,7 +13,7 @@ public class WatchedFilesHandlerTests : IDisposable
 {
     private readonly ILspWorkspaceScopeManager      _scopeManager           = Substitute.For<ILspWorkspaceScopeManager>();
     private readonly IMediator                      _mediator               = Substitute.For<IMediator>();
-    private readonly IDeveroomLogger                _logger                 = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger                _logger                 = Substitute.For<IIdeSupportLogger>();
     private readonly IEditorConfigOptionsProvider   _editorConfigProvider   = Substitute.For<IEditorConfigOptionsProvider>();
     private readonly ICSharpBindingDiscoveryService _csharpDiscoveryService = Substitute.For<ICSharpBindingDiscoveryService>();
     private readonly LspIdeScope _ideScope;

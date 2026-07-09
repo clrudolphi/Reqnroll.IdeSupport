@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Collections.Generic;
@@ -40,7 +40,7 @@ public sealed class StepRenameHandler
     private readonly IBindingMatchService          _matchService;
     private readonly ILspWorkspaceScopeManager     _scopeManager;
     private readonly IProjectBindingRegistryLookup _registryLookup;
-    private readonly IDeveroomLogger               _logger;
+    private readonly IIdeSupportLogger               _logger;
     private readonly IDocumentBufferService        _documentBuffer;
     private readonly RenameSessionManager          _sessionManager;
     private readonly ILspTelemetryService?         _telemetryService;
@@ -49,7 +49,7 @@ public sealed class StepRenameHandler
         IBindingMatchService          matchService,
         ILspWorkspaceScopeManager     scopeManager,
         IProjectBindingRegistryLookup registryLookup,
-        IDeveroomLogger               logger,
+        IIdeSupportLogger               logger,
         IDocumentBufferService        documentBuffer,
         ILspTelemetryService?         telemetryService = null)
     {

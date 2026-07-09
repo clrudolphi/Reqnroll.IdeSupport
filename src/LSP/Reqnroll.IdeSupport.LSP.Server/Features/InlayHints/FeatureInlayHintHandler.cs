@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -32,13 +32,13 @@ public sealed class FeatureInlayHintHandler
     private readonly IBindingMatchService      _matchService;
     private readonly ILspWorkspaceScopeManager _scopeManager;
     private readonly IGherkinInlayHintService  _hintService;
-    private readonly IDeveroomLogger           _logger;
+    private readonly IIdeSupportLogger           _logger;
 
     public FeatureInlayHintHandler(
         IBindingMatchService      matchService,
         ILspWorkspaceScopeManager scopeManager,
         IGherkinInlayHintService  hintService,
-        IDeveroomLogger           logger)
+        IIdeSupportLogger           logger)
     {
         _matchService = matchService;
         _scopeManager = scopeManager;

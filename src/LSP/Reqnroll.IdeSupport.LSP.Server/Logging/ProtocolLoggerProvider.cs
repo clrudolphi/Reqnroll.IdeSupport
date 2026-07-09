@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
@@ -25,7 +25,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Logging;
 /// </remarks>
 public sealed class ProtocolLoggerProvider : ILoggerProvider
 {
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
 
     public ProtocolLoggerProvider(string? clientIde, TraceLevel protocolLogLevel)
         : this(BuildDefaultLogger(clientIde, protocolLogLevel))
@@ -33,12 +33,12 @@ public sealed class ProtocolLoggerProvider : ILoggerProvider
     }
 
     /// <summary>Test seam: bypasses the real file/debug sinks.</summary>
-    internal ProtocolLoggerProvider(IDeveroomLogger logger)
+    internal ProtocolLoggerProvider(IIdeSupportLogger logger)
     {
         _logger = logger;
     }
 
-    private static IDeveroomLogger BuildDefaultLogger(string? clientIde, TraceLevel protocolLogLevel)
+    private static IIdeSupportLogger BuildDefaultLogger(string? clientIde, TraceLevel protocolLogLevel)
     {
         var idePrefix = clientIde switch
         {
@@ -46,12 +46,12 @@ public sealed class ProtocolLoggerProvider : ILoggerProvider
             "vscode"       => "vscode",
             _              => "lsp"
         };
-        return new DeveroomCompositeLogger()
-            .Add(new DeveroomDebugLogger())
+        return new IdeSupportCompositeLogger()
+            .Add(new IdeSupportDebugLogger())
             .Add(new SynchronousFileLogger(idePrefix, "protocol", protocolLogLevel));
     }
 
-    public ILogger CreateLogger(string categoryName) => new DeveroomLoggerAdapter(categoryName, _logger);
+    public ILogger CreateLogger(string categoryName) => new IdeSupportLoggerAdapter(categoryName, _logger);
 
     public void Dispose()
     {

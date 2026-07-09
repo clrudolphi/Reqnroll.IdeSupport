@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
@@ -25,13 +25,13 @@ public class SemanticTokensPushHandler : INotificationHandler<MatchCacheChangedN
     private readonly ILanguageServerFacade _languageServer;
     private readonly ISemanticTokenService _tokenService;
     private readonly ClientIdeContext _clientIde;
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
 
     public SemanticTokensPushHandler(
         ILanguageServerFacade languageServer,
         ISemanticTokenService tokenService,
         ClientIdeContext clientIde,
-        IDeveroomLogger logger)
+        IIdeSupportLogger logger)
     {
         _languageServer = languageServer;
         _tokenService = tokenService;

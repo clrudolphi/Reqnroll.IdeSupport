@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
@@ -10,7 +10,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Tests.Discovery;
 
 public class ConnectorBindingRegistryProviderTests : IDisposable
 {
-    private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
     private readonly IConnectorDiscoveryService _discovery = Substitute.For<IConnectorDiscoveryService>();
     private readonly LspIdeScope _ideScope;
     private readonly string _folder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());

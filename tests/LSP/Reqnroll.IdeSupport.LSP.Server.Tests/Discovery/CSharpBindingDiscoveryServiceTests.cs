@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
@@ -13,8 +13,8 @@ namespace Reqnroll.IdeSupport.LSP.Server.Tests.Discovery;
 public class CSharpBindingDiscoveryServiceTests : IDisposable
 {
     private readonly ILspWorkspaceScopeManager _scopeManager = Substitute.For<ILspWorkspaceScopeManager>();
-    private readonly IDeveroomLogger           _logger       = Substitute.For<IDeveroomLogger>();
-    private readonly IDeveroomLogger           _ideLogger    = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger           _logger       = Substitute.For<IIdeSupportLogger>();
+    private readonly IIdeSupportLogger           _ideLogger    = Substitute.For<IIdeSupportLogger>();
     private readonly LspIdeScope               _ideScope;
 
     private readonly string _root1 = Path.Combine(Path.GetTempPath(), "CsBDSTests_" + Guid.NewGuid().ToString("N"));

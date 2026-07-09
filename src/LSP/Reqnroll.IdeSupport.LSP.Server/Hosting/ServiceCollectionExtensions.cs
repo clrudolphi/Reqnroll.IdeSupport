@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -58,7 +58,7 @@ public static class ServiceCollectionExtensions
     {
         return services
             .AddSingleton(new ClientIdeContext(clientIde, logLevel))
-            .AddSingleton<IDeveroomLogger, LspDeveroomLogger>()
+            .AddSingleton<IIdeSupportLogger, LspIdeSupportLogger>()
             // Do NOT also register ILoggerFactory/ILogger<> here: Program.ConfigureServer's
             // options.ConfigureLogging(...) already establishes the real Microsoft.Extensions.Logging
             // pipeline (SetMinimumLevel, AddLanguageProtocolLogging, ProtocolLoggerProvider) in this
@@ -92,7 +92,7 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServerFacade>(),
                 initialTrace))
             .AddSingleton<IOperationDurationRecorder>(sp => new OperationDurationRecorder(
-                sp.GetRequiredService<IDeveroomLogger>(),
+                sp.GetRequiredService<IIdeSupportLogger>(),
                 sp.GetRequiredService<ClientIdeContext>(),
                 sp.GetRequiredService<ILspTelemetryService>(),
                 sp.GetRequiredService<IPerfTelemetrySampler>(),

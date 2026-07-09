@@ -1,4 +1,4 @@
-using Reqnroll.IdeSupport.Common.Configuration;
+﻿using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
@@ -18,9 +18,9 @@ namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
 /// </remarks>
 public sealed class OutProcReqnrollConnectorFactory : IOutProcConnectorFactory
 {
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
 
-    public OutProcReqnrollConnectorFactory(IDeveroomLogger logger)
+    public OutProcReqnrollConnectorFactory(IIdeSupportLogger logger)
     {
         _logger = logger;
     }

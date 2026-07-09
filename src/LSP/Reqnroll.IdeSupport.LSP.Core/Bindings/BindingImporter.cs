@@ -1,4 +1,4 @@
-#nullable disable
+﻿#nullable disable
 
 using Reqnroll.IdeSupport.LSP.Core.Bindings.TagExpressions;
 
@@ -19,13 +19,13 @@ public class BindingImporter
     private static readonly string[] SingleDataTableParameterTypes = { TypeShortcuts.ReqnrollTableType };
     private readonly Dictionary<string, ProjectBindingImplementation> _implementations = new();
 
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
     private readonly Dictionary<string, string> _sourceFiles;
     private readonly ReqnrollTagExpressionParser _tagExpressionParser = new();
     private readonly Dictionary<string, string> _typeNames;
 
     public BindingImporter(Dictionary<string, string> sourceFiles, Dictionary<string, string> typeNames,
-        IDeveroomLogger logger)
+        IIdeSupportLogger logger)
     {
         _sourceFiles = sourceFiles;
         _typeNames = typeNames;

@@ -1,4 +1,4 @@
-using Reqnroll.IdeSupport.Common.Diagnostics;
+﻿using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.LSP.Connector.Models;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
@@ -20,10 +20,10 @@ namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
 /// </remarks>
 public sealed class ConnectorDiscoveryService : IConnectorDiscoveryService
 {
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
     private readonly IOutProcConnectorFactory _connectorFactory;
 
-    public ConnectorDiscoveryService(IDeveroomLogger logger, IOutProcConnectorFactory connectorFactory)
+    public ConnectorDiscoveryService(IIdeSupportLogger logger, IOutProcConnectorFactory connectorFactory)
     {
         _logger = logger;
         _connectorFactory = connectorFactory;

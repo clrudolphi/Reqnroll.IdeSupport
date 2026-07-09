@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,14 +32,14 @@ public sealed class GoToStepDefinitionsHandler
     private readonly IBindingMatchService      _matchService;
     private readonly IDocumentBufferService    _bufferService;
     private readonly ILspWorkspaceScopeManager _scopeManager;
-    private readonly IDeveroomLogger           _logger;
+    private readonly IIdeSupportLogger           _logger;
     private readonly ILspTelemetryService?     _telemetryService;
 
     public GoToStepDefinitionsHandler(
         IBindingMatchService      matchService,
         IDocumentBufferService    bufferService,
         ILspWorkspaceScopeManager scopeManager,
-        IDeveroomLogger           logger,
+        IIdeSupportLogger           logger,
         ILspTelemetryService?     telemetryService = null)
     {
         _matchService  = matchService;

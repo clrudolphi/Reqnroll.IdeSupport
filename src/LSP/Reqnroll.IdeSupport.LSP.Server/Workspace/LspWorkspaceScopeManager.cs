@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Diagnostics;
@@ -15,7 +15,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Workspace;
 public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDisposable
 {
     private readonly IIdeScope _ideScope;
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
     private readonly IMediator _mediator;
 
     private readonly ConcurrentDictionary<string, LspProjectScope> _scopes
@@ -33,7 +33,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
     // would normally trigger is deferred here until the project actually loads.
     private readonly ConcurrentDictionary<ProjectKey, bool> _pendingFullRescan = new();
 
-    public LspWorkspaceScopeManager(IIdeScope ideScope, IDeveroomLogger logger, IMediator mediator)
+    public LspWorkspaceScopeManager(IIdeScope ideScope, IIdeSupportLogger logger, IMediator mediator)
     {
         _ideScope  = ideScope;
         _logger    = logger;

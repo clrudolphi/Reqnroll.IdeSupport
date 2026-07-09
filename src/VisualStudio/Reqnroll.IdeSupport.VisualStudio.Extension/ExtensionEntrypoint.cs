@@ -37,14 +37,14 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension
             // Single, shared logging sink for the whole extension (issue #84): previously ~20
             // classes each `new`'d their own SynchronousFileLogger (mostly defaulting to
             // TraceLevel.Warning, silently dropping LogInfo) while also taking a DI-injected
-            // TraceSource that nothing ever attached a listener to. One DeveroomCompositeLogger,
+            // TraceSource that nothing ever attached a listener to. One IdeSupportCompositeLogger,
             // registered once and consumed everywhere via ILogger<T>, replaces both.
-            var logger = new DeveroomCompositeLogger()
-                .Add(new DeveroomDebugLogger())
+            var logger = new IdeSupportCompositeLogger()
+                .Add(new IdeSupportDebugLogger())
                 .Add(new SynchronousFileLogger("vs", "ext", TraceLevel.Info));
-            serviceCollection.AddSingleton<IDeveroomLogger>(logger);
+            serviceCollection.AddSingleton<IIdeSupportLogger>(logger);
             serviceCollection.AddSingleton<ILoggerFactory>(sp =>
-                new DeveroomLoggerFactory(sp.GetRequiredService<IDeveroomLogger>()));
+                new IdeSupportLoggerFactory(sp.GetRequiredService<IIdeSupportLogger>()));
             serviceCollection.AddSingleton(typeof(ILogger<>), typeof(Logger<>));
 
             // Shared holder for the runtime-created F14 "Find Step Usages" components.  Registering

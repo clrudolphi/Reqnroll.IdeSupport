@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Pipeline;
 using Reqnroll.IdeSupport.LSP.Server.Tests.Discovery;
@@ -13,7 +13,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Tests.Pipeline;
 /// </summary>
 public class FeatureRescanDebouncerTests : IDisposable
 {
-    private readonly IDeveroomLogger _logger = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
     private readonly LspIdeScope _ideScope;
     private readonly string _folder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
     private readonly LspReqnrollProject _project;
@@ -135,7 +135,7 @@ public class FeatureRescanDebouncerTests : IDisposable
         // Give the exception a moment to propagate out of the fire-and-forget continuation.
         await Task.Delay(100);
 
-        // LogWarning is an extension method over IDeveroomLogger.Log(LogMessage); assert on the
+        // LogWarning is an extension method over IIdeSupportLogger.Log(LogMessage); assert on the
         // underlying substitutable call.
         _logger.Received(1).Log(Arg.Is<LogMessage>(m =>
             m.Level == TraceLevel.Warning && m.Message.Contains("boom")));

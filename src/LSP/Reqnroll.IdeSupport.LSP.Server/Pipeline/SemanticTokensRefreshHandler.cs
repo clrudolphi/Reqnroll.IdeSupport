@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
@@ -24,12 +24,12 @@ public class SemanticTokensRefreshHandler : INotificationHandler<MatchCacheChang
     private static readonly TimeSpan DebounceDelay = TimeSpan.FromMilliseconds(500);
 
     private readonly ILanguageServerFacade _languageServer;
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
 
     private CancellationTokenSource? _debounceCts;
     private readonly object _debounceLock = new object();
 
-    public SemanticTokensRefreshHandler(ILanguageServerFacade languageServer, IDeveroomLogger logger)
+    public SemanticTokensRefreshHandler(ILanguageServerFacade languageServer, IIdeSupportLogger logger)
     {
         _languageServer = languageServer;
         _logger = logger;

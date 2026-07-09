@@ -5,20 +5,20 @@ using Reqnroll.IdeSupport.LSP.Server.Hosting;
 namespace Reqnroll.IdeSupport.LSP.Server.Logging;
 
 /// <summary>
-/// <see cref="IDeveroomLogger"/> used by the LSP server process.
-/// Delegates to a <see cref="DeveroomCompositeLogger"/> composed of:
+/// <see cref="IIdeSupportLogger"/> used by the LSP server process.
+/// Delegates to a <see cref="IdeSupportCompositeLogger"/> composed of:
 /// <list type="bullet">
-///   <item><see cref="DeveroomDebugLogger"/> — writes to <see cref="Debug"/> output</item>
+///   <item><see cref="IdeSupportDebugLogger"/> — writes to <see cref="Debug"/> output</item>
 ///   <item><see cref="SynchronousFileLogger"/> — appends to the Reqnroll log file</item>
 /// </list>
 /// Emits a session-start banner as the first log line so runs within a day-appended file
 /// can be distinguished by version, PID, and server path.
 /// </summary>
-public sealed class LspDeveroomLogger : IDeveroomLogger
+public sealed class LspIdeSupportLogger : IIdeSupportLogger
 {
-    private readonly DeveroomCompositeLogger _inner;
+    private readonly IdeSupportCompositeLogger _inner;
 
-    public LspDeveroomLogger(ClientIdeContext clientIdeContext)
+    public LspIdeSupportLogger(ClientIdeContext clientIdeContext)
     {
         var idePrefix = clientIdeContext.Ide switch
         {
@@ -26,8 +26,8 @@ public sealed class LspDeveroomLogger : IDeveroomLogger
             "vscode"       => "vscode",
             _              => "lsp"   // unknown or absent --ide; avoid misattributing to a known IDE
         };
-        _inner = new DeveroomCompositeLogger()
-            .Add(new DeveroomDebugLogger())
+        _inner = new IdeSupportCompositeLogger()
+            .Add(new IdeSupportDebugLogger())
             .Add(new SynchronousFileLogger(idePrefix, "server", clientIdeContext.LogLevel));
 
         var version   = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";

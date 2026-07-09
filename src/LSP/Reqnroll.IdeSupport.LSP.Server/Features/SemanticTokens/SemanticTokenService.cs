@@ -20,7 +20,7 @@ public sealed class SemanticTokenService : ISemanticTokenService
 {
     // ── State ─────────────────────────────────────────────────────────────────
     private readonly IDocumentBufferService _documentBufferService;
-    private readonly IDeveroomLogger         _logger;
+    private readonly IIdeSupportLogger         _logger;
 
     // key: (uri, version)  value: encoded token data
     private readonly ConcurrentDictionary<(DocumentUri, int), global::OmniSharp.Extensions.LanguageServer.Protocol.Models.SemanticTokens> _cache = new();
@@ -39,7 +39,7 @@ public sealed class SemanticTokenService : ISemanticTokenService
     // ── Construction ──────────────────────────────────────────────────────────
     public SemanticTokenService(
         IDocumentBufferService documentBufferService,
-        IDeveroomLogger         logger)
+        IIdeSupportLogger         logger)
     {
         _documentBufferService = documentBufferService;
         _logger                = logger;

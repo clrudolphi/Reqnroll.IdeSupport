@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
@@ -43,7 +43,7 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
     private readonly IMediator                        _mediator;
     private readonly ICSharpBindingDiscoveryService   _csharpDiscoveryService;
     private readonly IFeatureRescanDebouncer          _rescanDebouncer;
-    private readonly IDeveroomLogger                  _logger;
+    private readonly IIdeSupportLogger                  _logger;
 
     public BindingRegistryChangedHandler(
         IDocumentBufferService documentBufferService,
@@ -54,7 +54,7 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
         IMediator mediator,
         ICSharpBindingDiscoveryService csharpDiscoveryService,
         IFeatureRescanDebouncer rescanDebouncer,
-        IDeveroomLogger logger)
+        IIdeSupportLogger logger)
     {
         _documentBufferService  = documentBufferService;
         _taggerService          = taggerService;

@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
@@ -43,7 +43,7 @@ public sealed class GherkinCompletionHandler : ICompletionHandler
     private readonly ILspWorkspaceScopeManager     _scopeManager;
     private readonly IProjectBindingRegistryLookup _registryLookup;
     private readonly ClientIdeContext              _clientIde;
-    private readonly IDeveroomLogger               _logger;
+    private readonly IIdeSupportLogger               _logger;
     private readonly IOperationDurationRecorder    _recorder;
 
     // Performance Verification (Layer 4) op labels. Keyword (F7, <50ms) and step (F8, <150ms) have distinct targets,
@@ -60,7 +60,7 @@ public sealed class GherkinCompletionHandler : ICompletionHandler
         ILspWorkspaceScopeManager     scopeManager,
         IProjectBindingRegistryLookup registryLookup,
         ClientIdeContext              clientIde,
-        IDeveroomLogger               logger,
+        IIdeSupportLogger               logger,
         IOperationDurationRecorder?   recorder = null)
     {
         _contextResolver   = contextResolver;

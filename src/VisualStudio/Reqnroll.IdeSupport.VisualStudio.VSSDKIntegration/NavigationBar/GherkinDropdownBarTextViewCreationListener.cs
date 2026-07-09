@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.ComponentModel.Composition;
@@ -33,13 +33,13 @@ internal sealed class GherkinDropdownBarTextViewCreationListener : IVsTextViewCr
 {
     private readonly IVsEditorAdaptersFactoryService _editorAdapter;
     private readonly SVsServiceProvider _serviceProvider;
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
 
     [ImportingConstructor]
     public GherkinDropdownBarTextViewCreationListener(
         IVsEditorAdaptersFactoryService editorAdapter,
         SVsServiceProvider serviceProvider,
-        IDeveroomLogger logger)
+        IIdeSupportLogger logger)
     {
         _editorAdapter = editorAdapter;
         _serviceProvider = serviceProvider;

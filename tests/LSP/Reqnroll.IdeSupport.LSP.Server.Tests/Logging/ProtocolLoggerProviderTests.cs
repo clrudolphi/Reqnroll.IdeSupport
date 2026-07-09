@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
@@ -9,7 +9,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Tests.Logging;
 
 public class ProtocolLoggerProviderTests
 {
-    private sealed class CapturingLogger : IDeveroomLogger
+    private sealed class CapturingLogger : IIdeSupportLogger
     {
         public TraceLevel Level => TraceLevel.Verbose;
         public List<LogMessage> Messages { get; } = new();
@@ -17,7 +17,7 @@ public class ProtocolLoggerProviderTests
     }
 
     [Fact]
-    public void CreateLogger_returns_a_logger_that_forwards_to_the_underlying_IDeveroomLogger()
+    public void CreateLogger_returns_a_logger_that_forwards_to_the_underlying_IIdeSupportLogger()
     {
         var captured = new CapturingLogger();
         var provider = new ProtocolLoggerProvider(captured);
@@ -46,9 +46,9 @@ public class ProtocolLoggerProviderTests
     }
 
     [Fact]
-    public void IsEnabled_reflects_the_underlying_IDeveroomLogger_level()
+    public void IsEnabled_reflects_the_underlying_IIdeSupportLogger_level()
     {
-        var adapter = new DeveroomLoggerAdapter("cat", new CapturingLogger());
+        var adapter = new IdeSupportLoggerAdapter("cat", new CapturingLogger());
 
         // CapturingLogger.Level is Verbose, so every LogLevel maps to something at or below it.
         adapter.IsEnabled(LogLevel.Trace).Should().BeTrue();
@@ -58,7 +58,7 @@ public class ProtocolLoggerProviderTests
     [Fact]
     public void BeginScope_returns_a_disposable_that_does_not_throw()
     {
-        var adapter = new DeveroomLoggerAdapter("cat", new CapturingLogger());
+        var adapter = new IdeSupportLoggerAdapter("cat", new CapturingLogger());
 
         var scope = adapter.BeginScope("state");
 
@@ -77,6 +77,6 @@ public class ProtocolLoggerProviderTests
     [InlineData(LogLevel.None, TraceLevel.Off)]
     public void ToTraceLevel_maps_each_LogLevel(LogLevel logLevel, TraceLevel expected)
     {
-        DeveroomLogLevelConverter.ToTraceLevel(logLevel).Should().Be(expected);
+        IdeSupportLogLevelConverter.ToTraceLevel(logLevel).Should().Be(expected);
     }
 }

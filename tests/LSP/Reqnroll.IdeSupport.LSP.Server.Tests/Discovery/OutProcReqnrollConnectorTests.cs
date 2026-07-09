@@ -1,4 +1,4 @@
-using Reqnroll.IdeSupport.Common.Configuration;
+﻿using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.LSP.Connector.Models;
@@ -22,7 +22,7 @@ public class OutProcReqnrollConnectorTests
         public FakeOutProcReqnrollConnector(string connectorPath)
             : base(
                 new DeveroomConfiguration(),
-                Substitute.For<IDeveroomLogger>(),
+                Substitute.For<IIdeSupportLogger>(),
                 TargetFrameworkMoniker.Create(".NETCoreApp,Version=v8.0"),
                 AppContext.BaseDirectory,
                 ProcessorArchitectureSetting.UseSystem,

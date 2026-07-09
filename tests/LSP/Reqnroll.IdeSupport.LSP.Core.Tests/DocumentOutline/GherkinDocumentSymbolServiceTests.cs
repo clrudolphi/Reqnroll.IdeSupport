@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using Reqnroll.IdeSupport.LSP.Core.DocumentOutline;
 using Reqnroll.VisualStudio.VsxStubs.LspStubs;
@@ -9,7 +9,7 @@ public class GherkinDocumentSymbolServiceTests
 {
     private static IReadOnlyCollection<DeveroomTag> ParseTags(string text)
     {
-        var logger = Substitute.For<IDeveroomLogger>();
+        var logger = Substitute.For<IIdeSupportLogger>();
         var monitoring = Substitute.For<IMonitoringService>();
         var configProvider = Substitute.For<IDeveroomConfigurationProvider>();
         configProvider.GetConfiguration().Returns(new DeveroomConfiguration());

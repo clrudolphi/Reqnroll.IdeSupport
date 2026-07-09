@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System.IO;
 using Newtonsoft.Json.Linq;
@@ -27,13 +27,13 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
     private readonly IBindingMatchService          _matchService;
     private readonly IStepScaffoldService          _scaffoldService;
     private readonly ILspWorkspaceScopeManager     _scopeManager;
-    private readonly IDeveroomLogger               _logger;
+    private readonly IIdeSupportLogger               _logger;
 
     public FeatureCodeActionHandler(
         IBindingMatchService      matchService,
         IStepScaffoldService      scaffoldService,
         ILspWorkspaceScopeManager scopeManager,
-        IDeveroomLogger            logger)
+        IIdeSupportLogger            logger)
     {
         _matchService    = matchService;
         _scaffoldService = scaffoldService;

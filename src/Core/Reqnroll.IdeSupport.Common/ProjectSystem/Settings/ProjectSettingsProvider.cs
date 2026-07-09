@@ -1,4 +1,4 @@
-#nullable disable
+﻿#nullable disable
 
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using System;
@@ -27,7 +27,7 @@ public class ProjectSettingsProvider : IDisposable, IProjectSettingsProvider
         //_projectScope.IdeScope.WeakProjectsBuilt += ProjectSystemOnProjectsBuilt;
     }
 
-    private IDeveroomLogger Logger => _projectScope.IdeScope.Logger;
+    private IIdeSupportLogger Logger => _projectScope.IdeScope.Logger;
     private IMonitoringService MonitoringService => _projectScope.IdeScope.MonitoringService;
 
     public void Dispose()

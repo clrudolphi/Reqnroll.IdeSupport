@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -6,9 +6,9 @@ using System.Linq;
 
 namespace Reqnroll.IdeSupport.Common.Diagnostics;
 
-public class DeveroomCompositeLogger : IDeveroomLogger, IEnumerable<IDeveroomLogger>
+public class IdeSupportCompositeLogger : IIdeSupportLogger, IEnumerable<IIdeSupportLogger>
 {
-    private IDeveroomLogger[] _loggers = Array.Empty<IDeveroomLogger>();
+    private IIdeSupportLogger[] _loggers = Array.Empty<IIdeSupportLogger>();
 
     public TraceLevel Level { get; private set; } = TraceLevel.Off;
 
@@ -18,10 +18,10 @@ public class DeveroomCompositeLogger : IDeveroomLogger, IEnumerable<IDeveroomLog
             logger.Log(message);
     }
 
-    public IEnumerator<IDeveroomLogger> GetEnumerator() => _loggers.AsEnumerable().GetEnumerator();
+    public IEnumerator<IIdeSupportLogger> GetEnumerator() => _loggers.AsEnumerable().GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-    public DeveroomCompositeLogger Add(IDeveroomLogger logger)
+    public IdeSupportCompositeLogger Add(IIdeSupportLogger logger)
     {
         _loggers = _loggers.Concat(new[] {logger}).ToArray();
         Level = _loggers.Max(l => l.Level);

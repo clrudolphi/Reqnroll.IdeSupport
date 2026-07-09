@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Reqnroll.IdeSupport.Common.Diagnostics;
 
-public class AsynchronousFileLogger : IDeveroomLogger, IDisposable
+public class AsynchronousFileLogger : IIdeSupportLogger, IDisposable
 {
     private readonly Channel<LogMessage> _channel;
     private readonly IFileSystemForIDE _fileSystem;

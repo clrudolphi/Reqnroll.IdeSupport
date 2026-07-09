@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -23,7 +23,7 @@ public class GoToHooksHandlerTests
 {
     private readonly IDocumentBufferService        _bufferService  = Substitute.For<IDocumentBufferService>();
     private readonly IProjectBindingRegistryLookup _registryLookup = Substitute.For<IProjectBindingRegistryLookup>();
-    private readonly IDeveroomLogger               _logger         = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger               _logger         = Substitute.For<IIdeSupportLogger>();
 
     // Feature text layout:
     //   Line 0 (offset  0): "Feature: F\n"        (11 chars)

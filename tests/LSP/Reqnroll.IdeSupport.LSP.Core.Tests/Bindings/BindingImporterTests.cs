@@ -1,4 +1,4 @@
-#nullable disable
+﻿#nullable disable
 
 #nullable disable
 
@@ -9,7 +9,7 @@ public class BindingImporterTests
     private readonly Dictionary<string, string> _sourceFiles = new();
     private readonly Dictionary<string, string> _typeNames = new();
 
-    private BindingImporter CreateSut() => new(_sourceFiles, _typeNames, new DeveroomNullLogger());
+    private BindingImporter CreateSut() => new(_sourceFiles, _typeNames, new IdeSupportNullLogger());
 
     private StepDefinition CreateStepDefinition(string regex = null, string type = null, string sourceLocation = null,
         StepScope scope = null, string paramTypes = null, string method = null, string expression = null,

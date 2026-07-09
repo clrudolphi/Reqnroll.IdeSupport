@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
@@ -39,7 +39,7 @@ public sealed class DiagnosticsPublishHandler : INotificationHandler<MatchCacheC
     private readonly ILspWorkspaceScopeManager _scopeManager;
     private readonly IDiagnosticsAggregator   _aggregator;
     private readonly ILanguageServerFacade    _languageServer;
-    private readonly IDeveroomLogger           _logger;
+    private readonly IIdeSupportLogger           _logger;
     private readonly IOperationDurationRecorder _recorder;
 
     public DiagnosticsPublishHandler(
@@ -49,7 +49,7 @@ public sealed class DiagnosticsPublishHandler : INotificationHandler<MatchCacheC
         ILspWorkspaceScopeManager scopeManager,
         IDiagnosticsAggregator    aggregator,
         ILanguageServerFacade     languageServer,
-        IDeveroomLogger            logger,
+        IIdeSupportLogger            logger,
         IOperationDurationRecorder? recorder = null)
     {
         _documentBufferService = documentBufferService;

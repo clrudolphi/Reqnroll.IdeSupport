@@ -1,4 +1,4 @@
-using OmniSharp.Extensions.LanguageServer.Protocol;
+﻿using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -33,7 +33,7 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
 {
     private readonly IDocumentBufferService        _documentBufferService;
     private readonly IGherkinDocumentSymbolService _symbolService;
-    private readonly IDeveroomLogger               _logger;
+    private readonly IIdeSupportLogger               _logger;
 
     private static readonly TextDocumentSelector FeatureSelector = new(
         new TextDocumentFilter { Pattern = "**/*.feature" });
@@ -47,7 +47,7 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
     public FeatureDocumentSymbolHandler(
         IDocumentBufferService documentBufferService,
         IGherkinDocumentSymbolService symbolService,
-        IDeveroomLogger logger)
+        IIdeSupportLogger logger)
     {
         _documentBufferService = documentBufferService;
         _symbolService         = symbolService;

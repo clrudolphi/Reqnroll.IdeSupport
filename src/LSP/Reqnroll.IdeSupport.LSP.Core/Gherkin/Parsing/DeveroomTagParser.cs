@@ -1,4 +1,4 @@
-using Gherkin.Ast;
+﻿using Gherkin.Ast;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
@@ -16,11 +16,11 @@ public class DeveroomTagParser : IDeveroomTagParser
 {
     internal static readonly Regex NewLineRe = new(@"\r\n|\n|\r");
     private readonly IDeveroomConfigurationProvider _deveroomConfigurationProvider;
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
     private readonly IMonitoringService _monitoringService;
 
     public DeveroomTagParser(
-        IDeveroomLogger logger,
+        IIdeSupportLogger logger,
         IMonitoringService monitoringService,
         IDeveroomConfigurationProvider deveroomConfigurationProvider
     )

@@ -1,4 +1,4 @@
-using Reqnroll.IdeSupport.LSP.Core.Formatting;
+﻿using Reqnroll.IdeSupport.LSP.Core.Formatting;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Tests.Formatting;
 
@@ -13,7 +13,7 @@ public class GherkinDocumentFormatterTests
         var text = string.Join(Environment.NewLine, lines);
         var parser = new DeveroomGherkinParser(new ReqnrollGherkinDialectProvider("en-US"),
             Substitute.For<IMonitoringService>());
-        parser.ParseAndCollectErrors(text, new DeveroomNullLogger(), out var gherkinDocument, out _);
+        parser.ParseAndCollectErrors(text, new IdeSupportNullLogger(), out var gherkinDocument, out _);
         return gherkinDocument;
     }
 

@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using AwesomeAssertions;
 using NSubstitute;
@@ -26,7 +26,7 @@ public class StepCodeLensHandlerTests
     private readonly IBindingMatchService          _matchService   = Substitute.For<IBindingMatchService>();
     private readonly ILspWorkspaceScopeManager     _scopeManager   = Substitute.For<ILspWorkspaceScopeManager>();
     private readonly IProjectBindingRegistryLookup _registryLookup = Substitute.For<IProjectBindingRegistryLookup>();
-    private readonly IDeveroomLogger               _logger         = Substitute.For<IDeveroomLogger>();
+    private readonly IIdeSupportLogger               _logger         = Substitute.For<IIdeSupportLogger>();
 
     private static readonly DocumentUri CsUri      = DocumentUri.FromFileSystemPath("/workspace/Steps.cs");
     private static readonly DocumentUri FeatureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");

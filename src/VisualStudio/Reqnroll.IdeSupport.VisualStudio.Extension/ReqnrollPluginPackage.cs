@@ -1,4 +1,4 @@
-using Microsoft.VisualStudio;
+﻿using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
@@ -34,14 +34,14 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
 {
     public const string PackageGuidString = "8d5fe503-e038-4079-9e45-697e0dcb3758";
 
-    private IDeveroomLogger _logger = new DeveroomNullLogger();
+    private IIdeSupportLogger _logger = new IdeSupportNullLogger();
     private IAnalyticsTransmitter? _analyticsTransmitter;
 
     protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
     {
         await base.InitializeAsync(cancellationToken, progress);
 
-        // Resolve the shared MEF-exported IDeveroomLogger (issue #84) rather than a private
+        // Resolve the shared MEF-exported IIdeSupportLogger (issue #84) rather than a private
         // ad-hoc SynchronousFileLogger + a second, unlistened-to TraceSource. Resolved early
         // (alongside IAnalyticsTransmitter below) so it's available for the full package lifecycle;
         // falls back to a no-op logger only if the component model isn't ready yet.
@@ -49,7 +49,7 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
             var sp = await GetServiceAsync(typeof(SComponentModel)) as IServiceProvider;
             if (sp != null)
             {
-                _logger = VsUtils.ResolveMefDependency<IDeveroomLogger>(sp) ?? new DeveroomNullLogger();
+                _logger = VsUtils.ResolveMefDependency<IIdeSupportLogger>(sp) ?? new IdeSupportNullLogger();
                 _analyticsTransmitter = VsUtils.ResolveMefDependency<IAnalyticsTransmitter>(sp);
             }
         }

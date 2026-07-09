@@ -1,4 +1,4 @@
-using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
+﻿using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Diagnostics;
@@ -23,12 +23,12 @@ public class SemanticTokensHandler
 
     private readonly ISemanticTokenService _semanticTokenService;
     private readonly IDocumentBufferService _documentBufferService;
-    private readonly IDeveroomLogger _logger;
+    private readonly IIdeSupportLogger _logger;
 
     public SemanticTokensHandler(
         ISemanticTokenService semanticTokenService,
         IDocumentBufferService documentBufferService,
-        IDeveroomLogger logger)
+        IIdeSupportLogger logger)
     {
         _semanticTokenService = semanticTokenService;
         _documentBufferService = documentBufferService;
