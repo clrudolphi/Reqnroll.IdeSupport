@@ -176,8 +176,13 @@ public sealed class GoToHooksHandler
     private static DeveroomTag? FindTag(IReadOnlyCollection<DeveroomTag> tags, string type, int offset)
         => tags.FirstOrDefault(t => t.Type == type && ContainsOffset(t, offset));
 
+    // StepBlock/ScenarioDefinitionBlock/FeatureBlock tags are already full-line spans
+    // (DeveroomTagParser.GetBlockSpan uses GherkinRange.FromLines, so Range.End is the offset
+    // right past the last character of the block's last line). The upper bound must be
+    // inclusive so a click at end-of-line still resolves — Gherkin is line-oriented, and this
+    // is the same class of off-by-one that made Go to Definition miss in #101.
     private static bool ContainsOffset(DeveroomTag tag, int offset)
-        => offset >= tag.Range.Start && offset < tag.Range.End;
+        => offset >= tag.Range.Start && offset <= tag.Range.End;
 
     // ── Hook applicability ────────────────────────────────────────────────────
 

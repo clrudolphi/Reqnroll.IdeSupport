@@ -231,6 +231,24 @@ public class GoToHooksHandlerTests
             .BeEquivalentTo(["BeforeFeature", "BeforeScenario"]);
     }
 
+    [Fact]
+    public async Task Handle_cursor_at_end_of_scenario_line_still_resolves_scenario_context_Async()
+    {
+        // Line 1 "Scenario: S" is 11 chars — character 11 is one past the final "S".
+        var registry = RegistryWith(
+            MakeHook(HookType.BeforeFeature),
+            MakeHook(HookType.BeforeScenario),
+            MakeHook(HookType.BeforeStep));    // should be excluded
+        _registryLookup.GetRegistryForUri(FeatureUri).Returns(registry);
+
+        var result = await CreateSut().HandleAsync(
+            RequestAt(FeatureUri, 1, 11), CancellationToken.None);
+
+        result.Hooks.Should().HaveCount(2);
+        result.Hooks.Select(h => h.HookType).Should()
+            .BeEquivalentTo(["BeforeFeature", "BeforeScenario"]);
+    }
+
     // ── Context level — Step line ─────────────────────────────────────────────
 
     [Fact]
@@ -246,6 +264,24 @@ public class GoToHooksHandlerTests
         // Cursor at line 2, char 7 → offset 30 → inside StepBlock
         var result = await CreateSut().HandleAsync(
             RequestAt(FeatureUri, 2, 7), CancellationToken.None);
+
+        result.Hooks.Should().HaveCount(4);
+    }
+
+    [Fact]
+    public async Task Handle_cursor_at_end_of_step_line_still_resolves_step_context_Async()
+    {
+        // Line 2 "    Given a step" is 17 chars — character 17 is one past the final "p",
+        // i.e. exactly at StepBlockTag.Range.End (offset 40). Matches issue #106 repro.
+        var registry = RegistryWith(
+            MakeHook(HookType.BeforeFeature),
+            MakeHook(HookType.BeforeScenario),
+            MakeHook(HookType.BeforeScenarioBlock),
+            MakeHook(HookType.BeforeStep));
+        _registryLookup.GetRegistryForUri(FeatureUri).Returns(registry);
+
+        var result = await CreateSut().HandleAsync(
+            RequestAt(FeatureUri, 2, 17), CancellationToken.None);
 
         result.Hooks.Should().HaveCount(4);
     }
