@@ -56,7 +56,12 @@ internal sealed class LspServerConnectionService : IDisposable
     private LspInspectorLogger? _inspectorLogger;
     private LspInterceptingPipe? _interceptingPipe;
     private ChildProcessJob? _childJob;
+    private ShutdownHandshakeInterceptor? _shutdownHandshakeInterceptor;
     private bool _disposed;
+
+    // How long to wait for the server to self-terminate after a graceful `exit` before falling
+    // back to Kill(). See Dispose()/ShutdownServerAsync.
+    private const int GracefulExitTimeoutMs = 3000;
 
     public LspServerConnectionService(
         ILogger<LspServerConnectionService> logger, ILoggerFactory loggerFactory, StepCodeLensState stepCodeLensState)
@@ -213,19 +218,26 @@ internal sealed class LspServerConnectionService : IDisposable
             var codeLensRefreshInterceptor = new CodeLensRefreshInterceptor(
                 _stepCodeLensState, _loggerFactory.CreateLogger<CodeLensRefreshInterceptor>());
 
-            // Send pipeline:   VS → [logger, semanticTokens, scaffold, codeLensRefresh] → Server
-            // Receive pipeline: Server → [logger, semanticTokens, scaffold, codeLensRefresh, telemetry] → VS
+            // Watches the shutdown request/response handshake so Dispose() knows whether a
+            // graceful `exit` is safe to request instead of killing the process outright.
+            _shutdownHandshakeInterceptor = new ShutdownHandshakeInterceptor(
+                _loggerFactory.CreateLogger<ShutdownHandshakeInterceptor>());
+
+            // Send pipeline:   VS → [logger, semanticTokens, scaffold, codeLensRefresh, shutdownHandshake] → Server
+            // Receive pipeline: Server → [logger, semanticTokens, scaffold, codeLensRefresh, shutdownHandshake, telemetry] → VS
             // codeLensRefresh is on both pipelines: send watches .cs didChange; receive watches the
             // server's reqnroll/refreshCodeLens push after a full registry replacement.
+            // shutdownHandshake is on both pipelines: send captures the outgoing shutdown request id;
+            // receive watches for the matching response.
             var sendInterceptors = new ILspMessageInterceptor[]
-                { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor, codeLensRefreshInterceptor };
+                { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor, codeLensRefreshInterceptor, _shutdownHandshakeInterceptor };
 
             // Telemetry interceptor: lazy reference because AnalyticsTransmitter is resolved
             // from MEF on the main thread during OnServerInitializationResultAsync.
             var telemetryInterceptor = new TelemetryEventInterceptor(
                 () => AnalyticsTransmitter, _loggerFactory.CreateLogger<TelemetryEventInterceptor>());
             var receiveInterceptors = new ILspMessageInterceptor[]
-                { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor, codeLensRefreshInterceptor, telemetryInterceptor };
+                { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor, codeLensRefreshInterceptor, _shutdownHandshakeInterceptor, telemetryInterceptor };
 
             _interceptingPipe = new LspInterceptingPipe(
                 rawPipe, sendInterceptors, receiveInterceptors, _loggerFactory.CreateLogger<LspInterceptingPipe>());
@@ -255,17 +267,80 @@ internal sealed class LspServerConnectionService : IDisposable
         // may run off the UI thread at extension unload and VsProjectEventMonitor.Dispose() asserts
         // ThreadHelper.ThrowIfNotOnUIThread(). It is set to null there too.
 
-        _interceptingPipe?.Dispose();
+        var shutdownObserved  = _shutdownHandshakeInterceptor?.ShutdownObserved ?? false;
+        var interceptingPipe  = _interceptingPipe;
+        var inspectorLogger   = _inspectorLogger;
+        var serverProcess     = _serverProcess;
+        var childJob          = _childJob;
+
         _interceptingPipe = null;
+        _inspectorLogger  = null;
+        _serverProcess    = null;
+        _childJob         = null;
 
-        _inspectorLogger?.Dispose();
-        _inspectorLogger = null;
+        // Dispose() may run on VS's UI thread (see ReqnrollLanguageClient.Dispose()'s
+        // ThreadHelper.ThrowIfNotOnUIThread()), so the graceful-exit-then-kill sequence below must
+        // not be awaited here — Task.Run hands it to the thread pool so nothing runs synchronously
+        // on the caller's thread. Dispose() keeps returning immediately, as before. ChildProcessJob
+        // remains the safety net for VS itself terminating early.
+        _ = Task.Run(() => ShutdownServerAsync(shutdownObserved, interceptingPipe, serverProcess, inspectorLogger, childJob));
+    }
 
-        try { _serverProcess?.Kill(); } catch { /* best-effort */ }
-        _serverProcess?.Dispose();
-        _serverProcess = null;
+    /// <summary>
+    /// Terminates the server process, preferring a graceful <c>exit</c> negotiation over a hard
+    /// <c>Kill()</c> when the LSP <c>shutdown</c> handshake was observed on this connection.
+    /// </summary>
+    private async Task ShutdownServerAsync(
+        bool shutdownObserved,
+        LspInterceptingPipe? interceptingPipe,
+        Process? serverProcess,
+        LspInspectorLogger? inspectorLogger,
+        ChildProcessJob? childJob)
+    {
+        try
+        {
+            if (shutdownObserved && interceptingPipe is not null && serverProcess is not null)
+            {
+                // Per the LSP spec, `exit` is only valid after a `shutdown` response was received.
+                // Written directly onto the server-bound stream (bypassing the VS-facing pipe) so
+                // it goes out before the pipe below is torn down.
+                try
+                {
+                    await interceptingPipe.SendNotificationToServerAsync("exit", null, CancellationToken.None)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "LspServerConnectionService: failed to send exit notification; falling back to Kill().");
+                }
+            }
 
-        _childJob?.Dispose();
-        _childJob = null;
+            interceptingPipe?.Dispose();
+            inspectorLogger?.Dispose();
+
+            if (shutdownObserved && serverProcess is not null && serverProcess.WaitForExit(GracefulExitTimeoutMs))
+            {
+                _logger.LogInformation(
+                    "LspServerConnectionService: server exited gracefully (PID {ProcessId}).", serverProcess.Id);
+            }
+            else
+            {
+                if (shutdownObserved)
+                    _logger.LogWarning(
+                        "LspServerConnectionService: server did not self-terminate within {TimeoutMs}ms of `exit`; killing.",
+                        GracefulExitTimeoutMs);
+
+                try { serverProcess?.Kill(); } catch { /* best-effort */ }
+            }
+        }
+        finally
+        {
+            serverProcess?.Dispose();
+            // Disposing the Job Object closes its last handle, which triggers
+            // JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE — must happen only after the process has already
+            // exited or been killed above, never while a graceful exit is still in flight.
+            childJob?.Dispose();
+        }
     }
 }
