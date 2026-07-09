@@ -71,6 +71,12 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
         BindingRegistryChangedNotification notification,
         CancellationToken cancellationToken)
     {
+        if (notification.RemovedBindingFilePaths is { Count: > 0 } removedPaths)
+        {
+            await RemoveBindingFilesAsync(notification.Project, removedPaths, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         if (notification.IsFullReplacement)
         {
             // After a Connector full replacement, re-discover bindings from the project's .cs
@@ -109,6 +115,43 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
         // server was ready, until the user navigates away and back to re-realize the view.
         if (notification.IsFullReplacement)
             await RequestCodeLensRefreshAsync(notification.Project).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Purges the given binding-role <c>.cs</c> files from <paramref name="project"/>'s registry
+    /// (issue #94). Called for files removed via a <c>reqnroll/projectFiles</c> delta -- e.g. the
+    /// user deletes a step-definition file in the IDE. Visual Studio never sends
+    /// <c>workspace/didChangeWatchedFiles</c> for this, so <see cref="WatchedFilesHandler"/>'s
+    /// deletion path (the one place removal was previously wired up) never fires for it; this
+    /// project-files-driven removal is what actually reaches VS. Uses
+    /// <see cref="ICSharpBindingDiscoveryService.UpdateFromSourceForProjectAsync"/> (not
+    /// <c>RemoveFileAsync</c>) because the membership index has already dropped the file by the
+    /// time this runs, so owner-resolution would find nothing to remove; parsing empty text
+    /// against the already-known project replaces the file's stale entries with none.
+    /// </summary>
+    private async Task RemoveBindingFilesAsync(
+        LspReqnrollProject project,
+        IReadOnlyCollection<string> filePaths,
+        CancellationToken cancellationToken)
+    {
+        foreach (var filePath in filePaths)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                await _csharpDiscoveryService
+                    .UpdateFromSourceForProjectAsync(project, filePath, string.Empty, cancellationToken)
+                    .ConfigureAwait(false);
+                _logger.LogInfo(
+                    $"[Roslyn] Removed bindings for deleted file '{Path.GetFileName(filePath)}' " +
+                    $"from project '{project.ProjectName}'.");
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(
+                    $"RemoveBindingFilesAsync: failed to remove bindings for '{filePath}': {ex.Message}");
+            }
+        }
     }
 
     /// <summary>
