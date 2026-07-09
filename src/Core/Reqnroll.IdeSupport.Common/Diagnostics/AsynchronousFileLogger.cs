@@ -17,7 +17,7 @@ public class AsynchronousFileLogger : IIdeSupportLogger, IDisposable
     protected AsynchronousFileLogger(IFileSystemForIDE fileSystem, TraceLevel level, string ide, string role)
     {
         _fileSystem = fileSystem;
-        Level = level;
+        Level = ApplyDebugEnvironmentOverride(level);
         // Unbounded so that bursts (e.g. 30+ concurrent spec scenarios) never silently drop messages.
         _channel = Channel.CreateUnbounded<LogMessage>();
         _stopTokenSource = new CancellationTokenSource();
@@ -26,6 +26,19 @@ public class AsynchronousFileLogger : IIdeSupportLogger, IDisposable
 
     public string LogFilePath { get; private set; }
     public TraceLevel Level { get; }
+
+    // Matches the legacy Reqnroll.VisualStudio DeveroomDebugLogger behavior: REQNROLLVS_DEBUG=1/true
+    // forces Verbose, any other value that parses as a TraceLevel name overrides the configured level.
+    private static TraceLevel ApplyDebugEnvironmentOverride(TraceLevel level)
+    {
+        var env = Environment.GetEnvironmentVariable("REQNROLLVS_DEBUG");
+        if (env == null) return level;
+
+        if (env.Equals("1") || env.Equals("true", StringComparison.InvariantCultureIgnoreCase))
+            return TraceLevel.Verbose;
+
+        return Enum.TryParse<TraceLevel>(env, true, out var envLevel) ? envLevel : level;
+    }
 
     public virtual void Log(LogMessage message)
     {
