@@ -84,8 +84,11 @@ internal sealed class SemanticTokensClassificationInterceptor : ILspMessageInter
 
     private void CaptureLegendIfPresent(LspMessage message)
     {
-        // The initialize response carries the server's semantic-token legend.
-        var tokenTypes = message.Body["result"]?["capabilities"]?["semanticTokensProvider"]?["legend"]?["tokenTypes"] as JArray;
+        // The initialize response carries the server's semantic-token legend. Every other response's
+        // "result" is shaped differently (JArray, scalar JValue, etc.) and must be skipped without
+        // indexing into it, since only JObject indexers tolerate a missing key.
+        if (message.Body["result"] is not JObject result) return;
+        var tokenTypes = result["capabilities"]?["semanticTokensProvider"]?["legend"]?["tokenTypes"] as JArray;
         if (tokenTypes is null) return;
 
         _store.SetLegend(tokenTypes.Select(t => t.Value<string>() ?? string.Empty).ToArray());

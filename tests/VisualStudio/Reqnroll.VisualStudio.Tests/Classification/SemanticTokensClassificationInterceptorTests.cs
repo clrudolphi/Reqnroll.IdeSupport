@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json.Linq;
 using Reqnroll.IdeSupport.VisualStudio.Extension.Classification;
@@ -26,6 +27,26 @@ public class SemanticTokensClassificationInterceptorTests
     }
 
     private static LspMessage Receive(JObject body) => new(LspMessageDirection.Receive, body, DateTimeOffset.Now);
+
+    /// <summary>Records whether anything was logged at Warning level or above, without depending on the ILogger extension-method shape.</summary>
+    private sealed class WarningTrackingLogger : ILogger<SemanticTokensClassificationInterceptor>
+    {
+        public bool WarningLogged { get; private set; }
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel >= LogLevel.Warning) WarningLogged = true;
+        }
+
+        private sealed class NullScope : IDisposable
+        {
+            public static readonly NullScope Instance = new();
+            public void Dispose() { }
+        }
+    }
 
     private static LspMessage InitializeResponse(string[] legend) => Receive(new JObject
     {
@@ -109,5 +130,47 @@ public class SemanticTokensClassificationInterceptorTests
 
         result.Should().Be(LspInterceptorResult.PassThrough);
         store.TryGetTokens(SemanticTokenClassificationStore.NormalizeKey(@"c:\w\A.feature")!, out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Response_with_array_result_does_not_throw_or_log_a_warning()
+    {
+        var store = new SemanticTokenClassificationStore();
+        var logger = new WarningTrackingLogger();
+        var sut = new SemanticTokensClassificationInterceptor(store, logger);
+
+        // e.g. a textDocument/documentSymbol response: "result" is a JArray, not a JObject.
+        var response = Receive(new JObject
+        {
+            ["jsonrpc"] = "2.0",
+            ["id"] = 5,
+            ["result"] = new JArray(new JObject { ["name"] = "Scenario" }),
+        });
+
+        var result = await sut.InterceptAsync(response, CancellationToken.None);
+
+        result.Should().Be(LspInterceptorResult.PassThrough);
+        logger.WarningLogged.Should().BeFalse("a non-JObject result is a routine case, not a failure");
+    }
+
+    [Fact]
+    public async Task Response_with_scalar_result_does_not_throw_or_log_a_warning()
+    {
+        var store = new SemanticTokenClassificationStore();
+        var logger = new WarningTrackingLogger();
+        var sut = new SemanticTokensClassificationInterceptor(store, logger);
+
+        // e.g. a request whose "result" is a bare boolean/string.
+        var response = Receive(new JObject
+        {
+            ["jsonrpc"] = "2.0",
+            ["id"] = 6,
+            ["result"] = true,
+        });
+
+        var result = await sut.InterceptAsync(response, CancellationToken.None);
+
+        result.Should().Be(LspInterceptorResult.PassThrough);
+        logger.WarningLogged.Should().BeFalse("a non-JObject result is a routine case, not a failure");
     }
 }
