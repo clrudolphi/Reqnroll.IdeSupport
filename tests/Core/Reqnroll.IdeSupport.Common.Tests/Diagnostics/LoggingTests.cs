@@ -42,6 +42,18 @@ public class LoggingTests
     }
 
     [Fact]
+    public void LogFilePath_includes_current_process_id()
+    {
+        //arrange & act
+        var fileSystem = new MockFileSystemForTests();
+        var logger = AsynchronousFileLogger.CreateInstance(fileSystem, "test", "test");
+
+        //assert
+        logger.LogFilePath.Should().Contain($"-{System.Diagnostics.Process.GetCurrentProcess().Id}.log",
+            "each process must write to its own log file so concurrent IDE instances don't share one");
+    }
+
+    [Fact]
     public void DisposeStopsLogging()
     {
         //arrange
