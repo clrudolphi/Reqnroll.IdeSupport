@@ -57,8 +57,23 @@ public sealed class StepBindingMatch
     public bool IsDefined => Result.HasDefined;
     public bool IsAmbiguous => Result.HasAmbiguous;
 
-    /// <summary>True when <paramref name="offset"/> (absolute char offset) falls within the step text span.</summary>
-    public bool Contains(int offset) => offset >= Range.Start && offset < Range.End;
+    /// <summary>
+    /// True when <paramref name="offset"/> (absolute char offset) falls within the step text span,
+    /// or anywhere else on the step's line(s) — e.g. on the keyword, leading indentation, trailing
+    /// whitespace, or just past the last character. Widening to the full line lets Go to Definition
+    /// (F5) resolve a click anywhere on the step's line, not just within the exact text span.
+    /// </summary>
+    public bool Contains(int offset)
+    {
+        if (offset >= Range.Start && offset < Range.End)
+            return true;
+
+        var snapshot = Range.Snapshot;
+        var startLine = snapshot.GetLineFromLineNumber(Range.StartLinePosition.Line);
+        var endLine = snapshot.GetLineFromLineNumber(Range.EndLinePosition.Line);
+
+        return offset >= startLine.Start && offset <= endLine.End;
+    }
 
     /// <summary>
     /// The Gherkin step keyword as it appears in the feature file, trimmed
