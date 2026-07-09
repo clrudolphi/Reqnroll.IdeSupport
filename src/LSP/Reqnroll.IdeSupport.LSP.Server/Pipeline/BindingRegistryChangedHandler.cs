@@ -369,11 +369,15 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
             return [];
 
         // 1. Open, project-owned .cs files — unsaved edits override the DLL regardless of mtime.
-        //    Folder-prefix (not the index) is used deliberately: at startup the membership baseline
-        //    may not have arrived, and these files are known to be in the editor anyway.
-        //    IDocumentBufferService never holds .cs content (Gherkin-only, by design) — this reads
-        //    from ICSharpFileTextCache instead, which TextDocumentSyncHandler keeps live for every
-        //    open .cs file regardless of what triggered the last edit.
+        //    Ownership goes through ResolveOwners, which already encapsulates the correct
+        //    fallback chain (index hit → owners; pending, no baseline yet → folder-prefix
+        //    singleton; unowned → none) rather than reimplementing folder-prefix matching here
+        //    directly — a bare path-prefix check is exactly what caused a real cross-project
+        //    binding leak (issue confirmed live: Minimalnet481's bindings matched against
+        //    Minimal's feature files, since "Minimalnet481" is a string-prefix match for
+        //    "Minimal"). IDocumentBufferService never holds .cs content (Gherkin-only, by
+        //    design) — this reads from ICSharpFileTextCache instead, which TextDocumentSyncHandler
+        //    keeps live for every open .cs file regardless of what triggered the last edit.
         var openByPath = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var entry in _csharpFileTextCache.All)
         {
@@ -381,7 +385,7 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
             if (!string.IsNullOrEmpty(path)
                 && path!.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
                 && !string.IsNullOrEmpty(entry.Text)
-                && PathUtils.IsUnderFolder(path, projectFolder))
+                && _scopeManager.ResolveOwners(entry.Uri).Contains(project))
             {
                 openByPath[path] = entry.Text;
             }

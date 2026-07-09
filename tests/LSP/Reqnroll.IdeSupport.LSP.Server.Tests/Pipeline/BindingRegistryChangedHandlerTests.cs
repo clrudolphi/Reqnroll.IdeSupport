@@ -458,6 +458,39 @@ public class BindingRegistryChangedHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task Rediscover_ignores_an_open_cs_buffer_owned_by_a_different_project()
+    {
+        // Regression: ownership must come from the membership index (ResolveOwners), not a
+        // folder-prefix check. A sibling project folder whose name extends this project's folder
+        // name (e.g. "Minimalnet481" vs "Minimal") must never have its open buffers reconciled
+        // into this project's registry just because the path happens to start with this folder.
+        var buildTime = DateTime.UtcNow.AddHours(-1);
+        var project    = MakeProjectWithBuiltAssembly(buildTime);
+        var otherProject = DiscoveryTestSupport.MakeProject(
+            _ideScope, _projectFolder + "net481", outputAssemblyPath: null);
+
+        var openPath = WriteCsFile("OpenSteps.cs", "// stale disk text", DateTime.UtcNow.AddHours(-2));
+        var openUri  = DocumentUri.FromFileSystemPath(openPath);
+        _csharpFileTextCache.Update(openUri, "// unsaved buffer edit");
+
+        // The buffer is indexed as owned by the OTHER project, not this one.
+        IndexBindingFiles(otherProject, openPath);
+        _scopeManager.HasBaselineForProject(project).Returns(true);
+        _scopeManager.GetBindingFilePathsForProject(project).Returns(Array.Empty<string>());
+        _scopeManager.GetIndexedFeatureFiles(project).Returns(Array.Empty<string>());
+
+        await CreateSut().Handle(
+            new BindingRegistryChangedNotification(project, IsFullReplacement: true),
+            CancellationToken.None);
+
+        await _csharpDiscovery.DidNotReceive().UpdateFromSourceForProjectAsync(
+            project, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+
+        project.Dispose();
+        otherProject.Dispose();
+    }
+
+    [Fact]
     public async Task Rediscover_skips_closed_files_when_project_not_built()
     {
         // No output assembly exists → nothing compiled can be stale → closed files are not read.
@@ -622,6 +655,13 @@ public class BindingRegistryChangedHandlerTests : IDisposable
         _scopeManager.GetBindingFilePathsForProject(project).Returns(bindingFiles);
         // Keep the (separate) feature-file scan a no-op for these tests.
         _scopeManager.GetIndexedFeatureFiles(project).Returns(Array.Empty<string>());
+        // ResolveOwners is the authoritative ownership check CollectCsFilesToReconcile uses for
+        // open .cs buffers — stub it consistently with an indexed binding file's real ownership.
+        foreach (var path in bindingFiles)
+        {
+            var uri = DocumentUri.FromFileSystemPath(path);
+            _scopeManager.ResolveOwners(uri).Returns(new[] { project });
+        }
     }
 
     private static bool PathEq(string actual, string expected)
