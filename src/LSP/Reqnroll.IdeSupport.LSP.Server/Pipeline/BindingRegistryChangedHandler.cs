@@ -2,6 +2,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Features.CodeLens;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
@@ -308,13 +309,7 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
     }
 
     private static bool IsUnderProjectFolder(DocumentUri uri, string projectFolder)
-    {
-        var filePath = uri.GetFileSystemPath();
-        if (string.IsNullOrEmpty(filePath) || string.IsNullOrEmpty(projectFolder))
-            return false;
-
-        return filePath.StartsWith(projectFolder, StringComparison.OrdinalIgnoreCase);
-    }
+        => PathUtils.IsUnderFolder(uri.GetFileSystemPath(), projectFolder);
 
     /// <summary>
     /// After a Connector full replacement (which loads bindings from the compiled assembly),
@@ -386,7 +381,7 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
             if (!string.IsNullOrEmpty(path)
                 && path!.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
                 && !string.IsNullOrEmpty(entry.Text)
-                && path.StartsWith(projectFolder, StringComparison.OrdinalIgnoreCase))
+                && PathUtils.IsUnderFolder(path, projectFolder))
             {
                 openByPath[path] = entry.Text;
             }

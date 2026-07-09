@@ -3,6 +3,7 @@
 using System.IO;
 using System.Text;
 using Reqnroll.IdeSupport.Common.Configuration;
+using Reqnroll.IdeSupport.Common.ProjectSystem;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Scaffolding;
 
@@ -137,7 +138,7 @@ public static class StepDefinitionFileBuilder
         var targetDir = Path.GetDirectoryName(Path.GetFullPath(targetFilePath)) ?? string.Empty;
         var projFull  = Path.GetFullPath(projectFolder);
 
-        if (!targetDir.StartsWith(projFull, StringComparison.OrdinalIgnoreCase))
+        if (!PathUtils.IsUnderFolder(targetDir, projFull))
             return defaultNamespace;
 
         var relative = targetDir.Substring(projFull.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
