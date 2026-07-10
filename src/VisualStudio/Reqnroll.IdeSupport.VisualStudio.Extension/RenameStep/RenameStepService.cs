@@ -22,6 +22,7 @@ internal sealed class RenameStepService
     private readonly LspInterception.LspInterceptingPipe _pipe;
     private readonly ILogger<RenameStepService> _logger;
 
+    /// <summary>Creates the service over the given LSP transport pipe.</summary>
     public RenameStepService(LspInterception.LspInterceptingPipe pipe, ILogger<RenameStepService> logger)
     {
         _pipe   = pipe;

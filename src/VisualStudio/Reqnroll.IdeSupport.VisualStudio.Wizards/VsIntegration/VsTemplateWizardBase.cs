@@ -28,6 +28,12 @@ public abstract class VsTemplateWizardBase<TWizard> : IWizard
             ? null  // logger is accessed through VS infra; null-safe below
             : null;
 
+    /// <summary>
+    /// VS entry point (<see cref="IWizard.RunStarted"/>). Resolves the active project/IDE
+    /// scope, builds the <see cref="IWizardContext"/> and dispatches to the
+    /// wizard-specific <see cref="RunStarted(Project, IWizardContext, TWizard)"/> overload.
+    /// Backs out (cleaning up generated project files) if anything along the way fails.
+    /// </summary>
     public virtual void RunStarted(object automationObjectDte,
         Dictionary<string, string> replacementsDictionary,
         WizardRunKind runKind, object[] customParams)
@@ -101,10 +107,16 @@ public abstract class VsTemplateWizardBase<TWizard> : IWizard
         }
     }
 
+    /// <summary>Returns whether the wizard run is valid and the item should be added.</summary>
     public virtual bool ShouldAddProjectItem(string filePath) => _isValidRun;
 
+    /// <summary>No-op hook from <see cref="IWizard"/>; nothing to do once the project is generated.</summary>
     public virtual void ProjectFinishedGenerating(Project project) { }
 
+    /// <summary>
+    /// Applies any custom-tool, build-action, and copy-to-output-directory replacements
+    /// recorded in the wizard context to the newly generated project item.
+    /// </summary>
     public virtual void ProjectItemFinishedGenerating(ProjectItem projectItem)
     {
         if (!_isValidRun) return;
@@ -125,8 +137,10 @@ public abstract class VsTemplateWizardBase<TWizard> : IWizard
         });
     }
 
+    /// <summary>No-op hook from <see cref="IWizard"/>; nothing to do before the file opens.</summary>
     public virtual void BeforeOpeningFile(ProjectItem projectItem) { }
 
+    /// <summary>Clears the per-run wizard state after VS finishes the wizard run.</summary>
     public virtual void RunFinished()
     {
         _wizard = null;

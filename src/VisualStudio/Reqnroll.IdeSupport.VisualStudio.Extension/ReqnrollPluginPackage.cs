@@ -9,6 +9,12 @@ using Reqnroll.IdeSupport.VisualStudio.Wizards.VsIntegration;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension;
 
+/// <summary>
+/// VSSDK auto-load package for the extension: guarantees the extension activates whenever a
+/// solution exists (see the <see cref="ProvideAutoLoadAttribute"/> below), independent of whether
+/// a <c>.feature</c> file is the foreground editor. Also shows the Welcome/Upgrade dialog and
+/// registers the extension install folder on VS's assembly binding path.
+/// </summary>
 // Startup-race avoidance: ProvideAutoLoad ensures the package loads when a solution exists, even when no
 // .feature file is the foreground editor. Without this, the LSP server never starts on
 // session restore if the foreground tab is a .cs file (scenario A).
@@ -27,11 +33,13 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension;
 [Guid(PackageGuidString)]
 public sealed class ReqnrollPluginPackage : AsyncPackage
 {
+    /// <summary>The package's GUID, as registered with VS.</summary>
     public const string PackageGuidString = "8d5fe503-e038-4079-9e45-697e0dcb3758";
 
     private IIdeSupportLogger _logger = new IdeSupportNullLogger();
     private ITelemetryTransmitter? _telemetryTransmitter;
 
+    /// <inheritdoc />
     protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
     {
         await base.InitializeAsync(cancellationToken, progress);

@@ -16,6 +16,7 @@ internal sealed class ChildProcessJob : IDisposable
     private IntPtr _jobHandle;
     private bool   _disposed;
 
+    /// <summary>Creates a new Win32 Job Object configured to kill all member processes when the job is closed.</summary>
     public ChildProcessJob()
     {
         _jobHandle = NativeMethods.CreateJobObject(IntPtr.Zero, null);
@@ -68,6 +69,7 @@ internal sealed class ChildProcessJob : IDisposable
         }
     }
 
+    /// <summary>Closes the job handle. Any surviving member processes are terminated by the OS as a result.</summary>
     public void Dispose()
     {
         lock (_lock)

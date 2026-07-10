@@ -6,17 +6,26 @@ using Reqnroll.IdeSupport.VisualStudio.Wizards.Abstractions;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Wizards.VsIntegration;
 
+/// <summary>
+/// Shows the wizard WPF dialogs (add-new-project, welcome, upgrade), applying the
+/// current VS theme and wiring telemetry for link clicks.
+/// </summary>
 public class VsWizardDialogService : IWizardDialogService
 {
     private readonly IVsUIShell _vsUiShell;
     private readonly ITelemetryService? _telemetryService;
 
+    /// <summary>Creates the service, optionally wiring up telemetry for dialog link clicks.</summary>
     public VsWizardDialogService(IVsUIShell vsUiShell, ITelemetryService? telemetryService = null)
     {
         _vsUiShell = vsUiShell;
         _telemetryService = telemetryService;
     }
 
+    /// <summary>
+    /// Shows the "add new Reqnroll project" dialog modally and returns the selected
+    /// options, or <c>null</c> if the user cancelled.
+    /// </summary>
     public AddNewProjectWizardResult? ShowAddNewProjectDialog()
     {
         var vm = new AddNewReqnrollProjectViewModel();
@@ -32,6 +41,7 @@ public class VsWizardDialogService : IWizardDialogService
             vm.UnitTestFramework);
     }
 
+    /// <summary>Shows the first-install welcome dialog modally.</summary>
     public void ShowWelcomeDialog()
     {
         var vm = new WelcomeDialogViewModel();
@@ -41,6 +51,7 @@ public class VsWizardDialogService : IWizardDialogService
         WindowHelper.ShowModal(dialog);
     }
 
+    /// <summary>Shows the upgrade/changelog dialog modally for the given new version.</summary>
     public void ShowUpgradeDialog(string newVersion, string changeLog)
     {
         var vm = new UpgradeDialogViewModel(newVersion, changeLog);

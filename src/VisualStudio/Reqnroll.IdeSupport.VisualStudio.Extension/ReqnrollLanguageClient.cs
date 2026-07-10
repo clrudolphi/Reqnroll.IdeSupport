@@ -20,6 +20,12 @@ using Reqnroll.IdeSupport.VisualStudio.NavigationBar;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension;
 
+/// <summary>
+/// The VS.Extensibility <see cref="LanguageServerProvider"/> for <c>.feature</c> files: hands VS
+/// the LSP connection, and on successful initialization wires up all the runtime-created command
+/// services/renderers (Find Step Usages, Go to Hooks, Rename Step, Step Code Lens, Comment Toggle,
+/// Navigation Bar) and the DTE-based <see cref="VsProjectEventMonitor"/>.
+/// </summary>
 [VisualStudioContribution]
 internal class ReqnrollLanguageClient : LanguageServerProvider
 {
@@ -34,6 +40,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
     private readonly LspServerConnectionService _connectionService;
     private GherkinNavigationBarSymbolService? _navigationBarSymbolService;
 
+    /// <summary>Creates the language client, resolving the shared state holders and the already-launching connection service.</summary>
     public ReqnrollLanguageClient(
         ExtensionCore container,
         VisualStudioExtensibility extensibilityObject,

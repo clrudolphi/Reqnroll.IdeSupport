@@ -11,5 +11,6 @@ namespace Reqnroll.IdeSupport.VisualStudio.Package.ProjectSystem;
 /// </summary>
 public interface IVsIdeScope : IIdeScope
 {
+    /// <summary>Resolves the <see cref="IProjectScope"/> corresponding to the given DTE <paramref name="project"/>.</summary>
     IProjectScope GetProjectScope(Project project);
 }

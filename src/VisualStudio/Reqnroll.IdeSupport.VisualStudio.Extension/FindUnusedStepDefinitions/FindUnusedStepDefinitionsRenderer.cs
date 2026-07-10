@@ -19,12 +19,14 @@ internal sealed class FindUnusedStepDefinitionsRenderer
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<FindUnusedStepDefinitionsRenderer> _logger;
 
+    /// <summary>Creates the renderer over the extension's service provider.</summary>
     public FindUnusedStepDefinitionsRenderer(IServiceProvider serviceProvider, ILogger<FindUnusedStepDefinitionsRenderer> logger)
     {
         _serviceProvider = serviceProvider;
         _logger          = logger;
     }
 
+    /// <summary>Opens the Find All References window titled with the unused-count summary and populates it with <paramref name="result"/>.</summary>
     public async Task RenderAsync(
         UnusedStepDefinitionsResult result,
         CancellationToken           cancellationToken)

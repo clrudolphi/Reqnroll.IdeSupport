@@ -7,11 +7,18 @@ using System.Windows.Navigation;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Wizards.UI.Controls;
 
+/// <summary>
+/// A read-only <see cref="RichTextBox"/> that renders a small subset of Markdown
+/// (headings, bullet lists, bold/italic, links, and auto-linked "#123" issue references)
+/// as a WPF <see cref="FlowDocument"/>.
+/// </summary>
 [ContentProperty("MarkDownText")]
 public class MarkDownTextBlock : RichTextBox
 {
+    /// <summary>Base URL used to turn "#123" references in the Markdown text into hyperlinks.</summary>
     public const string IssueUrlTemplate = "https://github.com/reqnroll/Reqnroll.VisualStudio/issues/";
 
+    /// <summary>Creates the control with default read-only, borderless, transparent styling.</summary>
     public MarkDownTextBlock()
     {
         IsDocumentEnabled = true;
@@ -172,22 +179,28 @@ public class MarkDownTextBlock : RichTextBox
         }
     }
 
+    /// <summary>Flow-document paragraph representing a level-1 Markdown heading.</summary>
     public class H1 : Paragraph
     {
+        /// <summary>Creates the heading paragraph with the given text.</summary>
         public H1(string text) : base(new Run(text))
         {
         }
     }
 
+    /// <summary>Flow-document paragraph representing a level-2 Markdown heading.</summary>
     public class H2 : Paragraph
     {
+        /// <summary>Creates the heading paragraph with the given text.</summary>
         public H2(string text) : base(new Run(text))
         {
         }
     }
 
+    /// <summary>Flow-document paragraph representing a level-3 (or lower) Markdown heading.</summary>
     public class H3 : Paragraph
     {
+        /// <summary>Creates the heading paragraph with the given text.</summary>
         public H3(string text) : base(new Run(text))
         {
         }
@@ -195,6 +208,7 @@ public class MarkDownTextBlock : RichTextBox
 
     #region MarkDownText Dependency Property
 
+    /// <summary>Identifies the <see cref="MarkDownText"/> dependency property.</summary>
     public static readonly DependencyProperty MarkDownTextProperty = DependencyProperty.Register("MarkDownText",
         typeof(string), typeof(MarkDownTextBlock),
         new PropertyMetadata(string.Empty, MarkDownTextChangedCallback), MarkDownTextValidateCallback);
@@ -209,6 +223,7 @@ public class MarkDownTextBlock : RichTextBox
 
     private static bool MarkDownTextValidateCallback(object value) => value != null;
 
+    /// <summary>The Markdown-formatted text to render.</summary>
     public string MarkDownText
     {
         get => (string) GetValue(MarkDownTextProperty);
@@ -219,10 +234,12 @@ public class MarkDownTextBlock : RichTextBox
 
     #region LinkClicked Event
 
+    /// <summary>Identifies the <see cref="LinkClicked"/> routed event.</summary>
     public static readonly RoutedEvent LinkClickedEvent =
         EventManager.RegisterRoutedEvent("LinkClicked", RoutingStrategy.Bubble,
             typeof(RequestNavigateEventHandler), typeof(MarkDownTextBlock));
 
+    /// <summary>Raised when a hyperlink rendered from the Markdown text is clicked.</summary>
     public event RequestNavigateEventHandler LinkClicked
     {
         add => AddHandler(LinkClickedEvent, value);

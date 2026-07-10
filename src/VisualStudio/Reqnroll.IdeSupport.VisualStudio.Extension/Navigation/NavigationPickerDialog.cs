@@ -18,8 +18,10 @@ internal sealed class NavigationPickerDialog : DialogWindow
 {
     private readonly ListBox _listBox;
 
+    /// <summary>Index of the selected item in the list, or -1 if nothing is selected.</summary>
     public int SelectedIndex => _listBox.SelectedIndex;
 
+    /// <summary>Creates the dialog with the given title and choices, selecting the first item by default.</summary>
     public NavigationPickerDialog(string title, IReadOnlyList<NavigationTarget> targets)
     {
         Title                 = title;

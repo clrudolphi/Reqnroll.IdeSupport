@@ -25,10 +25,12 @@ public static class Alt
             : Visibility.Collapsed;
     }
 
+    /// <summary>Sets the attached <see cref="IsVisibleProperty"/> value on the given element.</summary>
     public static void SetIsVisible(DependencyObject element, bool? value)
     {
         element.SetValue(IsVisibleProperty, value);
     }
 
+    /// <summary>Gets the attached <see cref="IsVisibleProperty"/> value from the given element.</summary>
     public static bool? GetIsVisible(DependencyObject element) => (bool?) element.GetValue(IsVisibleProperty);
 }

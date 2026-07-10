@@ -21,6 +21,7 @@ internal sealed class FindStepUsagesRenderer
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<FindStepUsagesRenderer> _logger;
 
+    /// <summary>Creates the renderer with the VS service provider for opening the Find All References window.</summary>
     public FindStepUsagesRenderer(IServiceProvider serviceProvider, ILogger<FindStepUsagesRenderer> logger)
     {
         _serviceProvider = serviceProvider;

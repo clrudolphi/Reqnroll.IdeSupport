@@ -43,6 +43,7 @@ internal sealed class DocumentActivationTrackingInterceptor : ILspMessageInterce
     private readonly Func<LspInterceptingPipe?>                      _getPipe;
     private readonly ILogger<DocumentActivationTrackingInterceptor>  _logger;
 
+    /// <summary>Creates the interceptor over the shared activation-state tracker and a deferred pipe accessor.</summary>
     public DocumentActivationTrackingInterceptor(
         DocumentActivationState       state,
         Func<LspInterceptingPipe?>    getPipe,
@@ -53,6 +54,7 @@ internal sealed class DocumentActivationTrackingInterceptor : ILspMessageInterce
         _logger  = logger  ?? throw new ArgumentNullException(nameof(logger));
     }
 
+    /// <inheritdoc />
     public async Task<LspInterceptorResult> InterceptAsync(
         LspMessage        message,
         CancellationToken cancellationToken)

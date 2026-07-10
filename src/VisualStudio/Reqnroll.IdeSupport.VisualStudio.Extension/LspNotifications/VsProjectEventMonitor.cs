@@ -56,6 +56,10 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
     private bool _disposed;
     private readonly CancellationTokenSource _cts = new();
 
+    /// <summary>
+    /// Subscribes to DTE solution/build/window events and, if available,
+    /// <see cref="IVsTrackProjectDocumentsEvents2"/>. Must be called on the UI thread.
+    /// </summary>
     public VsProjectEventMonitor(
         LspInterceptingPipe pipe,
         ILogger<VsProjectEventMonitor> logger,
@@ -368,6 +372,7 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
 
     // ── IVsTrackProjectDocumentsEvents2 (per-file add/remove/rename) ─────────────
 
+    /// <summary>Fires after files are renamed; sends a <c>reqnroll/projectFiles</c> delta reflecting the rename.</summary>
     public int OnAfterRenameFiles(int cProjects, int cFiles, IVsProject[] rgpProjects, int[] rgFirstIndices,
         string[] rgszMkOldNames, string[] rgszMkNewNames, VSRENAMEFILEFLAGS[] rgFlags)
     {
@@ -376,6 +381,7 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
         return VSConstants.S_OK;
     }
 
+    /// <summary>Fires after files are added; sends a <c>reqnroll/projectFiles</c> delta adding the tracked ones.</summary>
     public int OnAfterAddFilesEx(int cProjects, int cFiles, IVsProject[] rgpProjects, int[] rgFirstIndices,
         string[] rgpszMkDocuments, VSADDFILEFLAGS[] rgFlags)
     {
@@ -384,6 +390,7 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
         return VSConstants.S_OK;
     }
 
+    /// <summary>Fires after files are removed; sends a <c>reqnroll/projectFiles</c> delta removing the tracked ones.</summary>
     public int OnAfterRemoveFiles(int cProjects, int cFiles, IVsProject[] rgpProjects, int[] rgFirstIndices,
         string[] rgpszMkDocuments, VSREMOVEFILEFLAGS[] rgFlags)
     {
@@ -502,47 +509,58 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
 
     // Directory and SCC events are not part of the file-membership index — no-ops that
     // approve/ignore. Query* methods leave the result arrays untouched (no veto).
+
+    /// <summary>No-op approval — file adds are not vetoed.</summary>
     public int OnQueryAddFiles(IVsProject pProject, int cFiles, string[] rgpszMkDocuments,
         VSQUERYADDFILEFLAGS[] rgFlags, VSQUERYADDFILERESULTS[] pSummaryResult, VSQUERYADDFILERESULTS[] rgResults)
         => VSConstants.S_OK;
 
+    /// <summary>No-op approval — directory adds are not vetoed.</summary>
     public int OnQueryAddDirectories(IVsProject pProject, int cDirectories, string[] rgpszMkDocuments,
         VSQUERYADDDIRECTORYFLAGS[] rgFlags, VSQUERYADDDIRECTORYRESULTS[] pSummaryResult,
         VSQUERYADDDIRECTORYRESULTS[] rgResults)
         => VSConstants.S_OK;
 
+    /// <summary>No-op — directory adds are not part of the file-membership index.</summary>
     public int OnAfterAddDirectoriesEx(int cProjects, int cDirectories, IVsProject[] rgpProjects,
         int[] rgFirstIndices, string[] rgpszMkDocuments, VSADDDIRECTORYFLAGS[] rgFlags)
         => VSConstants.S_OK;
 
+    /// <summary>No-op approval — file removals are not vetoed.</summary>
     public int OnQueryRemoveFiles(IVsProject pProject, int cFiles, string[] rgpszMkDocuments,
         VSQUERYREMOVEFILEFLAGS[] rgFlags, VSQUERYREMOVEFILERESULTS[] pSummaryResult,
         VSQUERYREMOVEFILERESULTS[] rgResults)
         => VSConstants.S_OK;
 
+    /// <summary>No-op approval — directory removals are not vetoed.</summary>
     public int OnQueryRemoveDirectories(IVsProject pProject, int cDirectories, string[] rgpszMkDocuments,
         VSQUERYREMOVEDIRECTORYFLAGS[] rgFlags, VSQUERYREMOVEDIRECTORYRESULTS[] pSummaryResult,
         VSQUERYREMOVEDIRECTORYRESULTS[] rgResults)
         => VSConstants.S_OK;
 
+    /// <summary>No-op — directory removals are not part of the file-membership index.</summary>
     public int OnAfterRemoveDirectories(int cProjects, int cDirectories, IVsProject[] rgpProjects,
         int[] rgFirstIndices, string[] rgpszMkDocuments, VSREMOVEDIRECTORYFLAGS[] rgFlags)
         => VSConstants.S_OK;
 
+    /// <summary>No-op approval — file renames are not vetoed.</summary>
     public int OnQueryRenameFiles(IVsProject pProject, int cFiles, string[] rgszMkOldNames,
         string[] rgszMkNewNames, VSQUERYRENAMEFILEFLAGS[] rgFlags, VSQUERYRENAMEFILERESULTS[] pSummaryResult,
         VSQUERYRENAMEFILERESULTS[] rgResults)
         => VSConstants.S_OK;
 
+    /// <summary>No-op approval — directory renames are not vetoed.</summary>
     public int OnQueryRenameDirectories(IVsProject pProject, int cDirs, string[] rgszMkOldNames,
         string[] rgszMkNewNames, VSQUERYRENAMEDIRECTORYFLAGS[] rgFlags,
         VSQUERYRENAMEDIRECTORYRESULTS[] pSummaryResult, VSQUERYRENAMEDIRECTORYRESULTS[] rgResults)
         => VSConstants.S_OK;
 
+    /// <summary>No-op — directory renames are not part of the file-membership index.</summary>
     public int OnAfterRenameDirectories(int cProjects, int cDirs, IVsProject[] rgpProjects, int[] rgFirstIndices,
         string[] rgszMkOldNames, string[] rgszMkNewNames, VSRENAMEDIRECTORYFLAGS[] rgFlags)
         => VSConstants.S_OK;
 
+    /// <summary>No-op — source-control status changes do not affect the file-membership index.</summary>
     public int OnAfterSccStatusChanged(int cProjects, int cFiles, IVsProject[] rgpProjects, int[] rgFirstIndices,
         string[] rgpszMkDocuments, uint[] rgdwSccStatus)
         => VSConstants.S_OK;
@@ -586,6 +604,7 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
 
     // ── IDisposable ───────────────────────────────────────────────────────────
 
+    /// <summary>Unsubscribes from all DTE and project-document events. Must be called on the UI thread.</summary>
     public void Dispose()
     {
         ThreadHelper.ThrowIfNotOnUIThread();

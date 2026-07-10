@@ -26,6 +26,7 @@ internal sealed class FindStepUsagesCommand : Command
     // resolvable.  Do NOT inject ReqnrollLanguageClient: contribution classes are not documented
     // as injectable into other contributions, and an unresolvable ctor dependency makes the
     // framework fail command construction silently (menu item shows, click does nothing).
+    /// <summary>Creates the command over the shared runtime state holder.</summary>
     public FindStepUsagesCommand(FindStepUsagesState state, ILogger<FindStepUsagesCommand> logger)
     {
         _state  = state;
@@ -42,6 +43,7 @@ internal sealed class FindStepUsagesCommand : Command
     // Parenting here places "Find Step Usages" alongside those navigation commands.
     private const int IDG_VS_CODEWIN_NAVIGATETOLOCATION = 0x02B1;
 
+    /// <inheritdoc />
     public override CommandConfiguration CommandConfiguration => new("Find Step Usages")
     {
         // VS.Extensibility MenuConfiguration has no Icon property, so the icon is carried on the
@@ -63,6 +65,7 @@ internal sealed class FindStepUsagesCommand : Command
         ],
     };
 
+    /// <inheritdoc />
     public override async Task ExecuteCommandAsync(IClientContext context, CancellationToken cancellationToken)
     {
         try

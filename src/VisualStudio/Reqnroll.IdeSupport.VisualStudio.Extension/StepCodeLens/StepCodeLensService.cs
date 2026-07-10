@@ -24,6 +24,7 @@ internal sealed class StepCodeLensService
     private readonly LspInterceptingPipe _pipe;
     private readonly ILogger<StepCodeLensService> _logger;
 
+    /// <summary>Creates the service over the given LSP transport pipe.</summary>
     public StepCodeLensService(LspInterceptingPipe pipe, ILogger<StepCodeLensService> logger)
     {
         _pipe   = pipe;
@@ -103,7 +104,11 @@ internal sealed class StepCodeLensService
 
 /// <summary>One code-lens item returned by the LSP server for a step-binding attribute.</summary>
 internal sealed record StepLensItem(
+    /// <summary>0-based line of the lens's range (the method-declaration line).</summary>
     int    RangeLine,
+    /// <summary>Display title, e.g. <c>"N step usages"</c>.</summary>
     string Title,
+    /// <summary>Name of the command the lens invokes when clicked.</summary>
     string CommandName,
+    /// <summary>0-based line of the step-binding attribute the command should target.</summary>
     int    ArgLine);

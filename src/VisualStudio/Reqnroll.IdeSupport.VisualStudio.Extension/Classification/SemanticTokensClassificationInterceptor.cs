@@ -30,6 +30,7 @@ internal sealed class SemanticTokensClassificationInterceptor : ILspMessageInter
     private readonly ConcurrentDictionary<string, string> _pendingByRequestId =
         new ConcurrentDictionary<string, string>(StringComparer.Ordinal);
 
+    /// <summary>Creates the interceptor with the shared token store and logger.</summary>
     public SemanticTokensClassificationInterceptor(
         SemanticTokenClassificationStore store, ILogger<SemanticTokensClassificationInterceptor> logger)
     {
@@ -37,6 +38,7 @@ internal sealed class SemanticTokensClassificationInterceptor : ILspMessageInter
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
+    /// <summary>Intercepts an LSP message, capturing semantic-token data from requests, responses, and push notifications.</summary>
     public Task<LspInterceptorResult> InterceptAsync(LspMessage message, CancellationToken cancellationToken)
     {
         try

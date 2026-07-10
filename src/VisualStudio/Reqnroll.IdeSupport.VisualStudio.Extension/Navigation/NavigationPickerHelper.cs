@@ -17,6 +17,10 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.Navigation;
 /// </remarks>
 internal static class NavigationPickerHelper
 {
+    /// <summary>
+    /// Navigates directly for a single target; shows a picker dialog and navigates to the
+    /// selection for multiple targets; no-ops for zero targets.
+    /// </summary>
     public static async Task PickAndNavigateAsync(
         IReadOnlyList<NavigationTarget> targets,
         IIdeSupportLogger                 logger,

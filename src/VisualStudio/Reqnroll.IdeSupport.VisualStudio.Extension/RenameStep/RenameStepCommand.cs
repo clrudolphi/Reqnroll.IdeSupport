@@ -15,6 +15,12 @@ using Reqnroll.IdeSupport.VisualStudio.Extension.Navigation;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.RenameStep;
 
+/// <summary>
+/// "Rename Step" command — available from both the C# and <c>.feature</c> editor context menus.
+/// Queries the server for renameable binding targets at the caret, prompts for the new step text,
+/// and sends <c>textDocument/rename</c>; the server applies the resulting edit via
+/// <c>workspace/applyEdit</c>.
+/// </summary>
 [VisualStudioContribution]
 internal sealed class RenameStepCommand : Command
 {
@@ -24,12 +30,14 @@ internal sealed class RenameStepCommand : Command
     private static readonly Guid GuidSHLMainMenu = new("{D309F791-903F-11D0-9EFC-00A0C911004F}");
     private const int IDG_VS_CODEWIN_NAVIGATETOLOCATION = 0x02B1;
 
+    /// <summary>Creates the command over the shared runtime state holder.</summary>
     public RenameStepCommand(RenameStepState state, ILogger<RenameStepCommand> logger)
     {
         _state  = state;
         _logger = logger;
     }
 
+    /// <inheritdoc />
     public override CommandConfiguration CommandConfiguration => new("Rename Step")
     {
         Icon = new CommandIconConfiguration(ImageMoniker.Custom("ReqnrollIcon"), IconSettings.IconAndText),
@@ -42,6 +50,7 @@ internal sealed class RenameStepCommand : Command
         ],
     };
 
+    /// <inheritdoc />
     public override async Task ExecuteCommandAsync(IClientContext context, CancellationToken cancellationToken)
     {
         try
