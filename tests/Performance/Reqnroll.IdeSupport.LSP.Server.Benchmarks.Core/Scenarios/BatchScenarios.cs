@@ -104,7 +104,52 @@ public static class BatchScenarios
         {
             new SkippedBatchScenario(PerfTargets.RoslynReDiscovery, reason),
             new SkippedBatchScenario(PerfTargets.ReflectionDiscovery, reason),
+            new SkippedBatchScenario(PerfTargets.StepRename, reason),
+            new SkippedBatchScenario(PerfTargets.FindUnusedStepDefinitions, reason),
         };
+    }
+
+    /// <summary>
+    /// Step rename, workspace-wide (issue #119): renames the shared "precondition N is met" step
+    /// pattern — bound once, referenced by every generated feature file (see
+    /// <c>CorpusGenerator.BuildFeature</c>) — the highest-blast-radius rename case, where the
+    /// resulting <c>WorkspaceEdit</c> touches every open feature file at once. Coarse wall-clock,
+    /// like the other workspace-wide batch scenarios; the harness never applies the returned edit
+    /// back via <c>workspace/applyEdit</c>, so the registry is unchanged and repetitions are
+    /// idempotent.
+    /// </summary>
+    public static async Task<LatencySummary> StepRenameAsync(
+        BenchmarkLspHarness harness, IReadOnlyList<OpenFeature> features, int repetitions = 5)
+    {
+        var recorder = new LatencyRecorder(PerfTargets.StepRename.Operation);
+        for (var rep = 0; rep < repetitions; rep++)
+        {
+            var f = features[rep % features.Count];
+            var (line, character) = f.StepPosition;
+            var start = Stopwatch.GetTimestamp();
+            await harness.RequestRenameAsync(f.Uri, line, character, $"precondition renamed {rep} is met")
+                .ConfigureAwait(false);
+            recorder.Add(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
+        }
+        return recorder.Summarize();
+    }
+
+    /// <summary>
+    /// Find unused step definitions, workspace-wide (issue #119): a full scan comparing every
+    /// step-definition binding against every step usage across the corpus. Coarse wall-clock, like
+    /// the other workspace-wide batch scenarios.
+    /// </summary>
+    public static async Task<LatencySummary> FindUnusedStepDefinitionsAsync(
+        BenchmarkLspHarness harness, int repetitions = 5)
+    {
+        var recorder = new LatencyRecorder(PerfTargets.FindUnusedStepDefinitions.Operation);
+        for (var rep = 0; rep < repetitions; rep++)
+        {
+            var start = Stopwatch.GetTimestamp();
+            await harness.RequestFindUnusedStepDefinitionsAsync().ConfigureAwait(false);
+            recorder.Add(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
+        }
+        return recorder.Summarize();
     }
 
     /// <summary>

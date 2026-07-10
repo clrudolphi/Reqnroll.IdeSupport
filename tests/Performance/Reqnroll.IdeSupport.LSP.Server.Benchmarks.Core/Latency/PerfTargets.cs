@@ -60,6 +60,27 @@ public static class PerfTargets
     public static readonly PerfTarget FoldingRange =
         new("textDocument/foldingRange", 0, PerfTargetKind.InteractiveP95, "Folding ranges (session load)");
 
+    // Measured-but-unpublished operations (issue #119): field-instrumented (see #113/#118) but no
+    // threshold exists yet in the architecture's §9 Performance Requirements table, so TargetMs is
+    // 0 (rendered "—", never asserted) until one is proposed and published there. Not part of
+    // <see cref="All"/>. Step Rename and Find Unused Step Definitions are workspace-wide operations
+    // (Batch-classified — median wall-clock, like the discovery scenarios) rather than a per-request
+    // percentile.
+    public static readonly PerfTarget StepPrepareRename =
+        new("textDocument/prepareRename", 0, PerfTargetKind.InteractiveP95, "Prepare rename validity check (F16)");
+
+    public static readonly PerfTarget RenameTargets =
+        new("reqnroll/renameTargets", 0, PerfTargetKind.InteractiveP95, "Rename target picker candidates (F16)");
+
+    public static readonly PerfTarget StepRename =
+        new("textDocument/rename", 0, PerfTargetKind.Batch, "Step rename, workspace-wide WorkspaceEdit (F16)");
+
+    public static readonly PerfTarget FindUnusedStepDefinitions =
+        new("reqnroll/findUnusedStepDefinitions", 0, PerfTargetKind.Batch, "Find unused step definitions, workspace-wide scan (F15)");
+
+    public static readonly PerfTarget SemanticTokensDelta =
+        new("textDocument/semanticTokens/full/delta", 0, PerfTargetKind.InteractiveP95, "Semantic tokens delta pull");
+
     /// <summary>All performance targets, in table order.</summary>
     public static readonly IReadOnlyList<PerfTarget> All = new[]
     {

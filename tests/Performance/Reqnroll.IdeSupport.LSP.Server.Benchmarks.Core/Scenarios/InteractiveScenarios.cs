@@ -115,6 +115,55 @@ public sealed class InteractiveScenarios
         }).ConfigureAwait(false);
 
     /// <summary>
+    /// Semantic tokens delta pull. The server doesn't maintain real delta state (see
+    /// <c>SemanticTokensHandler</c> — it always returns the full token set wrapped in a
+    /// <c>SemanticTokensFullOrDelta</c>), but this still exercises the delta wire shape and the
+    /// handler's own dispatch/serialization cost, which the plain "full" scenario never reaches.
+    /// A <c>previousResultId</c> is fetched once per feature outside the timed window (an untimed
+    /// setup step, not part of what's measured).
+    /// </summary>
+    public async Task<LatencySummary> SemanticTokensDeltaAsync()
+    {
+        var resultIds = new string[_features.Count];
+        for (var i = 0; i < _features.Count; i++)
+        {
+            var full = await _harness.RequestSemanticTokensAsync(_features[i].Uri).ConfigureAwait(false);
+            resultIds[i] = full?.ResultId ?? "";
+        }
+
+        return await RunAsync(PerfTargets.SemanticTokensDelta.Operation, async i =>
+        {
+            var f = _features[i % _features.Count];
+            await _harness.RequestSemanticTokensDeltaAsync(f.Uri, resultIds[i % _features.Count])
+                .ConfigureAwait(false);
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// <c>textDocument/prepareRename</c> at a bound step position — the validity check that fires
+    /// before a client shows the rename box (F16).
+    /// </summary>
+    public async Task<LatencySummary> PrepareRenameAsync()
+        => await RunAsync(PerfTargets.StepPrepareRename.Operation, async i =>
+        {
+            var f = _features[i % _features.Count];
+            var (line, character) = f.StepPosition;
+            await _harness.RequestPrepareRenameAsync(f.Uri, line, character).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+    /// <summary>
+    /// <c>reqnroll/renameTargets</c> at a bound step position — the picker candidates request that
+    /// precedes rename when the cursor position resolves to more than one renameable attribute (F16).
+    /// </summary>
+    public async Task<LatencySummary> RenameTargetsAsync()
+        => await RunAsync(PerfTargets.RenameTargets.Operation, async i =>
+        {
+            var f = _features[i % _features.Count];
+            var (line, character) = f.StepPosition;
+            await _harness.RequestRenameTargetsAsync(f.Uri, line, character).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+    /// <summary>
     /// Measures the diagnostics push: edit a feature (introducing a changed step) and time from the
     /// didChange to the publishDiagnostics for that URI.
     /// </summary>

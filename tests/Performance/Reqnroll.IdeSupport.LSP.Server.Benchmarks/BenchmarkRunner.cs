@@ -74,9 +74,12 @@ public static class BenchmarkRunner
         var summaries = new List<(PerfTarget Target, LatencySummary Summary)>
         {
             (PerfTargets.SemanticTokensFull, await scenarios.SemanticTokensAsync().ConfigureAwait(false)),
+            (PerfTargets.SemanticTokensDelta, await scenarios.SemanticTokensDeltaAsync().ConfigureAwait(false)),
             (PerfTargets.CompletionKeyword, await scenarios.KeywordCompletionAsync().ConfigureAwait(false)),
             (PerfTargets.CompletionStep, await scenarios.StepCompletionAsync().ConfigureAwait(false)),
             (PerfTargets.DefinitionCacheHit, await scenarios.DefinitionAsync().ConfigureAwait(false)),
+            (PerfTargets.StepPrepareRename, await scenarios.PrepareRenameAsync().ConfigureAwait(false)),
+            (PerfTargets.RenameTargets, await scenarios.RenameTargetsAsync().ConfigureAwait(false)),
             (PerfTargets.PublishDiagnostics, await scenarios.DiagnosticsPushAsync().ConfigureAwait(false)),
         };
 
@@ -106,6 +109,12 @@ public static class BenchmarkRunner
             summaries.Add((PerfTargets.ReflectionDiscovery,
                 await BatchScenarios.ReflectionDiscoveryAsync(corpusRoot, corpusAssembly)
                     .ConfigureAwait(false)));
+
+            Console.WriteLine("Running workspace-wide batch scenarios (step rename, find unused step definitions)...");
+            summaries.Add((PerfTargets.StepRename,
+                await BatchScenarios.StepRenameAsync(harness, features).ConfigureAwait(false)));
+            summaries.Add((PerfTargets.FindUnusedStepDefinitions,
+                await BatchScenarios.FindUnusedStepDefinitionsAsync(harness).ConfigureAwait(false)));
         }
 
         var results = summaries.Select(s => new OperationResult(s.Target, s.Summary)).ToList();

@@ -13,7 +13,10 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Server;
+using Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs;
+using Reqnroll.IdeSupport.LSP.Server.Features.Rename;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Benchmarks.Harness;
 
@@ -218,6 +221,51 @@ public sealed class BenchmarkLspHarness : IAsyncDisposable
     public Task<Container<FoldingRange>?> RequestFoldingRangeAsync(DocumentUri uri, CancellationToken ct = default) =>
         RequestAsync<Container<FoldingRange>?>("textDocument/foldingRange",
             new FoldingRangeRequestParam { TextDocument = new TextDocumentIdentifier { Uri = uri } }, ct);
+
+    public Task<SemanticTokensFullOrDelta?> RequestSemanticTokensDeltaAsync(
+        DocumentUri uri, string previousResultId, CancellationToken ct = default) =>
+        RequestAsync<SemanticTokensFullOrDelta?>(LspMethodNames.TextDocumentSemanticTokensFullDelta,
+            new SemanticTokensDeltaParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = uri },
+                PreviousResultId = previousResultId,
+            }, ct);
+
+    // ── Rename (F16) ─────────────────────────────────────────────────────────────
+
+    public Task<RangeOrPlaceholderRange?> RequestPrepareRenameAsync(
+        DocumentUri uri, int line, int character, CancellationToken ct = default) =>
+        RequestAsync<RangeOrPlaceholderRange?>(LspMethodNames.TextDocumentPrepareRename,
+            new PrepareRenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = uri },
+                Position = new Position(line, character),
+            }, ct);
+
+    public Task<WorkspaceEdit?> RequestRenameAsync(
+        DocumentUri uri, int line, int character, string newName, CancellationToken ct = default) =>
+        RequestAsync<WorkspaceEdit?>(LspMethodNames.TextDocumentRename,
+            new RenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = uri },
+                Position = new Position(line, character),
+                NewName = newName,
+            }, ct);
+
+    public Task<RenameTargetsResponse?> RequestRenameTargetsAsync(
+        DocumentUri uri, int line, int character, CancellationToken ct = default) =>
+        RequestAsync<RenameTargetsResponse?>(LspMethodNames.ReqnrollRenameTargets,
+            new TextDocumentPositionParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = uri },
+                Position = new Position(line, character),
+            }, ct);
+
+    // ── Find unused step definitions (F15) ──────────────────────────────────────
+
+    public Task<FindUnusedStepDefinitionsResponse?> RequestFindUnusedStepDefinitionsAsync(CancellationToken ct = default) =>
+        RequestAsync<FindUnusedStepDefinitionsResponse?>(
+            LspMethodNames.ReqnrollFindUnusedStepDefinitions, new FindUnusedStepDefinitionsParams(), ct);
 
     // ── Diagnostics push timing ─────────────────────────────────────────────────
 
