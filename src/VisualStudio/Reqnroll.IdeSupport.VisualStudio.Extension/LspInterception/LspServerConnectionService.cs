@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Pipelines;
@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Shell;
 using Nerdbank.Streams;
-using Reqnroll.IdeSupport.Common.Analytics;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.VisualStudio.Extension.Classification;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspNotifications;
 using Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
@@ -98,7 +98,7 @@ internal sealed class LspServerConnectionService : IDisposable
     /// available (post-init, main thread). Read lazily by <see cref="TelemetryEventInterceptor"/>,
     /// which is constructed before this is known.
     /// </summary>
-    public IAnalyticsTransmitter? AnalyticsTransmitter { get; set; }
+    public ITelemetryTransmitter? AnalyticsTransmitter { get; set; }
 
     /// <summary>
     /// Set by <see cref="ReqnrollLanguageClient"/> once the project monitor is constructed

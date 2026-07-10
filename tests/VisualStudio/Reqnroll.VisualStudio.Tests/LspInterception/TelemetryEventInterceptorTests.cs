@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json.Linq;
-using Reqnroll.IdeSupport.Common.Analytics;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 using Xunit;
 
@@ -17,15 +17,15 @@ namespace Reqnroll.VisualStudio.Tests.LspInterception;
 /// </summary>
 public class TelemetryEventInterceptorTests
 {
-    private sealed class CapturingTransmitter : IAnalyticsTransmitter
+    private sealed class CapturingTransmitter : ITelemetryTransmitter
     {
-        public List<IAnalyticsEvent> Events { get; } = new();
-        public void TransmitEvent(IAnalyticsEvent runtimeEvent) => Events.Add(runtimeEvent);
+        public List<ITelemetryEvent> Events { get; } = new();
+        public void TransmitEvent(ITelemetryEvent runtimeEvent) => Events.Add(runtimeEvent);
         public void TransmitExceptionEvent(Exception exception, IEnumerable<KeyValuePair<string, object>> additionalProps) { }
         public void TransmitFatalExceptionEvent(Exception exception, bool isFatal) { }
     }
 
-    private static TelemetryEventInterceptor Create(IAnalyticsTransmitter? transmitter) =>
+    private static TelemetryEventInterceptor Create(ITelemetryTransmitter? transmitter) =>
         new(() => transmitter, NullLogger<TelemetryEventInterceptor>.Instance);
 
     private static LspMessage Receive(JObject body) => new(LspMessageDirection.Receive, body, DateTimeOffset.Now);

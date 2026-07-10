@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.ApplicationInsights.Extensibility;
-using Reqnroll.IdeSupport.Common.Analytics;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.Common.Logging;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Analytics;
@@ -25,21 +25,21 @@ namespace Reqnroll.IdeSupport.VisualStudio.Analytics;
 /// (Welcome wizard, New Project wizard, install/upgrade) are raised before any server
 /// exists, transmission is necessarily host-side, so each IDE owns its own transmitter
 /// (VS in .NET here, VSCode in TypeScript, Rider on the JVM). The IDE-neutral contracts
-/// (<see cref="IAnalyticsTransmitter"/>, <see cref="IAnalyticsEvent"/>) stay in
+/// (<see cref="ITelemetryTransmitter"/>, <see cref="ITelemetryEvent"/>) stay in
 /// Core/Common so the cross-platform server's dependency graph never pulls in AppInsights.
 /// </para>
 /// </summary>
-[Export(typeof(IAnalyticsTransmitter))]
-public class AnalyticsTransmitter : IAnalyticsTransmitter, IAsyncDisposable
+[Export(typeof(ITelemetryTransmitter))]
+public class AnalyticsTransmitter : ITelemetryTransmitter, IAsyncDisposable
 {
     private readonly TelemetryClient _telemetryClient;
-    private readonly IEnableAnalyticsChecker _enableAnalyticsChecker;
+    private readonly IEnableTelemetryChecker _enableAnalyticsChecker;
     private readonly IIdeSupportLogger? _logger;
     private readonly ITelemetryDebugLog _debugLog;
 
     [ImportingConstructor]
     public AnalyticsTransmitter(
-        IEnableAnalyticsChecker enableAnalyticsChecker,
+        IEnableTelemetryChecker enableAnalyticsChecker,
         IUserUniqueIdStore userUniqueIdStore,
         IVersionProvider versionProvider,
         Reqnroll.IdeSupport.VisualStudio.Diagnostics.IdeSupportCompositeLogger? logger = null)
@@ -55,7 +55,7 @@ public class AnalyticsTransmitter : IAnalyticsTransmitter, IAsyncDisposable
     /// </summary>
     internal AnalyticsTransmitter(
         TelemetryClient telemetryClient,
-        IEnableAnalyticsChecker enableAnalyticsChecker,
+        IEnableTelemetryChecker enableAnalyticsChecker,
         IIdeSupportLogger? logger = null,
         ITelemetryDebugLog? debugLog = null)
     {
@@ -83,7 +83,7 @@ public class AnalyticsTransmitter : IAnalyticsTransmitter, IAsyncDisposable
         return client;
     }
 
-    public void TransmitEvent(IAnalyticsEvent analyticsEvent)
+    public void TransmitEvent(ITelemetryEvent analyticsEvent)
     {
         var enabled = _enableAnalyticsChecker.IsEnabled();
         try
@@ -180,7 +180,7 @@ public class AnalyticsTransmitter : IAnalyticsTransmitter, IAsyncDisposable
     }
 
     [Conditional("ANALYTICS_DEBUG")]
-    private void DumpAnalyticsEvent(IAnalyticsEvent analyticsEvent)
+    private void DumpAnalyticsEvent(ITelemetryEvent analyticsEvent)
     {
         _logger?.LogVerbose(() => $"{analyticsEvent.EventName}: {string.Join(Environment.NewLine + "  ", analyticsEvent.Properties.Select(p => $"{p.Key}={p.Value}"))}");
     }

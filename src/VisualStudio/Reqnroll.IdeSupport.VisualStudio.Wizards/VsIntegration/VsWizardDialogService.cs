@@ -1,7 +1,8 @@
-// VsIntegration layer — VS SDK references are expected here.
+﻿// VsIntegration layer — VS SDK references are expected here.
 using Microsoft.Internal.VisualStudio.PlatformUI;
 using Microsoft.VisualStudio.Shell.Interop;
 using Reqnroll.IdeSupport.Common;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.VisualStudio.Wizards.Abstractions;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Wizards.VsIntegration;
@@ -9,9 +10,9 @@ namespace Reqnroll.IdeSupport.VisualStudio.Wizards.VsIntegration;
 public class VsWizardDialogService : IWizardDialogService
 {
     private readonly IVsUIShell _vsUiShell;
-    private readonly IMonitoringService? _monitoringService;
+    private readonly ITelemetryService? _monitoringService;
 
-    public VsWizardDialogService(IVsUIShell vsUiShell, IMonitoringService? monitoringService = null)
+    public VsWizardDialogService(IVsUIShell vsUiShell, ITelemetryService? monitoringService = null)
     {
         _vsUiShell = vsUiShell;
         _monitoringService = monitoringService;

@@ -1,14 +1,14 @@
-using System;
+﻿using System;
 using System.Linq;
 
-namespace Reqnroll.IdeSupport.Common.Analytics;
+namespace Reqnroll.IdeSupport.Common.Telemetry;
 
-public interface IEnableAnalyticsChecker
+public interface IEnableTelemetryChecker
 {
     bool IsEnabled();
 }
 
-public class EnableAnalyticsChecker : IEnableAnalyticsChecker
+public class EnableAnalyticsChecker : IEnableTelemetryChecker
 {
     public const string ReqnrollTelemetryEnvironmentVariable = "REQNROLL_TELEMETRY_ENABLED";
 

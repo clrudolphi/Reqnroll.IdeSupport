@@ -7,7 +7,7 @@ global using Microsoft.CodeAnalysis;
 global using Microsoft.CodeAnalysis.CSharp;
 global using NSubstitute;
 global using Reqnroll.IdeSupport.Common;
-global using Reqnroll.IdeSupport.Common.Analytics;
+global using Reqnroll.IdeSupport.Common.Telemetry;
 global using Reqnroll.IdeSupport.Common.Configuration;
 global using Reqnroll.IdeSupport.Common.Logging;
 global using Reqnroll.IdeSupport.Common.ProjectSystem;

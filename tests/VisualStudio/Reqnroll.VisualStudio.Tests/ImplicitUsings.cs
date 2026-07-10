@@ -13,7 +13,7 @@ global using Microsoft.VisualStudio.Utilities;
 global using NSubstitute;
 // New Reqnroll.IdeSupport.* namespaces (replacing old Reqnroll.VisualStudio.*)
 global using Reqnroll.IdeSupport.Common;
-global using Reqnroll.IdeSupport.Common.Analytics;
+global using Reqnroll.IdeSupport.Common.Telemetry;
 global using Reqnroll.IdeSupport.Common.Configuration;
 global using Reqnroll.IdeSupport.Common.Logging;
 global using Reqnroll.IdeSupport.Common.ProjectSystem;

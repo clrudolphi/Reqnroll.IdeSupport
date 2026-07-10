@@ -1,4 +1,4 @@
-#nullable disable
+﻿#nullable disable
 using Gherkin;
 using GherkinLocation = Gherkin.Ast.Location;
 using NSubstitute;
@@ -48,7 +48,7 @@ public class CompletionContextResolverTests
             "I do it", null, StepKeyword.When, ScenarioBlock.When);
 
     private readonly IDeveroomTagParser _tagParser  = Substitute.For<IDeveroomTagParser>();
-    private readonly IMonitoringService _monitoring = Substitute.For<IMonitoringService>();
+    private readonly ITelemetryService _monitoring = Substitute.For<ITelemetryService>();
     private readonly CompletionContextResolver _sut;
 
     public CompletionContextResolverTests()

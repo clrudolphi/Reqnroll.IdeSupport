@@ -1,4 +1,4 @@
-namespace Reqnroll.IdeSupport.Common.Analytics;
+namespace Reqnroll.IdeSupport.Common.Telemetry;
 
 public class GuidanceStep
 {

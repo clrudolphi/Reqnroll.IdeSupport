@@ -6,6 +6,7 @@ using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.LSP.Core.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.Completions;
 using Reqnroll.IdeSupport.LSP.Core.Completions.Matching;
@@ -72,7 +73,7 @@ public static class ServiceCollectionExtensions
             // "protocol" file gated by the independent --protocol-log-level. Any new code that wants
             // ILogger<T> gets the correctly-configured one for free from that existing pipeline.
             .AddSingleton<IIdeScope, LspIdeScope>()
-            .AddSingleton<IMonitoringService>(sp => NullMonitoringService.Instance)
+            .AddSingleton<ITelemetryService>(sp => NullMonitoringService.Instance)
             // Telemetry: emit telemetry/event notifications, optionally mirrored to a local JSONL
             // debug log (REQNROLL_TELEMETRY_DEBUG_LOG). The decorator wraps the real emitter; when
             // the debug log is unconfigured the sink is a no-op and it simply forwards.

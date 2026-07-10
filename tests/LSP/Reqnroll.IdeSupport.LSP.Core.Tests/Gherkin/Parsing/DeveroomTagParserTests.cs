@@ -9,13 +9,13 @@ namespace Reqnroll.IdeSupport.LSP.Core.Tests.Gherkin.Parsing;
 public class DeveroomTagParserTests
 {
     private readonly IIdeSupportLogger _logger;
-    private readonly IMonitoringService _monitoringService;
+    private readonly ITelemetryService _monitoringService;
     private readonly IDeveroomConfigurationProvider _configProvider;
 
     public DeveroomTagParserTests()
     {
         _logger = Substitute.For<IIdeSupportLogger>();
-        _monitoringService = Substitute.For<IMonitoringService>();
+        _monitoringService = Substitute.For<ITelemetryService>();
         _configProvider = Substitute.For<IDeveroomConfigurationProvider>();
         _configProvider.GetConfiguration().Returns(new DeveroomConfiguration());
     }

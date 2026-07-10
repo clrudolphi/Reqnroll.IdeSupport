@@ -1,13 +1,13 @@
-#nullable disable
+﻿#nullable disable
 
-using Reqnroll.IdeSupport.Common.Analytics;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
 using System;
 using System.Collections.Generic;
 
-namespace Reqnroll.IdeSupport.Common;
+namespace Reqnroll.IdeSupport.Common.Telemetry;
 
-public interface IMonitoringService
+public interface ITelemetryService
 {
     void MonitorLoadProjectSystem();
     void MonitorOpenProjectSystem(IIdeScope ideScope);
@@ -46,5 +46,5 @@ public interface IMonitoringService
 
     void MonitorUpgradeDialogDismissed(Dictionary<string, object> additionalProps);
     void MonitorWelcomeDialogDismissed(Dictionary<string, object> additionalProps);
-    void TransmitEvent(IAnalyticsEvent runtimeEvent);
+    void TransmitEvent(ITelemetryEvent runtimeEvent);
 }

@@ -4,6 +4,7 @@ using System.Xml.XPath;
 using System.Xml.Linq;
 using System.Collections.Generic;
 using Reqnroll.IdeSupport.Common.Logging;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.Common.Configuration;
 using System.Linq;
 using System.IO;
@@ -32,7 +33,7 @@ public class ProjectScopeDeveroomConfigurationProvider : IDeveroomConfigurationP
     }
 
     private IIdeSupportLogger Logger => _projectScope.IdeScope.Logger;
-    private IMonitoringService MonitoringService => _projectScope.IdeScope.MonitoringService;
+    private ITelemetryService MonitoringService => _projectScope.IdeScope.MonitoringService;
     private IFileSystemForIDE FileSystem => _projectScope.IdeScope.FileSystem;
 
     //public event EventHandler<EventArgs> WeakConfigurationChanged

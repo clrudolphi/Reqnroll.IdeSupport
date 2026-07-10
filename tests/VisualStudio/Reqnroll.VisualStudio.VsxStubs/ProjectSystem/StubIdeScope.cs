@@ -66,7 +66,7 @@ public class StubIdeScope : IIdeScope, IDisposable
         Substitute.For<IDeveroomOutputPaneServices>();
 
     public IDeveroomErrorListServices DeveroomErrorListServices => StubErrorListServices;
-    public IMonitoringService MonitoringService { get; }
+    public ITelemetryService MonitoringService { get; }
 
     public event EventHandler<EventArgs> WeakProjectsBuilt = null!;
     public event EventHandler<EventArgs> WeakProjectOutputsUpdated = null!;

@@ -1,4 +1,5 @@
 ﻿using Reqnroll.IdeSupport.Common.Logging;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using System;
 
 namespace Reqnroll.IdeSupport.Common;
@@ -12,7 +13,7 @@ public interface IIdeScope
 {
     bool IsSolutionLoaded { get; }
     IIdeSupportLogger Logger { get; }
-    IMonitoringService MonitoringService { get; }
+    ITelemetryService MonitoringService { get; }
     IIdeActions Actions { get; }
     IFileSystemForIDE FileSystem { get; }
 }

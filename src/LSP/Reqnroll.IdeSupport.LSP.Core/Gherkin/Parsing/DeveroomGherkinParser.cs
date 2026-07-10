@@ -2,16 +2,17 @@
 
 using Gherkin.Ast;
 using Reqnroll.IdeSupport.Common;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using System.IO;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
 
 public class DeveroomGherkinParser
 {
-    private readonly IMonitoringService _monitoringService;
+    private readonly ITelemetryService _monitoringService;
     private IAstBuilder<DeveroomGherkinDocument> _astBuilder;
 
-    public DeveroomGherkinParser(IGherkinDialectProvider dialectProvider, IMonitoringService monitoringService)
+    public DeveroomGherkinParser(IGherkinDialectProvider dialectProvider, ITelemetryService monitoringService)
     {
         _monitoringService = monitoringService;
         DialectProvider = dialectProvider;
@@ -88,11 +89,11 @@ public class DeveroomGherkinParser
 
     private class InternalParser : Parser<DeveroomGherkinDocument>
     {
-        private readonly IMonitoringService _monitoringService;
+        private readonly ITelemetryService _monitoringService;
         private readonly Action<int, int> _recordStateForLine;
 
         public InternalParser(IAstBuilder<DeveroomGherkinDocument> astBuilder, Action<int, int> recordStateForLine,
-            IMonitoringService monitoringService)
+            ITelemetryService monitoringService)
             : base(astBuilder)
         {
             _recordStateForLine = recordStateForLine;
@@ -268,7 +269,7 @@ public class DeveroomGherkinParser
         public Token Read() => new Token(new Location());
     }
 
-    public static TokenType[] GetExpectedTokens(int state, IMonitoringService monitoringService)
+    public static TokenType[] GetExpectedTokens(int state, ITelemetryService monitoringService)
     {
         var parser = new InternalParser(new NullAstBuilder(), null, monitoringService)
         {

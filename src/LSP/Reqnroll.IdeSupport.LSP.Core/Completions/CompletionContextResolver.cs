@@ -1,5 +1,6 @@
-using Gherkin;
+﻿using Gherkin;
 using Reqnroll.IdeSupport.Common;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Core.Documents;
 
@@ -19,9 +20,9 @@ namespace Reqnroll.IdeSupport.LSP.Core.Completions;
 public sealed class CompletionContextResolver : ICompletionContextResolver
 {
     private readonly IDeveroomTagParser _tagParser;
-    private readonly IMonitoringService _monitoringService;
+    private readonly ITelemetryService _monitoringService;
 
-    public CompletionContextResolver(IDeveroomTagParser tagParser, IMonitoringService monitoringService)
+    public CompletionContextResolver(IDeveroomTagParser tagParser, ITelemetryService monitoringService)
     {
         _tagParser         = tagParser;
         _monitoringService = monitoringService;

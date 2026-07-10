@@ -1,5 +1,6 @@
-using Gherkin.Ast;
+﻿using Gherkin.Ast;
 using Reqnroll.IdeSupport.Common;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using System;
 using System.Linq;
 
@@ -18,7 +19,7 @@ public class DeveroomGherkinDocument : GherkinDocument
 
     public GherkinDialect GherkinDialect { get; }
 
-    public TokenType[] GetExpectedTokens(int line, IMonitoringService monitoringService)
+    public TokenType[] GetExpectedTokens(int line, ITelemetryService monitoringService)
     {
         if (_statesForLines.Count <= line)
             return new TokenType[0];

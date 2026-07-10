@@ -4,6 +4,7 @@ using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.LSP.Connector.Models;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
@@ -18,7 +19,7 @@ public abstract class OutProcReqnrollConnector
     protected readonly DeveroomConfiguration _configuration;
     protected readonly string _extensionFolder;
     protected readonly IIdeSupportLogger _logger;
-    protected readonly IMonitoringService _monitoringService;
+    protected readonly ITelemetryService _monitoringService;
     protected readonly ProcessorArchitectureSetting _processorArchitecture;
     protected readonly ProjectSettings _projectSettings;
     protected readonly TargetFrameworkMoniker _targetFrameworkMoniker;
@@ -27,7 +28,7 @@ public abstract class OutProcReqnrollConnector
     protected OutProcReqnrollConnector(DeveroomConfiguration configuration, IIdeSupportLogger logger,
         TargetFrameworkMoniker targetFrameworkMoniker, string extensionFolder,
         ProcessorArchitectureSetting processorArchitecture, ProjectSettings projectSettings,
-        IMonitoringService monitoringService)
+        ITelemetryService monitoringService)
     {
         _configuration = configuration;
         _logger = logger;

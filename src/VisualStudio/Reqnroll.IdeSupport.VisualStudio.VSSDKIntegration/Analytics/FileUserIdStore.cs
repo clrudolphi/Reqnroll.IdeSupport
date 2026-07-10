@@ -1,5 +1,5 @@
 using Reqnroll.IdeSupport.Common;
-using Reqnroll.IdeSupport.Common.Analytics;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using System;
 using System.ComponentModel.Composition;
 

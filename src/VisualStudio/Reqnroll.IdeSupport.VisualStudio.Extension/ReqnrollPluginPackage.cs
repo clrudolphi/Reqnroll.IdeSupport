@@ -3,7 +3,7 @@ using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Reqnroll.IdeSupport.Common;
-using Reqnroll.IdeSupport.Common.Analytics;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.VisualStudio.Wizards.VsIntegration;
 using System;
@@ -35,7 +35,7 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
     public const string PackageGuidString = "8d5fe503-e038-4079-9e45-697e0dcb3758";
 
     private IIdeSupportLogger _logger = new IdeSupportNullLogger();
-    private IAnalyticsTransmitter? _analyticsTransmitter;
+    private ITelemetryTransmitter? _analyticsTransmitter;
 
     protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
     {
@@ -50,7 +50,7 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
             if (sp != null)
             {
                 _logger = VsUtils.ResolveMefDependency<IIdeSupportLogger>(sp) ?? new IdeSupportNullLogger();
-                _analyticsTransmitter = VsUtils.ResolveMefDependency<IAnalyticsTransmitter>(sp);
+                _analyticsTransmitter = VsUtils.ResolveMefDependency<ITelemetryTransmitter>(sp);
             }
         }
 

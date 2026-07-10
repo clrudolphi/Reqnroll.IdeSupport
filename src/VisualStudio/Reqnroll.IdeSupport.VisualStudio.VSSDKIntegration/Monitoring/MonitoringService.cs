@@ -1,20 +1,20 @@
-#nullable disable
+﻿#nullable disable
 using Reqnroll.IdeSupport.Common;
-using Reqnroll.IdeSupport.Common.Analytics;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
 using System.Collections.Immutable;
 using System.ComponentModel.Composition;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Monitoring;
 
-[Export(typeof(IMonitoringService))]
-public class MonitoringService : IMonitoringService
+[Export(typeof(ITelemetryService))]
+public class MonitoringService : ITelemetryService
 {
-    private readonly IAnalyticsTransmitter _analyticsTransmitter;
+    private readonly ITelemetryTransmitter _analyticsTransmitter;
     //private readonly IWelcomeService _welcomeService;
 
     [ImportingConstructor]
-    public MonitoringService(IAnalyticsTransmitter analyticsTransmitter)
+    public MonitoringService(ITelemetryTransmitter analyticsTransmitter)
     {
         _analyticsTransmitter = analyticsTransmitter;
     }
@@ -169,7 +169,7 @@ public class MonitoringService : IMonitoringService
             additionalProps));
     }
 
-    public void TransmitEvent(IAnalyticsEvent runtimeEvent)
+    public void TransmitEvent(ITelemetryEvent runtimeEvent)
         => _analyticsTransmitter.TransmitEvent(runtimeEvent);
 
 

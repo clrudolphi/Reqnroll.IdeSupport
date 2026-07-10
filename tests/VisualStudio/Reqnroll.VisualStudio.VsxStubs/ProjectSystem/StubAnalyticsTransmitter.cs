@@ -1,7 +1,7 @@
 ﻿#nullable enable
 namespace Reqnroll.VisualStudio.VsxStubs.ProjectSystem;
 
-public class StubAnalyticsTransmitter : IAnalyticsTransmitter, IEnumerable<IAnalyticsEvent>
+public class StubAnalyticsTransmitter : ITelemetryTransmitter, IEnumerable<ITelemetryEvent>
 {
     private readonly IIdeSupportLogger _logger;
 
@@ -10,9 +10,9 @@ public class StubAnalyticsTransmitter : IAnalyticsTransmitter, IEnumerable<IAnal
         _logger = logger;
     }
 
-    private ConcurrentBag<IAnalyticsEvent> Events { get; } = new();
+    private ConcurrentBag<ITelemetryEvent> Events { get; } = new();
 
-    public void TransmitEvent(IAnalyticsEvent runtimeEvent)
+    public void TransmitEvent(ITelemetryEvent runtimeEvent)
     {
         Events.Add(runtimeEvent);
         _logger.LogVerbose(runtimeEvent.EventName);
@@ -28,7 +28,7 @@ public class StubAnalyticsTransmitter : IAnalyticsTransmitter, IEnumerable<IAnal
         //nop
     }
 
-    public IEnumerator<IAnalyticsEvent> GetEnumerator() => Events.GetEnumerator();
+    public IEnumerator<ITelemetryEvent> GetEnumerator() => Events.GetEnumerator();
 
     IEnumerator IEnumerable.GetEnumerator() => Events.GetEnumerator();
 }

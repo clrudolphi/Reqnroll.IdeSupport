@@ -1,4 +1,4 @@
-using System.IO.Pipelines;
+﻿using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -7,7 +7,7 @@ using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.LanguageServer;
 using Microsoft.VisualStudio.RpcContracts.LanguageServerProvider;
 using Microsoft.VisualStudio.Shell;
-using Reqnroll.IdeSupport.Common.Analytics;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.VisualStudio.Extension.CommentToggle;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
@@ -153,7 +153,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
                     .SwitchToMainThreadAsync(cancellationToken);
 
                 var serviceProvider = ServiceProvider.GlobalProvider;
-                _connectionService.AnalyticsTransmitter = ResolveMefService<IAnalyticsTransmitter>(serviceProvider);
+                _connectionService.AnalyticsTransmitter = ResolveMefService<ITelemetryTransmitter>(serviceProvider);
                 _logger.LogInformation(
                     "ReqnrollLanguageClient: IAnalyticsTransmitter resolved: {Resolved}",
                     _connectionService.AnalyticsTransmitter is not null ? "yes" : "no");

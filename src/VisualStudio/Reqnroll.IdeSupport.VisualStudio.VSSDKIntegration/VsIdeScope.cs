@@ -4,6 +4,7 @@ using Microsoft.VisualStudio.Shell;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.VisualStudio.Common;
 using Reqnroll.IdeSupport.VisualStudio.Package.ProjectSystem;
 using Reqnroll.IdeSupport.VisualStudio.SDKIntegration;
@@ -27,7 +28,7 @@ public class VsIdeScope : IVsIdeScope
 
     [ImportingConstructor]
     public VsIdeScope([Import(typeof(SVsServiceProvider))] IServiceProvider serviceProvider,
-        IMonitoringService monitoringService,
+        ITelemetryService monitoringService,
         IFileSystemForIDE fileSystem,
         Reqnroll.IdeSupport.VisualStudio.Diagnostics.IdeSupportCompositeLogger compositeLogger)
     {
@@ -50,7 +51,7 @@ public class VsIdeScope : IVsIdeScope
     public bool IsSolutionLoaded { get; private set; }
 
     public IIdeSupportLogger Logger { get; }
-    public IMonitoringService MonitoringService { get; }
+    public ITelemetryService MonitoringService { get; }
     public IIdeActions Actions { get; }
     public IFileSystemForIDE FileSystem { get; }
 

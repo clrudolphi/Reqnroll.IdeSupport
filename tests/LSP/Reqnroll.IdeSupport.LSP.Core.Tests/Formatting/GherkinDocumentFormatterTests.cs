@@ -12,7 +12,7 @@ public class GherkinDocumentFormatterTests
     {
         var text = string.Join(Environment.NewLine, lines);
         var parser = new DeveroomGherkinParser(new ReqnrollGherkinDialectProvider("en-US"),
-            Substitute.For<IMonitoringService>());
+            Substitute.For<ITelemetryService>());
         parser.ParseAndCollectErrors(text, new IdeSupportNullLogger(), out var gherkinDocument, out _);
         return gherkinDocument;
     }

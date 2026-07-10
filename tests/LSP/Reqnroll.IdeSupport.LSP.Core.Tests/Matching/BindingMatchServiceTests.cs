@@ -10,7 +10,7 @@ public class BindingMatchServiceTests
     private const string SecondUri = "file:///c:/proj/feature2.feature";
 
     private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
-    private readonly IMonitoringService _monitoringService = Substitute.For<IMonitoringService>();
+    private readonly ITelemetryService _monitoringService = Substitute.For<ITelemetryService>();
     private readonly IDeveroomConfigurationProvider _configProvider = Substitute.For<IDeveroomConfigurationProvider>();
 
     public BindingMatchServiceTests()

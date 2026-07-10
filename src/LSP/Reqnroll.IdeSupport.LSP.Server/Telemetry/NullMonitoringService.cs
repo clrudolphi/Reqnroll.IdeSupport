@@ -1,15 +1,15 @@
-#nullable disable
+﻿#nullable disable
 using Reqnroll.IdeSupport.Common;
-using Reqnroll.IdeSupport.Common.Analytics;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
 /// <summary>
-/// No-op <see cref="IMonitoringService"/> for the LSP server process.
+/// No-op <see cref="ITelemetryService"/> for the LSP server process.
 /// Telemetry is not collected from the server side.
 /// </summary>
-public sealed class NullMonitoringService : IMonitoringService
+public sealed class NullMonitoringService : ITelemetryService
 {
     public static readonly NullMonitoringService Instance = new();
 
@@ -30,5 +30,5 @@ public sealed class NullMonitoringService : IMonitoringService
     public void MonitorUpgradeDialogDismissed(Dictionary<string, object> additionalProps) { }
     public void MonitorWelcomeDialogDismissed(Dictionary<string, object> additionalProps) { }
     public void MonitorLinkClicked(string source, string url, Dictionary<string, object> additionalProps = null) { }
-    public void TransmitEvent(IAnalyticsEvent runtimeEvent) { }
+    public void TransmitEvent(ITelemetryEvent runtimeEvent) { }
 }

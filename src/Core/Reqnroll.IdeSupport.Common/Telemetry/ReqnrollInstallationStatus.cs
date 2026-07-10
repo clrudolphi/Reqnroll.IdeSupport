@@ -1,6 +1,6 @@
 using System;
 
-namespace Reqnroll.IdeSupport.Common.Analytics;
+namespace Reqnroll.IdeSupport.Common.Telemetry;
 
 public class ReqnrollInstallationStatus
 {

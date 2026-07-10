@@ -1,9 +1,9 @@
-// VsIntegration layer — VS SDK references are expected here.
+﻿// VsIntegration layer — VS SDK references are expected here.
 // Adapts the full IMonitoringService to the narrow IWizardTelemetry surface.
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
 using Reqnroll.IdeSupport.VisualStudio.Wizards.Abstractions;
-using OriginalMonitoringService = Reqnroll.IdeSupport.Common.IMonitoringService;
+using OriginalMonitoringService = Reqnroll.IdeSupport.Common.Telemetry.ITelemetryService;
 using OriginalProjectSettings = Reqnroll.IdeSupport.Common.ProjectSystem.Settings.ProjectSettings;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Wizards.VsIntegration;

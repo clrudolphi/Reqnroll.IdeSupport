@@ -1,4 +1,5 @@
 ﻿using Reqnroll.IdeSupport.Common.Logging;
+using Reqnroll.IdeSupport.Common.Telemetry;
 //using Reqnroll.IdeSupport.VisualStudio.Monitoring;
 using System;
 using System.Diagnostics;
@@ -48,7 +49,7 @@ public static class IdeSupportLoggerExtensions
         logger.Log(msg);
     }
 
-    public static void LogException(this IIdeSupportLogger logger, IMonitoringService monitoringService, Exception ex,
+    public static void LogException(this IIdeSupportLogger logger, ITelemetryService monitoringService, Exception ex,
         string message = "Exception", [CallerMemberName] string callerName = "???")
     {
         monitoringService.MonitorError(ex);
@@ -63,7 +64,7 @@ public static class IdeSupportLoggerExtensions
         logger.Log(msg);
     }
 
-    public static void LogVerboseException(this IIdeSupportLogger logger, IMonitoringService monitoringService,
+    public static void LogVerboseException(this IIdeSupportLogger logger, ITelemetryService monitoringService,
         Exception ex, string message = "Exception", [CallerMemberName] string callerName = "???")
     {
         monitoringService.MonitorError(ex, false);

@@ -6,6 +6,7 @@ using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.VisualStudio.Common;
 using Reqnroll.IdeSupport.VisualStudio.ProjectSystem;
 using Microsoft.VisualStudio.Shell;
@@ -29,7 +30,7 @@ public class VsProjectScope : IProjectScope
     }
 
     private IIdeSupportLogger Logger => IdeScope.Logger;
-    private IMonitoringService MonitoringService => IdeScope.MonitoringService;
+    private ITelemetryService MonitoringService => IdeScope.MonitoringService;
     public ConcurrentDictionary<Type, object> Properties { get; } = new();
     public string ProjectFolder { get; }
     public string OutputAssemblyPath { get { ThreadHelper.ThrowIfNotOnUIThread(); return VsUtils.GetOutputAssemblyPath(_project); } }

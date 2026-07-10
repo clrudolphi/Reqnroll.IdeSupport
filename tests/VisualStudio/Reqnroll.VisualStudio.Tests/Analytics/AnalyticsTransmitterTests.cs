@@ -1,4 +1,4 @@
-#nullable disable
+﻿#nullable disable
 using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.Channel;
 using Microsoft.ApplicationInsights.DataContracts;
@@ -15,7 +15,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Tests.Analytics;
 public class AnalyticsTransmitterTests
 {
     private InMemoryTelemetryChannel _telemetryChannel;
-    private IEnableAnalyticsChecker _enableAnalyticsCheckerStub;
+    private IEnableTelemetryChecker _enableAnalyticsCheckerStub;
     private readonly CapturingDebugLog _debugLog = new();
 
     [Fact]
@@ -24,7 +24,7 @@ public class AnalyticsTransmitterTests
         var sut = CreateSut();
         GivenAnalyticsDisabled();
 
-        sut.TransmitEvent(Substitute.For<IAnalyticsEvent>());
+        sut.TransmitEvent(Substitute.For<ITelemetryEvent>());
 
         _enableAnalyticsCheckerStub.Received(1).IsEnabled();
         _telemetryChannel.SentTelemtries.Should().BeEmpty();
@@ -36,7 +36,7 @@ public class AnalyticsTransmitterTests
         var sut = CreateSut();
         GivenAnalyticsEnabled();
 
-        sut.TransmitEvent(Substitute.For<IAnalyticsEvent>());
+        sut.TransmitEvent(Substitute.For<ITelemetryEvent>());
 
         _enableAnalyticsCheckerStub.Received(1).IsEnabled();
         _telemetryChannel.SentTelemtries.Should().HaveCount(1);
@@ -77,7 +77,7 @@ public class AnalyticsTransmitterTests
 
         _telemetryChannel.ThrowOnSend = true;
 
-        var exception = Record.Exception(() => sut.TransmitEvent(Substitute.For<IAnalyticsEvent>()));
+        var exception = Record.Exception(() => sut.TransmitEvent(Substitute.For<ITelemetryEvent>()));
 
         Assert.Null(exception);
     }
@@ -94,7 +94,7 @@ public class AnalyticsTransmitterTests
 
     private VsAnalyticsTransmitter CreateSut()
     {
-        _enableAnalyticsCheckerStub = Substitute.For<IEnableAnalyticsChecker>();
+        _enableAnalyticsCheckerStub = Substitute.For<IEnableTelemetryChecker>();
         _telemetryChannel = new InMemoryTelemetryChannel();
         var config = new TelemetryConfiguration
         {

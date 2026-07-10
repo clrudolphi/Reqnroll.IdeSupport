@@ -1,6 +1,7 @@
 ﻿#nullable disable
 
 using Reqnroll.IdeSupport.Common.Logging;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using System;
 using System.Threading;
 
@@ -28,7 +29,7 @@ public class ProjectSettingsProvider : IDisposable, IProjectSettingsProvider
     }
 
     private IIdeSupportLogger Logger => _projectScope.IdeScope.Logger;
-    private IMonitoringService MonitoringService => _projectScope.IdeScope.MonitoringService;
+    private ITelemetryService MonitoringService => _projectScope.IdeScope.MonitoringService;
 
     public void Dispose()
     {

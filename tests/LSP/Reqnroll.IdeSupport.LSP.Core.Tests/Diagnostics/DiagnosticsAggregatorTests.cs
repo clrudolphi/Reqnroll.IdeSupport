@@ -16,7 +16,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Tests.Diagnostics;
 public class DiagnosticsAggregatorTests
 {
     private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
-    private readonly IMonitoringService _monitoringService = Substitute.For<IMonitoringService>();
+    private readonly ITelemetryService _monitoringService = Substitute.For<ITelemetryService>();
     private readonly IDeveroomConfigurationProvider _configProvider = Substitute.For<IDeveroomConfigurationProvider>();
 
     private const string DocumentId = "file:///c:/proj/test.feature";

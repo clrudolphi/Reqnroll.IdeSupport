@@ -1,5 +1,5 @@
-using NSubstitute;
-using Reqnroll.IdeSupport.Common.Analytics;
+﻿using NSubstitute;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using System.Text.RegularExpressions;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Wizards.Tests.VsIntegration;
@@ -11,7 +11,7 @@ public class WelcomeServiceTests
     private readonly IWizardDialogService _dialogService = Substitute.For<IWizardDialogService>();
     private readonly IFileSystemForIDE _fileSystem = Substitute.For<IFileSystemForIDE>();
     private readonly IIdeScope _ideScope = Substitute.For<IIdeScope>();
-    private readonly IMonitoringService _monitoringService = Substitute.For<IMonitoringService>();
+    private readonly ITelemetryService _monitoringService = Substitute.For<ITelemetryService>();
 
     public WelcomeServiceTests()
     {

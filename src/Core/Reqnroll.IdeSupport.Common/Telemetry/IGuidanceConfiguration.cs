@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Reqnroll.IdeSupport.Common.Analytics;
+namespace Reqnroll.IdeSupport.Common.Telemetry;
 
 public interface IGuidanceConfiguration
 {
