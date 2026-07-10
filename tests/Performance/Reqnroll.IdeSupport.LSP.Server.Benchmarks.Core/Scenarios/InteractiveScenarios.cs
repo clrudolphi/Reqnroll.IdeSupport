@@ -10,6 +10,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.LSP.Server.Benchmarks.Harness;
 using Reqnroll.IdeSupport.LSP.Server.Benchmarks.Latency;
+using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Benchmarks.Scenarios;
 
@@ -115,6 +116,162 @@ public sealed class InteractiveScenarios
         }).ConfigureAwait(false);
 
     /// <summary>
+    /// Semantic tokens delta pull. The server doesn't maintain real delta state (see
+    /// <c>SemanticTokensHandler</c> — it always returns the full token set wrapped in a
+    /// <c>SemanticTokensFullOrDelta</c>), but this still exercises the delta wire shape and the
+    /// handler's own dispatch/serialization cost, which the plain "full" scenario never reaches.
+    /// A <c>previousResultId</c> is fetched once per feature outside the timed window (an untimed
+    /// setup step, not part of what's measured).
+    /// </summary>
+    public async Task<LatencySummary> SemanticTokensDeltaAsync()
+    {
+        var resultIds = new string[_features.Count];
+        for (var i = 0; i < _features.Count; i++)
+        {
+            var full = await _harness.RequestSemanticTokensAsync(_features[i].Uri).ConfigureAwait(false);
+            resultIds[i] = full?.ResultId ?? "";
+        }
+
+        return await RunAsync(PerfTargets.SemanticTokensDelta.Operation, async i =>
+        {
+            var f = _features[i % _features.Count];
+            await _harness.RequestSemanticTokensDeltaAsync(f.Uri, resultIds[i % _features.Count])
+                .ConfigureAwait(false);
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// <c>textDocument/prepareRename</c> at a bound step position — the validity check that fires
+    /// before a client shows the rename box (F16).
+    /// </summary>
+    public async Task<LatencySummary> PrepareRenameAsync()
+        => await RunAsync(PerfTargets.StepPrepareRename.Operation, async i =>
+        {
+            var f = _features[i % _features.Count];
+            var (line, character) = f.StepPosition;
+            await _harness.RequestPrepareRenameAsync(f.Uri, line, character).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+    /// <summary>
+    /// <c>reqnroll/renameTargets</c> at a bound step position — the picker candidates request that
+    /// precedes rename when the cursor position resolves to more than one renameable attribute (F16).
+    /// </summary>
+    public async Task<LatencySummary> RenameTargetsAsync()
+        => await RunAsync(PerfTargets.RenameTargets.Operation, async i =>
+        {
+            var f = _features[i % _features.Count];
+            var (line, character) = f.StepPosition;
+            await _harness.RequestRenameTargetsAsync(f.Uri, line, character).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+    // ── References / go-to (F5/F17) ─────────────────────────────────────────────
+
+    public async Task<LatencySummary> FindStepUsagesAsync()
+        => await RunAsync(PerfTargets.FindStepUsages.Operation, async i =>
+        {
+            var f = _features[i % _features.Count];
+            var (line, character) = f.StepPosition;
+            await _harness.RequestFindStepUsagesAsync(f.Uri, line, character).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+    public async Task<LatencySummary> StepReferencesAsync()
+        => await RunAsync(PerfTargets.StepReferences.Operation, async i =>
+        {
+            var f = _features[i % _features.Count];
+            var (line, character) = f.StepPosition;
+            await _harness.RequestStepReferencesAsync(f.Uri, line, character).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+    public async Task<LatencySummary> GoToStepDefinitionsAsync()
+        => await RunAsync(PerfTargets.GoToStepDefinitions.Operation, async i =>
+        {
+            var f = _features[i % _features.Count];
+            var (line, character) = f.StepPosition;
+            await _harness.RequestGoToStepDefinitionsAsync(f.Uri, line, character).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+    /// <summary>
+    /// <c>reqnroll/goToHooks</c> — the corpus has no <c>[Before/AfterScenario]</c> hook bindings (see
+    /// <c>CorpusGenerator.BuildBindings</c>), so this always exercises the "no hooks found" fast path
+    /// rather than a populated result; still real protocol-boundary dispatch cost, same precedent as
+    /// <see cref="RenameTargetsAsync"/> on a single-binding position.
+    /// </summary>
+    public async Task<LatencySummary> GoToHooksAsync()
+        => await RunAsync(PerfTargets.GoToHooks.Operation, async i =>
+        {
+            var f = _features[i % _features.Count];
+            var (line, character) = f.StepPosition;
+            await _harness.RequestGoToHooksAsync(f.Uri, line, character).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+    // ── Code lens (F18), inlay hints (F23), code actions (F6) ───────────────────
+
+    public async Task<LatencySummary> InlayHintAsync()
+        => await RunAsync(PerfTargets.InlayHint.Operation, async i =>
+        {
+            var f = _features[i % _features.Count];
+            await _harness.RequestInlayHintAsync(f.Uri, f.FirstScenarioRange).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+    /// <summary>
+    /// <c>textDocument/codeAction</c> at the corpus's one deliberately-undefined step per scenario
+    /// (see <c>CorpusGenerator.BuildFeature</c>) — the F6 quick-fix scaffold target.
+    /// </summary>
+    public async Task<LatencySummary> CodeActionAsync()
+        => await RunAsync(PerfTargets.CodeAction.Operation, async i =>
+        {
+            var f = _features[i % _features.Count];
+            await _harness.RequestCodeActionAsync(f.Uri, f.UndefinedStepRange).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+    /// <summary>
+    /// <c>textDocument/codeLens</c> on the corpus's .cs binding source file — <c>StepCodeLensHandler</c>
+    /// only returns lenses for .cs files, not .feature files (see <c>CorpusGenerator.BuildBindings</c>).
+    /// Opens the file once (untimed settle) then measures the lens request in isolation.
+    /// </summary>
+    public async Task<LatencySummary> StepCodeLensAsync(string corpusRoot)
+    {
+        var csPath = Path.Combine(corpusRoot, "Bindings", "CorpusSteps.cs");
+        var uri = DocumentUri.FromFileSystemPath(csPath);
+        _harness.OpenCSharp(uri, 1, File.ReadAllText(csPath));
+        await Task.Delay(200).ConfigureAwait(false);
+
+        return await RunAsync(PerfTargets.StepCodeLens.Operation, async _ =>
+        {
+            await _harness.RequestCodeLensAsync(uri).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+    }
+
+    // ── Formatting (F11/F12) ─────────────────────────────────────────────────────
+
+    public async Task<LatencySummary> DocumentFormattingAsync()
+        => await RunAsync(PerfTargets.DocumentFormatting.Operation, async i =>
+        {
+            var f = _features[i % _features.Count];
+            await _harness.RequestDocumentFormattingAsync(f.Uri).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+    public async Task<LatencySummary> RangeFormattingAsync()
+        => await RunAsync(PerfTargets.RangeFormatting.Operation, async i =>
+        {
+            var f = _features[i % _features.Count];
+            await _harness.RequestRangeFormattingAsync(f.Uri, f.FirstScenarioRange).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+    /// <summary>
+    /// <c>textDocument/onTypeFormatting</c> triggered by "|" at the end of one of the corpus's
+    /// Examples table rows — the only "|"-delimited lines in the generated corpus (see
+    /// <c>CorpusGenerator.BuildFeature</c>'s Scenario Outline block).
+    /// </summary>
+    public async Task<LatencySummary> OnTypeFormattingAsync()
+        => await RunAsync(PerfTargets.OnTypeFormatting.Operation, async i =>
+        {
+            var f = _features[i % _features.Count];
+            var (line, character) = f.ExamplesRowEndPosition;
+            await _harness.RequestOnTypeFormattingAsync(f.Uri, line, character, "|").ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+    /// <summary>
     /// Measures the diagnostics push: edit a feature (introducing a changed step) and time from the
     /// didChange to the publishDiagnostics for that URI.
     /// </summary>
@@ -185,5 +342,74 @@ public sealed record OpenFeature(DocumentUri Uri, string Text)
     public (int Line, int Character) StepPosition
     {
         get { var (l, c) = FirstStep(); return (l, c + "Given prec".Length); }
+    }
+
+    /// <summary>A small range spanning the first scenario's step block (for range formatting / inlay hints).</summary>
+    public Range FirstScenarioRange
+    {
+        get { var (l, _) = FirstStep(); return new Range(new Position(l, 0), new Position(l + 6, 0)); }
+    }
+
+    // The corpus's one deliberately-undefined step per scenario, "When undefined step {f}-{s} occurs"
+    // (see CorpusGenerator.BuildFeature) — the F6 code-action / scaffold anchor.
+    private (int Line, int Col)? _undefinedStep;
+
+    private (int Line, int Col) UndefinedStep()
+    {
+        if (_undefinedStep is { } cached) return cached;
+        var lines = Text.Replace("\r\n", "\n").Split('\n');
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var trimmed = lines[i].TrimStart();
+            const string prefix = "When undefined step ";
+            if (trimmed.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                var indent = lines[i].Length - trimmed.Length;
+                _undefinedStep = (i, indent);
+                return _undefinedStep.Value;
+            }
+        }
+        _undefinedStep = (0, 0);
+        return _undefinedStep.Value;
+    }
+
+    /// <summary>Partway into the undefined step's text (for F6 code actions).</summary>
+    public (int Line, int Character) UndefinedStepPosition
+    {
+        get { var (l, c) = UndefinedStep(); return (l, c + "When undef".Length); }
+    }
+
+    /// <summary>The whole undefined-step line (for the F6 code-action request range).</summary>
+    public Range UndefinedStepRange
+    {
+        get { var (l, _) = UndefinedStep(); return new Range(new Position(l, 0), new Position(l + 1, 0)); }
+    }
+
+    // The corpus's Scenario Outline "Examples:" table (see CorpusGenerator.BuildFeature) — the only
+    // "|"-delimited lines in the generated corpus, used as the F12 on-type-formatting trigger anchor.
+    private (int Line, int EndCol)? _examplesRow;
+
+    private (int Line, int EndCol) ExamplesRow()
+    {
+        if (_examplesRow is { } cached) return cached;
+        var lines = Text.Replace("\r\n", "\n").Split('\n');
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var trimmed = lines[i].Trim();
+            if (trimmed.Length > 1 && trimmed.StartsWith("|", StringComparison.Ordinal) &&
+                trimmed.EndsWith("|", StringComparison.Ordinal))
+            {
+                _examplesRow = (i, lines[i].Length);
+                return _examplesRow.Value;
+            }
+        }
+        _examplesRow = (0, 0);
+        return _examplesRow.Value;
+    }
+
+    /// <summary>End of an Examples table row, as if "|" was just typed there (for F12 on-type formatting).</summary>
+    public (int Line, int Character) ExamplesRowEndPosition
+    {
+        get { var (l, c) = ExamplesRow(); return (l, c); }
     }
 }

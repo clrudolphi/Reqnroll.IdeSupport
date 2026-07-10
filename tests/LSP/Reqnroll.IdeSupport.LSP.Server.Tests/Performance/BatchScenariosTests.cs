@@ -15,7 +15,11 @@ public class BatchScenariosTests
         var skipped = BatchScenarios.UnavailableDiscoveryScenarios(corpusAssemblyPath: null);
 
         skipped.Select(s => s.Target).Should().BeEquivalentTo(
-            new[] { PerfTargets.RoslynReDiscovery, PerfTargets.ReflectionDiscovery });
+            new[]
+            {
+                PerfTargets.RoslynReDiscovery, PerfTargets.ReflectionDiscovery,
+                PerfTargets.StepRename, PerfTargets.FindUnusedStepDefinitions,
+            });
         skipped.Should().OnlyContain(s => s.Reason.Contains("built corpus"));
     }
 
@@ -23,7 +27,7 @@ public class BatchScenariosTests
     public void Discovery_scenarios_are_skipped_when_the_assembly_path_does_not_exist()
     {
         var missing = Path.Combine(Path.GetTempPath(), "no-such-corpus-assembly.dll");
-        BatchScenarios.UnavailableDiscoveryScenarios(missing).Should().HaveCount(2);
+        BatchScenarios.UnavailableDiscoveryScenarios(missing).Should().HaveCount(4);
     }
 
     [Fact]
