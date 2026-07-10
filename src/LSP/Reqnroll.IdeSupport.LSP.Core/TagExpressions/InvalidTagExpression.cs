@@ -2,7 +2,7 @@
 
 using Cucumber.TagExpressions;
 
-namespace Reqnroll.IdeSupport.LSP.Core.Bindings.TagExpressions;
+namespace Reqnroll.IdeSupport.LSP.Core.TagExpressions;
 public class InvalidTagExpression : ReqnrollTagExpression, ITagExpression
 {
     public string Message { get; }

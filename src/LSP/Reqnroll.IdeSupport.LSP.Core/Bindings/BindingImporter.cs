@@ -1,6 +1,6 @@
 ﻿#nullable disable
 
-using Reqnroll.IdeSupport.LSP.Core.Bindings.TagExpressions;
+using Reqnroll.IdeSupport.LSP.Core.TagExpressions;
 
 
 using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;

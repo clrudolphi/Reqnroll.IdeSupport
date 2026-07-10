@@ -20,7 +20,7 @@ global using Reqnroll.IdeSupport.Common.ProjectSystem;
 global using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 global using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
 global using Reqnroll.IdeSupport.LSP.Core.Bindings;
-global using Reqnroll.IdeSupport.LSP.Core.Bindings.TagExpressions;
+global using Reqnroll.IdeSupport.LSP.Core.TagExpressions;
 
 
 global using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
