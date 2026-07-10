@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 namespace Reqnroll.IdeSupport.LSP.Server.Features.Definition;
 
 /// <summary>
-/// Response DTO for the custom <c>reqnroll/goToStepDefinitions</c> request (F5 — Go to Step Definition).
+/// Response DTO for the custom <c>reqnroll/goToStepDefinitions</c> request (Go to Step Definition).
 /// Returns all step-definition bindings that match the step at the queried position, with enough
 /// metadata (step type, method name) to produce a labelled picker when more than one binding matches.
 /// </summary>

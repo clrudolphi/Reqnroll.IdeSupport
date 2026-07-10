@@ -27,7 +27,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.Completions;
 
 /// <summary>
 /// Handles <c>textDocument/completion</c> requests for <c>*.feature</c> files.
-/// Implements both F7 (Gherkin keyword completion) and F8 (step-definition sample completion).
+/// Implements both Gherkin keyword completion and step-definition sample completion.
 /// Registered via OmniSharp dynamic registration (<see cref="ICompletionHandler"/>), scoped to
 /// <c>**/*.feature</c> documents so it does not conflict with the C# language server.
 /// </summary>
@@ -44,8 +44,8 @@ public sealed class GherkinCompletionHandler : ICompletionHandler
     private readonly IIdeSupportLogger               _logger;
     private readonly IOperationDurationRecorder    _recorder;
 
-    // Performance Verification (Layer 4) op labels. Keyword (F7, <50ms) and step (F8, <150ms) have distinct targets,
-    // so they are recorded under distinct operation names.
+    // Performance Verification (Layer 4) op labels. Keyword completion (<50ms) and step completion
+    // (<150ms) have distinct targets, so they are recorded under distinct operation names.
     private const string KeywordCompletionOp = LspMethodNames.TextDocumentCompletion + "#keyword";
     private const string StepCompletionOp    = LspMethodNames.TextDocumentCompletion + "#step";
 
@@ -124,7 +124,7 @@ public sealed class GherkinCompletionHandler : ICompletionHandler
         return Task.FromResult(list);
     }
 
-    // ── F8 ────────────────────────────────────────────────────────────────────
+    // ── Step-definition sample completion ────────────────────────────────────
 
     private CompletionList HandleStep(
         StepCompletionContext s,
@@ -159,7 +159,7 @@ public sealed class GherkinCompletionHandler : ICompletionHandler
         return new CompletionList(ToItems(result.Entries, stepRange));
     }
 
-    // ── F7 ────────────────────────────────────────────────────────────────────
+    // ── Gherkin keyword completion ────────────────────────────────────────────
 
     private CompletionList HandleKeyword(
         KeywordCompletionContext k,

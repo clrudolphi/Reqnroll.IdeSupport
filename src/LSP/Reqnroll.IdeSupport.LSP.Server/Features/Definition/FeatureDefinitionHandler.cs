@@ -16,7 +16,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.Definition;
 
 /// <summary>
 /// Handles <c>textDocument/definition</c> requests originating from a cursor position in a
-/// <c>.feature</c> file (design doc F5 — Go to Step Definition).
+/// <c>.feature</c> file (Go to Step Definition).
 /// <para>
 /// Implements <see cref="IDefinitionHandler"/> so OmniSharp registers the capability via
 /// <c>client/registerCapability</c> (dynamic registration) after the handshake, scoped to

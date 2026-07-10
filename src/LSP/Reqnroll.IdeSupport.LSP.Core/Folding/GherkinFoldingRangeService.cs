@@ -7,7 +7,7 @@ using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 namespace Reqnroll.IdeSupport.LSP.Core.Folding;
 
 /// <summary>
-/// Walks the DeveroomTag tree to produce foldable region ranges (F10 — Code Folding).
+/// Walks the DeveroomTag tree to produce foldable region ranges (Code Folding).
 /// Folding ranges are computed for:
 ///   - Feature blocks (body only, after the keyword line)
 ///   - Scenario / Scenario Outline / Background blocks

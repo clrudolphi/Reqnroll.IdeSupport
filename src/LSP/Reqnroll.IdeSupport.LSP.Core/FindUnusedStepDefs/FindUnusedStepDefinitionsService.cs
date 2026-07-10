@@ -4,7 +4,7 @@ using Reqnroll.IdeSupport.LSP.Core.Matching;
 namespace Reqnroll.IdeSupport.LSP.Core.FindUnusedStepDefs;
 
 /// <summary>
-/// Implements the scan behind the custom <c>reqnroll/findUnusedStepDefinitions</c> request (F15).
+/// Implements the scan behind the custom <c>reqnroll/findUnusedStepDefinitions</c> request.
 /// <para>
 /// Scans all supplied project binding registries and returns one row per unused
 /// <em>binding expression</em>. A C# method decorated with multiple step attributes produces

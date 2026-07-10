@@ -15,7 +15,7 @@ using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 namespace Reqnroll.IdeSupport.LSP.Server.Features.CodeActions;
 
 /// <summary>
-/// Handles <c>textDocument/codeAction</c> requests for <c>*.feature</c> files (F6 — Define Steps).
+/// Handles <c>textDocument/codeAction</c> requests for <c>*.feature</c> files (Define Steps).
 /// Returns code actions that generate C# step-definition stubs for undefined steps.
 /// Registered via OmniSharp dynamic registration (<see cref="ICodeActionHandler"/>), scoped to
 /// <c>**/*.feature</c> documents so it does not conflict with the C# language server.

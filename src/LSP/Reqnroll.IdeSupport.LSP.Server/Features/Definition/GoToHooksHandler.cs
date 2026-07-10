@@ -24,7 +24,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.Definition;
 /// </para>
 /// <para>
 /// A separate custom message is used rather than reusing <c>textDocument/definition</c>
-/// because that message is already used by F5 (Go to Step Definition) on step lines;
+/// because that message is already used by Go to Step Definition on step lines;
 /// the server cannot distinguish the two intents from position alone, and step-level hooks
 /// (<c>[BeforeStep]</c> / <c>[AfterStep]</c>) would be unreachable.
 /// </para>

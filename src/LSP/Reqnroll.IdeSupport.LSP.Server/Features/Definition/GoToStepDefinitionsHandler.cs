@@ -12,7 +12,7 @@ using Reqnroll.IdeSupport.LSP.Server.Workspace;
 namespace Reqnroll.IdeSupport.LSP.Server.Features.Definition;
 
 /// <summary>
-/// Handles the custom <c>reqnroll/goToStepDefinitions</c> request (F5 — Go to Step Definition).
+/// Handles the custom <c>reqnroll/goToStepDefinitions</c> request (Go to Step Definition).
 /// <para>
 /// Returns all step-definition bindings that match the step at the queried cursor position, each
 /// with its source location <b>and</b> metadata (step keyword type, qualified method name).  This

@@ -92,7 +92,7 @@ public sealed class GherkinFormattingHandler
     {
         using var _perf = _recorder.Measure(LspMethodNames.TextDocumentOnTypeFormatting, request.TextDocument.Uri);
         var filePath = request.TextDocument.Uri.GetFileSystemPath();
-        _logger.LogInfo($"F12 textDocument/onTypeFormatting: trigger='{request.Character}' {request.TextDocument.Uri}");
+        _logger.LogInfo($"textDocument/onTypeFormatting: trigger='{request.Character}' {request.TextDocument.Uri}");
 
         if (!_documentBufferService.TryGet(request.TextDocument.Uri, out var buffer) || buffer is null)
             return Task.FromResult<TextEditContainer?>(new TextEditContainer());
