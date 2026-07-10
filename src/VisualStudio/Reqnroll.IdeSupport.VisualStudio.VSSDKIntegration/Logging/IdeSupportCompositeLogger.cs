@@ -15,6 +15,9 @@ namespace Reqnroll.IdeSupport.VisualStudio.Logging;
 [Export(typeof(IdeSupportCompositeLogger))]
 public class IdeSupportCompositeLogger : Reqnroll.IdeSupport.Common.Logging.IdeSupportCompositeLogger
 {
+    /// <summary>
+    /// Wires up the default debug-output and synchronous-file-logger sinks.
+    /// </summary>
     public IdeSupportCompositeLogger()
     {
         Add(new IdeSupportDebugLogger());

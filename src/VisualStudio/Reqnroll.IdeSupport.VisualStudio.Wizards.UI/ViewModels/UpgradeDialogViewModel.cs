@@ -4,8 +4,10 @@ using Reqnroll.IdeSupport.VisualStudio.Wizards.UI.ViewModels.WizardDialogs;
 // Ported from Reqnroll.VisualStudio\UI\ViewModels\UpgradeDialogViewModel.cs
 namespace Reqnroll.IdeSupport.VisualStudio.Wizards.UI.ViewModels;
 
+/// <summary>View model for the upgrade dialog, presenting the changelog since the previously installed version.</summary>
 public class UpgradeDialogViewModel : WizardViewModel
 {
+    /// <summary>Markdown heading template for the changes page; "{newVersion}" is replaced with the new version string.</summary>
     public const string UPGRADE_HEADER_TEMPLATE = """
         # Reqnroll Updated to v{newVersion}
 
@@ -13,11 +15,13 @@ public class UpgradeDialogViewModel : WizardViewModel
 
         """;
 
+    /// <summary>Markdown heading for the "join the community" page.</summary>
     public const string COMMUNITY_INFO_HEADER = """
         # Join the Reqnroll community!
 
         """;
 
+    /// <summary>Full Markdown text for the "join the community" page.</summary>
     public const string COMMUNITY_INFO_TEXT = COMMUNITY_INFO_HEADER +
         """
         Reqnroll is an independent project that is owned and supported by the community.
@@ -33,6 +37,7 @@ public class UpgradeDialogViewModel : WizardViewModel
         """;
 
 #if DEBUG
+    /// <summary>Sample data used by the WPF designer.</summary>
     public static UpgradeDialogViewModel DesignData = new("1.0.99",
         """
         $# v1.0.1 - 2019-02-27
@@ -45,6 +50,7 @@ public class UpgradeDialogViewModel : WizardViewModel
         """.Replace("$#", "#"));
 #endif
 
+    /// <summary>Creates the view model with the "changes" and "community" pages for the given new version/changelog.</summary>
     public UpgradeDialogViewModel(string newVersion, string changeLog) : base("Close", "Welcome to Reqnroll",
         new MarkDownWizardPageViewModel("Changes") { Text = GetChangesText(newVersion, changeLog) },
         new MarkDownWizardPageViewModel("Community") { Text = COMMUNITY_INFO_TEXT })

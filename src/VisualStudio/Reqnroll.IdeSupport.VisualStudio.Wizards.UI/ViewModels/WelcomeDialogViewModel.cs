@@ -3,8 +3,10 @@ using Reqnroll.IdeSupport.VisualStudio.Wizards.UI.ViewModels.WizardDialogs;
 // Ported from Reqnroll.VisualStudio\UI\ViewModels\WelcomeDialogViewModel.cs
 namespace Reqnroll.IdeSupport.VisualStudio.Wizards.UI.ViewModels;
 
+/// <summary>View model for the first-install welcome dialog, presenting welcome, troubleshooting and community pages.</summary>
 public class WelcomeDialogViewModel : WizardViewModel
 {
+    /// <summary>Markdown text for the welcome page.</summary>
     public const string WELCOME_TEXT = """
         # Welcome to Reqnroll
 
@@ -18,6 +20,7 @@ public class WelcomeDialogViewModel : WizardViewModel
         * **Add new Reqnroll project** and **Add new feature file** templates
         """;
 
+    /// <summary>Markdown text for the troubleshooting page.</summary>
     public const string TROUBLESHOOTING_TEXT = """
         # Troubleshooting Tips
 
@@ -33,9 +36,11 @@ public class WelcomeDialogViewModel : WizardViewModel
         """;
 
 #if DEBUG
+    /// <summary>Sample data used by the WPF designer.</summary>
     public static WelcomeDialogViewModel DesignData = new();
 #endif
 
+    /// <summary>Creates the view model with the welcome, troubleshooting and community pages.</summary>
     public WelcomeDialogViewModel() : base("Close", "Welcome to Reqnroll",
         new MarkDownWizardPageViewModel("Welcome") { Text = WELCOME_TEXT },
         new MarkDownWizardPageViewModel("Troubleshooting") { Text = TROUBLESHOOTING_TEXT },

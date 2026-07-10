@@ -22,12 +22,14 @@ internal sealed class FindUnusedStepDefinitionsService
     private readonly LspInterceptingPipe _pipe;
     private readonly ILogger<FindUnusedStepDefinitionsService> _logger;
 
+    /// <summary>Creates the service over the given LSP transport pipe.</summary>
     public FindUnusedStepDefinitionsService(LspInterceptingPipe pipe, ILogger<FindUnusedStepDefinitionsService> logger)
     {
         _pipe   = pipe;
         _logger = logger;
     }
 
+    /// <summary>Queries the LSP server for the workspace-wide set of unused step definitions.</summary>
     public async Task<UnusedStepDefinitionsResult> FindUnusedAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("FindUnusedStepDefinitionsService: sending {RequestMethod}", RequestMethod);

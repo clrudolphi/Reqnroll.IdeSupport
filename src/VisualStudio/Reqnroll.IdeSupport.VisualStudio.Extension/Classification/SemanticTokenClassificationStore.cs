@@ -16,8 +16,11 @@ internal readonly struct ClassifiedToken
         TokenType = tokenType;
     }
 
+    /// <summary>The 0-based line number of the token.</summary>
     public int Line { get; }
+    /// <summary>The 0-based start character on the line.</summary>
     public int StartChar { get; }
+    /// <summary>The length of the token in characters.</summary>
     public int Length { get; }
 
     /// <summary>The legend token-type name, e.g. <c>reqnroll.keyword</c>.</summary>
@@ -60,6 +63,7 @@ internal sealed class SemanticTokenClassificationStore
 
     public void SetLegend(string[] tokenTypes) => _legend = tokenTypes ?? Array.Empty<string>();
 
+    /// <summary>Sets the cached tokens for a file. Raises <see cref="TokensChanged"/> for the key.</summary>
     public void SetTokens(string fileKey, IReadOnlyList<ClassifiedToken> tokens)
     {
         if (fileKey is null) return;
@@ -67,6 +71,7 @@ internal sealed class SemanticTokenClassificationStore
         TokensChanged?.Invoke(fileKey);
     }
 
+    /// <summary>Gets the cached tokens for a file, if any have been stored.</summary>
     public bool TryGetTokens(string fileKey, out IReadOnlyList<ClassifiedToken> tokens)
     {
         if (fileKey is not null && _byFile.TryGetValue(fileKey, out var found))

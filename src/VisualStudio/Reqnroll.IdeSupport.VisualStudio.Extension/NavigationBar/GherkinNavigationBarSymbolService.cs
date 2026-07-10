@@ -43,12 +43,14 @@ internal sealed class GherkinNavigationBarSymbolService
     private readonly LspInterceptingPipe _pipe;
     private readonly ILogger<GherkinNavigationBarSymbolService> _logger;
 
+    /// <summary>Creates the service over the given LSP transport pipe.</summary>
     public GherkinNavigationBarSymbolService(LspInterceptingPipe pipe, ILogger<GherkinNavigationBarSymbolService> logger)
     {
         _pipe   = pipe;
         _logger = logger;
     }
 
+    /// <summary>Queries the LSP server for the Feature/Scenario/Step symbol tree of the given document.</summary>
     public async Task<IReadOnlyList<GherkinSymbolNode>> FetchSymbolsAsync(
         string fileUri, CancellationToken cancellationToken)
     {
@@ -78,6 +80,7 @@ internal sealed class GherkinNavigationBarSymbolService
         return $"{{\"textDocument\":{{\"uri\":{escapedUri}}}}}";
     }
 
+    /// <summary>Pure mapping from a raw <c>reqnroll/documentSymbolHierarchical</c> JSON array to a list of <see cref="GherkinSymbolNode"/>. Separated from transport so it can be unit-tested.</summary>
     internal static IReadOnlyList<GherkinSymbolNode> MapResult(JArray? array)
     {
         if (array is null || array.Count == 0)

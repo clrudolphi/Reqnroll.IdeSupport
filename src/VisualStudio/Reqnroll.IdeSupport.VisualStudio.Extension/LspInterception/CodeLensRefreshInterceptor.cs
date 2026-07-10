@@ -31,12 +31,14 @@ internal sealed class CodeLensRefreshInterceptor : ILspMessageInterceptor
     private string? _lastFileUri;
     private DateTime _lastInvalidation = DateTime.MinValue;
 
+    /// <summary>Creates the interceptor over the shared step-code-lens state.</summary>
     public CodeLensRefreshInterceptor(StepCodeLensState state, ILogger<CodeLensRefreshInterceptor> logger)
     {
         _state  = state;
         _logger = logger;
     }
 
+    /// <inheritdoc />
     public Task<LspInterceptorResult> InterceptAsync(
         LspMessage message,
         CancellationToken cancellationToken)

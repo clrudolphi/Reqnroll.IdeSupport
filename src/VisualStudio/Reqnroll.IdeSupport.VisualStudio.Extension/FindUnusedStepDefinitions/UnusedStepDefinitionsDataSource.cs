@@ -12,15 +12,20 @@ internal sealed class UnusedStepDefinitionsDataSource : ITableDataSource
 {
     private readonly IReadOnlyList<UnusedStepLocation> _items;
 
+    /// <summary>Creates the data source over a snapshot of unused step-definition locations.</summary>
     public UnusedStepDefinitionsDataSource(IReadOnlyList<UnusedStepLocation> items)
         => _items = items;
 
     // ── ITableDataSource ──────────────────────────────────────────────────────
 
+    /// <inheritdoc />
     public string SourceTypeIdentifier => "reqnroll/unusedStepDefinitions";
+    /// <inheritdoc />
     public string Identifier           => "reqnroll.unusedStepDefinitionSource";
+    /// <inheritdoc />
     public string DisplayName          => "Reqnroll Unused Step Definitions";
 
+    /// <summary>Pushes all entries to <paramref name="sink"/> immediately so the window is populated synchronously on open.</summary>
     public IDisposable Subscribe(ITableDataSink sink)
     {
         var entries = _items.Select(ToEntry).Cast<ITableEntry>().ToList();

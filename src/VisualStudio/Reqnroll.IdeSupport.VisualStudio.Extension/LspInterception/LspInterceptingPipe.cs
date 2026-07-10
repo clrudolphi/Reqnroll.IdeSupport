@@ -582,6 +582,7 @@ internal sealed class LspInterceptingPipe : IDisposable
 
     // ── IDisposable ─────────────────────────────────────────────────────────
 
+    /// <summary>Cancels the pump tasks, faults any in-flight injected requests, and completes the VS-facing pipe.</summary>
     public void Dispose()
     {
         if (_disposed) return;

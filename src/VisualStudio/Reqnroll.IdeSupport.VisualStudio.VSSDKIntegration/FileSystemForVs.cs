@@ -9,6 +9,11 @@ namespace Reqnroll.IdeSupport.VisualStudio;
 // that also export an implementation of IFileSystem. We need to have a separate contract for "our" file system.
 
 
+/// <summary>
+/// Visual Studio's MEF-exported <see cref="IFileSystemForIDE"/> implementation; kept as a
+/// dedicated type (rather than exporting <see cref="System.IO.Abstractions.IFileSystem"/> directly)
+/// so it does not collide with other extensions (e.g. SpecFlow) that export their own.
+/// </summary>
 [Export(typeof(IFileSystemForIDE))]
 public class FileSystemForVs : FileSystemForIDE
 {

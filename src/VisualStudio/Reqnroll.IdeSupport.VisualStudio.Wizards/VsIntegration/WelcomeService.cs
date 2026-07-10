@@ -20,6 +20,7 @@ public class WelcomeService : IWelcomeService
     private readonly IWizardDialogService _dialogService;
     private readonly IFileSystemForIDE _fileSystem;
 
+    /// <summary>Creates the service with its registry, version, dialog and file-system dependencies.</summary>
     public WelcomeService(
         IRegistryManager registryManager,
         IVersionProvider versionProvider,
@@ -32,6 +33,11 @@ public class WelcomeService : IWelcomeService
         _fileSystem = fileSystem;
     }
 
+    /// <summary>
+    /// Called when an IDE scope becomes active. Shows the welcome dialog on first install,
+    /// or the upgrade/changelog dialog when the installed version has changed, and
+    /// updates install/usage status in the registry.
+    /// </summary>
     public void OnIdeScopeActivityStarted(IIdeScope ideScope)
     {
         var telemetryService = ideScope.TelemetryService;

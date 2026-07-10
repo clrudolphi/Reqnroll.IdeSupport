@@ -34,6 +34,7 @@ internal sealed class FindStepUsagesService
     private readonly LspInterceptingPipe _pipe;
     private readonly ILogger<FindStepUsagesService> _logger;
 
+    /// <summary>Creates the service over the given LSP transport pipe.</summary>
     public FindStepUsagesService(LspInterceptingPipe pipe, ILogger<FindStepUsagesService> logger)
     {
         _pipe   = pipe;

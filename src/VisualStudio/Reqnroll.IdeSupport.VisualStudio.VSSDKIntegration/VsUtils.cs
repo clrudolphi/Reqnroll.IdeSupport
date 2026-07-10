@@ -20,6 +20,11 @@ using IServiceProvider = System.IServiceProvider;
 
 namespace Reqnroll.IdeSupport.VisualStudio;
 
+/// <summary>
+/// Static helpers for interacting with the EnvDTE object model and other classic VS SDK services
+/// (projects, hierarchies, output paths, MEF resolution, NuGet, status bar) from the VSSDK
+/// integration.
+/// </summary>
 public static class VsUtils
 {
     //public static ProjectItem GetProjectItemFromTextBuffer(ITextBuffer textBuffer)
@@ -83,6 +88,7 @@ public static class VsUtils
     //    VsShellUtilities.IsDocumentOpen(serviceProvider, filePath, Guid.Empty,
     //        out _, out _, out windowFrame);
 
+    /// <summary>Opens <paramref name="filePath"/> in the editor if it is not already open.</summary>
     public static void OpenIfNotOpened(string filePath, IServiceProvider serviceProvider)
     {
         if (VsShellUtilities.IsDocumentOpen(serviceProvider, filePath, Guid.Empty,
@@ -109,6 +115,7 @@ public static class VsUtils
         return value == "TextViewAvailable";
     }
 
+    /// <summary>Returns the containing <see cref="Project"/> of <paramref name="projectItem"/>, or <see langword="null"/> on failure.</summary>
     public static Project GetProject(ProjectItem projectItem)
     {
         try
@@ -122,6 +129,7 @@ public static class VsUtils
         }
     }
 
+    /// <summary>Returns <see langword="true"/> if <paramref name="project"/> has a resolvable file path (i.e. is a real solution project, not a solution folder).</summary>
     public static bool IsSolutionProject(Project project)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -137,6 +145,7 @@ public static class VsUtils
         }
     }
 
+    /// <summary>Returns the project's root folder path, falling back to the directory of its file path if the "FullPath" property is unavailable.</summary>
     public static string GetProjectFolder(Project project)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -151,6 +160,7 @@ public static class VsUtils
         }
     }
 
+    /// <summary>Returns the platform name of the project's active configuration, or <see langword="null"/> on failure.</summary>
     public static string GetPlatformName(Project project)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -165,6 +175,7 @@ public static class VsUtils
         }
     }
 
+    /// <summary>Returns the "PlatformTarget" build property of the project's active configuration, or <see langword="null"/> if unset/unavailable.</summary>
     public static string GetPlatformTargetName(Project project)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -184,6 +195,7 @@ public static class VsUtils
         }
     }
 
+    /// <summary>Returns the project's output file name, falling back to <c>{AssemblyName}.dll</c> if unset.</summary>
     public static string GetOutputFileName(Project project)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -200,6 +212,7 @@ public static class VsUtils
         }
     }
 
+    /// <summary>Returns the "OutputPath" build property of the project's active configuration, or <see langword="null"/> if unavailable.</summary>
     public static string GetOutputPath(Project project)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -216,6 +229,7 @@ public static class VsUtils
         }
     }
 
+    /// <summary>Resolves the project's full output assembly path, falling back to scanning build output groups if the configured output path is unavailable.</summary>
     public static string GetOutputAssemblyPath(Project project)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -287,6 +301,7 @@ public static class VsUtils
         }
     }
 
+    /// <summary>Returns the project's single "TargetFrameworkMoniker" property, or <see langword="null"/> on failure.</summary>
     public static string GetTargetFrameworkMoniker(Project project)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -301,6 +316,7 @@ public static class VsUtils
         }
     }
 
+    /// <summary>Returns the project's "TargetFrameworkMonikers" property (multi-targeting), or <see langword="null"/> on failure.</summary>
     public static string GetTargetFrameworkMonikers(Project project)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -366,6 +382,7 @@ public static class VsUtils
         }
     }
 
+    /// <summary>Resolves a MEF component of type <typeparamref name="T"/> from the DTE's OLE service provider, returning <see langword="null"/> if resolution or composition fails.</summary>
     public static T SafeResolveMefDependency<T>(DTE dte) where T : class
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -389,6 +406,7 @@ public static class VsUtils
         }
     }
 
+    /// <summary>Resolves a MEF component of type <typeparamref name="T"/> via <see cref="SComponentModel"/> on <paramref name="serviceProvider"/>.</summary>
     public static T ResolveMefDependency<T>(IServiceProvider serviceProvider) where T : class
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -396,6 +414,7 @@ public static class VsUtils
         return componentModel?.GetService<T>();
     }
 
+    /// <summary>Returns the MEF catalog cache folder from <see cref="SVsComponentModelHost"/>, or <see langword="null"/> if unavailable.</summary>
     public static string GetMefCatalogCacheFolder(IServiceProvider serviceProvider)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -456,6 +475,7 @@ public static class VsUtils
     //    return editorAdaptersFactoryService?.GetWpfTextView(activeView);
     //}
 
+    /// <summary>Resolves the <see cref="IVsHierarchy"/> for <paramref name="project"/> via the solution service, or <see langword="null"/> on failure.</summary>
     public static IVsHierarchy GetHierarchyFromProject(Project project)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -475,6 +495,7 @@ public static class VsUtils
         }
     }
 
+    /// <summary>Returns the automation <see cref="Project"/> object for the given <paramref name="hierarchy"/>'s root item, or <see langword="null"/> if not resolvable.</summary>
     public static Project GetProjectFromHierarchy(IVsHierarchy hierarchy)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -504,6 +525,7 @@ public static class VsUtils
     //    return project?.FullName;
     //}
 
+    /// <summary>Reads an MSBuild property value from the project file via <see cref="IVsBuildPropertyStorage"/>, or <see langword="null"/> on failure.</summary>
     public static string GetMsBuildPropertyValue(Project project, string propertyName)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -528,6 +550,7 @@ public static class VsUtils
         }
     }
 
+    /// <summary>Recursively enumerates all project items (including nested items) in <paramref name="project"/>.</summary>
     public static IEnumerable<ProjectItem> GetProjectItems(Project project)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -546,12 +569,14 @@ public static class VsUtils
         }
     }
 
+    /// <summary>Enumerates the project items in <paramref name="project"/> that represent physical files on disk.</summary>
     public static IEnumerable<ProjectItem> GetPhysicalFileProjectItems(Project project)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         return GetProjectItems(project).Where(IsPhysicalFile);
     }
 
+    /// <summary>Finds the physical-file project item in <paramref name="project"/> whose path matches <paramref name="filePath"/> (case-insensitive), or <see langword="null"/>.</summary>
     public static ProjectItem FindProjectItemByFilePath(Project project, string filePath)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -559,6 +584,7 @@ public static class VsUtils
             .FirstOrDefault(pi => string.Equals(filePath, GetFilePath(pi), StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>Returns <see langword="true"/> if <paramref name="projectItem"/>'s kind is a physical file.</summary>
     public static bool IsPhysicalFile(ProjectItem projectItem)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -566,6 +592,7 @@ public static class VsUtils
             VSConstants.GUID_ItemType_PhysicalFile.ToString("B"), StringComparison.InvariantCultureIgnoreCase);
     }
 
+    /// <summary>Returns the file system path of <paramref name="projectItem"/>, or <see langword="null"/> if it isn't a physical file.</summary>
     public static string GetFilePath(ProjectItem projectItem)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -592,6 +619,7 @@ public static class VsUtils
     //    }
     //}
 
+    /// <summary>Returns the DTE version string (e.g. "17.0"), falling back to a hard-coded default if unavailable.</summary>
     public static string GetVsMainVersion(IServiceProvider serviceProvider)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -609,6 +637,7 @@ public static class VsUtils
     }
 
     // https://stackoverflow.com/a/55039958
+    /// <summary>Returns the VS product display version (e.g. "17.9.1") via <see cref="IVsAppId"/>, falling back to <see cref="GetVsMainVersion"/> on failure.</summary>
     public static string GetVsProductDisplayVersionSafe(IServiceProvider serviceProvider)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -627,6 +656,7 @@ public static class VsUtils
         }
     }
 
+    /// <summary>Retrieves the installed NuGet packages for the project via the NuGet brokered service; blocks synchronously on the async call.</summary>
     public static IEnumerable<NuGetInstalledPackage> GetInstalledNuGetPackages(IServiceProvider serviceProvider,
         string projectFullName)
     {

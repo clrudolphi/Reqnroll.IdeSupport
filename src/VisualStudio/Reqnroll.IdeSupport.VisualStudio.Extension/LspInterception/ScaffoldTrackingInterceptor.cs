@@ -30,6 +30,7 @@ internal sealed class ScaffoldTrackingInterceptor : ILspMessageInterceptor
     private readonly ConcurrentDictionary<string, byte> _pendingFiles
         = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Creates the interceptor over a deferred accessor for the (not-yet-constructed) project event monitor.</summary>
     public ScaffoldTrackingInterceptor(
         Func<VsProjectEventMonitor?> getMonitor,
         ILogger<ScaffoldTrackingInterceptor> logger)
@@ -38,6 +39,7 @@ internal sealed class ScaffoldTrackingInterceptor : ILspMessageInterceptor
         _logger     = logger     ?? throw new ArgumentNullException(nameof(logger));
     }
 
+    /// <inheritdoc />
     public async Task<LspInterceptorResult> InterceptAsync(
         LspMessage        message,
         CancellationToken cancellationToken)

@@ -24,6 +24,7 @@ internal sealed class CommentToggleService
     private readonly LspInterceptingPipe _pipe;
     private readonly ILogger<CommentToggleService> _logger;
 
+    /// <summary>Creates the service over the LSP connection pipe for sending <c>workspace/executeCommand</c> requests.</summary>
     public CommentToggleService(LspInterceptingPipe pipe, ILogger<CommentToggleService> logger)
     {
         _pipe   = pipe;

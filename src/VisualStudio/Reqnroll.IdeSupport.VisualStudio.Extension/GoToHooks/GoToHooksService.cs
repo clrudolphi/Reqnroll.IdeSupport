@@ -26,6 +26,7 @@ internal sealed class GoToHooksService
     private readonly LspInterceptingPipe _pipe;
     private readonly ILogger<GoToHooksService> _logger;
 
+    /// <summary>Creates the service over the given LSP transport pipe.</summary>
     public GoToHooksService(LspInterceptingPipe pipe, ILogger<GoToHooksService> logger)
     {
         _pipe = pipe;

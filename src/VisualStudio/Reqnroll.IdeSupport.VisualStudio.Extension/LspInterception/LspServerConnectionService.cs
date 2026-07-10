@@ -70,6 +70,10 @@ internal sealed class LspServerConnectionService : IDisposable
     // ourselves on the still-live pipe via LspInterceptingPipe.SendRequestToServerAsync.
     private const int ShutdownRequestTimeoutMs = 2000;
 
+    /// <summary>
+    /// Creates the service and immediately kicks off server-process startup on a background
+    /// JoinableTask; see the type-level remarks for why this happens eagerly in the constructor.
+    /// </summary>
     public LspServerConnectionService(
         ILogger<LspServerConnectionService> logger, ILoggerFactory loggerFactory, StepCodeLensState stepCodeLensState)
     {
@@ -278,6 +282,10 @@ internal sealed class LspServerConnectionService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Begins asynchronous, best-effort teardown of the server process and intercepting pipe.
+    /// Returns immediately; the actual shutdown work runs on the thread pool (see remarks).
+    /// </summary>
     public void Dispose()
     {
         if (_disposed) return;

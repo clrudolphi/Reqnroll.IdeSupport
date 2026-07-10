@@ -35,12 +35,14 @@ internal sealed class CommentToggleCommand : Command
     private readonly CommentToggleState _state;
     private readonly ILogger<CommentToggleCommand> _logger;
 
+    /// <summary>Creates the command over the shared runtime state holder.</summary>
     public CommentToggleCommand(CommentToggleState state, ILogger<CommentToggleCommand> logger)
     {
         _state  = state;
         _logger = logger;
     }
 
+    /// <inheritdoc />
     public override CommandConfiguration CommandConfiguration => new("Comment/Uncomment")
     {
         Icon        = new CommandIconConfiguration(ImageMoniker.Custom("ReqnrollIcon"), IconSettings.IconAndText),
@@ -55,6 +57,7 @@ internal sealed class CommentToggleCommand : Command
         ],
     };
 
+    /// <inheritdoc />
     public override async Task ExecuteCommandAsync(IClientContext context, CancellationToken cancellationToken)
     {
         try

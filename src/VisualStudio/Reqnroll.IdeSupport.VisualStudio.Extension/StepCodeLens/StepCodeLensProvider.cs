@@ -35,6 +35,7 @@ internal sealed class StepCodeLensProvider : ExtensionPart, ICodeLensProvider
     private readonly ILogger<StepCodeLensProvider> _logger;
     private readonly ILoggerFactory _loggerFactory;
 
+    /// <summary>Creates the provider over the shared runtime state holder.</summary>
     public StepCodeLensProvider(StepCodeLensState state, ILogger<StepCodeLensProvider> logger, ILoggerFactory loggerFactory)
     {
         _state         = state;
@@ -43,12 +44,14 @@ internal sealed class StepCodeLensProvider : ExtensionPart, ICodeLensProvider
     }
 
     // Apply to C# files only.
+    /// <inheritdoc />
     public TextViewExtensionConfiguration TextViewExtensionConfiguration => new()
     {
         AppliesTo = [DocumentFilter.FromDocumentType("CSharp")]
     };
 
     // Provider display name shown in VS Tools > Options > Text Editor > Code Lens.
+    /// <inheritdoc />
     public CodeLensProviderConfiguration CodeLensProviderConfiguration =>
         new("Reqnroll Step Usages");
 
@@ -88,6 +91,7 @@ internal sealed class StepCodeLens : InvokableCodeLens
     private readonly Uri               _fileUri;
     private readonly int               _methodStartLine;
 
+    /// <summary>Creates the lens for a specific method and registers it with the shared state for later invalidation.</summary>
     public StepCodeLens(
         StepCodeLensState      state,
         ILogger<StepCodeLens>  logger,

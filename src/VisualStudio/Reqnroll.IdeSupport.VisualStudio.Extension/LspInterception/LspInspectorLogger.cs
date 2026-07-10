@@ -144,6 +144,7 @@ internal sealed class LspInspectorLogger : ILspMessageInterceptor, IDisposable
 
     // ── IDisposable
 
+    /// <summary>Flushes and closes the log file writer.</summary>
     public void Dispose()
     {
         if (_disposed) return;

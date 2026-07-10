@@ -23,6 +23,7 @@ internal sealed class TelemetryEventInterceptor : ILspMessageInterceptor
     private readonly Func<ITelemetryTransmitter?> _getTransmitter;
     private readonly ILogger<TelemetryEventInterceptor> _logger;
 
+    /// <summary>Creates the interceptor over a deferred accessor for the (not-yet-resolved) telemetry transmitter.</summary>
     public TelemetryEventInterceptor(
         Func<ITelemetryTransmitter?> getTransmitter,
         ILogger<TelemetryEventInterceptor> logger)
@@ -31,6 +32,7 @@ internal sealed class TelemetryEventInterceptor : ILspMessageInterceptor
         _logger         = logger         ?? throw new ArgumentNullException(nameof(logger));
     }
 
+    /// <inheritdoc />
     public Task<LspInterceptorResult> InterceptAsync(
         LspMessage        message,
         CancellationToken cancellationToken)

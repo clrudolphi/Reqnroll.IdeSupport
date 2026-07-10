@@ -13,6 +13,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Wizards.UI.Dialogs;
 /// </summary>
 public class WizardWindow : Window
 {
+    /// <summary>Raised when a Markdown-rendered hyperlink inside the window is clicked.</summary>
     public event EventHandler<RequestNavigateEventArgs>? LinkClicked;
 
     protected override void OnInitialized(EventArgs e)
@@ -31,6 +32,7 @@ public class WizardWindow : Window
         LinkClicked?.Invoke(sender, e);
     }
 
+    /// <summary>Lets the user drag the (chromeless) window by its client area.</summary>
     public void OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonDown(e);

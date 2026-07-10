@@ -16,6 +16,7 @@ internal sealed class FeatureReferencesDataSource : ITableDataSource
 {
     private readonly IReadOnlyList<StepUsageLocation> _locations;
 
+    /// <summary>Creates a data source with the list of step-usage locations to display.</summary>
     public FeatureReferencesDataSource(IReadOnlyList<StepUsageLocation> locations)
     {
         _locations = locations;
@@ -23,8 +24,11 @@ internal sealed class FeatureReferencesDataSource : ITableDataSource
 
     // ── ITableDataSource ──────────────────────────────────────────────────────
 
+    /// <inheritdoc />
     public string SourceTypeIdentifier => "reqnroll/findReferences";
+    /// <inheritdoc />
     public string Identifier           => "reqnroll.featureReferenceSource";
+    /// <inheritdoc />
     public string DisplayName          => "Reqnroll Feature References";
 
     public IDisposable Subscribe(ITableDataSink sink)
