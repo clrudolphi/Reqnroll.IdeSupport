@@ -25,7 +25,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
 /// </para>
 /// <para>
 /// Clicking a lens delegates to <see cref="FindStepUsagesService"/> + <see cref="FindStepUsagesRenderer"/>,
-/// which reuse the F14 pipeline to open the Find All References window.
+/// which reuse the Find Step Definition Usages pipeline to open the Find All References window.
 /// </para>
 /// </remarks>
 [VisualStudioContribution]

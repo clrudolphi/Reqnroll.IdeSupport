@@ -31,7 +31,8 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 /// <para>
 /// <b>Known limitation:</b> <see cref="GetConnectionAsync"/> hands out the same cached pipe on
 /// every call. If VS activates the provider more than once in a session — the still-open
-/// multi-tab-restore duplicate-server race (see project memory "vs-package-duplicate-server-q23")
+/// multi-tab-restore duplicate-server race (VS restoring several .feature tabs at once can spawn
+/// a second LSP server process that ends up unmatched to any editor)
 /// — a second caller gets the same (already-consumed) pipe rather than a fresh process, which is
 /// different from (not necessarily better or worse than) the pre-existing behaviour of spinning up
 /// a second server. This is a deliberate scope boundary: solving the duplicate-activation race is

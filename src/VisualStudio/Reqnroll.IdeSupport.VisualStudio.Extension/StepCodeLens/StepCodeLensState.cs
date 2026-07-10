@@ -16,17 +16,17 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
 /// <see cref="ReqnrollLanguageClient"/> populates this on server init and clears it on dispose;
 /// <see cref="StepCodeLensProvider"/> reads it via constructor injection.
 /// The <see cref="FindUsagesService"/> and <see cref="FindUsagesRenderer"/> are borrowed from the
-/// F14 state because the execute-lens action reuses the same FAR-window rendering pipeline.
+/// Find Step Definition Usages state because the execute-lens action reuses the same FAR-window rendering pipeline.
 /// </remarks>
 internal sealed class StepCodeLensState
 {
     /// <summary>Set once the server has initialised; null before that and after dispose.</summary>
     public StepCodeLensService?     Service          { get; set; }
 
-    /// <summary>F14 service reused for the execute-lens find-step-usages action.</summary>
+    /// <summary>Find Step Definition Usages service reused for the execute-lens find-step-usages action.</summary>
     public FindStepUsagesService?   FindUsagesService  { get; set; }
 
-    /// <summary>F14 renderer reused for the execute-lens FAR window display.</summary>
+    /// <summary>Find Step Definition Usages renderer reused for the execute-lens FAR window display.</summary>
     public FindStepUsagesRenderer?  FindUsagesRenderer { get; set; }
 
     // Per-file registry of method start lines (0-based).  Used by GetLabelAsync to bound the

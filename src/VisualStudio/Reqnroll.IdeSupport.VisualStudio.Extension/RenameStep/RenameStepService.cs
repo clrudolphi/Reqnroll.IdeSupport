@@ -11,7 +11,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.RenameStep;
 
 /// <summary>
 /// Sends custom <c>reqnroll/renameTargets</c> and <c>reqnroll/selectRenameTarget</c>
-/// requests over the <c>LspInterceptingPipe</c> for the F16 Step Rename feature.
+/// requests over the <c>LspInterceptingPipe</c> for the Step Rename refactoring feature.
 /// </summary>
 internal sealed class RenameStepService
 {

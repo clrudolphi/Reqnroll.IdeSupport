@@ -3,7 +3,7 @@
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.GoToHooks;
 
 /// <summary>
-/// Container-registered singleton holder for the runtime-created F17 "Go to Hooks" service.
+/// Container-registered singleton holder for the runtime-created "Go to Hooks" service.
 /// </summary>
 /// <remarks>
 /// <see cref="GoToHooksService"/> depends on <c>LspInterceptingPipe</c>, which only exists after

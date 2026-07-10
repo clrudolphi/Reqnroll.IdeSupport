@@ -9,7 +9,7 @@ using Reqnroll.IdeSupport.VisualStudio.Wizards.VsIntegration;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension;
 
-// Q23: ProvideAutoLoad ensures the package loads when a solution exists, even when no
+// Startup-race avoidance: ProvideAutoLoad ensures the package loads when a solution exists, even when no
 // .feature file is the foreground editor. Without this, the LSP server never starts on
 // session restore if the foreground tab is a .cs file (scenario A).
 [ProvideAutoLoad(
@@ -61,7 +61,7 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
         // activates the normal way (VS realizes a feature tab, or the user opens a
         // feature file), and ReqnrollLanguageClient.OnServerInitializationResultAsync
         // flushes any remaining stubs at the safe post-server-init point.
-        // TODO(Q23): reinstate a non-racing/idempotent way to start the LSP when the
+        // TODO: reinstate a non-racing/idempotent way to start the LSP when the
         // foreground tab is a .cs file and no feature file is open.
 
         _logger.LogInfo("Solution loaded.");

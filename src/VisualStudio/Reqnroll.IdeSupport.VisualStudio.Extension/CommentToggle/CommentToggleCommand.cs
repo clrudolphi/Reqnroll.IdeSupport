@@ -12,7 +12,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.CommentToggle;
 
 /// <summary>
 /// "Comment/Uncomment" command — placed in the editor context menu,
-/// visible only when a <c>.feature</c> file editor is active (design doc F13).
+/// visible only when a <c>.feature</c> file editor is active (design doc: Comment/Uncomment toggle).
 /// </summary>
 /// <remarks>
 /// When invoked on selected lines, sends <c>workspace/executeCommand</c> for

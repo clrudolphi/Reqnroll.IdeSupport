@@ -11,11 +11,11 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.GoToHooks;
 
 /// <summary>
 /// Sends a custom <c>reqnroll/goToHooks</c> request to the LSP server and maps the result
-/// to a <see cref="GoToHooksResult"/> (design doc F17).
+/// to a <see cref="GoToHooksResult"/> (design doc: Hook Navigation / "Go to Hooks").
 /// </summary>
 /// <remarks>
 /// Uses the custom <c>reqnroll/goToHooks</c> message rather than <c>textDocument/definition</c>
-/// because F5 (Go to Step Definition) already uses that message on step lines; the server cannot
+/// because Go to Step Definition already uses that message on step lines; the server cannot
 /// distinguish "find step binding" from "find hooks" from position alone, and step-level hooks
 /// (<c>[BeforeStep]</c> / <c>[AfterStep]</c>) would be unreachable via the shared message.
 /// </remarks>

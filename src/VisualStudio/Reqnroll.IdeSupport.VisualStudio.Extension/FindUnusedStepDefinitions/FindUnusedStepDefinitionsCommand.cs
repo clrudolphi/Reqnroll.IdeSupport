@@ -12,7 +12,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
 
 /// <summary>
 /// "Find Unused Step Definitions" command placed in the Reqnroll submenu under Extensions.
-/// Unlike F14, this command is not scoped to a C# editor — it is a workspace-wide operation
+/// Unlike Find Step Definition Usages, this command is not scoped to a C# editor — it is a workspace-wide operation
 /// available whenever the server is running.
 /// </summary>
 [VisualStudioContribution]

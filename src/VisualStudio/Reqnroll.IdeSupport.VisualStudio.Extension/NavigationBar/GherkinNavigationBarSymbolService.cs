@@ -12,11 +12,21 @@ using Reqnroll.IdeSupport.VisualStudio.NavigationBar;
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.NavigationBar;
 
 /// <summary>
-/// Fetches the Feature/Scenario/Step symbol tree for the Navigation Bar (Issue #5 / Q22 Option B)
+/// Fetches the Feature/Scenario/Step symbol tree for the Navigation Bar
 /// by sending the custom <c>reqnroll/documentSymbolHierarchical</c> request over the owned
 /// <see cref="LspInterceptingPipe"/>.
 /// </summary>
 /// <remarks>
+/// <para>
+/// <b>Navigation Bar design (Issue #5):</b> the VS Navigation Bar drop-downs are populated from
+/// the LSP server's document-symbol data rather than from a VS-side Gherkin parser. This service
+/// is the client-side half of that design: it fetches the symbol tree from the server and maps it
+/// into the protocol-agnostic <see cref="GherkinSymbolNode"/> shape that the VSSDK-hosted
+/// <c>GherkinDropdownBarClient</c> renders, so the combo boxes always reflect what the language
+/// server itself understands about the document (same source of truth as diagnostics, folding,
+/// etc.) instead of a second, potentially-diverging parser living in the VS integration layer.
+/// </para>
+/// <para>
 /// Deliberately not <c>textDocument/documentSymbol</c>: that handler's response shape depends on
 /// whether the real LSP client (VS) declared <c>hierarchicalDocumentSymbolSupport</c> — which VS
 /// does not — so it can return either nested <c>DocumentSymbol</c> or flat <c>SymbolInformation</c>
@@ -24,6 +34,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.NavigationBar;
 /// <see cref="MapResult"/> is written for the nested shape (reads <c>range</c>/<c>selectionRange</c>/
 /// <c>children</c> directly), so it uses the always-hierarchical custom method instead of being at
 /// the mercy of what VS's client capability happens to be.
+/// </para>
 /// </remarks>
 internal sealed class GherkinNavigationBarSymbolService
 {

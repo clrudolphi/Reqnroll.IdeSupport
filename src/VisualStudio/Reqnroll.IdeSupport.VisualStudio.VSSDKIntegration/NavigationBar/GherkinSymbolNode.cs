@@ -12,7 +12,8 @@ public readonly record struct GherkinSymbolRange(GherkinSymbolPosition Start, Gh
 
 /// <summary>
 /// Client-side, protocol-agnostic mirror of an LSP <c>DocumentSymbol</c> node, used to populate
-/// the Navigation Bar drop-downs (Issue #5 / Q22 Option B). Deliberately independent of any
+/// the Navigation Bar drop-downs from the LSP server's document-symbol data (see
+/// <c>GherkinNavigationBarSymbolService</c> for the design rationale). Deliberately independent of any
 /// OmniSharp/Newtonsoft type so this VSSDK-hosted (net481, classic COM) project doesn't need to
 /// reference the LSP client libraries — <c>GherkinNavigationBarSymbolService</c> in the Extension
 /// project does the JSON parsing and hands over already-mapped instances of this type.

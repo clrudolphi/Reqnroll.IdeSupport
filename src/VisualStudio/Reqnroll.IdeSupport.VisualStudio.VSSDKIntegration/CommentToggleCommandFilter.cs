@@ -15,7 +15,7 @@ namespace Reqnroll.IdeSupport.VisualStudio;
 /// <summary>
 /// Intercepts the built-in Comment Selection / Uncomment Selection / Toggle Line Comment
 /// commands for <c>reqnroll-gherkin</c> text views and redirects them to the Reqnroll
-/// LSP server via <see cref="CommentToggleRedirect"/> (F13 — Comment/Uncomment).
+/// LSP server via <see cref="CommentToggleRedirect"/> (Comment/Uncomment toggle).
 /// </summary>
 /// <remarks>
 /// This is a MEF component registered via <c>[Export(typeof(IVsTextViewCreationListener))]</c>

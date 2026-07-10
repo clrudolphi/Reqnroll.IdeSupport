@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.RenameStep;
 
 /// <summary>
-/// Client-side result for the <c>reqnroll/renameTargets</c> response (F16).
+/// Client-side result for the <c>reqnroll/renameTargets</c> response (Step Rename refactoring).
 /// Mirrors the fields of <see cref="LSP.Server.Protocol.RenameTargetsResponse"/>
 /// without a compilation dependency on the server project.
 /// </summary>

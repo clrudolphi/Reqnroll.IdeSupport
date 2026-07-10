@@ -138,7 +138,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
             // for Edit.CommentSelection/UncommentSelection/ToggleLineComment calls our service.
             CommentToggleRedirect.ToggleCommentAsync = _commentToggleState.Service.ToggleCommentAsync;
 
-            // Set the VSSDK drop-down bar client redirect (Issue #5 / Q22 Option B) so the
+            // Set the VSSDK drop-down bar client redirect so the
             // Navigation Bar can fetch the Feature/Scenario/Step symbol tree.
             NavigationBarRedirect.FetchDocumentSymbolsAsync = _navigationBarSymbolService.FetchSymbolsAsync;
 
@@ -158,7 +158,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
                 _findStepUsagesState.Renderer            = new FindStepUsagesRenderer(serviceProvider, _loggerFactory.CreateLogger<FindStepUsagesRenderer>());
                 _findUnusedStepDefinitionsState.Renderer = new FindUnusedStepDefinitionsRenderer(serviceProvider, _loggerFactory.CreateLogger<FindUnusedStepDefinitionsRenderer>());
 
-                // F18 — reuse F14 find-usages components for the code-lens click action.
+                // F18 — reuse the Find Step Definition Usages / Find All References components for the code-lens click action.
                 _stepCodeLensState.FindUsagesService  = _findStepUsagesState.Service;
                 _stepCodeLensState.FindUsagesRenderer = _findStepUsagesState.Renderer;
 

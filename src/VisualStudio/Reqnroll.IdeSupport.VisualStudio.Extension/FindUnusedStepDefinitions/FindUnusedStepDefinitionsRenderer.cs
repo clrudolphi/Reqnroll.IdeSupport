@@ -12,7 +12,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
 
 /// <summary>
 /// Opens the VS Find All References tool window and populates it with
-/// <see cref="UnusedStepDefinitionsResult"/> locations (F15).
+/// <see cref="UnusedStepDefinitionsResult"/> locations (Find Unused Step Definitions).
 /// </summary>
 internal sealed class FindUnusedStepDefinitionsRenderer
 {

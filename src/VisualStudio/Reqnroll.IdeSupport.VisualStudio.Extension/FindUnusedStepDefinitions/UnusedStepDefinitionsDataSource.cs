@@ -57,7 +57,7 @@ internal sealed class UnusedStepDefinitionsDataSource : ITableDataSource
             entry.TrySetValue(StandardTableKeyNames.ProjectName, item.ProjectName);
 
         // Suppress VS's auto-generated Description column — without this, VS duplicates the
-        // Code text with colour markup into a Description column (same as F14 does).
+        // Code text with colour markup into a Description column (same as Find Step Definition Usages does).
         entry.TrySetValue("description", "");
 
         return entry;

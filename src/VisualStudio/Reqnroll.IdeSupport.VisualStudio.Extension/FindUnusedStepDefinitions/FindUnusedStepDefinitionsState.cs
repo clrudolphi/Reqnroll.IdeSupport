@@ -3,7 +3,7 @@
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
 
 /// <summary>
-/// Shared, container-registered holder for the runtime-created F15 components.
+/// Shared, container-registered holder for the runtime-created Find Unused Step Definitions components.
 /// Follows the same pattern as <see cref="FindStepUsages.FindStepUsagesState"/>.
 /// </summary>
 internal sealed class FindUnusedStepDefinitionsState

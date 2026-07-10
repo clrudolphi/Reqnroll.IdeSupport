@@ -11,7 +11,7 @@ using Reqnroll.IdeSupport.Common.Logging;
 namespace Reqnroll.IdeSupport.VisualStudio.NavigationBar;
 
 /// <summary>
-/// Navigation Bar drop-down client for <c>.feature</c> files (Issue #5 / Q22 Option B): a single
+/// Navigation Bar drop-down client for <c>.feature</c> files: a single
 /// combo listing Feature/Rule/Background/Scenario/ScenarioOutline titles (Steps/Examples omitted —
 /// scenarios are short enough that the scenario title is almost always the intended navigation
 /// target), sourced from the standard <c>textDocument/documentSymbol</c> data via

@@ -9,7 +9,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.GoToHooks;
 
 /// <summary>
 /// "Go to Hooks" command — placed in the code-editor context menu navigation group,
-/// visible only when a <c>.feature</c> file editor is active (design doc F17).
+/// visible only when a <c>.feature</c> file editor is active (design doc: Hook Navigation).
 /// </summary>
 /// <remarks>
 /// When invoked, queries the LSP server for hook bindings applicable at the caret position.

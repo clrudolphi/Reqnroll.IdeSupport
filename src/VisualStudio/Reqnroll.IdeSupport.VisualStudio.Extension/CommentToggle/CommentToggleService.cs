@@ -10,7 +10,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.CommentToggle;
 
 /// <summary>
 /// Sends a <c>workspace/executeCommand</c> request for <c>reqnroll.toggleComment</c>
-/// to the LSP server (F13 — Comment/Uncomment).
+/// to the LSP server (Comment/Uncomment toggle).
 /// </summary>
 /// <remarks>
 /// The server responds with an acknowledgement and as a side-effect sends a

@@ -6,7 +6,7 @@ using Newtonsoft.Json.Linq;
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.RenameStep;
 
 /// <summary>
-/// Client-side result for a <c>textDocument/rename</c> response (F16).
+/// Client-side result for a <c>textDocument/rename</c> response (Step Rename refactoring).
 /// Contains pre-parsed, sorted text edits grouped by local file path.
 /// </summary>
 internal sealed class RenameWorkspaceEdit
