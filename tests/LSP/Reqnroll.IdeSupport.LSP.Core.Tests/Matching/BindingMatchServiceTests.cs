@@ -94,8 +94,34 @@ public class BindingMatchServiceTests
 
         set.FindAt(step.Range.Start).Should().BeSameAs(step);
         set.FindAt(step.Range.End - 1).Should().BeSameAs(step);
-        set.FindAt(step.Range.End).Should().BeNull();
         set.FindAt(0).Should().BeNull();
+    }
+
+    [Fact]
+    public void FindAt_tolerates_offsets_anywhere_on_the_step_line()
+    {
+        // DefinedFeature line 2 (0-based) is "    Given my step" — the step text span covers
+        // just "my step"; the rest of the line (indentation + keyword, and one-past-the-end)
+        // should still resolve to the same step (issue #101).
+        var set  = BuildSet(DefinedFeature, RegistryWith(GivenBinding("my step")));
+        var step = set.Steps[0];
+        var line = step.Range.Snapshot.GetLineFromLineNumber(step.Range.StartLinePosition.Line);
+
+        set.FindAt(line.Start).Should().BeSameAs(step, "clicking on the leading indentation/keyword should resolve to the step");
+        set.FindAt(step.Range.End).Should().BeSameAs(step, "clicking one past the last character of the step text should still resolve");
+        set.FindAt(line.End).Should().BeSameAs(step, "clicking at end-of-line should resolve to the step");
+    }
+
+    [Fact]
+    public void FindAt_does_not_bleed_across_lines()
+    {
+        // DefinedFeature line 1 (0-based) is "Scenario: S" — a different line than the step,
+        // so it must not resolve even though it's adjacent to the step's line.
+        var set  = BuildSet(DefinedFeature, RegistryWith(GivenBinding("my step")));
+        var step = set.Steps[0];
+        var stepLine = step.Range.Snapshot.GetLineFromLineNumber(step.Range.StartLinePosition.Line);
+
+        set.FindAt(stepLine.Start - 1).Should().BeNull("offset one before the step's line belongs to the previous line");
     }
 
     [Fact]

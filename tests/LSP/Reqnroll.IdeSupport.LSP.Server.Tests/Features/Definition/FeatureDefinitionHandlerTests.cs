@@ -220,6 +220,53 @@ public class FeatureDefinitionHandlerTests
         range.End.Character.Should().Be(range.Start.Character);
     }
 
+    // ── Cursor beyond the exact step text span but still on the step's line (#101) ────────────
+
+    [Fact]
+    public async Task Handle_cursor_at_end_of_step_line_resolves_Async()
+    {
+        // Line 2 is "    Given a step" (17 chars) — character 16 is one past the final "p",
+        // matching the issue #101 repro (click just past the end of the step text).
+        var step = MakeDefinedMatch("Steps.cs", csLine: 10, csColumn: 5);
+        _matchService.Store(new FeatureBindingMatchSet(
+            FeatureUri.ToString(), ProjectOwner.Unknown, 1, 1, new[] { step }));
+
+        var result = await CreateSut().Handle(
+            RequestAt(FeatureUri, 2, 16), CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result!.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task Handle_cursor_on_step_keyword_resolves_Async()
+    {
+        // Character 4 is on "Given" itself, before the step text span starts at character 10.
+        var step = MakeDefinedMatch("Steps.cs", csLine: 10, csColumn: 5);
+        _matchService.Store(new FeatureBindingMatchSet(
+            FeatureUri.ToString(), ProjectOwner.Unknown, 1, 1, new[] { step }));
+
+        var result = await CreateSut().Handle(
+            RequestAt(FeatureUri, 2, 4), CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result!.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task Handle_cursor_on_previous_line_still_returns_empty_Async()
+    {
+        // Cursor on "Scenario: S" (line 1) must not resolve to the step on line 2.
+        var step = MakeDefinedMatch("Steps.cs", csLine: 10, csColumn: 5);
+        _matchService.Store(new FeatureBindingMatchSet(
+            FeatureUri.ToString(), ProjectOwner.Unknown, 1, 1, new[] { step }));
+
+        var result = await CreateSut().Handle(
+            RequestAt(FeatureUri, 1, 5), CancellationToken.None);
+
+        result.Should().BeEmpty();
+    }
+
     // ── Ambiguous step — multiple bindings ───────────────────────────────────
 
     /// <summary>
