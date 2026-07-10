@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Reqnroll.IdeSupport.LSP.Core.FindUnusedStepDefs;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
+using Reqnroll.IdeSupport.LSP.Server.Registry;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs;

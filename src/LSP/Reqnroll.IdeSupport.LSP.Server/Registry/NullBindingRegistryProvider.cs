@@ -1,6 +1,6 @@
 ﻿using Reqnroll.IdeSupport.LSP.Core.Bindings;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
+namespace Reqnroll.IdeSupport.LSP.Server.Registry;
 
 /// <summary>
 /// Stub <see cref="IBindingRegistryProvider"/> that always returns

@@ -1,5 +1,6 @@
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
+using Reqnroll.IdeSupport.LSP.Server.Registry;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Discovery;
 
