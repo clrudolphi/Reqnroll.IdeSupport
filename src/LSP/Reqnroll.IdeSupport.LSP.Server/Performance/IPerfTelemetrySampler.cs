@@ -3,7 +3,7 @@
 using System;
 using System.Globalization;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Diagnostics.Performance;
+namespace Reqnroll.IdeSupport.LSP.Server.Performance;
 
 /// <summary>
 /// Decides whether a given <c>PerfSample</c> telemetry event should be emitted. Field perf

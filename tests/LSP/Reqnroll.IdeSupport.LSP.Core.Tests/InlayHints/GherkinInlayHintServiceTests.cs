@@ -1,5 +1,5 @@
 ﻿using Reqnroll.IdeSupport.Common.Configuration;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Core.Documents;
 using Reqnroll.IdeSupport.LSP.Core.InlayHints;
 using Reqnroll.IdeSupport.LSP.Core.Matching;

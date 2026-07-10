@@ -1,7 +1,7 @@
 ﻿using System.Linq;
 using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 
 using Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;

@@ -3,7 +3,7 @@
 using System;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Diagnostics.Performance;
+namespace Reqnroll.IdeSupport.LSP.Server.Performance;
 
 /// <summary>
 /// Records the wall-clock duration of an LSP protocol operation for the architecture's Performance

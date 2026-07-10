@@ -1,4 +1,4 @@
-﻿using Reqnroll.IdeSupport.Common.Diagnostics;
+﻿using Reqnroll.IdeSupport.Common.Logging;
 using System;
 
 namespace Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;

@@ -3,7 +3,7 @@
 using System;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Diagnostics.Performance;
+namespace Reqnroll.IdeSupport.LSP.Server.Performance;
 
 /// <summary>
 /// No-op <see cref="IOperationDurationRecorder"/>. Used as the default when a handler is

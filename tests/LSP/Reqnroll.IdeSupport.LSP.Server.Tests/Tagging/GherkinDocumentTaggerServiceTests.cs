@@ -1,4 +1,4 @@
-﻿using Reqnroll.IdeSupport.Common.Diagnostics;
+﻿using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
 
 

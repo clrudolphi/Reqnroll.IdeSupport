@@ -1,6 +1,6 @@
 #nullable enable
 
-namespace Reqnroll.IdeSupport.Common.Diagnostics;
+namespace Reqnroll.IdeSupport.Common.Logging;
 
 /// <summary>
 /// Debug-only sink that mirrors telemetry events to a local file for later review.

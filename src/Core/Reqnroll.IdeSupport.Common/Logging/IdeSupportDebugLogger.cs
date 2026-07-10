@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 
-namespace Reqnroll.IdeSupport.Common.Diagnostics;
+namespace Reqnroll.IdeSupport.Common.Logging;
 
 public class IdeSupportDebugLogger : IIdeSupportLogger
 {

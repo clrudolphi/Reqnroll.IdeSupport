@@ -1,5 +1,5 @@
 ﻿using System.Diagnostics;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Server.Pipeline;
 using Reqnroll.IdeSupport.LSP.Server.Tests.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;

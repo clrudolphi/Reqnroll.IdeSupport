@@ -3,7 +3,7 @@ using System;
 using System.Xml.XPath;
 using System.Xml.Linq;
 using System.Collections.Generic;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.Configuration;
 using System.Linq;
 using System.IO;

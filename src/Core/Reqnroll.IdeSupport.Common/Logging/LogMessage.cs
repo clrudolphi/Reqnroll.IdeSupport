@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 
-namespace Reqnroll.IdeSupport.Common.Diagnostics;
+namespace Reqnroll.IdeSupport.Common.Logging;
 
 [DebuggerDisplay("{TimeStamp} {CallerMethod} {Message}")]
 public record LogMessage(

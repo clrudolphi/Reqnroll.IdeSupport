@@ -2,7 +2,7 @@
 using EnvDTE;
 using Microsoft.VisualStudio.Shell;
 using Reqnroll.IdeSupport.Common;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.VisualStudio.Common;
 using Reqnroll.IdeSupport.VisualStudio.Package.ProjectSystem;

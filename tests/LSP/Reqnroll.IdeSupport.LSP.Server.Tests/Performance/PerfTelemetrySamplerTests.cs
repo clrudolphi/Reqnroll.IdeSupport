@@ -1,9 +1,9 @@
 #nullable enable
 
 using System;
-using Reqnroll.IdeSupport.LSP.Server.Diagnostics.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Tests.Diagnostics.Performance;
+namespace Reqnroll.IdeSupport.LSP.Server.Tests.Performance;
 
 public class PerfTelemetrySamplerTests
 {

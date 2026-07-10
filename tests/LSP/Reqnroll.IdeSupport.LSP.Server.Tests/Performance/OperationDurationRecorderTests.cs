@@ -4,13 +4,13 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol;
-using Reqnroll.IdeSupport.Common.Diagnostics;
-using Reqnroll.IdeSupport.LSP.Server.Diagnostics.Performance;
+using Reqnroll.IdeSupport.Common.Logging;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 using Reqnroll.IdeSupport.LSP.Server.Tracing;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Tests.Diagnostics.Performance;
+namespace Reqnroll.IdeSupport.LSP.Server.Tests.Performance;
 
 public class OperationDurationRecorderTests
 {

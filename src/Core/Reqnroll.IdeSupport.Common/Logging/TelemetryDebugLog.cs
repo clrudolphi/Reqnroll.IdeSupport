@@ -5,7 +5,7 @@ using System.IO;
 using System.Text;
 using Newtonsoft.Json;
 
-namespace Reqnroll.IdeSupport.Common.Diagnostics;
+namespace Reqnroll.IdeSupport.Common.Logging;
 
 /// <summary>
 /// Factory that builds an <see cref="ITelemetryDebugLog"/> from the

@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 
-namespace Reqnroll.IdeSupport.Common.Diagnostics;
+namespace Reqnroll.IdeSupport.Common.Logging;
 
 public interface IIdeSupportLogger
 {

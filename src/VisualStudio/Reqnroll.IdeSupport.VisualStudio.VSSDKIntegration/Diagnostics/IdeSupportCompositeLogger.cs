@@ -1,5 +1,5 @@
 ﻿using System.Diagnostics;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 using System.Collections;
 using System.ComponentModel.Composition;
 
@@ -15,7 +15,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Diagnostics;
 /// </summary>
 [Export(typeof(IIdeSupportLogger))]
 [Export(typeof(IdeSupportCompositeLogger))]
-public class IdeSupportCompositeLogger : Reqnroll.IdeSupport.Common.Diagnostics.IdeSupportCompositeLogger
+public class IdeSupportCompositeLogger : Reqnroll.IdeSupport.Common.Logging.IdeSupportCompositeLogger
 {
     public IdeSupportCompositeLogger()
     {

@@ -11,7 +11,7 @@ using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.ApplicationInsights.Extensibility;
 using Reqnroll.IdeSupport.Common.Analytics;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Analytics;
 

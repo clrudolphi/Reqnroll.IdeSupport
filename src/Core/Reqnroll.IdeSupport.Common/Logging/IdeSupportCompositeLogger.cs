@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 
-namespace Reqnroll.IdeSupport.Common.Diagnostics;
+namespace Reqnroll.IdeSupport.Common.Logging;
 
 public class IdeSupportCompositeLogger : IIdeSupportLogger, IEnumerable<IIdeSupportLogger>
 {

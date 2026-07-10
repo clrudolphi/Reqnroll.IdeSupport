@@ -1,5 +1,5 @@
 ﻿using Reqnroll.IdeSupport.Common.Configuration;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Core.Documents;
 using Reqnroll.VisualStudio.VsxStubs.LspStubs;
 using GherkinLocation = Gherkin.Ast.Location;

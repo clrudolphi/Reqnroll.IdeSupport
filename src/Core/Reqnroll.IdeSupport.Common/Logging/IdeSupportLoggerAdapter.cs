@@ -4,7 +4,7 @@ using System;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 
-namespace Reqnroll.IdeSupport.Common.Diagnostics;
+namespace Reqnroll.IdeSupport.Common.Logging;
 
 /// <summary>
 /// Canonical <see cref="TraceLevel"/> &lt;-&gt; <see cref="LogLevel"/> mapping, shared by every

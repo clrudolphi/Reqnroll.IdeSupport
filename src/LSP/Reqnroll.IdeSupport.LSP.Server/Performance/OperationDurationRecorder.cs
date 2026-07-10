@@ -4,12 +4,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using OmniSharp.Extensions.LanguageServer.Protocol;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 using Reqnroll.IdeSupport.LSP.Server.Tracing;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Diagnostics.Performance;
+namespace Reqnroll.IdeSupport.LSP.Server.Performance;
 
 /// <summary>
 /// Default <see cref="IOperationDurationRecorder"/>. Writes a structured, grep-able
