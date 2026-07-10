@@ -3,7 +3,7 @@ using Reqnroll.IdeSupport.Common.Telemetry;
 using System;
 using System.ComponentModel.Composition;
 
-namespace Reqnroll.IdeSupport.VisualStudio.SDKIntegration.Analytics;
+namespace Reqnroll.IdeSupport.VisualStudio.SDKIntegration.Telemetry;
 
 
 [Export(typeof(IUserUniqueIdStore))]

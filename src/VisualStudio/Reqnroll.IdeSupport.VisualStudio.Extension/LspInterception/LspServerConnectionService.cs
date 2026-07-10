@@ -98,7 +98,7 @@ internal sealed class LspServerConnectionService : IDisposable
     /// available (post-init, main thread). Read lazily by <see cref="TelemetryEventInterceptor"/>,
     /// which is constructed before this is known.
     /// </summary>
-    public ITelemetryTransmitter? AnalyticsTransmitter { get; set; }
+    public ITelemetryTransmitter? TelemetryTransmitter { get; set; }
 
     /// <summary>
     /// Set by <see cref="ReqnrollLanguageClient"/> once the project monitor is constructed
@@ -260,7 +260,7 @@ internal sealed class LspServerConnectionService : IDisposable
             // Telemetry interceptor: lazy reference because AnalyticsTransmitter is resolved
             // from MEF on the main thread during OnServerInitializationResultAsync.
             var telemetryInterceptor = new TelemetryEventInterceptor(
-                () => AnalyticsTransmitter, _loggerFactory.CreateLogger<TelemetryEventInterceptor>());
+                () => TelemetryTransmitter, _loggerFactory.CreateLogger<TelemetryEventInterceptor>());
             var receiveInterceptors = new ILspMessageInterceptor[]
                 { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor, codeLensRefreshInterceptor, _shutdownHandshakeInterceptor, telemetryInterceptor };
 

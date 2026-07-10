@@ -2,7 +2,7 @@ using Microsoft.Win32;
 using Reqnroll.IdeSupport.Common.Telemetry;
 using System.ComponentModel.Composition;
 
-namespace Reqnroll.IdeSupport.VisualStudio.SDKIntegration.Analytics;
+namespace Reqnroll.IdeSupport.VisualStudio.SDKIntegration.Telemetry;
 
 [Export(typeof(IRegistryManager))]
 public class RegistryManager : IRegistryManager

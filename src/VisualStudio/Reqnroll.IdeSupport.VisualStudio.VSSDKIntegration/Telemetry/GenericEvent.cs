@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.ComponentModel.Composition;
 
-namespace Reqnroll.IdeSupport.VisualStudio.Analytics;
+namespace Reqnroll.IdeSupport.VisualStudio.Telemetry;
 
 [Export(typeof(ITelemetryEvent))]
 public record GenericEvent : Reqnroll.IdeSupport.Common.Telemetry.GenericEvent

@@ -8,7 +8,7 @@ public interface IEnableTelemetryChecker
     bool IsEnabled();
 }
 
-public class EnableAnalyticsChecker : IEnableTelemetryChecker
+public class EnableTelemetryChecker : IEnableTelemetryChecker
 {
     public const string ReqnrollTelemetryEnvironmentVariable = "REQNROLL_TELEMETRY_ENABLED";
 

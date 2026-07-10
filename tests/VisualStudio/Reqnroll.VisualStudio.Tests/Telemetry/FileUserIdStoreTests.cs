@@ -1,6 +1,6 @@
 #nullable disable
-using Reqnroll.IdeSupport.VisualStudio.SDKIntegration.Analytics;
-namespace Reqnroll.VisualStudio.Tests.Analytics;
+using Reqnroll.IdeSupport.VisualStudio.SDKIntegration.Telemetry;
+namespace Reqnroll.VisualStudio.Tests.Telemetry;
 
 public class FileUserIdStoreTests
 {

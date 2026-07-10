@@ -3,42 +3,42 @@ using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.Channel;
 using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.ApplicationInsights.Extensibility;
-using VsAnalyticsTransmitter = Reqnroll.IdeSupport.VisualStudio.Analytics.AnalyticsTransmitter;
+using VsTelemetryTransmitter = Reqnroll.IdeSupport.VisualStudio.Telemetry.TelemetryTransmitter;
 
-namespace Reqnroll.IdeSupport.VisualStudio.Tests.Analytics;
+namespace Reqnroll.IdeSupport.VisualStudio.Tests.Telemetry;
 
-// Lives in the VS test project (not Common.Tests) because the concrete AnalyticsTransmitter
+// Lives in the VS test project (not Common.Tests) because the concrete TelemetryTransmitter
 // and its Microsoft.ApplicationInsights dependency now live in VSSDKIntegration. Common only
 // owns the IDE-neutral contracts. The SUT is constructed through its internal test-seam ctor
 // (InternalsVisibleTo from VSSDKIntegration), injecting a TelemetryClient backed by an
 // in-memory channel so we can assert what was transmitted without contacting App Insights.
-public class AnalyticsTransmitterTests
+public class TelemetryTransmitterTests
 {
     private InMemoryTelemetryChannel _telemetryChannel;
-    private IEnableTelemetryChecker _enableAnalyticsCheckerStub;
+    private IEnableTelemetryChecker _enableTelemetryCheckerStub;
     private readonly CapturingDebugLog _debugLog = new();
 
     [Fact]
-    public void Should_NotSendAnalytics_WhenDisabled()
+    public void Should_NotSendTelemetry_WhenDisabled()
     {
         var sut = CreateSut();
-        GivenAnalyticsDisabled();
+        GivenTelemetryDisabled();
 
         sut.TransmitEvent(Substitute.For<ITelemetryEvent>());
 
-        _enableAnalyticsCheckerStub.Received(1).IsEnabled();
+        _enableTelemetryCheckerStub.Received(1).IsEnabled();
         _telemetryChannel.SentTelemtries.Should().BeEmpty();
     }
 
     [Fact]
-    public void Should_SendAnalytics_WhenEnabled()
+    public void Should_SendTelemetry_WhenEnabled()
     {
         var sut = CreateSut();
-        GivenAnalyticsEnabled();
+        GivenTelemetryEnabled();
 
         sut.TransmitEvent(Substitute.For<ITelemetryEvent>());
 
-        _enableAnalyticsCheckerStub.Received(1).IsEnabled();
+        _enableTelemetryCheckerStub.Received(1).IsEnabled();
         _telemetryChannel.SentTelemtries.Should().HaveCount(1);
     }
 
@@ -49,7 +49,7 @@ public class AnalyticsTransmitterTests
     public void Should_TransmitEvents(string eventName)
     {
         var sut = CreateSut();
-        GivenAnalyticsEnabled();
+        GivenTelemetryEnabled();
 
         sut.TransmitEvent(new GenericEvent(eventName));
 
@@ -73,7 +73,7 @@ public class AnalyticsTransmitterTests
     public void Should_NotThrow_WhenAppInsightsFails()
     {
         var sut = CreateSut();
-        GivenAnalyticsEnabled();
+        GivenTelemetryEnabled();
 
         _telemetryChannel.ThrowOnSend = true;
 
@@ -82,19 +82,19 @@ public class AnalyticsTransmitterTests
         Assert.Null(exception);
     }
 
-    private void GivenAnalyticsEnabled()
+    private void GivenTelemetryEnabled()
     {
-        _enableAnalyticsCheckerStub.IsEnabled().Returns(true);
+        _enableTelemetryCheckerStub.IsEnabled().Returns(true);
     }
 
-    private void GivenAnalyticsDisabled()
+    private void GivenTelemetryDisabled()
     {
-        _enableAnalyticsCheckerStub.IsEnabled().Returns(false);
+        _enableTelemetryCheckerStub.IsEnabled().Returns(false);
     }
 
-    private VsAnalyticsTransmitter CreateSut()
+    private VsTelemetryTransmitter CreateSut()
     {
-        _enableAnalyticsCheckerStub = Substitute.For<IEnableTelemetryChecker>();
+        _enableTelemetryCheckerStub = Substitute.For<IEnableTelemetryChecker>();
         _telemetryChannel = new InMemoryTelemetryChannel();
         var config = new TelemetryConfiguration
         {
@@ -102,7 +102,7 @@ public class AnalyticsTransmitterTests
             ConnectionString = $"InstrumentationKey={Guid.NewGuid():N}"
         };
         var telemetryClient = new TelemetryClient(config);
-        return new VsAnalyticsTransmitter(telemetryClient, _enableAnalyticsCheckerStub, null, _debugLog);
+        return new VsTelemetryTransmitter(telemetryClient, _enableTelemetryCheckerStub, null, _debugLog);
     }
 
     // ── Debug-log mirror (host side) ──────────────────────────────────────────────
@@ -111,7 +111,7 @@ public class AnalyticsTransmitterTests
     public void Should_MirrorToDebugLog_AsHost_WhenDisabled()
     {
         var sut = CreateSut();
-        GivenAnalyticsDisabled();
+        GivenTelemetryDisabled();
 
         sut.TransmitEvent(new GenericEvent("Extension loaded"));
 
@@ -130,7 +130,7 @@ public class AnalyticsTransmitterTests
     public void Should_MirrorToDebugLog_AsTransmitted_WhenEnabled()
     {
         var sut = CreateSut();
-        GivenAnalyticsEnabled();
+        GivenTelemetryEnabled();
 
         sut.TransmitEvent(new GenericEvent("Extension loaded"));
 
@@ -147,7 +147,7 @@ public class AnalyticsTransmitterTests
     public void Should_MirrorErrorToDebugLog_WhenTransmissionFails()
     {
         var sut = CreateSut();
-        GivenAnalyticsEnabled();
+        GivenTelemetryEnabled();
         _telemetryChannel.ThrowOnSend = true;
 
         sut.TransmitEvent(new GenericEvent("Extension loaded"));

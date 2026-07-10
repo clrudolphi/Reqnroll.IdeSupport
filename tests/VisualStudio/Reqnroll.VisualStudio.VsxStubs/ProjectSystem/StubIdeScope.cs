@@ -4,10 +4,10 @@ public class StubIdeScope : IIdeScope, IDisposable
 {
     public StubIdeScope(ITestOutputHelper testOutputHelper)
     {
-        AnalyticsTransmitter = new StubAnalyticsTransmitter(Logger);
+        TelemetryTransmitter = new StubTelemetryTransmitter(Logger);
         MonitoringService =
             new MonitoringService(
-                AnalyticsTransmitter);
+                TelemetryTransmitter);
 
         CompositeLogger.Add(new DeveroomXUnitLogger(testOutputHelper));
         CompositeLogger.Add(StubLogger);
@@ -37,7 +37,7 @@ public class StubIdeScope : IIdeScope, IDisposable
     }
 
     public CancellationTokenSource BackgroundTaskTokenSource { get; }
-    public StubAnalyticsTransmitter AnalyticsTransmitter { get; }
+    public StubTelemetryTransmitter TelemetryTransmitter { get; }
     public IDictionary<string, IWpfTextView> OpenViews { get; } = new Dictionary<string, IWpfTextView>();
     public StubLogger StubLogger { get; } = new();
 

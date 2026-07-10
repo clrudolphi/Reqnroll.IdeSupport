@@ -12,7 +12,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 /// and forwards them to <see cref="ITelemetryTransmitter"/> for persistent telemetry.
 /// </summary>
 /// <remarks>
-/// Uses a lazy <c>Func&lt;IAnalyticsTransmitter?&gt;</c> (same pattern as
+/// Uses a lazy <c>Func&lt;ITelemetryTransmitter?&gt;</c> (same pattern as
 /// <see cref="ScaffoldTrackingInterceptor"/>) so the transmitter can be resolved
 /// after the MEF composition is ready, rather than requiring it at construction time.
 /// </remarks>
@@ -49,7 +49,7 @@ internal sealed class TelemetryEventInterceptor : ILspMessageInterceptor
         if (transmitter is null)
         {
             _logger.LogWarning(
-                "TelemetryEventInterceptor: IAnalyticsTransmitter not available; dropping event.");
+                "TelemetryEventInterceptor: ITelemetryTransmitter not available; dropping event.");
             return Task.FromResult(LspInterceptorResult.PassThrough);
         }
 

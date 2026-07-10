@@ -153,10 +153,10 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
                     .SwitchToMainThreadAsync(cancellationToken);
 
                 var serviceProvider = ServiceProvider.GlobalProvider;
-                _connectionService.AnalyticsTransmitter = ResolveMefService<ITelemetryTransmitter>(serviceProvider);
+                _connectionService.TelemetryTransmitter = ResolveMefService<ITelemetryTransmitter>(serviceProvider);
                 _logger.LogInformation(
-                    "ReqnrollLanguageClient: IAnalyticsTransmitter resolved: {Resolved}",
-                    _connectionService.AnalyticsTransmitter is not null ? "yes" : "no");
+                    "ReqnrollLanguageClient: ITelemetryTransmitter resolved: {Resolved}",
+                    _connectionService.TelemetryTransmitter is not null ? "yes" : "no");
                 _findStepUsagesState.Renderer            = new FindStepUsagesRenderer(serviceProvider, _loggerFactory.CreateLogger<FindStepUsagesRenderer>());
                 _findUnusedStepDefinitionsState.Renderer = new FindUnusedStepDefinitionsRenderer(serviceProvider, _loggerFactory.CreateLogger<FindUnusedStepDefinitionsRenderer>());
 

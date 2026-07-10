@@ -27,7 +27,7 @@ global using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
 
 
 global using Reqnroll.IdeSupport.LSP.Connector.Models;
-// Reqnroll.IdeSupport.VisualStudio.Analytics excluded from global using to avoid ambiguity with Common.Analytics
+// Reqnroll.IdeSupport.VisualStudio.Telemetry excluded from global using to avoid ambiguity with Common.Telemetry
 // Reqnroll.IdeSupport.VisualStudio.Diagnostics excluded from global using to avoid ambiguity with Common.Diagnostics
 global using Reqnroll.IdeSupport.VisualStudio.Common;
 global using Reqnroll.IdeSupport.VisualStudio.Monitoring;
