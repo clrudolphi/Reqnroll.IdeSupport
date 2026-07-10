@@ -499,9 +499,9 @@ public sealed class StepRenameHandler
         };
 
         // VS's Rename Step command sends textDocument/rename over a custom interception pipe
-        // that swallows this method's return value before VS's built-in LSP client ever sees it
-        // (see #82) — so VS needs the edit pushed via a genuine workspace/applyEdit request
-        // instead, the same mechanism already proven for F13 (CommentToggleHandler). Other
+        // that swallows this method's return value before VS's built-in LSP client ever sees it,
+        // so VS needs the edit pushed via a genuine workspace/applyEdit request instead — the
+        // same mechanism already proven for the Comment/Uncomment toggle (CommentToggleHandler). Other
         // clients (e.g. VS Code) apply the returned WorkspaceEdit natively and must NOT also
         // receive this push, or the edit would be applied twice.
         //
@@ -739,8 +739,8 @@ public sealed class StepRenameHandler
                 // Tolerate a cursor anywhere on the step's line(s), not just within the exact
                 // step-text span (e.g. on the keyword or leading indentation) — this used to
                 // compare position.Character directly against step.Range's own start/end
-                // character, the same narrow exact-text-span bug #101 fixed for Go to Definition,
-                // just re-derived independently here rather than shared (see #82 follow-up).
+                // character, the same narrow exact-text-span bug fixed for Go to Definition,
+                // just re-derived independently here rather than shared.
                 var snapshot  = step.Range.Snapshot;
                 var startLine = snapshot.GetLineFromLineNumber(step.Range.StartLinePosition.Line);
                 var endLine   = snapshot.GetLineFromLineNumber(step.Range.EndLinePosition.Line);

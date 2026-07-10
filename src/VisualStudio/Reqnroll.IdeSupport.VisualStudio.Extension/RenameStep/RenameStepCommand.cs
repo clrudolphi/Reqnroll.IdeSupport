@@ -156,7 +156,7 @@ internal sealed class RenameStepCommand : Command
             }
 
             // The server already applied the edit natively via workspace/applyEdit before this
-            // request's response reached us (see #82) — nothing left to apply here.
+            // request's response reached us — nothing left to apply here.
             _logger.LogInformation("RenameStepCommand: rename result = {Result}", result);
             _logger.LogInformation("RenameStepCommand: rename completed successfully.");
             VsUtils.ShowStatusBarMessage("Reqnroll: Step renamed successfully.");

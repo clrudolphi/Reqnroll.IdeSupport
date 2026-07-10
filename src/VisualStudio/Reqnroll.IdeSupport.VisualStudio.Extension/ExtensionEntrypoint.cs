@@ -110,7 +110,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension
             // rather than any per-object Dispose() chain, and documented as firing *earlier* than
             // package-level disposal tokens (see AsyncPackage.DisposalToken remarks). Registering
             // on both costs nothing — LspServerConnectionService.Dispose() is idempotent — but this
-            // one is the signal actually expected to fire; see git history for issue #81.
+            // one is the signal actually expected to fire.
             VsShellUtilities.ShutdownToken.Register(() =>
             {
                 logger.LogInformation("ExtensionEntrypoint: VsShellUtilities.ShutdownToken fired — disposing LspServerConnectionService.");

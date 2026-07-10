@@ -253,7 +253,7 @@ public class Program
             // Without renameProvider, no client (VS Code's vscode-languageclient, or VS's own
             // LSP client) wires its native F2/rename UI to this server, and no rename request
             // ever reaches it.
-            // Advertised to every client, including VS (issue #33): HandleRenameAsync already
+            // Advertised to every client, including VS: HandleRenameAsync already
             // falls back to plain position-based binding resolution when no
             // reqnroll/selectRenameTarget session is pending, so native F2 in VS works standalone
             // for the common (single, unambiguous binding) case. VS's custom "Reqnroll: Rename

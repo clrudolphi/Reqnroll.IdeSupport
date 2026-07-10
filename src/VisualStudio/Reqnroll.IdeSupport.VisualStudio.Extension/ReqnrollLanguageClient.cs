@@ -223,8 +223,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
             // is instead wired in ExtensionEntrypoint.OnInitializedAsync to
             // Microsoft.VisualStudio.Shell.VsShellUtilities.ShutdownToken — the classic, static,
             // shell-level signal confirmed by logging to actually fire on window close (unlike
-            // ExtensionCore.ShutdownToken, registered there too but empirically dead). See git
-            // history for issue #81.
+            // ExtensionCore.ShutdownToken, registered there too but empirically dead).
         }
 
         base.Dispose(isDisposing);

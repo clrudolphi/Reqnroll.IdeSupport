@@ -14,7 +14,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 /// casing supplied by the project system — almost always an upper-case drive letter. Any
 /// server-emitted URI that VS compares against its own document identity (Go To Definition,
 /// Rename Step, Go To Hooks) therefore fails to match by case alone, even though the path is
-/// otherwise correct (see issue #65).
+/// otherwise correct.
 ///
 /// Applying <see cref="ToUpperInvariant"/> to the drive letter is a safe, idempotent fix: VS
 /// itself always uses an upper-case drive letter, so rewriting every server→VS URI to match

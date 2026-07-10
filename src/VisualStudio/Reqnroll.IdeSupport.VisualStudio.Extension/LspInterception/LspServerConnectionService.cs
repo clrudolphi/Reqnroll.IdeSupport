@@ -62,8 +62,8 @@ internal sealed class LspServerConnectionService : IDisposable
     private const int GracefulExitTimeoutMs = 3000;
 
     // How long to wait for a response to a `shutdown` request we send ourselves, when VS's own
-    // client hasn't sent one by the time Dispose() runs. Confirmed empirically (see git history
-    // for issue #81) that VS's async LSP-client-stop sequence does not reliably send `shutdown`
+    // client hasn't sent one by the time Dispose() runs. Confirmed empirically that VS's async
+    // LSP-client-stop sequence does not reliably send `shutdown`
     // during VsShellUtilities.ShutdownToken-triggered teardown — a full 1000ms passive wait for it
     // never once observed one — so rather than wait on a request that may never arrive, we send it
     // ourselves on the still-live pipe via LspInterceptingPipe.SendRequestToServerAsync.
@@ -254,7 +254,7 @@ internal sealed class LspServerConnectionService : IDisposable
             var sendInterceptors = new ILspMessageInterceptor[]
                 { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor, codeLensRefreshInterceptor, documentActivationInterceptor, _shutdownHandshakeInterceptor };
 
-            // Telemetry interceptor: lazy reference because AnalyticsTransmitter is resolved
+            // Telemetry interceptor: lazy reference because TelemetryTransmitter is resolved
             // from MEF on the main thread during OnServerInitializationResultAsync.
             var telemetryInterceptor = new TelemetryEventInterceptor(
                 () => TelemetryTransmitter, _loggerFactory.CreateLogger<TelemetryEventInterceptor>());

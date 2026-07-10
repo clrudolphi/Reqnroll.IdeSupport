@@ -334,7 +334,7 @@ public record ProjectBindingRegistry
     // Roslyn-path bindings point at the method identifier, connector-path bindings only store
     // the method-body start (no end) — neither is the attribute line itself, which is typically
     // 1-2 lines above. Column is intentionally ignored: Gherkin/C# line-oriented lookups like
-    // this should match anywhere on the relevant line(s), not an exact column (see #101, #106).
+    // this should match anywhere on the relevant line(s), not an exact column.
     private static bool CoversQuery(SourceLocation binding, SourceLocation query)
     {
         if (!string.Equals(binding.SourceFile, query.SourceFile, StringComparison.OrdinalIgnoreCase))
