@@ -17,6 +17,7 @@ global using Reqnroll.IdeSupport.LSP.Core.Bindings;
 global using Reqnroll.IdeSupport.LSP.Core.Bindings.TagExpressions;
 
 
+global using Reqnroll.IdeSupport.LSP.Core.Documents;
 global using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
 global using Reqnroll.IdeSupport.LSP.Core.Matching;
 

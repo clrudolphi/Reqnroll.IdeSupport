@@ -1,8 +1,8 @@
-using Cucumber.TagExpressions;
+﻿using Cucumber.TagExpressions;
 
-namespace Reqnroll.IdeSupport.LSP.Core.Bindings;
+namespace Reqnroll.IdeSupport.LSP.Core.Documents;
 
-public class Scope
+public class BindingScope
 {
     public ITagExpression? Tag { get; set; }
     public string? FeatureTitle { get; set; }

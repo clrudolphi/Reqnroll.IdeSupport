@@ -7,6 +7,7 @@ using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
 
 
 using Reqnroll.IdeSupport.LSP.Connector.Models;
+using Reqnroll.IdeSupport.LSP.Core.Documents;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Bindings;
@@ -88,7 +89,7 @@ public class BindingImporter
         }
     }
 
-    private string GetBindingError(string error, Scope scope, string bindingType)
+    private string GetBindingError(string error, BindingScope scope, string bindingType)
     {
         if (!string.IsNullOrWhiteSpace(error))
             return $"Invalid {bindingType}: {error}";
@@ -160,7 +161,7 @@ public class BindingImporter
         return new SourceLocation(sourceFile, line, column, endLineOrNull, endColumnOrNull);
     }
 
-    private Scope ParseScope(StepScope bindingScope)
+    private BindingScope ParseScope(StepScope bindingScope)
     {
         if (bindingScope == null)
             return null;
@@ -170,7 +171,7 @@ public class BindingImporter
         if (tagExpression is InvalidTagExpression ite)
         {
             _logger.LogVerbose($"Invalid tag expression '{bindingScope.Tag}': {ite.Message}");
-            return new Scope
+            return new BindingScope
             {
                 FeatureTitle = bindingScope.FeatureTitle,
                 ScenarioTitle = bindingScope.ScenarioTitle,
@@ -178,7 +179,7 @@ public class BindingImporter
                 Error = $"Invalid tag expression '{bindingScope.Tag}': {ite.Message}"
             };
         }
-        return new Scope
+        return new BindingScope
         {
             FeatureTitle = bindingScope.FeatureTitle,
             ScenarioTitle = bindingScope.ScenarioTitle,

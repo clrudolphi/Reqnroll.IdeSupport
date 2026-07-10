@@ -1,4 +1,4 @@
-#nullable disable
+﻿#nullable disable
 
 using Cucumber.TagExpressions;
 using Microsoft.CodeAnalysis;
@@ -7,6 +7,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Core.Bindings.TagExpressions;
+using Reqnroll.IdeSupport.LSP.Core.Documents;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 
 
@@ -372,7 +373,7 @@ public class StepDefinitionFileParser
     private static string NormalizeTag(string tag) =>
         tag.StartsWith("@", StringComparison.Ordinal) ? tag : "@" + tag;
 
-    private static Scope BuildScope(RawScope raw)
+    private static BindingScope BuildScope(RawScope raw)
     {
         if (raw == null || (string.IsNullOrWhiteSpace(raw.Tag) && raw.Feature == null && raw.Scenario == null))
             return null;
@@ -388,7 +389,7 @@ public class StepDefinitionFileParser
                 tagExpression = parsed;
         }
 
-        return new Scope
+        return new BindingScope
         {
             Tag = tagExpression,
             FeatureTitle = raw.Feature,

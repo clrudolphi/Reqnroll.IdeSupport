@@ -1,4 +1,4 @@
-#nullable disable
+﻿#nullable disable
 using Gherkin;
 using GherkinLocation = Gherkin.Ast.Location;
 
@@ -21,7 +21,7 @@ public abstract class ProjectBindingRegistryTestsBase
         stepKeyword, (ScenarioBlock) stepKeyword);
 
     protected ProjectStepDefinitionBinding CreateStepDefinitionBinding(string regex,
-        ScenarioBlock scenarioBlock = ScenarioBlock.Given, Scope scope = null, string[] parameterTypes = null,
+        ScenarioBlock scenarioBlock = ScenarioBlock.Given, BindingScope scope = null, string[] parameterTypes = null,
         string methodName = null)
     {
         methodName = methodName ?? "MyMethod" + Guid.NewGuid().ToString("N");
@@ -46,7 +46,7 @@ public abstract class ProjectBindingRegistryTestsBase
         });
     }
 
-    protected Scope CreateTagScope(string tagName) => new() {Tag = ReqnrollTagExpressionParser.CreateTagLiteral(tagName)};
+    protected BindingScope CreateTagScope(string tagName) => new() {Tag = ReqnrollTagExpressionParser.CreateTagLiteral(tagName)};
 
     private DeveroomTag CreateFeatureStructure(string[] featureTags, string[] scenarioTags,
         string[] scenarioOutlineTags = null, string[] soHeaders = null, string[][] soCells = null,

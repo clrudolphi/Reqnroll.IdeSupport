@@ -2,6 +2,7 @@
 
 using System.Collections.Concurrent;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
+using Reqnroll.IdeSupport.LSP.Core.Documents;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Matching;
 

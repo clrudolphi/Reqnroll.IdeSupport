@@ -1,18 +1,19 @@
-#nullable disable
+﻿#nullable disable
 
 using Gherkin.Ast;
+using Reqnroll.IdeSupport.LSP.Core.Documents;
 using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Bindings;
 
 public class ProjectBinding
 {
-    public Scope Scope { get; }
+    public BindingScope Scope { get; }
     public ProjectBindingImplementation Implementation { get; }
     public virtual bool IsValid => Error == null && Scope?.IsValid != false;
     public string Error { get; }
 
-    public ProjectBinding(ProjectBindingImplementation implementation, Scope scope, string error = null)
+    public ProjectBinding(ProjectBindingImplementation implementation, BindingScope scope, string error = null)
     {
         Implementation = implementation;
         Scope = scope;
