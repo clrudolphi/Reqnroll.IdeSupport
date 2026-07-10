@@ -5,16 +5,16 @@ using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
 using System.Collections.Immutable;
 using System.ComponentModel.Composition;
 
-namespace Reqnroll.IdeSupport.VisualStudio.Monitoring;
+namespace Reqnroll.IdeSupport.VisualStudio.Telemetry;
 
 [Export(typeof(ITelemetryService))]
-public class MonitoringService : ITelemetryService
+public class TelemetryService : ITelemetryService
 {
     private readonly ITelemetryTransmitter _telemetryTransmitter;
     //private readonly IWelcomeService _welcomeService;
 
     [ImportingConstructor]
-    public MonitoringService(ITelemetryTransmitter telemetryTransmitter)
+    public TelemetryService(ITelemetryTransmitter telemetryTransmitter)
     {
         _telemetryTransmitter = telemetryTransmitter;
     }

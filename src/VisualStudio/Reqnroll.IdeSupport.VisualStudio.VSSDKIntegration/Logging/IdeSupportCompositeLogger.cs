@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.Composition;
 using Reqnroll.IdeSupport.Common.Logging;
 
-namespace Reqnroll.IdeSupport.VisualStudio.Diagnostics;
+namespace Reqnroll.IdeSupport.VisualStudio.Logging;
 
 /// <summary>
 /// The single, MEF-composable <see cref="IIdeSupportLogger"/> sink for the legacy VSSDK/MEF
