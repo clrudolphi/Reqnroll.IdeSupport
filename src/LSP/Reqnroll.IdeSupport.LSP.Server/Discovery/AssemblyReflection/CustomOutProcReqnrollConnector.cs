@@ -7,8 +7,10 @@ using Reqnroll.IdeSupport.Common.Telemetry;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
 
+/// <summary>Connector that runs a user-configured discovery connector executable or DLL, as specified by <c>BindingDiscovery.ConnectorPath</c> in configuration.</summary>
 public class CustomOutProcReqnrollConnector : OutProcReqnrollConnector
 {
+    /// <summary>Creates a connector that runs the connector path configured for the project.</summary>
     public CustomOutProcReqnrollConnector(DeveroomConfiguration configuration, IIdeSupportLogger logger, TargetFrameworkMoniker targetFrameworkMoniker, string extensionFolder, ProcessorArchitectureSetting processorArchitecture, ProjectSettings projectSettings, ITelemetryService telemetryService) : base(configuration, logger, targetFrameworkMoniker, extensionFolder, processorArchitecture, projectSettings, telemetryService)
     {
     }

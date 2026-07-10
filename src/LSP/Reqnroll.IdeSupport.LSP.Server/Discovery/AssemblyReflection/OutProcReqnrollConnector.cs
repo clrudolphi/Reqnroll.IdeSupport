@@ -10,6 +10,7 @@ using Reqnroll.IdeSupport.LSP.Server.Hosting;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
 
+/// <summary>Base class for connectors that run Reqnroll binding discovery in a separate out-of-process worker and deserialize its result.</summary>
 public abstract class OutProcReqnrollConnector
 {
     private const string BindingDiscoveryCommandName = "binding discovery";
@@ -23,6 +24,7 @@ public abstract class OutProcReqnrollConnector
     protected readonly TargetFrameworkMoniker _targetFrameworkMoniker;
     protected NuGetVersion ReqnrollVersion => _projectSettings.ReqnrollVersion;
 
+    /// <summary>Initializes the connector's shared configuration, logging, and project settings.</summary>
     protected OutProcReqnrollConnector(DeveroomConfiguration configuration, IIdeSupportLogger logger,
         TargetFrameworkMoniker targetFrameworkMoniker, string extensionFolder,
         ProcessorArchitectureSetting processorArchitecture, ProjectSettings projectSettings,
@@ -45,6 +47,7 @@ public abstract class OutProcReqnrollConnector
         return GetType().Name.Replace(nameof(OutProcReqnrollConnector), "");
     }
 
+    /// <summary>Launches the out-of-process connector to run binding discovery against the given test assembly and returns the deserialized result.</summary>
     public virtual DiscoveryResult RunDiscovery(string testAssemblyPath, string configFilePath)
     {
         var workingDirectory = Path.GetDirectoryName(testAssemblyPath);

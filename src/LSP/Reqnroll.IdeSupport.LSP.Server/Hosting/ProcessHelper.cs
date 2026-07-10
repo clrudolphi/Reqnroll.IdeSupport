@@ -5,10 +5,14 @@ using System.Text.RegularExpressions;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Hosting;
 
+/// <summary>Runs external command-line processes and captures their exit code, output, and errors.</summary>
 public static class ProcessHelper
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(2);
 
+    /// <summary>Starts the given executable with the supplied arguments and waits for it to exit, capturing its output.</summary>
+    /// <param name="throwException">When true, exceptions from starting or running the process are rethrown instead of being captured in the result.</param>
+    /// <returns>The captured exit code, standard output, and standard error, or a failure result if <paramref name="throwException"/> is false and an error occurred.</returns>
     public static RunProcessResult RunProcess(string workingDirectory, string executablePath,
         IEnumerable<string> arguments, TimeSpan? timeout = null, bool throwException = false, Encoding encoding = null)
     {
@@ -96,8 +100,10 @@ public static class ProcessHelper
         return value;
     }
 
+    /// <summary>The captured outcome of running an external process via <see cref="ProcessHelper.RunProcess"/>.</summary>
     public class RunProcessResult
     {
+        /// <summary>Creates a result describing how a process invocation completed.</summary>
         public RunProcessResult(int exitCode, string standardOut, string standardError, string executablePath,
             string arguments, string workingDirectory)
         {
@@ -116,8 +122,10 @@ public static class ProcessHelper
         public string Arguments { get; }
         public string WorkingDirectory { get; }
 
+        /// <summary>True if the process wrote anything to standard error.</summary>
         public bool HasErrors => !string.IsNullOrWhiteSpace(StandardError);
 
+        /// <summary>The working directory, executable, and arguments formatted as a single command-line string.</summary>
         public string CommandLine =>
             $"{WorkingDirectory}> {ExecutablePath} {Arguments}";
     }

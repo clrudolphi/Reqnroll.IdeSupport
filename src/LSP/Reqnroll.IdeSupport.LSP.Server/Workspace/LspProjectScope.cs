@@ -18,6 +18,7 @@ public sealed class LspProjectScope : IDisposable
     private readonly ConcurrentDictionary<string, LspReqnrollProject> _projects
         = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Creates a scope for the given workspace folder root.</summary>
     public LspProjectScope(string rootFolder, IIdeScope ideScope)
     {
         _ideScope   = ideScope;
@@ -71,6 +72,7 @@ public sealed class LspProjectScope : IDisposable
 
     // ── IDisposable ───────────────────────────────────────────────────────────
 
+    /// <summary>Disposes all projects registered within this workspace folder and clears the collection.</summary>
     public void Dispose()
     {
         foreach (var project in _projects.Values)
@@ -82,5 +84,6 @@ public sealed class LspProjectScope : IDisposable
 
     private static string NormaliseKey(string path) => Path.GetFullPath(path);
 
+    /// <summary>Returns the workspace folder's root path, for logging and debugging.</summary>
     public override string ToString() => RootFolder;
 }

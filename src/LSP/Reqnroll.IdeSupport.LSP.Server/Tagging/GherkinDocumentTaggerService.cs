@@ -14,6 +14,7 @@ using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tagging;
 
+/// <summary>Default implementation of <see cref="IGherkinDocumentTaggerService"/> that parses Gherkin tags and maintains binding match sets for feature documents.</summary>
 public class GherkinDocumentTaggerService : IGherkinDocumentTaggerService
 {
     private readonly IDeveroomTagParser            _tagParser;
@@ -24,6 +25,7 @@ public class GherkinDocumentTaggerService : IGherkinDocumentTaggerService
     private readonly IDocumentBufferService        _documentBufferService;
     private readonly ILspWorkspaceScopeManager     _scopeManager;
 
+    /// <summary>Creates the tagger service with its collaborating document, registry, and match-set dependencies.</summary>
     public GherkinDocumentTaggerService(
         IDocumentBufferService        documentBufferService,
         IDeveroomTagParser            tagParser,
@@ -42,6 +44,7 @@ public class GherkinDocumentTaggerService : IGherkinDocumentTaggerService
         _logger                = logger;
     }
 
+    /// <inheritdoc/>
     public Task<IReadOnlyCollection<DeveroomTag>> ParseAsync(DocumentUri uri, int? version)
     {
         if (!_documentBufferService.TryGet(uri, out var buffer))
@@ -92,6 +95,7 @@ public class GherkinDocumentTaggerService : IGherkinDocumentTaggerService
         return Task.FromResult(tags);
     }
 
+    /// <inheritdoc/>
     public Task ScanClosedFileAsync(DocumentUri uri, string text, LspReqnrollProject project)
     {
         // Deterministic open-document guard. The handler that drives closed-file scans takes an
@@ -128,6 +132,7 @@ public class GherkinDocumentTaggerService : IGherkinDocumentTaggerService
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc/>
     public async Task RescanClosedFileAsync(DocumentUri uri)
     {
         var path = uri.GetFileSystemPath();

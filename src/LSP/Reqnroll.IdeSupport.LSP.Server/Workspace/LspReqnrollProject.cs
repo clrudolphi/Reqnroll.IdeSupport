@@ -20,6 +20,7 @@ public sealed class LspReqnrollProject : IProjectScope, IDisposable
 {
     private readonly IIdeScope _ideScope;
 
+    /// <summary>Creates a project scope from the IDE's initial project-loaded notification.</summary>
     public LspReqnrollProject(ReqnrollProjectLoadedParams info, IIdeScope ideScope)
     {
         _ideScope = ideScope;
@@ -122,6 +123,7 @@ public sealed class LspReqnrollProject : IProjectScope, IDisposable
 
     // ── IDisposable ───────────────────────────────────────────────────────────
 
+    /// <summary>Disposes any disposable values stored in <see cref="Properties"/> and clears the bag.</summary>
     public void Dispose()
     {
         foreach (var disposable in Properties.Values.OfType<IDisposable>())
@@ -129,5 +131,6 @@ public sealed class LspReqnrollProject : IProjectScope, IDisposable
         Properties.Clear();
     }
 
+    /// <summary>Returns the project name, for logging and debugging.</summary>
     public override string ToString() => ProjectName;
 }

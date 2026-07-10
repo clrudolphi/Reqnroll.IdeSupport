@@ -13,8 +13,10 @@ public sealed class NullOperationDurationRecorder : IOperationDurationRecorder
 
     private NullOperationDurationRecorder() { }
 
+    /// <inheritdoc/>
     public IDisposable Measure(string operation, DocumentUri? uri = null) => NullScope.Instance;
 
+    /// <inheritdoc/>
     public void Record(string operation, double elapsedMs, DocumentUri? uri = null) { }
 
     private sealed class NullScope : IDisposable

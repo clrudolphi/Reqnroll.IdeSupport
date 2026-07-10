@@ -4,8 +4,11 @@ using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tagging
 {
+    /// <summary>Parses the Gherkin tags for open and closed feature documents and keeps their binding match sets up to date.</summary>
     public interface IGherkinDocumentTaggerService
     {
+        /// <summary>Parses the open document's current buffer into tags, matching it against its project's binding registry and storing the resulting match set.</summary>
+        /// <param name="version">The expected document version; if it does not match the buffer's current version, parsing is skipped and an empty collection is returned.</param>
         Task<IReadOnlyCollection<DeveroomTag>> ParseAsync(DocumentUri uri, int? version);
 
         /// <summary>
