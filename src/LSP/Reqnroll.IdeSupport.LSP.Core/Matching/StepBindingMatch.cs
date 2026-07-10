@@ -19,8 +19,8 @@ namespace Reqnroll.IdeSupport.LSP.Core.Matching;
 /// Match <em>computation</em> still happens in <c>DeveroomTagParser</c> while it walks the
 /// document (it has the snapshot for span math and the tag tree for
 /// <see cref="IGherkinDocumentContext"/>). A <see cref="StepBindingMatch"/> captures the
-/// result of that computation so downstream features — Go to Definition (F5), diagnostics
-/// (F3), find usages (F14) — can query it without re-parsing.
+/// result of that computation so downstream features — Go to Step Definition, diagnostics
+/// (undefined-step/binding diagnostics), find usages (F14) — can query it without re-parsing.
 /// </remarks>
 public sealed class StepBindingMatch
 {
@@ -61,7 +61,7 @@ public sealed class StepBindingMatch
     /// True when <paramref name="offset"/> (absolute char offset) falls anywhere on the step's
     /// line(s) — not just within the step text span. Gherkin is line-oriented, so a click on the
     /// keyword, leading indentation, trailing whitespace, or just past the last character should
-    /// still resolve to the step; this is what lets Go to Definition (F5) match on the whole line.
+    /// still resolve to the step; this is what lets Go to Step Definition match on the whole line.
     /// </summary>
     public bool Contains(int offset)
     {

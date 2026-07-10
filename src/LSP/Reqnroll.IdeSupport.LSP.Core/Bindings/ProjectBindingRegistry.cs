@@ -242,7 +242,7 @@ public record ProjectBindingRegistry
     /// <summary>
     /// Replaces all step definitions and hooks originating from the given C# source file with
     /// freshly discovered ones, leaving bindings from other files untouched. This is the
-    /// per-file replacement used by Roslyn-based (source-level) discovery (design doc F2).
+    /// per-file replacement used by Roslyn/C# source-level binding discovery.
     /// </summary>
     public async Task<ProjectBindingRegistry> ReplaceBindings(CSharpStepDefinitionFile stepDefinitionFile)
     {

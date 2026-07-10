@@ -14,7 +14,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Completions;
 /// </summary>
 public sealed class CompletionService : ICompletionService
 {
-    // ── F7: keyword completion ─────────────────────────────────────────────────
+    // ── Gherkin keyword completion ──────────────────────────────────────────────
 
     public CompletionResult GetKeywordCompletions(TokenType[] expectedTokens, GherkinDialect dialect)
     {
@@ -96,7 +96,7 @@ public sealed class CompletionService : ICompletionService
         }
     }
 
-    // ── F8: step completion ────────────────────────────────────────────────────
+    // ── Step-definition-sample completion ───────────────────────────────────────
 
     public CompletionResult GetStepCompletions(
         DeveroomGherkinStep                     step,

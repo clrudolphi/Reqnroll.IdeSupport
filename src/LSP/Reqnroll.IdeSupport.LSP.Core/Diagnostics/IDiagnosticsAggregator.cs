@@ -20,11 +20,11 @@ public interface IDiagnosticsAggregator
     /// </summary>
     /// <param name="tags">
     /// The full flat tag collection for the document as stored in <c>IDocumentBufferService</c>.
-    /// <see cref="DeveroomTagTypes.ParserError"/> tags are the source for F4 diagnostics.
+    /// <see cref="DeveroomTagTypes.ParserError"/> tags are the source for parser-error diagnostics.
     /// </param>
     /// <param name="matchSet">
     /// The binding match set for the document as stored in <c>IBindingMatchService</c>.
-    /// <see cref="FeatureBindingMatchSet.Undefined"/> steps are the source for F3 diagnostics.
+    /// <see cref="FeatureBindingMatchSet.Undefined"/> steps are the source for undefined-step/binding diagnostics.
     /// </param>
     IReadOnlyList<GherkinDiagnostic> Aggregate(
         IReadOnlyCollection<DeveroomTag> tags,

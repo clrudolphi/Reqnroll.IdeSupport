@@ -12,7 +12,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Completions;
 
 /// <summary>
 /// Walks the parsed Deveroom tag tree for a snapshot to decide whether the cursor calls for
-/// keyword completion (F7) or step-definition sample completion (F8), and packages all the
+/// Gherkin keyword completion or step-definition sample completion, and packages all the
 /// Gherkin-specific data the handler needs to fulfil the request.
 /// </summary>
 public sealed class CompletionContextResolver : ICompletionContextResolver
@@ -40,7 +40,7 @@ public sealed class CompletionContextResolver : ICompletionContextResolver
         var dialect    = gherkinDoc?.GherkinDialect
                       ?? new GherkinDialectProvider(fallbackLanguage).DefaultDialect;
 
-        // ── F8: step completion ─────────────────────────────────────────────────
+        // ── Step-definition-sample completion ───────────────────────────────────
         // Cursor must be on a recognised step line and at or past the step text start
         // (i.e. after the keyword and its trailing space).
         var stepTag = tags.FirstOrDefault(t =>
@@ -68,7 +68,7 @@ public sealed class CompletionContextResolver : ICompletionContextResolver
             }
         }
 
-        // ── F7: keyword completion ──────────────────────────────────────────────
+        // ── Gherkin keyword completion ──────────────────────────────────────────
         var tokens = gherkinDoc?.GetExpectedTokens(cursorLine, _telemetryService)
                      ?? Array.Empty<TokenType>();
 

@@ -13,8 +13,8 @@ namespace Reqnroll.IdeSupport.LSP.Core.Matching;
 /// <summary>
 /// The immutable set of step binding matches for one feature document, cached against
 /// <c>(DocumentId, Owner, DocumentVersion, RegistryVersion)</c>. This is the value stored by
-/// <see cref="IBindingMatchService"/> and queried by Go to Definition (F5), the diagnostics
-/// aggregator (F3) and find-usages (F14/F18).
+/// <see cref="IBindingMatchService"/> and queried by Go to Step Definition, the diagnostics
+/// aggregator (undefined-step/binding diagnostics) and find-usages (F14/F18).
 /// </summary>
 public sealed class FeatureBindingMatchSet
 {
@@ -57,7 +57,7 @@ public sealed class FeatureBindingMatchSet
     public IEnumerable<StepBindingMatch> Defined   => Steps.Where(s => s.IsDefined);
     public IEnumerable<StepBindingMatch> Ambiguous => Steps.Where(s => s.IsAmbiguous);
 
-    /// <summary>The step whose text span contains <paramref name="offset"/>, or null. Used by F5.</summary>
+    /// <summary>The step whose text span contains <paramref name="offset"/>, or null. Used by Go to Step Definition.</summary>
     public StepBindingMatch? FindAt(int offset) => Steps.FirstOrDefault(s => s.Contains(offset));
 
     /// <summary>

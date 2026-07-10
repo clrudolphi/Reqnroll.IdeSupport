@@ -42,8 +42,8 @@ public static class ReqnrollClassificationTypeNames
     public const string ScenarioOutlinePlaceholder = "reqnroll.scenario_outline_placeholder";
 
     /// <summary>
-    /// Step text of a step with no matching binding.  Only carries meaning once binding
-    /// discovery (F2) is available; reserved in the legend from Phase 1 so the legend never
+    /// Step text of a step with no matching binding.  Only carries meaning once Roslyn/C#
+    /// source-level binding discovery is available; reserved in the legend from Phase 1 so the legend never
     /// changes across phases.
     /// </summary>
     public const string UndefinedStep = "reqnroll.undefined_step";

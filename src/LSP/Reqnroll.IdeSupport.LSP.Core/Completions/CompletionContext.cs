@@ -26,7 +26,7 @@ public sealed class KeywordCompletionContext : CompletionContext
 }
 
 /// <summary>
-/// Cursor is on a step line, past the step keyword — trigger F8 step-definition sample completion.
+/// Cursor is on a step line, past the step keyword — trigger step-definition sample completion.
 /// </summary>
 public sealed class StepCompletionContext : CompletionContext
 {
