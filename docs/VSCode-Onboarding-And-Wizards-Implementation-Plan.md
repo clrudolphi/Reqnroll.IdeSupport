@@ -27,7 +27,7 @@ This document treats both gaps together because a contributor picking up "VS Cod
 |---|---|---|
 | First-install / upgrade welcome | `WelcomeService`, invoked by `ReqnrollPluginPackage` (ported from legacy `Reqnroll.VisualStudio`) | **None** |
 | "What's new" on upgrade | Same `WelcomeService`, version-gated | **None** — no `CHANGELOG.md` |
-| Install/upgrade telemetry | Fired via `IMonitoringService` from `WelcomeService`'s version-check path | **None** — `telemetry.ts` has no `ExtensionInstalled`/`ExtensionUpgraded` events |
+| Install/upgrade telemetry | Fired via `ITelemetryService` from `WelcomeService`'s version-check path | **None** — `telemetry.ts` has no `ExtensionInstalled`/`ExtensionUpgraded` events |
 | New Project wizard | `ReqnrollProjectTemplateWizard` (`.Wizards.Core`) + WPF `IWizardDialogService` dialog (framework, unit-test-framework choice) → `.vstemplate` replacement tokens | **None** |
 | New Item: Feature File | `FeatureFileTemplateWizard` — sets `CustomTool=ReqnrollSingleFileGenerator` / `BuildAction=ReqnrollEmbeddedFeature` item metadata, warns if `Reqnroll.Tools.MsBuild.Generation` is missing | **None** — not even a snippet, despite F19 assuming one |
 | New Item: Config File | `VsReqnrollConfigFileWizard` / `ConfigFileTemplateWizard` — scaffolds `reqnroll.json` | **None** |

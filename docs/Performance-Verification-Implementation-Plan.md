@@ -15,7 +15,7 @@
 
 | Phase / item | Status | Where |
 |---|---|---|
-| **Layer 4 — field instrumentation (T3)** | ✅ implemented | `LSP.Server/Diagnostics/Performance/` (`IOperationDurationRecorder`, sampled `PerfSample`); wired into semanticTokens (manual route), completion, definition, diagnostics push |
+| **Layer 4 — field instrumentation (T3)** | ✅ implemented | `LSP.Server/Performance/` (`IOperationDurationRecorder`, sampled `PerfSample`); wired into nearly every feature handler — semanticTokens, completion, definition, references, rename, code actions, code lens, document outline, folding, formatting, inlay hints, find-unused-step-defs, comment toggle, text-sync (see B3 below for the original four-target rollout that this later expanded on) |
 | **T2 — corpus + structural-fingerprint drift test** | ✅ implemented | `tests/Performance/Corpus/` (committed: 50 features, 64 patterns, 1350 steps, 950/200/200 mix); `Benchmarks.Core/Corpus/`; `CorpusDriftTests` |
 | **T1 — harness + interactive scenarios** | ✅ implemented | `Benchmarks.Core/Harness/BenchmarkLspHarness`, `Scenarios/InteractiveScenarios`; `Benchmarks` exe `run` command |
 | **T1 — latency percentiles, reporters, reference-machine gating** | ✅ implemented | `Benchmarks.Core/Latency/`, `Reporting/`; JSON output is the Layer 3 baseline format |
@@ -353,7 +353,7 @@ a small shared **recorder** invoked at each rail's boundary, with a rail-appropr
 
 ## B2. The recorder
 
-New `Reqnroll.IdeSupport.LSP.Server/Diagnostics/Performance/`:
+New `Reqnroll.IdeSupport.LSP.Server/Performance/`:
 
 ```csharp
 public interface IOperationDurationRecorder
@@ -399,7 +399,7 @@ Privacy:
   bucket** (or raw ms), never the URI. If a file dimension is ever needed, use a one-way hash, not the
   path — consistent with the `OpenProject`/`Error` scrubbing rules.
 - **Opt-out respected** — telemetry emission already flows through the opt-out gate on the VS host
-  (`IEnableAnalyticsChecker`); the recorder only emits the notification, it does not bypass consent.
+  (`IEnableTelemetryChecker`); the recorder only emits the notification, it does not bypass consent.
 - **Add `PerfSample` to the public telemetry inventory** (§9 commits to publishing one) and to
   [`build-plan-telemetry-capture.md`](Archive/build-plan-telemetry-capture.md), with the `IDEClient`
   dimension so field P95 can be sliced per IDE — the same breakdown the data-model enhancements table
