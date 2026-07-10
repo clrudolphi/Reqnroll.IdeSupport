@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Reqnroll.Bindings.Provider.Data;
 using Reqnroll.IdeSupport.LSP.Connector.Models;
 using ReqnrollConnector.AssemblyLoading;
@@ -12,22 +12,22 @@ namespace ReqnrollConnector.Discovery;
 public class DiscoveryExecutor
 {
     public static DiscoveryResult Execute(DiscoveryOptions options,
-        ITestAssemblyContextFactory testAssemblyContextFactory, ILogger log, IAnalyticsContainer analytics)
+        ITestAssemblyContextFactory testAssemblyContextFactory, ILogger log, ITelemetryContainer telemetry)
     {
         log.Info($"Loading {options.AssemblyFile}");
         var testAssemblyContext = testAssemblyContextFactory.Create(options.AssemblyFile, log);
-        analytics.AddAnalyticsProperty("ImageRuntimeVersion", testAssemblyContext.TestAssemblyImageRuntimeVersion);
+        telemetry.AddTelemetryProperty("ImageRuntimeVersion", testAssemblyContext.TestAssemblyImageRuntimeVersion);
 
         var targetFramework = testAssemblyContext.TestAssemblyTargetFrameworkName;
         if (targetFramework != null)
-            analytics.AddAnalyticsProperty("TargetFramework", targetFramework);
+            telemetry.AddTelemetryProperty("TargetFramework", targetFramework);
 
         var reqnrollVersion = GetReqnrollVersion(testAssemblyContext.TestAssemblyLocation, log);
         if (reqnrollVersion != null)
         {
-            analytics.AddAnalyticsProperty("SFFile", reqnrollVersion.InternalName ?? reqnrollVersion.FileName);
-            analytics.AddAnalyticsProperty("SFFileVersion", reqnrollVersion.FileVersion ?? "Unknown");
-            analytics.AddAnalyticsProperty("SFProductVersion", reqnrollVersion.ProductVersion ?? "Unknown");
+            telemetry.AddTelemetryProperty("SFFile", reqnrollVersion.InternalName ?? reqnrollVersion.FileName);
+            telemetry.AddTelemetryProperty("SFFileVersion", reqnrollVersion.FileVersion ?? "Unknown");
+            telemetry.AddTelemetryProperty("SFProductVersion", reqnrollVersion.ProductVersion ?? "Unknown");
         }
 
         string? configFileContent;
@@ -39,7 +39,7 @@ public class DiscoveryExecutor
         {
             var msg = $"Could not load config file: {options.ConfigFile}";
             log.Error($"{msg}: {ex}");
-            return CreateErrorResult(analytics, msg, ex);
+            return CreateErrorResult(telemetry, msg, ex);
         }
 
         var bindingProvider = GetBindingProvider(targetFramework, reqnrollVersion, log);
@@ -53,7 +53,7 @@ public class DiscoveryExecutor
         {
             var msg = $"Could not discover bindings via: {bindingProvider}";
             log.Error($"{msg}: {ex}");
-            return CreateErrorResult(analytics, msg, ex);
+            return CreateErrorResult(telemetry, msg, ex);
         }
 
         InternalDiscoveryResult discoveryResult;
@@ -61,13 +61,13 @@ public class DiscoveryExecutor
         {
             var transformer = new DiscoveryResultTransformer();
             var sourceLocationProvider = new SourceLocationProvider(testAssemblyContext, log);
-            discoveryResult = transformer.Transform(bindingData, sourceLocationProvider, analytics);
+            discoveryResult = transformer.Transform(bindingData, sourceLocationProvider, telemetry);
         }
         catch (Exception ex)
         {
             var msg = "Could not transform discovery result.";
             log.Error($"{msg}: {ex}");
-            return CreateErrorResult(analytics, msg, ex);
+            return CreateErrorResult(telemetry, msg, ex);
         }
 
         return new DiscoveryResult
@@ -78,7 +78,7 @@ public class DiscoveryExecutor
             TypeNames = new Dictionary<string, string>(discoveryResult.TypeNames),
             GenericBindingErrors = discoveryResult.GenericBindingErrors,
             LogMessages = discoveryResult.TypeLoadErrors.Select(e => $"Type or method has been skipped: {e}").ToArray(),
-            AnalyticsProperties = analytics.ToDictionary()
+            TelemetryProperties = telemetry.ToDictionary()
         };
     }
 
@@ -127,11 +127,11 @@ public class DiscoveryExecutor
     }
 
 
-    private static DiscoveryResult CreateErrorResult(IAnalyticsContainer analytics, string errorMessage, Exception? exception = null)
+    private static DiscoveryResult CreateErrorResult(ITelemetryContainer telemetry, string errorMessage, Exception? exception = null)
     {
         return new DiscoveryResult
         {
-            AnalyticsProperties = analytics.ToDictionary(),
+            TelemetryProperties = telemetry.ToDictionary(),
             ErrorMessage = exception != null ? $"{errorMessage}: {exception}" : errorMessage
         };
     }

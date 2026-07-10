@@ -1,0 +1,15 @@
+﻿using Cucumber.TagExpressions;
+using Gherkin.Ast;
+
+namespace Reqnroll.IdeSupport.LSP.Core.TagExpressions;
+
+public static class TagExpressionExtensions
+{
+    public static bool EvaluateWithDefault(this ITagExpression tagExpression, IEnumerable<string> tags,
+        bool defaultValue) => tagExpression?.Evaluate(tags) ?? defaultValue;
+
+    public static bool EvaluateWithDefault(this ITagExpression tagExpression, IEnumerable<Tag> tags, bool defaultValue)
+    {
+        return tagExpression?.Evaluate(tags.Select(t => t.Name)) ?? defaultValue;
+    }
+}

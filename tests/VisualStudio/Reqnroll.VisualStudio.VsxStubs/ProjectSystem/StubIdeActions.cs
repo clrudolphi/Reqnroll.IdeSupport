@@ -1,4 +1,4 @@
-#nullable disable
+﻿#nullable disable
 
 namespace Reqnroll.VisualStudio.VsxStubs.ProjectSystem;
 
@@ -32,7 +32,7 @@ public class StubIdeActions : IIdeActions
 
     public void ShowError(string description, Exception exception)
     {
-        _ideScope.Logger.LogException(_ideScope.MonitoringService, exception, description);
+        _ideScope.Logger.LogException(_ideScope.TelemetryService, exception, description);
     }
 
     public void ShowProblem(string description)

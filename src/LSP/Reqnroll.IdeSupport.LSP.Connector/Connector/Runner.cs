@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using ReqnrollConnector.AssemblyLoading;
 using ReqnrollConnector.CommandLineOptions;
 using ReqnrollConnector.Discovery;
@@ -10,7 +10,7 @@ namespace ReqnrollConnector;
 public class Runner
 {
     private readonly ILogger _log;
-    readonly AnalyticsContainer _analytics;
+    readonly TelemetryContainer _telemetry;
 
     public enum ExecutionResult
     {
@@ -22,9 +22,9 @@ public class Runner
     public Runner(ILogger log)
     {
         _log = log;
-        _analytics = new AnalyticsContainer();
-        _analytics.AddAnalyticsProperty("Connector", GetType().Assembly.ToString());
-        _analytics.AddAnalyticsProperty("ConnectorType", Path.GetFileName(Path.GetDirectoryName(GetType().Assembly.Location)!));
+        _telemetry = new TelemetryContainer();
+        _telemetry.AddTelemetryProperty("Connector", GetType().Assembly.ToString());
+        _telemetry.AddTelemetryProperty("ConnectorType", Path.GetFileName(Path.GetDirectoryName(GetType().Assembly.Location)!));
     }
 
     public ExecutionResult Run(string[] args, ITestAssemblyContextFactory testAssemblyContextFactory)
@@ -52,7 +52,7 @@ public class Runner
 
     private string ExecuteDiscovery(ITestAssemblyContextFactory testAssemblyContextFactory, DiscoveryOptions discoveryOptions)
     {
-        var result = DiscoveryExecutor.Execute(discoveryOptions, testAssemblyContextFactory, _log, _analytics);
+        var result = DiscoveryExecutor.Execute(discoveryOptions, testAssemblyContextFactory, _log, _telemetry);
         var serialized = JsonSerialization.SerializeObjectCamelCase(result, _log);
         return serialized;
     }

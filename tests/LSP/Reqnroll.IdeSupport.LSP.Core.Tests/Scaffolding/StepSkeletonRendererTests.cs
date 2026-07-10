@@ -1,15 +1,9 @@
-#nullable enable
+﻿#nullable enable
 
 using Gherkin;
-using Gherkin.Ast;
 using Reqnroll.IdeSupport.Common.Configuration;
-using Reqnroll.IdeSupport.LSP.Core.Bindings;
+using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 using Reqnroll.IdeSupport.LSP.Core.Scaffolding;
-using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
-
-
-using Xunit;
-using AwesomeAssertions;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Tests.Scaffolding;
 

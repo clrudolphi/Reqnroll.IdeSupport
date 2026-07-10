@@ -2,10 +2,11 @@
 
 using EnvDTE;
 using Reqnroll.IdeSupport.Common;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.VisualStudio.Common;
 using Reqnroll.IdeSupport.VisualStudio.ProjectSystem;
 using Microsoft.VisualStudio.Shell;
@@ -29,7 +30,7 @@ public class VsProjectScope : IProjectScope
     }
 
     private IIdeSupportLogger Logger => IdeScope.Logger;
-    private IMonitoringService MonitoringService => IdeScope.MonitoringService;
+    private ITelemetryService TelemetryService => IdeScope.TelemetryService;
     public ConcurrentDictionary<Type, object> Properties { get; } = new();
     public string ProjectFolder { get; }
     public string OutputAssemblyPath { get { ThreadHelper.ThrowIfNotOnUIThread(); return VsUtils.GetOutputAssemblyPath(_project); } }
@@ -60,7 +61,7 @@ public class VsProjectScope : IProjectScope
         }
         catch (Exception e)
         {
-            Logger.LogVerboseException(MonitoringService, e);
+            Logger.LogVerboseException(TelemetryService, e);
             return null;
         }
     }
@@ -77,7 +78,7 @@ public class VsProjectScope : IProjectScope
         }
         catch (Exception e)
         {
-            Logger.LogVerboseException(MonitoringService, e);
+            Logger.LogVerboseException(TelemetryService, e);
             return new string[0];
         }
     }
@@ -115,7 +116,7 @@ public class VsProjectScope : IProjectScope
         catch (Exception e)
         {
             if (IdeScope.IsSolutionLoaded)
-                Logger.LogVerboseException(MonitoringService, e);
+                Logger.LogVerboseException(TelemetryService, e);
             else
                 Logger.LogVerbose("Loading package references failed, solution is not loaded fully yet.");
             return null;

@@ -1,10 +1,10 @@
 ﻿using Reqnroll.IdeSupport.Common.Configuration;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.LSP.Connector.Models;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
-using Reqnroll.IdeSupport.LSP.Server.Workspace;
+using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Discovery;
 
@@ -43,7 +43,7 @@ public class ConnectorDiscoveryServiceTests : IDisposable
                 ProcessorArchitectureSetting.UseSystem,
                 DiscoveryTestSupport.MinimalProjectSettings(
                     TargetFrameworkMoniker.Create(".NETCoreApp,Version=v8.0")),
-                NullMonitoringService.Instance)
+                NullTelemetryService.Instance)
         {
             _result = result;
         }
@@ -203,7 +203,7 @@ public class ConnectorDiscoveryServiceTests : IDisposable
                 ProcessorArchitectureSetting.UseSystem,
                 DiscoveryTestSupport.MinimalProjectSettings(
                     TargetFrameworkMoniker.Create(".NETCoreApp,Version=v8.0")),
-                NullMonitoringService.Instance)
+                NullTelemetryService.Instance)
         {
         }
 

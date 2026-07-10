@@ -9,7 +9,7 @@ namespace ReqnrollConnector.Discovery;
 /// </summary>
 internal class DiscoveryResultTransformer
 {
-    public InternalDiscoveryResult Transform(BindingData bindingData, ISourceLocationProvider sourceLocationProvider, IAnalyticsContainer analytics)
+    public InternalDiscoveryResult Transform(BindingData bindingData, ISourceLocationProvider sourceLocationProvider, ITelemetryContainer telemetry)
     {
         var typeNamesToKey = new Dictionary<string, string>();
         var sourceFilesToKey = new Dictionary<string, string>();
@@ -45,10 +45,10 @@ internal class DiscoveryResultTransformer
         var typeLoadErrors = GetErrorsWithPrefix("TypeLoadError:");
         var genericBindingErrors = GetErrorsWithPrefix("BindingError:");
 
-        analytics.AddAnalyticsProperty("TypeNames", typeNamesToKey.Count.ToString());
-        analytics.AddAnalyticsProperty("SourcePaths", sourceFilesToKey.Count.ToString());
-        analytics.AddAnalyticsProperty("StepDefinitions", stepDefinitions.Length.ToString());
-        analytics.AddAnalyticsProperty("Hooks", hooks.Length.ToString());
+        telemetry.AddTelemetryProperty("TypeNames", typeNamesToKey.Count.ToString());
+        telemetry.AddTelemetryProperty("SourcePaths", sourceFilesToKey.Count.ToString());
+        telemetry.AddTelemetryProperty("StepDefinitions", stepDefinitions.Length.ToString());
+        telemetry.AddTelemetryProperty("Hooks", hooks.Length.ToString());
 
         return new InternalDiscoveryResult(
             stepDefinitions,

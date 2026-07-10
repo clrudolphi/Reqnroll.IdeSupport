@@ -1,9 +1,9 @@
 ﻿using Reqnroll.IdeSupport.Common.Configuration;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
-using Reqnroll.IdeSupport.LSP.Server.Workspace;
+using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
 
@@ -37,11 +37,11 @@ public sealed class OutProcReqnrollConnectorFactory : IOutProcConnectorFactory
         if (configuration.BindingDiscovery.ConnectorPath is not null)
             return new CustomOutProcReqnrollConnector(
                 configuration, _logger, tfm, extensionFolder,
-                processorArch, projectSettings, NullMonitoringService.Instance);
+                processorArch, projectSettings, NullTelemetryService.Instance);
 
         return new GenericOutProcReqnrollConnector(
             configuration, _logger, tfm, extensionFolder,
-            processorArch, projectSettings, NullMonitoringService.Instance);
+            processorArch, projectSettings, NullTelemetryService.Instance);
     }
 
     private static ProcessorArchitectureSetting ResolveProcessorArchitecture(DeveroomConfiguration configuration)

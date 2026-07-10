@@ -1,7 +1,7 @@
-// VsIntegration layer — VS SDK references are expected here.
+﻿// VsIntegration layer — VS SDK references are expected here.
 using Microsoft.Win32;
 using Reqnroll.IdeSupport.Common;
-using Reqnroll.IdeSupport.Common.Analytics;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.VisualStudio.Wizards.Abstractions;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Wizards.VsIntegration;
@@ -34,7 +34,7 @@ public class WelcomeService : IWelcomeService
 
     public void OnIdeScopeActivityStarted(IIdeScope ideScope)
     {
-        var monitoringService = ideScope.MonitoringService;
+        var telemetryService = ideScope.TelemetryService;
         var today = DateTime.Today;
         var status = _registryManager.GetInstallStatus();
         var currentVersion = new Version(_versionProvider.GetExtensionVersion());
@@ -42,7 +42,7 @@ public class WelcomeService : IWelcomeService
         if (!status.IsInstalled)
         {
             // New user — first install
-            monitoringService.MonitorExtensionInstalled();
+            telemetryService.MonitorExtensionInstalled();
 
             status.InstallDate = today;
             status.InstalledVersion = currentVersion;
@@ -54,7 +54,7 @@ public class WelcomeService : IWelcomeService
             ScheduleAndShow(() =>
             {
                 _dialogService.ShowWelcomeDialog();
-                monitoringService.MonitorWelcomeDialogDismissed(
+                telemetryService.MonitorWelcomeDialogDismissed(
                     new Dictionary<string, object>
                     {
                         { "ExtensionVersion", currentVersion.ToString() },
@@ -75,7 +75,7 @@ public class WelcomeService : IWelcomeService
             {
                 // Upgrading user
                 var installedVersion = status.InstalledVersion.ToString();
-                monitoringService.MonitorExtensionUpgraded(installedVersion);
+                telemetryService.MonitorExtensionUpgraded(installedVersion);
 
                 status.InstallDate = today;
                 status.InstalledVersion = currentVersion;
@@ -93,7 +93,7 @@ public class WelcomeService : IWelcomeService
                     _dialogService.ShowUpgradeDialog(
                         currentVersion.ToString(),
                         changeLogToShow);
-                    monitoringService.MonitorUpgradeDialogDismissed(
+                    telemetryService.MonitorUpgradeDialogDismissed(
                         new Dictionary<string, object>
                         {
                             { "OldExtensionVersion", installedVersion },

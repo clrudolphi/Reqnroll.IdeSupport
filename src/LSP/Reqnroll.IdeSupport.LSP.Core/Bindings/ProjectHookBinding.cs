@@ -1,6 +1,9 @@
-#nullable disable
+﻿#nullable disable
 
 using Gherkin.Ast;
+using Reqnroll.IdeSupport.LSP.Core.Documents;
+using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
+using Reqnroll.IdeSupport.LSP.Core.Matching;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Bindings;
 
@@ -11,7 +14,7 @@ public class ProjectHookBinding : ProjectBinding
     public HookType HookType { get; }
     public int HookOrder { get; }
 
-    public ProjectHookBinding(ProjectBindingImplementation implementation, Scope scope, HookType hookType, int? hookOrder, string error) 
+    public ProjectHookBinding(ProjectBindingImplementation implementation, BindingScope scope, HookType hookType, int? hookOrder, string error) 
         : base(implementation, scope, error)
     {
         HookType = hookType;

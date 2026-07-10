@@ -1,6 +1,5 @@
-using NSubstitute;
-using Reqnroll.IdeSupport.Common.Analytics;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
+using Reqnroll.IdeSupport.Common.Telemetry;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Wizards.Tests.VsIntegration;
 
@@ -11,12 +10,12 @@ public class WelcomeServiceTests
     private readonly IWizardDialogService _dialogService = Substitute.For<IWizardDialogService>();
     private readonly IFileSystemForIDE _fileSystem = Substitute.For<IFileSystemForIDE>();
     private readonly IIdeScope _ideScope = Substitute.For<IIdeScope>();
-    private readonly IMonitoringService _monitoringService = Substitute.For<IMonitoringService>();
+    private readonly ITelemetryService _telemetryService = Substitute.For<ITelemetryService>();
 
     public WelcomeServiceTests()
     {
         _versionProvider.GetExtensionVersion().Returns("1.0.0");
-        _ideScope.MonitoringService.Returns(_monitoringService);
+        _ideScope.TelemetryService.Returns(_telemetryService);
         _ideScope.FileSystem.Returns(_fileSystem);
     }
 
@@ -42,7 +41,7 @@ public class WelcomeServiceTests
 
         CreateService().OnIdeScopeActivityStarted(_ideScope);
 
-        _monitoringService.Received(1).MonitorExtensionInstalled();
+        _telemetryService.Received(1).MonitorExtensionInstalled();
     }
 
     [Fact]
@@ -64,7 +63,7 @@ public class WelcomeServiceTests
 
         CreateService().OnIdeScopeActivityStarted(_ideScope);
 
-        _monitoringService.Received(1).MonitorWelcomeDialogDismissed(
+        _telemetryService.Received(1).MonitorWelcomeDialogDismissed(
             Arg.Is<Dictionary<string, object>>(d =>
                 d["ExtensionVersion"]!.ToString() == "1.0.0"));
     }
@@ -97,7 +96,7 @@ public class WelcomeServiceTests
 
         CreateService().OnIdeScopeActivityStarted(_ideScope);
 
-        _monitoringService.Received(1).MonitorExtensionUpgraded("0.9.0");
+        _telemetryService.Received(1).MonitorExtensionUpgraded("0.9.0");
     }
 
     [Fact]
@@ -107,7 +106,7 @@ public class WelcomeServiceTests
 
         CreateService().OnIdeScopeActivityStarted(_ideScope);
 
-        _monitoringService.Received(1).MonitorUpgradeDialogDismissed(
+        _telemetryService.Received(1).MonitorUpgradeDialogDismissed(
             Arg.Is<Dictionary<string, object>>(d =>
                 d["OldExtensionVersion"]!.ToString() == "0.9.0" &&
                 d["NewExtensionVersion"]!.ToString() == "1.0.0"));

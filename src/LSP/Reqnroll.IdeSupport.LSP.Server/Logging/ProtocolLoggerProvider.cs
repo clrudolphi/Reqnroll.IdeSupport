@@ -1,8 +1,5 @@
-﻿#nullable enable
-
-using System.Diagnostics;
-using Microsoft.Extensions.Logging;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+﻿using Microsoft.Extensions.Logging;
+using Reqnroll.IdeSupport.Common.Logging;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Logging;
 

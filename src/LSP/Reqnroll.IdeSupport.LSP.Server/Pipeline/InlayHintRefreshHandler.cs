@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 
 /// <summary>

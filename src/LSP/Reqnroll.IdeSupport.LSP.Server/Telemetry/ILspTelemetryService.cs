@@ -1,7 +1,4 @@
-#nullable enable
-
-using System.Collections.Generic;
-
+﻿
 namespace Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
 /// <summary>
@@ -9,7 +6,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Telemetry;
 /// without a direct dependency on OmniSharp's <c>ILanguageServerFacade</c>.
 /// <para>
 /// The client-side <c>telemetry/event</c> handler (a VS interceptor) receives these
-/// notifications and forwards them to <see cref="Common.Analytics.IAnalyticsTransmitter"/>.
+/// notifications and forwards them to <see cref="Common.Analytics.ITelemetryTransmitter"/>.
 /// </para>
 /// </summary>
 public interface ILspTelemetryService

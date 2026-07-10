@@ -1,5 +1,4 @@
-﻿using Reqnroll.IdeSupport.LSP.Core.Bindings;
-
+﻿
 namespace Reqnroll.IdeSupport.LSP.Core.Tests.Bindings;
 
 /// <summary>
@@ -8,7 +7,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Tests.Bindings;
 /// </summary>
 public class GherkinDocumentContextCalculatorTests
 {
-    private readonly IMonitoringService _monitoring = Substitute.For<IMonitoringService>();
+    private readonly ITelemetryService _monitoring = Substitute.For<ITelemetryService>();
     private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
 
     private DeveroomGherkinDocument ParseFeature(string text)

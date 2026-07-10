@@ -2,16 +2,15 @@
 using EnvDTE;
 using Microsoft.VisualStudio.Shell;
 using Reqnroll.IdeSupport.Common;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.VisualStudio.Common;
 using Reqnroll.IdeSupport.VisualStudio.Package.ProjectSystem;
 using Reqnroll.IdeSupport.VisualStudio.SDKIntegration;
 using System.Collections.Concurrent;
 using System.ComponentModel.Composition;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
-using Project = EnvDTE.Project;
 
 namespace Reqnroll.IdeSupport.VisualStudio.ProjectSystem;
 
@@ -27,14 +26,14 @@ public class VsIdeScope : IVsIdeScope
 
     [ImportingConstructor]
     public VsIdeScope([Import(typeof(SVsServiceProvider))] IServiceProvider serviceProvider,
-        IMonitoringService monitoringService,
+        ITelemetryService telemetryService,
         IFileSystemForIDE fileSystem,
         Reqnroll.IdeSupport.VisualStudio.Diagnostics.IdeSupportCompositeLogger compositeLogger)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         Logger = compositeLogger;
         ServiceProvider = serviceProvider;
-        MonitoringService = monitoringService;
+        TelemetryService = telemetryService;
         FileSystem = fileSystem;
 
         Dte = (DTE) serviceProvider.GetService(typeof(DTE));
@@ -50,7 +49,7 @@ public class VsIdeScope : IVsIdeScope
     public bool IsSolutionLoaded { get; private set; }
 
     public IIdeSupportLogger Logger { get; }
-    public IMonitoringService MonitoringService { get; }
+    public ITelemetryService TelemetryService { get; }
     public IIdeActions Actions { get; }
     public IFileSystemForIDE FileSystem { get; }
 
@@ -61,7 +60,7 @@ public class VsIdeScope : IVsIdeScope
             "Error on a background task in Reqnroll",
             exception =>
             {
-                Logger.LogException(MonitoringService, exception, $"Called from {callerName}");
+                Logger.LogException(TelemetryService, exception, $"Called from {callerName}");
                 onException(exception);
                 return true;
             });
@@ -79,7 +78,7 @@ public class VsIdeScope : IVsIdeScope
                 }
                 catch (Exception e)
                 {
-                    Logger.LogException(MonitoringService, e, $"Called from {callerName}");
+                    Logger.LogException(TelemetryService, e, $"Called from {callerName}");
                 }
             },
             _backgroundTaskTokenSource.Token,

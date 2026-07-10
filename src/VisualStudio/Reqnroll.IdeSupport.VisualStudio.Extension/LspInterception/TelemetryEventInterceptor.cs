@@ -1,18 +1,15 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
-using Reqnroll.IdeSupport.Common.Analytics;
+using Reqnroll.IdeSupport.Common.Telemetry;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 
 /// <summary>
 /// Intercepts <c>telemetry/event</c> notifications from the LSP server (Receive direction)
-/// and forwards them to <see cref="IAnalyticsTransmitter"/> for persistent telemetry.
+/// and forwards them to <see cref="ITelemetryTransmitter"/> for persistent telemetry.
 /// </summary>
 /// <remarks>
-/// Uses a lazy <c>Func&lt;IAnalyticsTransmitter?&gt;</c> (same pattern as
+/// Uses a lazy <c>Func&lt;ITelemetryTransmitter?&gt;</c> (same pattern as
 /// <see cref="ScaffoldTrackingInterceptor"/>) so the transmitter can be resolved
 /// after the MEF composition is ready, rather than requiring it at construction time.
 /// </remarks>
@@ -23,11 +20,11 @@ internal sealed class TelemetryEventInterceptor : ILspMessageInterceptor
     // and therefore cannot consume its types at compile time.
     private const string TelemetryEventMethod = "telemetry/event";
 
-    private readonly Func<IAnalyticsTransmitter?> _getTransmitter;
+    private readonly Func<ITelemetryTransmitter?> _getTransmitter;
     private readonly ILogger<TelemetryEventInterceptor> _logger;
 
     public TelemetryEventInterceptor(
-        Func<IAnalyticsTransmitter?> getTransmitter,
+        Func<ITelemetryTransmitter?> getTransmitter,
         ILogger<TelemetryEventInterceptor> logger)
     {
         _getTransmitter = getTransmitter ?? throw new ArgumentNullException(nameof(getTransmitter));
@@ -49,7 +46,7 @@ internal sealed class TelemetryEventInterceptor : ILspMessageInterceptor
         if (transmitter is null)
         {
             _logger.LogWarning(
-                "TelemetryEventInterceptor: IAnalyticsTransmitter not available; dropping event.");
+                "TelemetryEventInterceptor: ITelemetryTransmitter not available; dropping event.");
             return Task.FromResult(LspInterceptorResult.PassThrough);
         }
 
@@ -77,7 +74,7 @@ internal sealed class TelemetryEventInterceptor : ILspMessageInterceptor
                 }
             }
 
-            transmitter.TransmitEvent(new Reqnroll.IdeSupport.Common.Analytics.GenericEvent(eventName!, properties));
+            transmitter.TransmitEvent(new Reqnroll.IdeSupport.Common.Telemetry.GenericEvent(eventName!, properties));
 
             _logger.LogInformation(
                 "TelemetryEventInterceptor: forwarded telemetry/event {EventName} ({PropertyCount} props)",

@@ -1,12 +1,12 @@
 ﻿#nullable disable
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Configuration;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.LSP.Connector.Models;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
-using Reqnroll.IdeSupport.LSP.Server.Discovery;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
 
@@ -17,7 +17,7 @@ public abstract class OutProcReqnrollConnector
     protected readonly DeveroomConfiguration _configuration;
     protected readonly string _extensionFolder;
     protected readonly IIdeSupportLogger _logger;
-    protected readonly IMonitoringService _monitoringService;
+    protected readonly ITelemetryService _telemetryService;
     protected readonly ProcessorArchitectureSetting _processorArchitecture;
     protected readonly ProjectSettings _projectSettings;
     protected readonly TargetFrameworkMoniker _targetFrameworkMoniker;
@@ -26,7 +26,7 @@ public abstract class OutProcReqnrollConnector
     protected OutProcReqnrollConnector(DeveroomConfiguration configuration, IIdeSupportLogger logger,
         TargetFrameworkMoniker targetFrameworkMoniker, string extensionFolder,
         ProcessorArchitectureSetting processorArchitecture, ProjectSettings projectSettings,
-        IMonitoringService monitoringService)
+        ITelemetryService telemetryService)
     {
         _configuration = configuration;
         _logger = logger;
@@ -34,7 +34,7 @@ public abstract class OutProcReqnrollConnector
         _extensionFolder = extensionFolder;
         _processorArchitecture = processorArchitecture;
         _projectSettings = projectSettings;
-        _monitoringService = monitoringService;
+        _telemetryService = telemetryService;
     }
 
     private bool DebugConnector => _configuration.DebugConnector ||
@@ -60,7 +60,7 @@ public abstract class OutProcReqnrollConnector
             return new DiscoveryResult
             {
                 ErrorMessage = $"Error during binding discovery. Unable to find connector: {connectorPath}",
-                AnalyticsProperties = new Dictionary<string, object>(),
+                TelemetryProperties = new Dictionary<string, object>(),
                 ConnectorType = GetConnectorType()
             };
 
@@ -124,23 +124,23 @@ public abstract class OutProcReqnrollConnector
         }
 
         discoveryResult.ErrorMessage = formatErrorMessage(discoveryResult);
-        discoveryResult.AnalyticsProperties ??= new Dictionary<string, object>();
+        discoveryResult.TelemetryProperties ??= new Dictionary<string, object>();
 
-        discoveryResult.AnalyticsProperties["ProjectTargetFramework"] = _targetFrameworkMoniker;
-        discoveryResult.AnalyticsProperties["ProjectReqnrollVersion"] = ReqnrollVersion;
+        discoveryResult.TelemetryProperties["ProjectTargetFramework"] = _targetFrameworkMoniker;
+        discoveryResult.TelemetryProperties["ProjectReqnrollVersion"] = ReqnrollVersion;
         if (_projectSettings.IsSpecFlowProject)             
-            discoveryResult.AnalyticsProperties["LegacySpecFlow"] = true;
-        discoveryResult.AnalyticsProperties["ConnectorType"] = discoveryResult.ConnectorType;
-        discoveryResult.AnalyticsProperties["ConnectorArguments"] = result.Arguments;
-        discoveryResult.AnalyticsProperties["ConnectorExitCode"] = result.ExitCode;
+            discoveryResult.TelemetryProperties["LegacySpecFlow"] = true;
+        discoveryResult.TelemetryProperties["ConnectorType"] = discoveryResult.ConnectorType;
+        discoveryResult.TelemetryProperties["ConnectorArguments"] = result.Arguments;
+        discoveryResult.TelemetryProperties["ConnectorExitCode"] = result.ExitCode;
         if (!string.IsNullOrEmpty(discoveryResult.ReqnrollVersion))
-            discoveryResult.AnalyticsProperties["ReqnrollVersion"] = discoveryResult.ReqnrollVersion;
+            discoveryResult.TelemetryProperties["ReqnrollVersion"] = discoveryResult.ReqnrollVersion;
 
         if (!string.IsNullOrEmpty(discoveryResult.ErrorMessage))
-            discoveryResult.AnalyticsProperties["Error"] = discoveryResult.ErrorMessage;
+            discoveryResult.TelemetryProperties["Error"] = discoveryResult.ErrorMessage;
 
-        // DiscoveryResultEvent telemetry is not implemented in the LSP server; NullMonitoringService no-ops this.
-        // _monitoringService.TransmitEvent(new DiscoveryResultEvent(discoveryResult));
+        // DiscoveryResultEvent telemetry is not implemented in the LSP server; NullTelemetryService no-ops this.
+        // _telemetryService.TransmitEvent(new DiscoveryResultEvent(discoveryResult));
 
         return discoveryResult;
     }

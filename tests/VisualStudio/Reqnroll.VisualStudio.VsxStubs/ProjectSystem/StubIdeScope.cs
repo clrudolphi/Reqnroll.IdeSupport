@@ -4,10 +4,10 @@ public class StubIdeScope : IIdeScope, IDisposable
 {
     public StubIdeScope(ITestOutputHelper testOutputHelper)
     {
-        AnalyticsTransmitter = new StubAnalyticsTransmitter(Logger);
-        MonitoringService =
+        TelemetryTransmitter = new StubTelemetryTransmitter(Logger);
+        TelemetryService =
             new MonitoringService(
-                AnalyticsTransmitter);
+                TelemetryTransmitter);
 
         CompositeLogger.Add(new DeveroomXUnitLogger(testOutputHelper));
         CompositeLogger.Add(StubLogger);
@@ -37,7 +37,7 @@ public class StubIdeScope : IIdeScope, IDisposable
     }
 
     public CancellationTokenSource BackgroundTaskTokenSource { get; }
-    public StubAnalyticsTransmitter AnalyticsTransmitter { get; }
+    public StubTelemetryTransmitter TelemetryTransmitter { get; }
     public IDictionary<string, IWpfTextView> OpenViews { get; } = new Dictionary<string, IWpfTextView>();
     public StubLogger StubLogger { get; } = new();
 
@@ -66,7 +66,7 @@ public class StubIdeScope : IIdeScope, IDisposable
         Substitute.For<IDeveroomOutputPaneServices>();
 
     public IDeveroomErrorListServices DeveroomErrorListServices => StubErrorListServices;
-    public IMonitoringService MonitoringService { get; }
+    public ITelemetryService TelemetryService { get; }
 
     public event EventHandler<EventArgs> WeakProjectsBuilt = null!;
     public event EventHandler<EventArgs> WeakProjectOutputsUpdated = null!;
@@ -109,7 +109,7 @@ public class StubIdeScope : IIdeScope, IDisposable
             }
             catch (Exception e)
             {
-                Logger.LogException(MonitoringService, e);
+                Logger.LogException(TelemetryService, e);
                 onException(e);
             }
         };

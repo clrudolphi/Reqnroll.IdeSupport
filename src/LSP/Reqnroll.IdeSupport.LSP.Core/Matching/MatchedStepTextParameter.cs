@@ -1,0 +1,14 @@
+﻿
+namespace Reqnroll.IdeSupport.LSP.Core.Matching;
+
+public struct MatchedStepTextParameter
+{
+    public int Index;
+    public int Length;
+
+    public MatchedStepTextParameter(int index, int length)
+    {
+        Index = index;
+        Length = length;
+    }
+}

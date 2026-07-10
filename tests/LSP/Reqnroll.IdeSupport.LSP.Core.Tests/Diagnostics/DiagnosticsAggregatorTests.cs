@@ -1,8 +1,4 @@
-﻿using Reqnroll.IdeSupport.Common.Configuration;
-using Reqnroll.IdeSupport.Common.Diagnostics;
-using Reqnroll.IdeSupport.LSP.Core.Diagnostics;
-using Reqnroll.IdeSupport.LSP.Core.Documents;
-using Reqnroll.IdeSupport.LSP.Core.Matching;
+﻿using Reqnroll.IdeSupport.LSP.Core.Diagnostics;
 using Reqnroll.VisualStudio.VsxStubs.LspStubs;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Tests.Diagnostics;
@@ -16,7 +12,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Tests.Diagnostics;
 public class DiagnosticsAggregatorTests
 {
     private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
-    private readonly IMonitoringService _monitoringService = Substitute.For<IMonitoringService>();
+    private readonly ITelemetryService _telemetryService = Substitute.For<ITelemetryService>();
     private readonly IDeveroomConfigurationProvider _configProvider = Substitute.For<IDeveroomConfigurationProvider>();
 
     private const string DocumentId = "file:///c:/proj/test.feature";
@@ -43,7 +39,7 @@ public class DiagnosticsAggregatorTests
 
     private IReadOnlyCollection<DeveroomTag> ParseTags(string text, ProjectBindingRegistry? registry = null)
     {
-        var parser = new DeveroomTagParser(_logger, _monitoringService, _configProvider);
+        var parser = new DeveroomTagParser(_logger, _telemetryService, _configProvider);
         return parser.Parse(Snap(text), registry ?? RegistryWith());
     }
 

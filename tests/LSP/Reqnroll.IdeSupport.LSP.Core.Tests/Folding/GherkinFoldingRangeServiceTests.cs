@@ -10,7 +10,7 @@ public class GherkinFoldingRangeServiceTests
     private static IReadOnlyCollection<DeveroomTag> ParseTags(string text)
     {
         var logger = Substitute.For<IIdeSupportLogger>();
-        var monitoring = Substitute.For<IMonitoringService>();
+        var monitoring = Substitute.For<ITelemetryService>();
         var configProvider = Substitute.For<IDeveroomConfigurationProvider>();
         configProvider.GetConfiguration().Returns(new DeveroomConfiguration());
         var parser = new DeveroomTagParser(logger, monitoring, configProvider);

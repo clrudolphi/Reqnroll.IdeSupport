@@ -2,14 +2,12 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Configuration;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 using Reqnroll.IdeSupport.LSP.Core.Formatting;
-using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
+using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
-
-
-using Reqnroll.IdeSupport.LSP.Server.Workspace;
+using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Features.Formatting;
 
@@ -215,7 +213,7 @@ public sealed class GherkinFormattingHandler
     {
         var language = _configurationProvider.GetConfiguration().DefaultFeatureLanguage ?? "en";
         var dialectProvider = ReqnrollGherkinDialectProvider.Get(language);
-        var parser = new DeveroomGherkinParser(dialectProvider, NullMonitoringService.Instance);
+        var parser = new DeveroomGherkinParser(dialectProvider, NullTelemetryService.Instance);
         parser.ParseAndCollectErrors(text, _logger, out var gherkinDocument, out _);
         return gherkinDocument;
     }

@@ -1,46 +1,47 @@
-﻿using System.Diagnostics;
-using MediatR;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Configuration;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
-using Reqnroll.IdeSupport.LSP.Core.Diagnostics;
+using Reqnroll.IdeSupport.Common.Telemetry;
+using Reqnroll.IdeSupport.LSP.Core.Commenting;
 using Reqnroll.IdeSupport.LSP.Core.Completions;
 using Reqnroll.IdeSupport.LSP.Core.Completions.Matching;
-using Reqnroll.IdeSupport.LSP.Core.Scaffolding;
+using Reqnroll.IdeSupport.LSP.Core.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Core.DocumentOutline;
+using Reqnroll.IdeSupport.LSP.Core.FindUnusedStepDefs;
 using Reqnroll.IdeSupport.LSP.Core.Folding;
-using Reqnroll.IdeSupport.LSP.Core.Commenting;
 using Reqnroll.IdeSupport.LSP.Core.InlayHints;
-using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
 
 
 using Reqnroll.IdeSupport.LSP.Core.Matching;
+using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 using Reqnroll.IdeSupport.LSP.Core.Rename;
+using Reqnroll.IdeSupport.LSP.Core.Scaffolding;
 using Reqnroll.IdeSupport.LSP.Server.Configuration;
-using Reqnroll.IdeSupport.LSP.Server.Diagnostics.Performance;
-using Reqnroll.IdeSupport.LSP.Server.Logging;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
-using Reqnroll.IdeSupport.LSP.Server.Pipeline;
 using Reqnroll.IdeSupport.LSP.Server.Features.CodeActions;
-using Reqnroll.IdeSupport.LSP.Server.Features.Commenting;
-using Reqnroll.IdeSupport.LSP.Server.Features.DocumentOutline;
-using Reqnroll.IdeSupport.LSP.Server.Features.Folding;
-using Reqnroll.IdeSupport.LSP.Server.Features.Formatting;
-using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 using Reqnroll.IdeSupport.LSP.Server.Features.CodeLens;
-using Reqnroll.IdeSupport.LSP.Server.Features.DocumentActivated;
-using Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs;
-using Reqnroll.IdeSupport.LSP.Server.Features.References;
-using Reqnroll.IdeSupport.LSP.Server.Features.Rename;
+using Reqnroll.IdeSupport.LSP.Server.Features.Commenting;
 using Reqnroll.IdeSupport.LSP.Server.Features.Completions;
 using Reqnroll.IdeSupport.LSP.Server.Features.Definition;
+using Reqnroll.IdeSupport.LSP.Server.Features.DocumentActivated;
+using Reqnroll.IdeSupport.LSP.Server.Features.DocumentOutline;
+using Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs;
+using Reqnroll.IdeSupport.LSP.Server.Features.Folding;
+using Reqnroll.IdeSupport.LSP.Server.Features.Formatting;
 using Reqnroll.IdeSupport.LSP.Server.Features.InlayHints;
+using Reqnroll.IdeSupport.LSP.Server.Features.References;
+using Reqnroll.IdeSupport.LSP.Server.Features.Rename;
 using Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens;
-using Reqnroll.IdeSupport.LSP.Server.Telemetry;
+using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
+using Reqnroll.IdeSupport.LSP.Server.Logging;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Pipeline;
+using Reqnroll.IdeSupport.LSP.Server.Registry;
 using Reqnroll.IdeSupport.LSP.Server.Tagging;
+using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 using Reqnroll.IdeSupport.LSP.Server.Tracing;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
@@ -70,7 +71,7 @@ public static class ServiceCollectionExtensions
             // "protocol" file gated by the independent --protocol-log-level. Any new code that wants
             // ILogger<T> gets the correctly-configured one for free from that existing pipeline.
             .AddSingleton<IIdeScope, LspIdeScope>()
-            .AddSingleton<IMonitoringService>(sp => NullMonitoringService.Instance)
+            .AddSingleton<ITelemetryService>(sp => NullTelemetryService.Instance)
             // Telemetry: emit telemetry/event notifications, optionally mirrored to a local JSONL
             // debug log (REQNROLL_TELEMETRY_DEBUG_LOG). The decorator wraps the real emitter; when
             // the debug log is unconfigured the sink is a no-op and it simply forwards.
@@ -173,6 +174,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<GherkinCompletionHandler>()
             .AddSingleton<IStepScaffoldService, StepScaffoldService>()
             .AddSingleton<FeatureCodeActionHandler>()
+            .AddSingleton<IFindUnusedStepDefinitionsService, FindUnusedStepDefinitionsService>()
             .AddSingleton<FindUnusedStepDefinitionsHandler>()
             .AddSingleton<DocumentActivatedHandler>()
             .AddSingleton<GherkinFormattingHandler>()

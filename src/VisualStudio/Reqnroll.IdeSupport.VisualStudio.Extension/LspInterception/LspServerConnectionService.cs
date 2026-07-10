@@ -1,13 +1,10 @@
-using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
 using System.IO.Pipelines;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Shell;
 using Nerdbank.Streams;
-using Reqnroll.IdeSupport.Common.Analytics;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.VisualStudio.Extension.Classification;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspNotifications;
 using Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
@@ -98,7 +95,7 @@ internal sealed class LspServerConnectionService : IDisposable
     /// available (post-init, main thread). Read lazily by <see cref="TelemetryEventInterceptor"/>,
     /// which is constructed before this is known.
     /// </summary>
-    public IAnalyticsTransmitter? AnalyticsTransmitter { get; set; }
+    public ITelemetryTransmitter? TelemetryTransmitter { get; set; }
 
     /// <summary>
     /// Set by <see cref="ReqnrollLanguageClient"/> once the project monitor is constructed
@@ -260,7 +257,7 @@ internal sealed class LspServerConnectionService : IDisposable
             // Telemetry interceptor: lazy reference because AnalyticsTransmitter is resolved
             // from MEF on the main thread during OnServerInitializationResultAsync.
             var telemetryInterceptor = new TelemetryEventInterceptor(
-                () => AnalyticsTransmitter, _loggerFactory.CreateLogger<TelemetryEventInterceptor>());
+                () => TelemetryTransmitter, _loggerFactory.CreateLogger<TelemetryEventInterceptor>());
             var receiveInterceptors = new ILspMessageInterceptor[]
                 { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor, codeLensRefreshInterceptor, _shutdownHandshakeInterceptor, telemetryInterceptor };
 

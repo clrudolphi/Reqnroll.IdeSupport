@@ -1,7 +1,7 @@
-// VsIntegration layer — VS SDK references are expected here.
+﻿// VsIntegration layer — VS SDK references are expected here.
 using Microsoft.Internal.VisualStudio.PlatformUI;
 using Microsoft.VisualStudio.Shell.Interop;
-using Reqnroll.IdeSupport.Common;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.VisualStudio.Wizards.Abstractions;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Wizards.VsIntegration;
@@ -9,12 +9,12 @@ namespace Reqnroll.IdeSupport.VisualStudio.Wizards.VsIntegration;
 public class VsWizardDialogService : IWizardDialogService
 {
     private readonly IVsUIShell _vsUiShell;
-    private readonly IMonitoringService? _monitoringService;
+    private readonly ITelemetryService? _telemetryService;
 
-    public VsWizardDialogService(IVsUIShell vsUiShell, IMonitoringService? monitoringService = null)
+    public VsWizardDialogService(IVsUIShell vsUiShell, ITelemetryService? telemetryService = null)
     {
         _vsUiShell = vsUiShell;
-        _monitoringService = monitoringService;
+        _telemetryService = telemetryService;
     }
 
     public AddNewProjectWizardResult? ShowAddNewProjectDialog()
@@ -52,7 +52,7 @@ public class VsWizardDialogService : IWizardDialogService
 
     private void WireLinkClicked(System.Windows.Window dialog)
     {
-        if (_monitoringService is null) return;
+        if (_telemetryService is null) return;
         if (dialog is WizardWindow wizard)
         {
             wizard.LinkClicked += (sender, e) =>
@@ -65,7 +65,7 @@ public class VsWizardDialogService : IWizardDialogService
 
                 var source = dialog.DataContext?.GetType().Name
                                  ?.Replace("ViewModel", "") ?? "Unknown";
-                _monitoringService.MonitorLinkClicked(source, uriString);
+                _telemetryService.MonitorLinkClicked(source, uriString);
             };
         }
     }

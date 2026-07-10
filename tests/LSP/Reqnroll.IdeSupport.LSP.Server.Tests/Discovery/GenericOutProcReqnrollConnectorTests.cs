@@ -1,8 +1,8 @@
 ﻿using Reqnroll.IdeSupport.Common.Configuration;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
-using Reqnroll.IdeSupport.LSP.Server.Workspace;
+using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Discovery;
 
@@ -23,7 +23,7 @@ public class GenericOutProcReqnrollConnectorTests
                 extensionFolder,
                 ProcessorArchitectureSetting.UseSystem,
                 DiscoveryTestSupport.MinimalProjectSettings(TargetFrameworkMoniker.Create(tfm)),
-                NullMonitoringService.Instance)
+                NullTelemetryService.Instance)
         {
         }
 

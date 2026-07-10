@@ -1,8 +1,8 @@
-﻿using Reqnroll.IdeSupport.Common;
-using Reqnroll.IdeSupport.Common.Configuration;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+﻿using Reqnroll.IdeSupport.Common.Configuration;
+using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
+using Reqnroll.IdeSupport.Common.Telemetry;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
 
@@ -24,7 +24,7 @@ public class GenericOutProcReqnrollConnector : OutProcReqnrollConnector
         string extensionFolder,
         ProcessorArchitectureSetting processorArchitecture,
         ProjectSettings projectSettings,
-        IMonitoringService monitoringService)
+        ITelemetryService telemetryService)
         : base(
             configuration,
             logger,
@@ -32,7 +32,7 @@ public class GenericOutProcReqnrollConnector : OutProcReqnrollConnector
             extensionFolder,
             processorArchitecture,
             projectSettings,
-            monitoringService)
+            telemetryService)
     {
     }
 

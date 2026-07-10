@@ -1,12 +1,7 @@
-﻿#nullable enable
-
-using System.Collections.Generic;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.IO;
 using EnvDTE80;
 using Microsoft.VisualStudio.Shell;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.Navigation;
 

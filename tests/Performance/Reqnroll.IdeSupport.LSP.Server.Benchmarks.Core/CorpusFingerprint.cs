@@ -1,21 +1,15 @@
-﻿#nullable enable
-
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
-using Gherkin.Ast;
+﻿using Gherkin.Ast;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Configuration;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
-using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
+using Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp;
+using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
-using Reqnroll.IdeSupport.LSP.Server.Workspace;
+using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus;
 
@@ -48,7 +42,7 @@ public sealed record CorpusFingerprint(
         var registry = await BuildRegistryAsync(Path.Combine(corpusRoot, "Bindings")).ConfigureAwait(false);
 
         var tagParser = new DeveroomTagParser(
-            new IdeSupportNullLogger(), NullMonitoringService.Instance, new DefaultConfigurationProvider());
+            new IdeSupportNullLogger(), NullTelemetryService.Instance, new DefaultConfigurationProvider());
 
         var featureFiles = Directory
             .EnumerateFiles(Path.Combine(corpusRoot, "Features"), "*.feature", SearchOption.AllDirectories)
@@ -92,7 +86,7 @@ public sealed record CorpusFingerprint(
     private static void CountScenarios(string featureText, ref int scenarios, ref int outlines)
     {
         var parser = new DeveroomGherkinParser(
-            ReqnrollGherkinDialectProvider.Get("en"), NullMonitoringService.Instance);
+            ReqnrollGherkinDialectProvider.Get("en"), NullTelemetryService.Instance);
         parser.ParseAndCollectErrors(featureText, new IdeSupportNullLogger(), out var doc, out _);
         if (doc?.Feature is null) return;
 

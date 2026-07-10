@@ -1,14 +1,7 @@
-#nullable disable
+﻿#nullable disable
 using Gherkin;
-using GherkinLocation = Gherkin.Ast.Location;
-using NSubstitute;
-using Reqnroll.IdeSupport.Common;
-using Reqnroll.IdeSupport.LSP.Core.Bindings;
-
-
-using Reqnroll.IdeSupport.LSP.Core.Documents;
 using Reqnroll.IdeSupport.LSP.Core.Completions;
-using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
+using GherkinLocation = Gherkin.Ast.Location;
 
 
 
@@ -48,7 +41,7 @@ public class CompletionContextResolverTests
             "I do it", null, StepKeyword.When, ScenarioBlock.When);
 
     private readonly IDeveroomTagParser _tagParser  = Substitute.For<IDeveroomTagParser>();
-    private readonly IMonitoringService _monitoring = Substitute.For<IMonitoringService>();
+    private readonly ITelemetryService _monitoring = Substitute.For<ITelemetryService>();
     private readonly CompletionContextResolver _sut;
 
     public CompletionContextResolverTests()

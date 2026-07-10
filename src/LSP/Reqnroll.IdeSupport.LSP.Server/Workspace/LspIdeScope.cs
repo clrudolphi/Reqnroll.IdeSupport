@@ -1,5 +1,7 @@
 ﻿using Reqnroll.IdeSupport.Common;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
+using Reqnroll.IdeSupport.Common.Telemetry;
+using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Workspace;
 
@@ -14,13 +16,13 @@ public sealed class LspIdeScope : IIdeScope
     {
         Logger = logger;
         FileSystem = new FileSystemForIDE();
-        MonitoringService = NullMonitoringService.Instance;
+        TelemetryService = NullTelemetryService.Instance;
         Actions = new LspIdeActions(logger);
     }
 
     public bool IsSolutionLoaded => true;
     public IIdeSupportLogger Logger { get; }
-    public IMonitoringService MonitoringService { get; }
+    public ITelemetryService TelemetryService { get; }
     public IIdeActions Actions { get; }
     public IFileSystemForIDE FileSystem { get; }
 

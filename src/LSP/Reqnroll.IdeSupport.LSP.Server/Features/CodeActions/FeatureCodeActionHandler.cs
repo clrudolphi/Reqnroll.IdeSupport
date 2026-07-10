@@ -1,16 +1,12 @@
-﻿#nullable enable
-
-using System.IO;
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Configuration;
-using Reqnroll.IdeSupport.Common.Diagnostics;
-using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
-using Reqnroll.IdeSupport.LSP.Core.Scaffolding;
+using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
+using Reqnroll.IdeSupport.LSP.Core.Scaffolding;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -246,7 +242,7 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
     private static string GetStepText(LSP.Core.Matching.StepBindingMatch step)
     {
         var item = step.Result.Items.FirstOrDefault(
-            i => i.Type == LSP.Core.Bindings.MatchResultType.Undefined);
+            i => i.Type == LSP.Core.Matching.MatchResultType.Undefined);
         return item?.UndefinedStep?.StepText ?? string.Empty;
     }
 

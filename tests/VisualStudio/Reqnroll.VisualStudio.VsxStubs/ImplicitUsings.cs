@@ -12,9 +12,9 @@ global using Microsoft.VisualStudio.Utilities;
 global using NSubstitute;
 // New project namespaces (replacing old Reqnroll.VisualStudio.* equivalents)
 global using Reqnroll.IdeSupport.Common;
-global using Reqnroll.IdeSupport.Common.Analytics;
+global using Reqnroll.IdeSupport.Common.Telemetry;
 global using Reqnroll.IdeSupport.Common.Configuration;
-global using Reqnroll.IdeSupport.Common.Diagnostics;
+global using Reqnroll.IdeSupport.Common.Logging;
 global using Reqnroll.IdeSupport.Common.ProjectSystem;
 global using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 global using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;

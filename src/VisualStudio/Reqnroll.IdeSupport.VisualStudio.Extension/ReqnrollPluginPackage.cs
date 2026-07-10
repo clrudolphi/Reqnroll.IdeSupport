@@ -1,16 +1,11 @@
-﻿using Microsoft.VisualStudio;
+﻿using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Reqnroll.IdeSupport.Common;
-using Reqnroll.IdeSupport.Common.Analytics;
-using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.Logging;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.VisualStudio.Wizards.VsIntegration;
-using System;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Threading;
-using Task = System.Threading.Tasks.Task;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension;
 
@@ -35,7 +30,7 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
     public const string PackageGuidString = "8d5fe503-e038-4079-9e45-697e0dcb3758";
 
     private IIdeSupportLogger _logger = new IdeSupportNullLogger();
-    private IAnalyticsTransmitter? _analyticsTransmitter;
+    private ITelemetryTransmitter? _telemetryTransmitter;
 
     protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
     {
@@ -43,14 +38,14 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
 
         // Resolve the shared MEF-exported IIdeSupportLogger (issue #84) rather than a private
         // ad-hoc SynchronousFileLogger + a second, unlistened-to TraceSource. Resolved early
-        // (alongside IAnalyticsTransmitter below) so it's available for the full package lifecycle;
+        // (alongside ITelemetryTransmitter below) so it's available for the full package lifecycle;
         // falls back to a no-op logger only if the component model isn't ready yet.
         {
             var sp = await GetServiceAsync(typeof(SComponentModel)) as IServiceProvider;
             if (sp != null)
             {
                 _logger = VsUtils.ResolveMefDependency<IIdeSupportLogger>(sp) ?? new IdeSupportNullLogger();
-                _analyticsTransmitter = VsUtils.ResolveMefDependency<IAnalyticsTransmitter>(sp);
+                _telemetryTransmitter = VsUtils.ResolveMefDependency<ITelemetryTransmitter>(sp);
             }
         }
 
@@ -134,8 +129,8 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
             }
             _logger.LogInfo("RunWelcomeServiceAsync: IVsUIShell resolved OK.");
 
-            var monitoringService = ideScope.MonitoringService;
-            var dialogService = new VsWizardDialogService(vsUiShell, monitoringService);
+            var telemetryService = ideScope.TelemetryService;
+            var dialogService = new VsWizardDialogService(vsUiShell, telemetryService);
 
             _logger.LogInfo("RunWelcomeServiceAsync: creating WelcomeService...");
             var welcomeService = new WelcomeService(
@@ -179,7 +174,7 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing && _analyticsTransmitter is IAsyncDisposable d)
+        if (disposing && _telemetryTransmitter is IAsyncDisposable d)
         {
             ThreadHelper.JoinableTaskFactory.Run(() => d.DisposeAsync().AsTask());
         }
