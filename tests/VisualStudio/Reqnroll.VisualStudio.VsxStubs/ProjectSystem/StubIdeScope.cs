@@ -1,4 +1,6 @@
-﻿namespace Reqnroll.VisualStudio.VsxStubs.ProjectSystem;
+﻿using VsTelemetryService = Reqnroll.IdeSupport.VisualStudio.Telemetry.TelemetryService;
+
+namespace Reqnroll.VisualStudio.VsxStubs.ProjectSystem;
 
 public class StubIdeScope : IIdeScope, IDisposable
 {
@@ -6,7 +8,7 @@ public class StubIdeScope : IIdeScope, IDisposable
     {
         TelemetryTransmitter = new StubTelemetryTransmitter(Logger);
         TelemetryService =
-            new MonitoringService(
+            new VsTelemetryService(
                 TelemetryTransmitter);
 
         CompositeLogger.Add(new DeveroomXUnitLogger(testOutputHelper));

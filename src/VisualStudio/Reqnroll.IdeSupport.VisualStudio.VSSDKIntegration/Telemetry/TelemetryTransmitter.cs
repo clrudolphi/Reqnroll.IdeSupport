@@ -37,7 +37,7 @@ public class TelemetryTransmitter : ITelemetryTransmitter, IAsyncDisposable
         IEnableTelemetryChecker enableTelemetryChecker,
         IUserUniqueIdStore userUniqueIdStore,
         IVersionProvider versionProvider,
-        Reqnroll.IdeSupport.VisualStudio.Diagnostics.IdeSupportCompositeLogger? logger = null)
+        Reqnroll.IdeSupport.VisualStudio.Logging.IdeSupportCompositeLogger? logger = null)
         : this(CreateClient(userUniqueIdStore, versionProvider), enableTelemetryChecker, logger,
             TelemetryDebugLog.FromEnvironment())
     {
