@@ -20,7 +20,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Matching;
 /// document (it has the snapshot for span math and the tag tree for
 /// <see cref="IGherkinDocumentContext"/>). A <see cref="StepBindingMatch"/> captures the
 /// result of that computation so downstream features — Go to Step Definition, diagnostics
-/// (undefined-step/binding diagnostics), find usages (F14) — can query it without re-parsing.
+/// (undefined-step/binding diagnostics), find usages — can query it without re-parsing.
 /// </remarks>
 public sealed class StepBindingMatch
 {
@@ -42,7 +42,7 @@ public sealed class StepBindingMatch
 
     /// <summary>
     /// The document ID (URI string) of the feature file that contains this step.
-    /// Backs Find Usages (F14) and Code Lens usage counts (F18): callers need the feature file
+    /// Backs Find Usages and the Code Lens usage counts: callers need the feature file
     /// URI to build <c>Location</c> responses without a separate document-ID lookup.
     /// </summary>
     public string FeatureDocumentId { get; }

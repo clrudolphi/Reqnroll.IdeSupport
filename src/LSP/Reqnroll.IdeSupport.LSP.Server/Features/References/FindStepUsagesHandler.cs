@@ -11,7 +11,7 @@ using Reqnroll.IdeSupport.LSP.Server.Workspace;
 namespace Reqnroll.IdeSupport.LSP.Server.Features.References;
 
 /// <summary>
-/// Handles the custom <c>reqnroll/findStepUsages</c> request (F14 P2b).
+/// Handles the custom <c>reqnroll/findStepUsages</c> request.
 /// <para>
 /// Implements MediatR IRequestHandler to allow automatic routing via AddMediatR,
 /// avoiding the need for manual OnRequest delegate registration and IServiceProvider capture.
@@ -83,7 +83,7 @@ public sealed class FindStepUsagesHandler
         var column = request.Position.Character + 1;
         var bindingLocation = new SourceLocation(filePath, line, column);
 
-        // Q18 2B: restrict search to the projects that own this .cs file.
+        // Restrict search to the projects that own this .cs file.
         var owners = _scopeManager.ResolveOwners(uri);
         IReadOnlyCollection<ProjectOwner>? projectFilter = owners.Count > 0
             ? owners.Select(p => new ProjectOwner(p.ProjectFullName, p.TargetFrameworkMoniker))

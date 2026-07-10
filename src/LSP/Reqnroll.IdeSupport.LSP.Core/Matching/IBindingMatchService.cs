@@ -38,7 +38,7 @@ public interface IBindingMatchService
     /// pass <see langword="null"/> to search across all projects.
     /// <see cref="ProjectOwner.Unknown"/> entries are always included regardless of the filter
     /// (they are pre-baseline placeholders that are visible to all callers).
-    /// Backs Find Usages (F14) and Code Lens usage counts (F18).
+    /// Backs Find Usages and the Code Lens usage counts.
     /// </summary>
     IReadOnlyList<StepBindingMatch> FindUsages(
         SourceLocation bindingLocation,

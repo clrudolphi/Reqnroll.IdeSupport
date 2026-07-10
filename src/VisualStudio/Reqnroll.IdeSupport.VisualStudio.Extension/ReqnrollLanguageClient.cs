@@ -158,7 +158,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
                 _findStepUsagesState.Renderer            = new FindStepUsagesRenderer(serviceProvider, _loggerFactory.CreateLogger<FindStepUsagesRenderer>());
                 _findUnusedStepDefinitionsState.Renderer = new FindUnusedStepDefinitionsRenderer(serviceProvider, _loggerFactory.CreateLogger<FindUnusedStepDefinitionsRenderer>());
 
-                // F18 — reuse the Find Step Definition Usages / Find All References components for the code-lens click action.
+                // Reuse the Find Step Definition Usages / Find All References components for the code-lens click action.
                 _stepCodeLensState.FindUsagesService  = _findStepUsagesState.Service;
                 _stepCodeLensState.FindUsagesRenderer = _findStepUsagesState.Renderer;
 

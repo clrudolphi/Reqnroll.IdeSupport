@@ -11,7 +11,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
 
 /// <summary>
 /// Sends a <c>textDocument/codeLens</c> request to the LSP server and maps the result to a
-/// list of <see cref="StepLensItem"/> records (design doc F18).
+/// list of <see cref="StepLensItem"/> records.
 /// </summary>
 /// <remarks>
 /// VS.Extensibility <c>ICodeLensProvider</c> calls this once per file refresh; the result is

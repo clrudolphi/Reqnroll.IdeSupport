@@ -8,7 +8,7 @@ using Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
 
 /// <summary>
-/// Container-registered singleton holder for the runtime-created F18 "Step Code Lens" components.
+/// Container-registered singleton holder for the runtime-created Step Code Lens components.
 /// </summary>
 /// <remarks>
 /// <see cref="StepCodeLensService"/> depends on <c>LspInterceptingPipe</c>, which only exists

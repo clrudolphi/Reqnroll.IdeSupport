@@ -74,7 +74,7 @@ public sealed class BindingMatchService : IBindingMatchService
             var key = pair.Key;
             var set = pair.Value;
             // Unknown entries are pre-baseline placeholders — always include them so
-            // F14 works during the transition before the first baseline arrives.
+            // Find Usages works during the transition before the first baseline arrives.
             if (projectFilter != null && key.Owner.IsKnown && !MatchesFilter(key.Owner, projectFilter))
                 continue;
 

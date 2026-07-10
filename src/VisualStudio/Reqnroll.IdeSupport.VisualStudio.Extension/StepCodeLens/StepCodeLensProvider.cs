@@ -14,7 +14,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
 
 /// <summary>
 /// VS.Extensibility CodeLens provider that shows a "N step usage(s)" adornment above each
-/// step-binding attribute in a C# file (design doc F18).
+/// step-binding attribute in a C# file.
 /// </summary>
 /// <remarks>
 /// <para>

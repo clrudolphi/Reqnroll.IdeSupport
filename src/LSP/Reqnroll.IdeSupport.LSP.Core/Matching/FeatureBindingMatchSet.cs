@@ -14,7 +14,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Matching;
 /// The immutable set of step binding matches for one feature document, cached against
 /// <c>(DocumentId, Owner, DocumentVersion, RegistryVersion)</c>. This is the value stored by
 /// <see cref="IBindingMatchService"/> and queried by Go to Step Definition, the diagnostics
-/// aggregator (undefined-step/binding diagnostics) and find-usages (F14/F18).
+/// aggregator (undefined-step/binding diagnostics) and find-usages / code-lens usage counts.
 /// </summary>
 public sealed class FeatureBindingMatchSet
 {
