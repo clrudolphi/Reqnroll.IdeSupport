@@ -6,7 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.LSP.Core.Documents;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Documents;
+namespace Reqnroll.IdeSupport.LSP.Server.Protocol.Documents;
 
 /// <summary>
 /// Converts <see cref="SourceLocation"/> values (1-based, discovery layer) to OmniSharp LSP types.

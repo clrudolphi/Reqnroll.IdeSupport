@@ -3,7 +3,7 @@
 using System;
 using System.IO;
 using Reqnroll.IdeSupport.LSP.Core.Documents;
-using Reqnroll.IdeSupport.LSP.Server.Documents;
+using Reqnroll.IdeSupport.LSP.Server.Protocol.Documents;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Documents;
 
