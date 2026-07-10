@@ -5,10 +5,12 @@ using System.Collections.Generic;
 
 namespace Reqnroll.IdeSupport.Common.Configuration;
 
+/// <summary>ReqnrollConfigDeserializer</summary>
 public class ReqnrollConfigDeserializer : IConfigDeserializer<DeveroomConfiguration>
 {
     private readonly JsonNetConfigDeserializer<ReqnrollJsonConfiguration> _reqnrollConfigDeserializer = new();
 
+    /// <summary>Gets or sets the populate.</summary>
     public void Populate(string jsonString, DeveroomConfiguration config)
     {
         var reqnrollJsonConfiguration = new ReqnrollJsonConfiguration {Ide = config};

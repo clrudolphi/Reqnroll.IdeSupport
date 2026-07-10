@@ -5,8 +5,10 @@ using System.Text.RegularExpressions;
 
 namespace Reqnroll.IdeSupport.Common.ProjectSystem;
 
+/// <summary>NuGetVersion</summary>
 public record NuGetVersion
 {
+    /// <summary>Initializes a new instance of the <see cref="NuGetVersion"/> class.</summary>
     public NuGetVersion(string versionSpecifier, string requestedRange)
     {
         if (versionSpecifier == null) throw new ArgumentNullException(nameof(versionSpecifier));
@@ -21,8 +23,11 @@ public record NuGetVersion
             PreReleaseSuffix = versionParts[1];
     }
 
+    /// <summary>Gets or sets the version.</summary>
     public Version Version { get; }
+    /// <summary>Gets or sets the pre release suffix.</summary>
     public string PreReleaseSuffix { get; }
+    /// <summary>Gets or sets the is prerelease.</summary>
     public bool IsPrerelease => PreReleaseSuffix != null;
 
     /// <summary>The project's requested package range for the package.</summary>
@@ -34,8 +39,10 @@ public record NuGetVersion
     /// </remarks>
     public string RequestedRange { get; }
 
+    /// <summary>Gets or sets the is floating.</summary>
     public bool IsFloating => RequestedRange != null && Regex.IsMatch(RequestedRange, @"\*");
 
+    /// <summary>Gets or sets the to string.</summary>
     public override string ToString()
     {
         var str = IsPrerelease ? $"{Version}-{PreReleaseSuffix}" : Version.ToString();
@@ -43,5 +50,6 @@ public record NuGetVersion
         return str;
     }
 
+    /// <summary>Gets or sets the to short version string.</summary>
     public string ToShortVersionString() => $"{Version.Major}{Version.Minor:00}{Version.Build}";
 }

@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Reqnroll.VisualStudio.ReqnrollConnector.Generic.NetFX.Bridge</name>
+    </assembly>
+    <members>
+        <member name="T:ReqnrollConnector.AssemblyLoading.netFx.NetFxAssemblyProxy">
+            <summary>
+            Runs inside the remote AppDomain; all calls from the host domain are
+            marshalled transparently because this class inherits MarshalByRefObject.
+            Keep return types to primitives/strings where possible to avoid
+            accidental cross-domain type-identity issues.
+            </summary>
+        </member>
+        <member name="M:ReqnrollConnector.AssemblyLoading.netFx.NetFxAssemblyProxy.ProbeDirectory(System.String,System.String)">
+            <summary>
+            Probes <paramref name="directory"/> and its immediate subdirectories for
+            <c>{simpleName}.dll</c>, skipping any path that is under a <c>refs/</c>
+            folder — mirrors the <c>IsRefsPath</c> filter shared by both
+            <c>RuntimeCompositeCompilationAssemblyResolver</c> and
+            <c>TestAssemblyLoadContext</c>.
+            </summary>
+        </member>
+        <member name="M:ReqnrollConnector.AssemblyLoading.netFx.NetFxAssemblyProxy.ProbeNuGetCache(System.String,System.Version)">
+            <summary>
+            Mirrors <c>NugetCacheAssemblyResolver</c>: probes
+            <c>%NUGET_PACKAGES%\{name}\{major}.{minor}.{build}\lib\{tfm}\{name}.dll</c>
+            using the same environment-variable resolution order.
+            Version path uses major.minor.patch to match NuGet folder naming conventions.
+            </summary>
+        </member>
+        <member name="M:ReqnrollConnector.AssemblyLoading.netFx.NetFxAssemblyProxy.NuGetCachePath">
+            <summary>Mirrors <c>NugetCacheAssemblyResolver.NugetCachePath()</c>.</summary>
+        </member>
+        <member name="M:ReqnrollConnector.AssemblyLoading.netFx.NetFxAssemblyProxy.IsRefsPath(System.String)">
+            <summary>
+            Mirrors the <c>IsRefsPath</c> helper present in both
+            <c>RuntimeCompositeCompilationAssemblyResolver</c> and <c>TestAssemblyLoadContext</c>.
+            Rejects reference-only assemblies that live under a <c>refs/</c> directory.
+            </summary>
+        </member>
+    </members>
+</doc>

@@ -17,6 +17,7 @@ public sealed class StepDefinitionSampler
 
     private readonly RegexStepDefinitionExpressionAnalyzer _analyzer = new();
 
+    /// <summary>Gets or sets the get step definition sample.</summary>
     public string GetStepDefinitionSample(ProjectStepDefinitionBinding binding)
     {
         var expression = binding.Expression;

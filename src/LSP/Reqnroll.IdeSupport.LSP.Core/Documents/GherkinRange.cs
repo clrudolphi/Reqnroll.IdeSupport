@@ -1,19 +1,26 @@
 namespace Reqnroll.IdeSupport.LSP.Core.Documents;
 
+/// <summary>GherkinRange</summary>
 public class GherkinRange : IEquatable<GherkinRange>
 {
+    /// <summary>Initializes a new instance of the <see cref="GherkinRange"/> class.</summary>
     public GherkinRange(IGherkinTextSnapshot snapshot, int start, int length) 
     {
         Snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
         Start = start;
         Length = length;
     }
+    /// <summary>Gets or sets the snapshot.</summary>
     public IGherkinTextSnapshot Snapshot { get; }
+    /// <summary>Gets or sets the start.</summary>
     public int Start { get; }
+    /// <summary>Gets or sets the length.</summary>
     public int Length { get; }
+    /// <summary>Gets or sets the end.</summary>
     public int End => Start + Length;
 
     // Mirrors SnapshotSpan(startLine.Start, endLine.End) construction pattern
+    /// <summary>Gets or sets the from lines.</summary>
     public static GherkinRange FromLines(
         IGherkinTextSnapshot snapshot,
         IGherkinTextSnapshotLine startLine,
@@ -23,6 +30,7 @@ public class GherkinRange : IEquatable<GherkinRange>
     }
 
     // Mirrors new SnapshotSpan(startPoint, length) construction pattern
+    /// <summary>Gets or sets the from point.</summary>
     public static GherkinRange FromPoint(
         IGherkinTextSnapshot snapshot, int startOffset, int length)
     {
@@ -43,6 +51,7 @@ public class GherkinRange : IEquatable<GherkinRange>
     // Mirrors SnapshotSpan.IntersectsWith
     // Two ranges intersect if they have positions in common, or the end of one
     // coincides with the start of the other — provided neither range is empty.
+    /// <summary>Gets or sets the intersects with.</summary>
     public bool IntersectsWith(GherkinRange other)
     {
         if (other is null)
@@ -58,6 +67,7 @@ public class GherkinRange : IEquatable<GherkinRange>
         return End >= other.Start && Start <= other.End;
     }
 
+    /// <summary>Gets or sets the equals.</summary>
     public bool Equals(GherkinRange other)
     {
         if (other is null)
@@ -69,7 +79,9 @@ public class GherkinRange : IEquatable<GherkinRange>
     }
 
     // Line/character resolution — needed by LSP response mapping
+    /// <summary>Gets or sets the start line position.</summary>
     public (int Line, int Character) StartLinePosition => ResolveOffset(Snapshot, Start);
+    /// <summary>Gets or sets the end line position.</summary>
     public (int Line, int Character) EndLinePosition   => ResolveOffset(Snapshot, End);
 
     /// <summary>
@@ -90,5 +102,6 @@ public class GherkinRange : IEquatable<GherkinRange>
     }
 
     // Used by VoidDeveroomTag
+    /// <summary>Gets or sets the empty.</summary>
     public static readonly GherkinRange Empty = new GherkinRange(NullSnapshot.Instance, 0, 0);
 }

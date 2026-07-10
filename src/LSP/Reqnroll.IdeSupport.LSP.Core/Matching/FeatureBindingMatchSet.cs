@@ -18,9 +18,11 @@ namespace Reqnroll.IdeSupport.LSP.Core.Matching;
 /// </summary>
 public sealed class FeatureBindingMatchSet
 {
+    /// <summary>Gets or sets the empty.</summary>
     public static readonly FeatureBindingMatchSet Empty =
         new(string.Empty, ProjectOwner.Unknown, null, 0, Array.Empty<StepBindingMatch>());
 
+    /// <summary>Initializes a new instance of the <see cref="FeatureBindingMatchSet"/> class.</summary>
     public FeatureBindingMatchSet(
         string documentId,
         ProjectOwner owner,
@@ -51,10 +53,14 @@ public sealed class FeatureBindingMatchSet
     /// <summary>The <see cref="ProjectBindingRegistry.Version"/> these matches were computed against.</summary>
     public int RegistryVersion { get; }
 
+    /// <summary>Gets or sets the steps.</summary>
     public IReadOnlyList<StepBindingMatch> Steps { get; }
 
+    /// <summary>Gets or sets the undefined.</summary>
     public IEnumerable<StepBindingMatch> Undefined => Steps.Where(s => s.IsUndefined);
+    /// <summary>Gets or sets the defined.</summary>
     public IEnumerable<StepBindingMatch> Defined   => Steps.Where(s => s.IsDefined);
+    /// <summary>Gets or sets the ambiguous.</summary>
     public IEnumerable<StepBindingMatch> Ambiguous => Steps.Where(s => s.IsAmbiguous);
 
     /// <summary>The step whose text span contains <paramref name="offset"/>, or null. Used by Go to Step Definition.</summary>

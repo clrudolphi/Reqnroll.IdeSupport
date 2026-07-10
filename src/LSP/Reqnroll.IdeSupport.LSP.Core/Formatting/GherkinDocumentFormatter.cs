@@ -12,6 +12,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Formatting;
 /// </summary>
 public class GherkinDocumentFormatter
 {
+    /// <summary>Gets or sets the format gherkin document.</summary>
     public void FormatGherkinDocument(DeveroomGherkinDocument gherkinDocument, DocumentLinesEditBuffer lines,
         GherkinFormatSettings formatSettings)
     {
@@ -213,6 +214,7 @@ public class GherkinDocumentFormatter
         FormatTable(lines, hasRows, formatSettings, indent);
     }
 
+    /// <summary>Gets or sets the format table.</summary>
     public void FormatTable(DocumentLinesEditBuffer lines, IHasRows hasRows, GherkinFormatSettings formatSettings,
         string indent, int[]? widths = null)
     {

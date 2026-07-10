@@ -1,5 +1,6 @@
 namespace Reqnroll.IdeSupport.Common.Configuration;
 
+/// <summary>GherkinFormatConfiguration</summary>
 public class GherkinFormatConfiguration
 {
     /// <summary>
@@ -62,6 +63,7 @@ public class GherkinFormatConfiguration
     [EditorConfigSetting("gherkin_table_cell_right_align_numeric_content")]
     public bool TableCellRightAlignNumericContent { get; set; } = true;
 
+    /// <summary>Gets or sets the clone.</summary>
     public GherkinFormatConfiguration Clone() => new()
     {
         IndentFeatureChildren           = IndentFeatureChildren,
@@ -76,6 +78,7 @@ public class GherkinFormatConfiguration
         TableCellRightAlignNumericContent = TableCellRightAlignNumericContent,
     };
 
+    /// <summary>Gets or sets the check configuration.</summary>
     public void CheckConfiguration()
     {
         // nop
@@ -83,6 +86,7 @@ public class GherkinFormatConfiguration
 
     #region Equality
 
+    /// <summary>Gets or sets the equals.</summary>
     protected bool Equals(GherkinFormatConfiguration other) => IndentFeatureChildren == other.IndentFeatureChildren &&
                                                                IndentRuleChildren == other.IndentRuleChildren &&
                                                                IndentSteps == other.IndentSteps &&
@@ -94,6 +98,7 @@ public class GherkinFormatConfiguration
                                                                TableCellPaddingSize == other.TableCellPaddingSize &&
                                                                TableCellRightAlignNumericContent == other.TableCellRightAlignNumericContent;
 
+    /// <summary>Gets or sets the equals.</summary>
     public override bool Equals(object obj)
     {
         if (ReferenceEquals(null, obj)) return false;
@@ -103,6 +108,7 @@ public class GherkinFormatConfiguration
     }
 
     // ReSharper disable NonReadonlyMemberInGetHashCode
+    /// <summary>Gets or sets the get hash code.</summary>
     public override int GetHashCode()
     {
         unchecked

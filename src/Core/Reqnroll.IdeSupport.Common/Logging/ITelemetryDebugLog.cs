@@ -37,12 +37,15 @@ public interface ITelemetryDebugLog
 /// <summary>No-op sink used when the debug log is not configured.</summary>
 public sealed class NullTelemetryDebugLog : ITelemetryDebugLog
 {
+    /// <summary>Gets or sets the instance.</summary>
     public static readonly NullTelemetryDebugLog Instance = new();
 
     private NullTelemetryDebugLog() { }
 
+    /// <summary>Gets or sets the is enabled.</summary>
     public bool IsEnabled => false;
 
+    /// <summary>Gets or sets the record.</summary>
     public void Record(string source, string eventName, object? properties,
         bool? enabled = null, bool? transmitted = null, string? error = null)
     {

@@ -2,8 +2,10 @@
 
 namespace Reqnroll.IdeSupport.Common.Telemetry;
 
+/// <summary>GuidanceConfiguration</summary>
 public class GuidanceConfiguration : IGuidanceConfiguration
 {
+    /// <summary>Initializes a new instance of the <see cref="GuidanceConfiguration"/> class.</summary>
     public GuidanceConfiguration()
     {
         // currently not used
@@ -24,9 +26,12 @@ public class GuidanceConfiguration : IGuidanceConfiguration
         };
     }
 
+    /// <summary>Gets or sets the installation.</summary>
     public GuidanceStep Installation { get; }
 
+    /// <summary>Gets or sets the upgrade.</summary>
     public GuidanceStep Upgrade { get; }
 
+    /// <summary>Gets or sets the usage sequence.</summary>
     public IEnumerable<GuidanceStep> UsageSequence { get; }
 }

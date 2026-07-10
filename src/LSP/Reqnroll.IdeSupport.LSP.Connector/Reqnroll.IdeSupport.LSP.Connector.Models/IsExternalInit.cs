@@ -5,6 +5,10 @@ using System.ComponentModel;
 // ReSharper disable once CheckNamespace
 namespace System.Runtime.CompilerServices
 {
+    /// <summary>
+    /// Polyfill for the <c>init</c> keyword on target frameworks that do not natively support it.
+    /// Required because the <c>Connector.Models</c> library targets <c>netstandard2.0</c>.
+    /// </summary>
     [EditorBrowsable(EditorBrowsableState.Never)]
     public static class IsExternalInit
     {

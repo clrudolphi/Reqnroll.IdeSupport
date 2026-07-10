@@ -9,6 +9,7 @@ public class CommentToggleService : ICommentToggleService
 {
     private const char CommentChar = '#';
 
+    /// <summary>Gets or sets the toggle comment.</summary>
     public GherkinCommentToggleResult ToggleComment(
         string documentText,
         int rangeStartLine,

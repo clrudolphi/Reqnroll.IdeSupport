@@ -2,9 +2,12 @@ using System;
 
 namespace Reqnroll.IdeSupport.Common.Configuration;
 
+/// <summary>EditorConfiguration</summary>
 public class EditorConfiguration
 {
+    /// <summary>Gets or sets the show step completion after step keywords.</summary>
     public bool ShowStepCompletionAfterStepKeywords { get; set; } = true;
+    /// <summary>Gets or sets the gherkin format.</summary>
     public GherkinFormatConfiguration GherkinFormat { get; set; } = new();
 
     private void FixEmptyContainers()
@@ -12,6 +15,7 @@ public class EditorConfiguration
         GherkinFormat ??= new GherkinFormatConfiguration();
     }
 
+    /// <summary>Gets or sets the check configuration.</summary>
     public void CheckConfiguration()
     {
         FixEmptyContainers();
@@ -21,10 +25,12 @@ public class EditorConfiguration
 
     #region Equality
 
+    /// <summary>Gets or sets the equals.</summary>
     protected bool Equals(EditorConfiguration other) =>
         ShowStepCompletionAfterStepKeywords == other.ShowStepCompletionAfterStepKeywords &&
         Equals(GherkinFormat, other.GherkinFormat);
 
+    /// <summary>Gets or sets the equals.</summary>
     public override bool Equals(object obj)
     {
         if (ReferenceEquals(null, obj)) return false;
@@ -34,6 +40,7 @@ public class EditorConfiguration
     }
 
     // ReSharper disable NonReadonlyMemberInGetHashCode
+    /// <summary>Gets or sets the get hash code.</summary>
     public override int GetHashCode()
     {
         unchecked

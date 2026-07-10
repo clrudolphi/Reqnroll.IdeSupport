@@ -5,9 +5,12 @@ using System.Linq;
 
 namespace Reqnroll.IdeSupport.Common.ProjectSystem;
 
+/// <summary>TargetFrameworkMoniker</summary>
 public class TargetFrameworkMoniker
 {
+    /// <summary>Gets or sets the net core platform.</summary>
     public const string NetCorePlatform = ".NETCoreApp";
+    /// <summary>Gets or sets the net framework platform.</summary>
     public const string NetFrameworkPlatform = ".NETFramework";
     private const string NetCoreShortValuePrefix = "netcoreapp";
     private const string NetFrameworkShortValuePrefix = "net";
@@ -44,18 +47,26 @@ public class TargetFrameworkMoniker
     // * .NET 5:    .NETCoreApp,Version=v5.0
     // * .NET Core: .NETCoreApp,Version=v2.1
     // * .NET Fw:   .NETFramework,Version=v4.5.2
+    /// <summary>Gets or sets the value.</summary>
     public string Value { get; }
 
+    /// <summary>Gets or sets the platform.</summary>
     public string Platform { get; }
+    /// <summary>Gets or sets the version.</summary>
     public Version Version { get; }
 
+    /// <summary>Gets or sets the has version.</summary>
     public bool HasVersion => Version != null;
+    /// <summary>Gets or sets the is net core.</summary>
     public bool IsNetCore => NetCorePlatform.Equals(Platform);
+    /// <summary>Gets or sets the is net framework.</summary>
     public bool IsNetFramework => NetFrameworkPlatform.Equals(Platform);
 
+    /// <summary>Gets or sets the create.</summary>
     public static TargetFrameworkMoniker Create(string value) =>
         value == null ? null : new TargetFrameworkMoniker(value);
 
+    /// <summary>Gets or sets the create from short name.</summary>
     public static TargetFrameworkMoniker CreateFromShortName(string shortValue)
     {
         var value = shortValue;
@@ -100,9 +111,11 @@ public class TargetFrameworkMoniker
         return Create(value);
     }
 
+    /// <summary>Gets or sets the to string.</summary>
     public override string ToString() => Value;
 
     // e.g netcoreapp2.1 or net452
+    /// <summary>Gets or sets the to short string.</summary>
     public string ToShortString()
     {
         if (IsNetCore && HasVersion)
@@ -114,8 +127,10 @@ public class TargetFrameworkMoniker
 
     #region Equality
 
+    /// <summary>Gets or sets the equals.</summary>
     protected bool Equals(TargetFrameworkMoniker other) => Value == other.Value;
 
+    /// <summary>Gets or sets the equals.</summary>
     public override bool Equals(object obj)
     {
         if (ReferenceEquals(null, obj)) return false;
@@ -124,10 +139,13 @@ public class TargetFrameworkMoniker
         return Equals((TargetFrameworkMoniker) obj);
     }
 
+    /// <summary>Gets or sets the get hash code.</summary>
     public override int GetHashCode() => Value.GetHashCode();
 
+    /// <summary>Gets or sets the operator ==.</summary>
     public static bool operator ==(TargetFrameworkMoniker left, TargetFrameworkMoniker right) => Equals(left, right);
 
+    /// <summary>Gets or sets the operator !=.</summary>
     public static bool operator !=(TargetFrameworkMoniker left, TargetFrameworkMoniker right) => !Equals(left, right);
 
     #endregion

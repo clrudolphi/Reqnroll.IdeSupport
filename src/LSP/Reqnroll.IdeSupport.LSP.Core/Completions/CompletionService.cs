@@ -16,6 +16,7 @@ public sealed class CompletionService : ICompletionService
 {
     // ── Gherkin keyword completion ──────────────────────────────────────────────
 
+    /// <summary>Gets or sets the get keyword completions.</summary>
     public CompletionResult GetKeywordCompletions(TokenType[] expectedTokens, GherkinDialect dialect)
     {
         var entries = new List<CompletionEntry>();
@@ -24,6 +25,7 @@ public sealed class CompletionService : ICompletionService
         return new CompletionResult(entries);
     }
 
+    /// <summary>Gets or sets the get default keyword completions.</summary>
     public CompletionResult GetDefaultKeywordCompletions(GherkinDialect dialect)
     {
         var entries = new List<CompletionEntry>();
@@ -98,6 +100,7 @@ public sealed class CompletionService : ICompletionService
 
     // ── Step-definition-sample completion ───────────────────────────────────────
 
+    /// <summary>Gets or sets the get step completions.</summary>
     public CompletionResult GetStepCompletions(
         DeveroomGherkinStep                     step,
         string                                  typedAfterKeyword,

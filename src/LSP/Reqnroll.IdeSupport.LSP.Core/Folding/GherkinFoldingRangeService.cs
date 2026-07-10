@@ -18,6 +18,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Folding;
 /// </summary>
 public class GherkinFoldingRangeService : IGherkinFoldingRangeService
 {
+    /// <summary>Gets or sets the build folding ranges.</summary>
     public IReadOnlyList<GherkinFoldingRange> BuildFoldingRanges(
         IReadOnlyCollection<DeveroomTag> tags)
     {

@@ -6,6 +6,8 @@ namespace Reqnroll.IdeSupport.LSP.Core.Diagnostics;
 /// </summary>
 public enum GherkinDiagnosticSeverity
 {
+    /// <summary>Gets or sets the error.</summary>
     Error   = 1,
+    /// <summary>Gets or sets the warning.</summary>
     Warning = 2
 }

@@ -144,6 +144,7 @@ public class DeveroomGherkinParser
 
     #region Semantic Errors
 
+    /// <summary>Gets or sets the check semantic errors.</summary>
     protected virtual void CheckSemanticErrors(DeveroomGherkinDocument reqnrollDocument)
     {
         var errors = new List<ParserException>();

@@ -3,15 +3,19 @@ using System.Diagnostics;
 
 namespace Reqnroll.IdeSupport.Common.Logging;
 
+/// <summary>IdeSupportDebugLogger</summary>
 public class IdeSupportDebugLogger : IIdeSupportLogger
 {
 #if DEBUG
+    /// <summary>Gets or sets the default debug trace level.</summary>
     public const TraceLevel DefaultDebugTraceLevel = TraceLevel.Verbose;
 #else
     public const TraceLevel DefaultDebugTraceLevel = TraceLevel.Off;
 #endif
+    /// <summary>Gets or sets the level.</summary>
     public TraceLevel Level { get; }
 
+    /// <summary>Initializes a new instance of the <see cref="IdeSupportDebugLogger"/> class.</summary>
     public IdeSupportDebugLogger(TraceLevel level = DefaultDebugTraceLevel)
     {
         Level = level;
@@ -24,6 +28,7 @@ public class IdeSupportDebugLogger : IIdeSupportLogger
         }
     }
 
+    /// <summary>Gets or sets the log.</summary>
     public void Log(LogMessage message)
     {
         Debug.WriteLineIf(message.Level <= Level, $"{message.Level}: {message.CallerMethod}:{message.Message}",

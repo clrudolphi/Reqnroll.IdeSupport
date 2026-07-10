@@ -20,12 +20,14 @@ public sealed class CompletionContextResolver : ICompletionContextResolver
     private readonly IDeveroomTagParser _tagParser;
     private readonly ITelemetryService _telemetryService;
 
+    /// <summary>Initializes a new instance of the <see cref="CompletionContextResolver"/> class.</summary>
     public CompletionContextResolver(IDeveroomTagParser tagParser, ITelemetryService telemetryService)
     {
         _tagParser         = tagParser;
         _telemetryService = telemetryService;
     }
 
+    /// <summary>Gets or sets the resolve.</summary>
     public CompletionContext? Resolve(
         IGherkinTextSnapshot   snapshot,
         int                    cursorLine,

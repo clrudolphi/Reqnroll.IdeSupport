@@ -15,6 +15,7 @@ namespace Reqnroll.IdeSupport.Common.Logging;
 /// </summary>
 public static class TelemetryDebugLog
 {
+    /// <summary>Gets or sets the environment variable.</summary>
     public const string EnvironmentVariable = "REQNROLL_TELEMETRY_DEBUG_LOG";
 
     /// <summary>
@@ -65,13 +66,16 @@ public sealed class FileTelemetryDebugLog : ITelemetryDebugLog
     private readonly string _path;
     private readonly object _gate = new();
 
+    /// <summary>Initializes a new instance of the <see cref="FileTelemetryDebugLog"/> class.</summary>
     public FileTelemetryDebugLog(string path)
     {
         _path = path;
     }
 
+    /// <summary>Gets or sets the is enabled.</summary>
     public bool IsEnabled => true;
 
+    /// <summary>Gets or sets the record.</summary>
     public void Record(string source, string eventName, object? properties,
         bool? enabled = null, bool? transmitted = null, string? error = null)
     {

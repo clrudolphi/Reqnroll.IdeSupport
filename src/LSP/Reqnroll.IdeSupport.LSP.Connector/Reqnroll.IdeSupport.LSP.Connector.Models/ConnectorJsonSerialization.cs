@@ -18,7 +18,9 @@ namespace Reqnroll.IdeSupport.LSP.Connector.Models;
 /// </summary>
 public static class ConnectorJsonSerialization
 {
+    /// <summary>Gets or sets the start marker.</summary>
     public const string StartMarker = ">>>>>>>>>>";
+    /// <summary>Gets or sets the end marker.</summary>
     public const string EndMarker   = "<<<<<<<<<<";
 
     // ── Deserialize (used by LSP.Server launcher) ──────────────────────────
@@ -59,6 +61,7 @@ public static class ConnectorJsonSerialization
 
     // ── Options ────────────────────────────────────────────────────────────
 
+    /// <summary>Gets or sets the write options.</summary>
     public static readonly JsonSerializerOptions WriteOptions = new()
     {
         PropertyNamingPolicy          = JsonNamingPolicy.CamelCase,
@@ -67,6 +70,7 @@ public static class ConnectorJsonSerialization
         Encoder                       = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
+    /// <summary>Gets or sets the read options.</summary>
     public static readonly JsonSerializerOptions ReadOptions = new()
     {
         PropertyNameCaseInsensitive   = true,

@@ -21,6 +21,7 @@ public class DeveroomTagParser : IDeveroomTagParser
     private readonly IIdeSupportLogger _logger;
     private readonly ITelemetryService _telemetryService;
 
+    /// <summary>Initializes a new instance of the <see cref="DeveroomTagParser"/> class.</summary>
     public DeveroomTagParser(
         IIdeSupportLogger logger,
         ITelemetryService telemetryService,

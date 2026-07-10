@@ -21,10 +21,13 @@ public class DocumentLinesEditBuffer
         _endLine = endLine ?? (allLines.Length == 0 ? 0 : allLines.Length - 1);
     }
 
+    /// <summary>Gets or sets the is empty.</summary>
     public bool IsEmpty => _allLines.Length == 0;
 
+    /// <summary>Gets or sets the get line one based.</summary>
     public string GetLineOneBased(int oneBasedLineNumber) => GetLine(oneBasedLineNumber - 1);
 
+    /// <summary>Gets or sets the get line.</summary>
     public string GetLine(int zeroBasedLineNumber)
     {
         if (zeroBasedLineNumber < 0 || zeroBasedLineNumber >= _allLines.Length)
@@ -32,8 +35,10 @@ public class DocumentLinesEditBuffer
         return _allLines[zeroBasedLineNumber];
     }
 
+    /// <summary>Gets or sets the set line one based.</summary>
     public void SetLineOneBased(int oneBasedLineNumber, string line) => SetLine(oneBasedLineNumber - 1, line);
 
+    /// <summary>Gets or sets the set line.</summary>
     public void SetLine(int zeroBasedLineNumber, string line)
     {
         if (zeroBasedLineNumber < _startLine || zeroBasedLineNumber > _endLine)

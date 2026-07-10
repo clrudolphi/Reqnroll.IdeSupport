@@ -24,6 +24,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Matching;
 /// </remarks>
 public sealed class StepBindingMatch
 {
+    /// <summary>Initializes a new instance of the <see cref="StepBindingMatch"/> class.</summary>
     public StepBindingMatch(
         string       featureDocumentId,
         GherkinRange range,
@@ -53,8 +54,11 @@ public sealed class StepBindingMatch
     /// <summary>The full match result for the step (Defined / Undefined / Ambiguous, plus errors).</summary>
     public MatchResult Result { get; }
 
+    /// <summary>Gets or sets the is undefined.</summary>
     public bool IsUndefined => Result.HasUndefined;
+    /// <summary>Gets or sets the is defined.</summary>
     public bool IsDefined => Result.HasDefined;
+    /// <summary>Gets or sets the is ambiguous.</summary>
     public bool IsAmbiguous => Result.HasAmbiguous;
 
     /// <summary>

@@ -6,6 +6,7 @@ using System.Linq.Expressions;
 
 namespace Reqnroll.IdeSupport.Common.Configuration;
 
+/// <summary>DeveroomConfigurationLoader</summary>
 public class DeveroomConfigurationLoader
 {
     private readonly IConfigDeserializer<DeveroomConfiguration> _configDeserializer;
@@ -19,12 +20,15 @@ public class DeveroomConfigurationLoader
         _fileSystem = fileSystem;
     }
 
+    /// <summary>Gets or sets the create reqnroll json configuration loader.</summary>
     public static DeveroomConfigurationLoader CreateReqnrollJsonConfigurationLoader(IFileSystemForIDE fileSystem) =>
         new(new ReqnrollConfigDeserializer(), fileSystem);
 
+    /// <summary>Gets or sets the create deveroom json configuration loader.</summary>
     public static DeveroomConfigurationLoader CreateDeveroomJsonConfigurationLoader(IFileSystemForIDE fileSystem) =>
         new(new JsonNetConfigDeserializer<DeveroomConfiguration>(), fileSystem);
 
+    /// <summary>Gets or sets the load.</summary>
     public DeveroomConfiguration Load(string configFilePath)
     {
         var config = new DeveroomConfiguration();
@@ -32,6 +36,7 @@ public class DeveroomConfigurationLoader
         return config;
     }
 
+    /// <summary>Gets or sets the update.</summary>
     public void Update(DeveroomConfiguration config, string configFilePath)
     {
         if (!_fileSystem.File.Exists(configFilePath))

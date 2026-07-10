@@ -3,14 +3,17 @@ using System.Diagnostics;
 
 namespace Reqnroll.IdeSupport.Common.Logging;
 
+/// <summary>SynchronousFileLogger</summary>
 public class SynchronousFileLogger : AsynchronousFileLogger
 {
+    /// <summary>Initializes a new instance of the <see cref="SynchronousFileLogger"/> class.</summary>
     public SynchronousFileLogger(string ide = "vs", string role = "ext", TraceLevel level = TraceLevel.Warning)
         : base(new FileSystemForIDE(), level, ide, role)
     {
         EnsureLogFolder();
     }
 
+    /// <summary>Gets or sets the log.</summary>
     public override void Log(LogMessage message)
     {
         if (message.Level > Level) return;

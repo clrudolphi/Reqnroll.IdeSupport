@@ -1,0 +1,2427 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Reqnroll.IdeSupport.LSP.Server</name>
+    </assembly>
+    <members>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Configuration.FileSystemEditorConfigOptions">
+            <summary>
+            EditorConfig settings resolved for a specific file path, backed by a flat key→value
+            dictionary built by <see cref="T:Reqnroll.IdeSupport.LSP.Server.Configuration.FileSystemEditorConfigOptionsProvider"/>.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Configuration.FileSystemEditorConfigOptions.GetOption``1(System.String,``0)">
+            <summary>Returns the value for <paramref name="key"/> converted to <typeparamref name="TResult"/> (bool, int, or string), or <paramref name="defaultValue"/> if absent or unsupported/unparsable.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Configuration.FileSystemEditorConfigOptions.GetBoolOption(System.String,System.Boolean)">
+            <summary>Returns the boolean value for <paramref name="key"/>, or <paramref name="defaultValue"/> if absent.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Configuration.FileSystemEditorConfigOptionsProvider">
+            <summary>
+            Reads <c>.editorconfig</c> files from the file system and resolves the merged settings
+            that apply to a given document path, following the standard EditorConfig upward-search
+            semantics (<c>root = true</c> stops the walk).
+            <para>
+            Parsed <c>.editorconfig</c> files are cached by path and last-write time. Call
+            <see cref="M:Reqnroll.IdeSupport.LSP.Server.Configuration.FileSystemEditorConfigOptionsProvider.InvalidateCache(System.String)"/> when a file changes so the next lookup re-reads it.
+            </para>
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Configuration.FileSystemEditorConfigOptionsProvider.NormalizePattern(System.String)">
+            <summary>
+            Applies EditorConfig glob-normalization rules:
+            patterns without a path separator are treated as matching in any subdirectory
+            (equivalent to prefixing with <c>**/</c>).
+            Patterns starting with <c>/</c> are anchored to the .editorconfig directory.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Discovery.CustomOutProcReqnrollConnector">
+            <summary>Connector that runs a user-configured discovery connector executable or DLL, as specified by <c>BindingDiscovery.ConnectorPath</c> in configuration.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Discovery.CustomOutProcReqnrollConnector.#ctor(Reqnroll.IdeSupport.Common.Configuration.DeveroomConfiguration,Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger,Reqnroll.IdeSupport.Common.ProjectSystem.TargetFrameworkMoniker,System.String,Reqnroll.IdeSupport.Common.Configuration.ProcessorArchitectureSetting,Reqnroll.IdeSupport.Common.ProjectSystem.Settings.ProjectSettings,Reqnroll.IdeSupport.Common.Telemetry.ITelemetryService)">
+            <summary>Creates a connector that runs the connector path configured for the project.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Discovery.GenericOutProcReqnrollConnector">
+            <summary>Connector that selects and runs the bundled generic Reqnroll discovery connector matching the project's target framework.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Discovery.GenericOutProcReqnrollConnector.#ctor(Reqnroll.IdeSupport.Common.Configuration.DeveroomConfiguration,Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger,Reqnroll.IdeSupport.Common.ProjectSystem.TargetFrameworkMoniker,System.String,Reqnroll.IdeSupport.Common.Configuration.ProcessorArchitectureSetting,Reqnroll.IdeSupport.Common.ProjectSystem.Settings.ProjectSettings,Reqnroll.IdeSupport.Common.Telemetry.ITelemetryService)">
+            <summary>Creates a connector that discovers bindings for a project targeting <paramref name="targetFrameworkMoniker"/>.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Discovery.OutProcReqnrollConnector">
+            <summary>Base class for connectors that run Reqnroll binding discovery in a separate out-of-process worker and deserialize its result.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Discovery.OutProcReqnrollConnector.#ctor(Reqnroll.IdeSupport.Common.Configuration.DeveroomConfiguration,Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger,Reqnroll.IdeSupport.Common.ProjectSystem.TargetFrameworkMoniker,System.String,Reqnroll.IdeSupport.Common.Configuration.ProcessorArchitectureSetting,Reqnroll.IdeSupport.Common.ProjectSystem.Settings.ProjectSettings,Reqnroll.IdeSupport.Common.Telemetry.ITelemetryService)">
+            <summary>Initializes the connector's shared configuration, logging, and project settings.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Discovery.OutProcReqnrollConnector.RunDiscovery(System.String,System.String)">
+            <summary>Launches the out-of-process connector to run binding discovery against the given test assembly and returns the deserialized result.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Discovery.OutProcReqnrollConnectorFactory">
+            <summary>
+            Default <see cref="T:Reqnroll.IdeSupport.LSP.Server.Discovery.IOutProcConnectorFactory"/>.  Builds a generic connector for the
+            project's target framework, or a custom connector when the project's binding-discovery
+            configuration specifies a <see cref="P:Reqnroll.IdeSupport.Common.Configuration.BindingDiscoveryConfiguration.ConnectorPath"/>.
+            </summary>
+            <remarks>
+            The extension folder is resolved from <see cref="P:System.AppContext.BaseDirectory"/> so the
+            connector binaries shipped alongside the server process are found automatically.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Discovery.OutProcReqnrollConnectorFactory.Create(Reqnroll.IdeSupport.Common.ProjectSystem.IProjectScope)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Discovery.OutProcReqnrollConnectorFactory.BuildMinimalProjectSettings(Reqnroll.IdeSupport.Common.ProjectSystem.TargetFrameworkMoniker)">
+            <summary>
+            Builds a minimal <see cref="T:Reqnroll.IdeSupport.Common.ProjectSystem.Settings.ProjectSettings"/> record with only the fields that the
+            generic connector uses.  Richer project analysis (Reqnroll version, platform target, etc.)
+            is a prerequisite improvement tracked as a cleanup item.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Discovery.ConnectorDiscoveryService">
+            <summary>
+            Orchestrates one binding-discovery run against a project scope.
+            Invokes the appropriate <see cref="T:Reqnroll.IdeSupport.LSP.Server.Discovery.OutProcReqnrollConnector"/> (generic or custom),
+            converts the <see cref="T:Reqnroll.IdeSupport.LSP.Connector.Models.DiscoveryResult"/> into a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry"/>
+            via <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.BindingImporter"/>, and guards with an assembly-hash check to suppress
+            no-op re-runs.
+            </summary>
+            <remarks>
+            This service is stateless and synchronous; callers run it on a background thread
+            (typically via <see cref="!:ConnectorBindingRegistryProvider"/>).  Connector construction
+            is delegated to an <see cref="T:Reqnroll.IdeSupport.LSP.Server.Discovery.IOutProcConnectorFactory"/> so the selection of generic vs
+            custom connector lives in one place and this orchestrator can be tested with a fake.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Discovery.ConnectorDiscoveryService.RunDiscovery(Reqnroll.IdeSupport.Common.ProjectSystem.IProjectScope,Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Runs discovery for <paramref name="scope"/>.
+            </summary>
+            <returns>
+            A new <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry"/> and its content hash when discovery
+            succeeds.  Returns (<paramref name="lastGood"/>, <paramref name="lastHash"/>) unchanged
+            when the assembly is missing, unchanged, or the connector fails.
+            </returns>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Discovery.ConnectorDiscoveryService.ComputeHash(System.String)">
+            <summary>
+            Returns a content-change key combining the assembly path with its last-write time.
+            Two calls with the same result mean no rebuild has happened.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Discovery.CSharpBindingDiscoveryService">
+            <summary>
+            Drives Roslyn/C# source-level binding discovery when a
+            <c>.cs</c> step-definition file is opened or edited.  Resolves all projects that own the
+            document via the membership index (<see cref="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.ResolveOwners(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)"/>),
+            parses the supplied source text with <see cref="!:StepDefinitionFileParser"/> (via
+            <see cref="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.ReplaceBindings(Reqnroll.IdeSupport.LSP.Core.Bindings.CSharpStepDefinitionFile)"/>), and patches each owning project's
+            <see cref="T:Reqnroll.IdeSupport.LSP.Server.Registry.ConnectorBindingRegistryProvider"/> so the change is reflected immediately
+            without waiting for a build / connector run.
+            </summary>
+            <remarks>
+            Invariant I2 — if the membership index has received a baseline and the file is not in it,
+            the file is <em>excluded</em> from all registries and this method is a no-op for it.
+            This prevents phantom bindings from open-but-excluded files.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Discovery.CSharpBindingDiscoveryService.ApplyToProjectAsync(Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject,System.String,System.String)">
+            <summary>
+            Parses <paramref name="text"/> and replaces <paramref name="filePath"/>'s entries in
+            <paramref name="project"/>'s binding registry. Shared by the index-driven
+            (<see cref="M:Reqnroll.IdeSupport.LSP.Server.Discovery.CSharpBindingDiscoveryService.UpdateFromSourceAsync(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.String,System.Boolean,System.Threading.CancellationToken)"/>) and index-bypassing
+            (<see cref="M:Reqnroll.IdeSupport.LSP.Server.Discovery.CSharpBindingDiscoveryService.UpdateFromSourceForProjectAsync(Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject,System.String,System.String,System.Threading.CancellationToken)"/>) entry points.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Discovery.IConnectorDiscoveryService">
+            <summary>
+            Orchestrates a single binding-discovery run for a project scope.
+            </summary>
+            <remarks>
+            Extracted as an interface so that <see cref="!:ConnectorBindingRegistryProvider"/> can be
+            unit-tested with a substituted discovery service.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Discovery.IConnectorDiscoveryService.RunDiscovery(Reqnroll.IdeSupport.Common.ProjectSystem.IProjectScope,Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Runs discovery for <paramref name="scope"/>.
+            </summary>
+            <returns>
+            A new <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry"/> and its content hash when discovery
+            succeeds.  Returns (<paramref name="lastGood"/>, <paramref name="lastHash"/>) unchanged
+            when the assembly is missing, unchanged, or the connector fails.
+            </returns>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Discovery.ICSharpBindingDiscoveryService">
+            <summary>
+            Applies an immediate, source-level (Roslyn) binding update for a single <c>.cs</c> file,
+            patching the owning project's binding registry so step matches update as the user types —
+            before any build. See <see cref="T:Reqnroll.IdeSupport.LSP.Server.Discovery.CSharpBindingDiscoveryService"/> (Roslyn/C# source-level
+            binding discovery).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Discovery.ICSharpBindingDiscoveryService.UpdateFromSourceAsync(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.String,System.Boolean,System.Threading.CancellationToken)">
+            <summary>
+            Re-discovers the bindings declared in <paramref name="text"/> (the current contents of the
+            <c>.cs</c> document at <paramref name="uri"/>) and replaces that file's entries in its
+            project's binding registry. No-ops when the document has no owning project or the project
+            has no binding provider yet.
+            <param name="isOpen"><see langword="true"/> when triggered by a <c>textDocument/didOpen</c>
+            event; <see langword="false"/> when triggered by <c>textDocument/didChange</c>. Used for
+            telemetry to distinguish <c>csOpen</c> from <c>csEdit</c> trigger contexts.</param>
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Discovery.ICSharpBindingDiscoveryService.UpdateFromSourceForProjectAsync(Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject,System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Applies a Roslyn source-level binding update for a single <c>.cs</c> file, targeting
+            a specific project directly — bypassing the membership-index owner resolution.
+            Used during startup full-replacement reconciliation (<see cref="!:BindingRegistryChangedHandler.RediscoverCsFilesAsync"/>)
+            when the baseline may not have arrived yet.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Discovery.ICSharpBindingDiscoveryService.RemoveFileAsync(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.Threading.CancellationToken)">
+            <summary>
+            Removes all bindings declared in the <c>.cs</c> file at <paramref name="uri"/> from every
+            owning project's binding registry.  Called when the file is deleted on disk so the registry
+            does not retain stale step-definition entries.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Discovery.IOutProcConnectorFactory">
+            <summary>
+            Creates the <see cref="T:Reqnroll.IdeSupport.LSP.Server.Discovery.OutProcReqnrollConnector"/> appropriate for a project scope.
+            </summary>
+            <remarks>
+            Selecting between the generic connector and a user-configured custom connector
+            (<see cref="P:Reqnroll.IdeSupport.Common.Configuration.BindingDiscoveryConfiguration.ConnectorPath"/>) is the
+            single responsibility of this seam, so that <see cref="T:Reqnroll.IdeSupport.LSP.Server.Discovery.ConnectorDiscoveryService"/> stays
+            free of connector-construction details and can be unit-tested with a fake connector.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Discovery.IOutProcConnectorFactory.Create(Reqnroll.IdeSupport.Common.ProjectSystem.IProjectScope)">
+            <summary>
+            Creates a connector for <paramref name="scope"/>: a
+            <see cref="T:Reqnroll.IdeSupport.LSP.Server.Discovery.CustomOutProcReqnrollConnector"/> when the project's binding-discovery
+            configuration specifies a connector path, otherwise a
+            <see cref="T:Reqnroll.IdeSupport.LSP.Server.Discovery.GenericOutProcReqnrollConnector"/>.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.CodeActions.FeatureCodeActionHandler">
+            <summary>
+            Handles <c>textDocument/codeAction</c> requests for <c>*.feature</c> files (Define Steps).
+            Returns code actions that generate C# step-definition stubs for undefined steps.
+            Registered via OmniSharp dynamic registration (<see cref="T:OmniSharp.Extensions.LanguageServer.Protocol.Document.ICodeActionHandler"/>), scoped to
+            <c>**/*.feature</c> documents so it does not conflict with the C# language server.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.CodeActions.FeatureCodeActionHandler.FindBestTargetFolder(System.Collections.Generic.IReadOnlyCollection{System.String},System.String)">
+            <summary>
+            Picks the best target directory for a new step-definition file.
+            Prefers the folder that already holds the most binding files (so the generated file
+            lands alongside the user's existing step definitions), then falls back to a sibling
+            StepDefinitions/ folder or the feature file's own directory.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.CodeLens.RefreshCodeLensParams">
+            <summary>
+            Payload for the <c>reqnroll/refreshCodeLens</c> server-to-client notification.
+            </summary>
+            <remarks>
+            The server pushes this to the Visual Studio client after a full binding-registry replacement
+            (startup connector discovery, post-build, or membership-baseline arrival) so the VS client can
+            invalidate its already-rendered C# step code lenses and re-pull fresh usage counts. This is the
+            VS equivalent of the standard <c>workspace/codeLens/refresh</c> request, which VS cannot route to
+            our pipe-based code-lens provider. Other IDE clients use <c>workspace/codeLens/refresh</c> instead
+            and ignore this notification.
+            </remarks>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.CodeLens.RefreshCodeLensParams.ProjectName">
+            <summary>The project whose binding registry was replaced (informational; for diagnostics).</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.CodeLens.StepCodeLensHandler">
+            <summary>
+            Handles the standard <c>textDocument/codeLens</c> request for C# files (step usage count code lens).
+            Returns one lens per step-binding attribute found in the file, annotated
+            with the number of matching feature steps.
+            </summary>
+            <remarks>
+            Registered manually (same pattern as semantic tokens / find step usages) to avoid dynamic
+            registration ambiguity with the C# language server on .cs files.
+            NOTE: Uses global:: qualification for <c>OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeLens</c>
+            to disambiguate from the enclosing Features.CodeLens namespace.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.CodeLens.StepCodeLensHandler.HandleAsync(OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeLensParams,System.Threading.CancellationToken)">
+            <summary>
+            Handles a <c>textDocument/codeLens</c> request.
+            Returns one lens per step-binding attribute in the requested .cs file.
+            Returns <see langword="null"/> for non-.cs files (falls through to the built-in C# server).
+            Returns an empty array when the file has no discovered step definitions yet.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.Commenting.CommentToggleHandler">
+            <summary>
+            Handles <c>workspace/executeCommand</c> for <c>reqnroll.toggleComment</c> (Comment/Uncomment toggle).
+            Toggles <c>#</c> comments on the selected line(s) of a <c>.feature</c> file.
+            Arguments: <c>[uri, startLine, endLine]</c> (0-based, inclusive).
+            Applies the resulting <see cref="T:OmniSharp.Extensions.LanguageServer.Protocol.Models.WorkspaceEdit"/> via <c>workspace/applyEdit</c> request.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.Completions.GherkinCompletionHandler">
+            <summary>
+            Handles <c>textDocument/completion</c> requests for <c>*.feature</c> files.
+            Implements both Gherkin keyword completion and step-definition sample completion.
+            Registered via OmniSharp dynamic registration (<see cref="T:OmniSharp.Extensions.LanguageServer.Protocol.Document.ICompletionHandler"/>), scoped to
+            <c>**/*.feature</c> documents so it does not conflict with the C# language server.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.Definition.FeatureDefinitionHandler">
+            <summary>
+            Handles <c>textDocument/definition</c> requests originating from a cursor position in a
+            <c>.feature</c> file (Go to Step Definition).
+            <para>
+            Implements <see cref="T:OmniSharp.Extensions.LanguageServer.Protocol.Document.IDefinitionHandler"/> so OmniSharp registers the capability via
+            <c>client/registerCapability</c> (dynamic registration) after the handshake, scoped to
+            <c>**/*.feature</c> files only.
+            </para>
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.Definition.GoToHooksHandler">
+            <summary>
+            Handles the custom <c>reqnroll/goToHooks</c> request (Hook Navigation — "Go to Hooks").
+            <para>
+            Given a cursor position in a <c>.feature</c> file, returns all hook bindings that are
+            applicable at that position, filtered by context level (Feature / Scenario / Step) and
+            any tag/scope expressions on the hook.
+            </para>
+            <para>
+            A separate custom message is used rather than reusing <c>textDocument/definition</c>
+            because that message is already used by Go to Step Definition on step lines;
+            the server cannot distinguish the two intents from position alone, and step-level hooks
+            (<c>[BeforeStep]</c> / <c>[AfterStep]</c>) would be unreachable.
+            </para>
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.Definition.GoToHooksHandler.ResolveContext(System.Collections.Generic.IReadOnlyCollection{Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag},System.Int32)">
+            <summary>
+            Determines the Gherkin context level at <paramref name="offset"/> from the flat
+            <paramref name="tags"/> collection (produced by <c>DeveroomTagParser</c>) and returns
+            the deepest matching tag for use as an <c>IGherkinDocumentContext</c> in scope matching.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.Definition.GoToHooksResponse">
+            <summary>
+            Response DTO for the custom <c>reqnroll/goToHooks</c> request (Hook Navigation — "Go to Hooks").
+            Contains every hook binding applicable at the queried <c>.feature</c> file position,
+            filtered by hook-type level (Feature / Scenario / Step) and tag/scope expressions.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.Definition.GoToHookLocation">
+            <summary>One applicable hook binding at the queried position.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.Definition.GoToHookLocation.Uri">
+            <summary>C# source file URI (e.g. <c>file:///C:/project/Hooks.cs</c>).</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.Definition.GoToHookLocation.StartLine">
+            <summary>0-based line of the hook method declaration in the source file.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.Definition.GoToHookLocation.StartChar">
+            <summary>0-based character of the hook method declaration in the source file.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.Definition.GoToHookLocation.HookType">
+            <summary>Hook attribute name (e.g. <c>"BeforeScenario"</c>, <c>"AfterStep"</c>).</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.Definition.GoToHookLocation.HookOrder">
+            <summary>Execution order of the hook (default 10000).</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.Definition.GoToHookLocation.MethodName">
+            <summary>Short C# method name of the hook (e.g. <c>"SetUpDatabase"</c>).</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.Definition.GoToStepDefinitionsHandler">
+            <summary>
+            Handles the custom <c>reqnroll/goToStepDefinitions</c> request (Go to Step Definition).
+            <para>
+            Returns all step-definition bindings that match the step at the queried cursor position, each
+            with its source location <b>and</b> metadata (step keyword type, qualified method name).  This
+            richer payload lets the VS extension's picker display labels such as
+            "[When] CalculatorSteps.AddNumbers (Steps.cs:18)" rather than just "Steps.cs:18".
+            </para>
+            <para>
+            The standard <c>textDocument/definition</c> handler (<see cref="T:Reqnroll.IdeSupport.LSP.Server.Features.Definition.FeatureDefinitionHandler"/>)
+            is retained for generic LSP clients that do not understand this custom message.
+            </para>
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.Definition.GoToStepDefinitionsResponse">
+            <summary>
+            Response DTO for the custom <c>reqnroll/goToStepDefinitions</c> request (Go to Step Definition).
+            Returns all step-definition bindings that match the step at the queried position, with enough
+            metadata (step type, method name) to produce a labelled picker when more than one binding matches.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.Definition.GoToStepDefinitionLocation">
+            <summary>One matching step-definition binding returned by the server.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.Definition.GoToStepDefinitionLocation.Uri">
+            <summary>C# source file URI (e.g. <c>file:///C:/project/Steps.cs</c>).</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.Definition.GoToStepDefinitionLocation.StartLine">
+            <summary>0-based line of the step-definition method declaration in the source file.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.Definition.GoToStepDefinitionLocation.StartChar">
+            <summary>0-based character of the step-definition method declaration in the source file.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.Definition.GoToStepDefinitionLocation.StepType">
+            <summary>Step keyword type (e.g. <c>"Given"</c>, <c>"When"</c>, <c>"Then"</c>).</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.Definition.GoToStepDefinitionLocation.MethodName">
+            <summary>
+            Qualified C# method name of the step definition (e.g. <c>"CalculatorSteps.AddTwoNumbers"</c>).
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.DocumentActivated.DocumentActivatedHandler">
+             <summary>
+             Handles <c>reqnroll/documentActivated</c> (issue #85): forces a fresh binding-match
+             recompute and diagnostics/semantic-tokens republish for a document the VS extension has
+             just detected becoming the active tab, independent of whatever normally triggers that
+             (didOpen/didChange, a binding-registry replacement, a config change).
+             </summary>
+             <remarks>
+             Exists as a backstop for the #78 class of startup race: several <c>.feature</c> documents
+             can be opened back-to-back before the server has finished discovery, leaving some of them
+             with stale or incomplete diagnostics that nothing subsequently retries. Reusing
+             <see cref="M:Reqnroll.IdeSupport.LSP.Server.Tagging.IGherkinDocumentTaggerService.ParseAsync(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.Nullable{System.Int32})"/> + <see cref="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.MatchCacheChangedNotification"/>
+             — the exact same pipeline <see cref="T:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.TextDocumentSyncHandler"/> uses for didOpen/didChange —
+             means diagnostics, semantic tokens, and any future subscriber of the notification all get
+             refreshed for free, with no separate republish logic to maintain here.
+            
+             Safe to call for a document the server does not know is open: <c>ParseAsync</c> no-ops when
+             there is no buffer for the URI, and the notification then carries a synthetic version of 0 —
+             this deliberately degrades to nothing happening rather than throwing, since the VS-side
+             activation signal can race ahead of <c>didOpen</c> (see #85 design discussion).
+             </remarks>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.DocumentActivated.DocumentActivatedParams">
+            <summary>Parameters for the <c>reqnroll/documentActivated</c> notification (issue #85).</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.DocumentOutline.FeatureDocumentSymbolHandler">
+            <summary>
+            Handles <c>textDocument/documentSymbol</c> for <c>.feature</c> files (Document Outline).
+            Returns a nested <see cref="T:OmniSharp.Extensions.LanguageServer.Protocol.Models.DocumentSymbol"/> hierarchy (Feature → Background / Rule →
+            Scenario / Scenario Outline → Step / Examples) when the client declared
+            <c>hierarchicalDocumentSymbolSupport</c>, or a flattened <see cref="T:OmniSharp.Extensions.LanguageServer.Protocol.Models.SymbolInformation"/> list
+            otherwise (see remarks).
+            </summary>
+            <remarks>
+            Visual Studio's own LSP client does not declare <c>hierarchicalDocumentSymbolSupport</c> in its
+            <c>documentSymbol</c> capability (confirmed by inspector-log capture: only
+            <c>{"dynamicRegistration":true}</c>, no hierarchical flag) — per the LSP spec, a server MUST NOT
+            send nested <see cref="T:OmniSharp.Extensions.LanguageServer.Protocol.Models.DocumentSymbol"/> to such a client and must fall back to flat
+            <see cref="T:OmniSharp.Extensions.LanguageServer.Protocol.Models.SymbolInformation"/>. Prior to this fix the handler always sent nested
+            <see cref="T:OmniSharp.Extensions.LanguageServer.Protocol.Models.DocumentSymbol"/> regardless of client capability, which is the most likely reason
+            VS's built-in Document Outline window / Breadcrumb Bar stayed empty despite VS successfully
+            calling <c>documentSymbol</c> and getting a 200 response: VS's typed client presumably fails to
+            deserialize a response shaped as <see cref="T:OmniSharp.Extensions.LanguageServer.Protocol.Models.DocumentSymbol"/> (range/selectionRange/children)
+            against the flat <see cref="T:OmniSharp.Extensions.LanguageServer.Protocol.Models.SymbolInformation"/> (location/containerName) shape it declared
+            support for. VS Code/Rider are unaffected — they do declare hierarchical support.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.DocumentOutline.FeatureDocumentSymbolHandler.HandleHierarchicalAsync(OmniSharp.Extensions.LanguageServer.Protocol.Models.DocumentSymbolParams,System.Threading.CancellationToken)">
+            <summary>
+            Handles the custom <c>reqnroll/documentSymbolHierarchical</c> request: always returns the
+            nested <see cref="T:OmniSharp.Extensions.LanguageServer.Protocol.Models.DocumentSymbol"/> shape, regardless of what the real LSP client (VS) has
+            declared support for via <c>GetRegistrationOptions</c>.
+            </summary>
+            <remarks>
+            The VS extension's own Navigation Bar (Issue #5 / Navigation Bar symbol source design,
+            Option B) fetches symbols through this
+            method rather than <c>textDocument/documentSymbol</c>. It parses the response itself
+            (<c>GherkinNavigationBarSymbolService</c>), so it isn't affected by VS's declared client
+            capability the way <see cref="M:Reqnroll.IdeSupport.LSP.Server.Features.DocumentOutline.FeatureDocumentSymbolHandler.Handle(OmniSharp.Extensions.LanguageServer.Protocol.Models.DocumentSymbolParams,System.Threading.CancellationToken)"/> is — but <see cref="M:Reqnroll.IdeSupport.LSP.Server.Features.DocumentOutline.FeatureDocumentSymbolHandler.Handle(OmniSharp.Extensions.LanguageServer.Protocol.Models.DocumentSymbolParams,System.Threading.CancellationToken)"/>'s capability-driven
+            shape is per-handler-instance, not per-request, so without a separate method the Nav Bar's
+            own fetch would silently receive the flattened shape too (and its range/children parsing,
+            written for the nested shape, would break) whenever VS's client declares no hierarchical
+            support.
+            </remarks>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs.FindUnusedStepDefinitionsHandler">
+            <summary>
+            Handles the custom <c>reqnroll/findUnusedStepDefinitions</c> request (Find Unused Step
+            Definitions). Resolves all
+            project binding registries and delegates the scan/dedupe/match algorithm to
+            <see cref="T:Reqnroll.IdeSupport.LSP.Core.FindUnusedStepDefs.IFindUnusedStepDefinitionsService"/> (LSP.Core), then maps the result to the wire
+            <see cref="T:Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs.FindUnusedStepDefinitionsResponse"/> shape and fires telemetry.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs.FindUnusedStepDefinitionsParams">
+            <summary>
+            Empty params for the custom <c>reqnroll/findUnusedStepDefinitions</c> request (Find Unused Step Definitions).
+            The request carries no arguments — analysis is workspace-wide.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs.FindUnusedStepDefinitionsResponse">
+            <summary>Response DTO for the custom <c>reqnroll/findUnusedStepDefinitions</c> request (Find Unused Step Definitions).</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs.UnusedStepDefinitionItem">
+            <summary>One step-definition binding that has zero matching steps across the workspace.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs.UnusedStepDefinitionItem.ProjectName">
+            <summary>Short project name that owns this step-definition binding.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs.UnusedStepDefinitionItem.ClassName">
+            <summary>Declaring class name (last segment of the qualified type name).</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs.UnusedStepDefinitionItem.MethodName">
+            <summary>Method name (without parameters or return type).</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs.UnusedStepDefinitionItem.BindingExpression">
+            <summary>The binding expression as written in the step attribute, e.g. <c>"the sum is {int}"</c>.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs.UnusedStepDefinitionItem.SourceFile">
+            <summary>Absolute path of the C# source file containing this binding.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs.UnusedStepDefinitionItem.SourceLine">
+            <summary>0-based line of the binding method in <see cref="P:Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs.UnusedStepDefinitionItem.SourceFile"/>.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs.UnusedStepDefinitionItem.SourceChar">
+            <summary>0-based column of the binding method in <see cref="P:Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs.UnusedStepDefinitionItem.SourceFile"/>.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.Folding.FeatureFoldingRangeHandler">
+            <summary>
+            Handles <c>textDocument/foldingRange</c> for <c>.feature</c> files (Code Folding).
+            Returns foldable regions for Feature bodies, Scenario/Background/Rule blocks,
+            Doc strings, Data tables, and Examples blocks.
+            </summary>
+            <remarks>
+            Registered manually (see <c>LanguageServerOptionsExtensions.InitializeCustomProtocolRouting</c>)
+            with <c>foldingRangeProvider</c> declared statically in the initialize response (see
+            <c>Program.ConfigureServer</c>), instead of via OmniSharp's dynamic-registration handler
+            interface. vscode-languageclient's dynamic <c>client/registerCapability</c> round trip for
+            inlayHint/foldingRange races VS Code's restore of previously-open <c>.feature</c> tabs on
+            window load — if the tab renders first, VS Code never re-checks for a provider for the rest
+            of the session. Static declaration removes the race entirely.
+            </remarks>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.Formatting.GherkinFormattingHandler">
+            <summary>
+            Handles <c>textDocument/formatting</c> and <c>textDocument/rangeFormatting</c>
+            LSP requests for <c>.feature</c> files (Document auto-formatting).
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.InlayHints.FeatureInlayHintHandler">
+            <summary>
+            Handles <c>textDocument/inlayHint</c> for <c>.feature</c> files (F23 — binding info hints).
+            Shows the bound step definition's method name at the end of each step line, with the full
+            signature in the hint's tooltip. Ambiguous steps show a match count instead; a Scenario
+            Outline/Background step whose example rows resolve to more than one distinct binding shows a
+            binding count. Undefined steps get no hint — the diagnostic already covers those.
+            </summary>
+            <remarks>
+            Registered manually (see <c>LanguageServerOptionsExtensions.InitializeCustomProtocolRouting</c>)
+            with <c>inlayHintProvider</c> declared statically in the initialize response (see
+            <c>Program.ConfigureServer</c>), instead of via OmniSharp's dynamic-registration handler
+            interface. vscode-languageclient's dynamic <c>client/registerCapability</c> round trip for
+            inlayHint/foldingRange races VS Code's restore of previously-open <c>.feature</c> tabs on
+            window load — if the tab renders first, VS Code never re-checks for a provider for the rest
+            of the session. Static declaration removes the race entirely.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.InlayHints.FeatureInlayHintHandler.Intersects(OmniSharp.Extensions.LanguageServer.Protocol.Models.Position,OmniSharp.Extensions.LanguageServer.Protocol.Models.Range)">
+            <summary>Whether the (single-point) hint position falls within the requested viewport.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsagesHandler">
+            <summary>
+            Handles the custom <c>reqnroll/findStepUsages</c> request.
+            <para>
+            Implements MediatR IRequestHandler to allow automatic routing via AddMediatR,
+            avoiding the need for manual OnRequest delegate registration and IServiceProvider capture.
+            Implements the full three-state contract that <c>textDocument/references</c> cannot carry:
+            <list type="bullet">
+              <item>Returns <see langword="null"/> when the caret is not on any step-definition binding
+                    (client falls through to the built-in C# Find All References).</item>
+              <item>Returns a response with <c>isBinding=true</c> and an empty location list when the
+                    binding has no matching feature steps ("0 usages" window).</item>
+              <item>Returns a response with <c>isBinding=true</c> and populated locations otherwise.</item>
+            </list>
+            </para>
+            <para>
+            Each location includes a <c>stepText</c> field extracted directly from the document snapshot
+            stored in the match cache at parse time — the client does not need to read the file from disk.
+            </para>
+            </summary>
+            <remarks>
+            Shares the same dependency set as <see cref="T:Reqnroll.IdeSupport.LSP.Server.Features.References.StepReferencesHandler"/>;
+            both are registered in <c>Program.cs</c> and resolved as singletons from the DI container.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsagesHandler.HandleAsync(OmniSharp.Extensions.LanguageServer.Protocol.Models.ReferenceParams,System.Threading.CancellationToken)">
+            <summary>
+            Handles a <c>reqnroll/findStepUsages</c> request.
+            Request params are identical to <c>textDocument/references</c> (<see cref="T:OmniSharp.Extensions.LanguageServer.Protocol.Models.ReferenceParams"/>).
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsagesResponse">
+            <summary>
+            Response DTO for the custom <c>reqnroll/findStepUsages</c> request (Find Step Definition
+            Usages / Find All References, phase 2b).
+            <para>
+            Carries the full three-state contract that <c>textDocument/references</c> cannot express
+            because OmniSharp's <c>LocationOrLocationLinks</c> serializer cannot return <c>null</c>:
+            <list type="bullet">
+              <item><see cref="P:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsagesResponse.IsBinding"/> = <see langword="false"/> → caret is not on a binding; client falls through to built-in C# FAR.</item>
+              <item><see cref="P:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsagesResponse.IsBinding"/> = <see langword="true"/>, <see cref="P:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsagesResponse.Locations"/> empty → binding present, 0 usages; client shows "0 usages".</item>
+              <item><see cref="P:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsagesResponse.IsBinding"/> = <see langword="true"/>, <see cref="P:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsagesResponse.Locations"/> non-empty → the matching feature-file steps.</item>
+            </list>
+            Note: the handler never returns JSON <c>null</c> — OmniSharp's <c>OnRequest</c> framework
+            sends an error response for null returns from custom-method handlers instead of serialising
+            JSON null, so <see cref="P:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsagesResponse.IsBinding"/> = <see langword="false"/> is used as the sentinel.
+            </para>
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsagesResponse.IsBinding">
+            <summary>
+            <see langword="true"/> when the queried position is on a step-definition binding.
+            <see langword="false"/> when the position is not on a binding — the client should fall
+            through to built-in C# Find All References.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsagesResponse.Locations">
+            <summary>
+            The feature-file steps that match this binding.
+            Empty when <see cref="P:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsagesResponse.IsBinding"/> is <see langword="true"/> but no steps match ("0 usages").
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsageItem">
+            <summary>One step-usage location within a feature file.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsageItem.Uri">
+            <summary>Feature-file document URI (e.g. <c>file:///C:/project/calc.feature</c>).</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsageItem.StartLine">
+            <summary>0-based start line of the step text span.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsageItem.StartChar">
+            <summary>0-based start character of the step text span.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsageItem.EndLine">
+            <summary>0-based end line of the step text span.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsageItem.EndChar">
+            <summary>0-based end character of the step text span.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsageItem.StepText">
+            <summary>
+            The step text as it appears in the feature file (trimmed), e.g.
+            <c>"the first number is 50"</c> (keyword excluded — matches the Range in the match cache).
+            Populated from the document snapshot stored in the match cache at parse time.
+            <see langword="null"/> only if the snapshot text is unavailable (should not occur in practice).
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsageItem.Keyword">
+            <summary>
+            The trimmed Gherkin keyword for this step (e.g. <c>"Given"</c>, <c>"When"</c>,
+            <c>"Then"</c>, <c>"And"</c>). Populated from the AST at match-cache-build time.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsageItem.ScenarioName">
+            <summary>
+            The name of the enclosing scenario or scenario outline
+            (e.g. <c>"Add two numbers"</c>). <see langword="null"/> for Background steps.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.References.FindStepUsageItem.ProjectName">
+            <summary>
+            The short project name (file-name-without-extension of the .csproj) that owns the
+            feature file in which this step appears (e.g. <c>"Minimal"</c>, <c>"Minimalnet481"</c>).
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.References.StepReferencesHandler">
+            <summary>
+            Handles <c>textDocument/references</c> requests originating from a cursor position in a
+            <c>.cs</c> binding file (Find Step Definition Usages / Find All References).
+            <para>
+            Implements MediatR IRequestHandler to allow automatic routing via AddMediatR,
+            avoiding the need for manual OnRequest delegate registration and IServiceProvider capture.
+            </para>
+            </summary>
+            <remarks>
+            Primary-owner resolution / shared-feature scoping 2B: the scope is restricted to the
+            projects that own the queried <c>.cs</c> file.
+            This prevents cross-project bleed when two projects have step definitions at the same
+            source location (same file name + line in a shared binding class).
+            </remarks>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.Rename.RenameTargetsResponse">
+            <summary>Response DTO for the custom reqnroll/renameTargets request (Step Rename refactoring).</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.Rename.RenameTargetItem">
+            <summary>One renameable binding attribute at the queried position.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.Rename.RenameTargetItem.Expression">
+            <summary>
+            The bare step expression as written in the source attribute (e.g. <c>the first number is {int}</c>),
+            without the step-type prefix or scope suffix. This is what the rename dialog should seed so the
+            user edits the live expression form (preserving Cucumber parameter types) rather than a regex
+            projection. Falls back to the registry expression when the source literal cannot be resolved.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.Rename.SelectRenameTargetParams">
+            <summary>Parameters for reqnroll/selectRenameTarget notification (Step Rename refactoring).</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.Rename.StepRenameHandler">
+            <summary>
+            Handles <c>textDocument/prepareRename</c>, <c>textDocument/rename</c>,
+            <c>reqnroll/renameTargets</c>, and <c>reqnroll/selectRenameTarget</c> for the
+            Step Rename refactoring feature.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.Rename.StepRenameHandler.HandlePrepareRenameAsync(OmniSharp.Extensions.LanguageServer.Protocol.Models.PrepareRenameParams,System.Threading.CancellationToken)">
+            <summary>
+            Validates that the cursor is on a renameable binding. Returns the range of the
+            renameable text (attribute string or step text) — for <c>.feature</c> files, paired
+            with a <see cref="P:OmniSharp.Extensions.LanguageServer.Protocol.Models.PlaceholderRange.Placeholder"/> carrying the binding's abstract
+            expression (e.g. <c>"the second number is {int}"</c>) instead of the concrete step
+            text — or <c>null</c> if rename is not available at this position.
+            </summary>
+            <remarks>
+            Seeding the rename box with the abstract expression, rather than the concrete text
+            literally in the buffer, is deliberate (issue #33 follow-up): a spec-compliant client
+            has no buffer text to anchor a partial in-place edit against when the placeholder
+            text doesn't appear in the document, so it can only submit the box's full edited
+            content as <c>newName</c> — turning an inherently ambiguous "did the user edit the
+            wording, the parameter value, or an arbitrary fragment?" problem into an unambiguous
+            one: <c>newName</c> is always the complete new abstract expression.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.Rename.StepRenameHandler.GetLiteralInnerRange(Microsoft.CodeAnalysis.CSharp.Syntax.LiteralExpressionSyntax)">
+            <summary>
+            Computes the LSP range of a string literal's inner text, i.e. its <see cref="P:Microsoft.CodeAnalysis.CSharp.Syntax.LiteralExpressionSyntax.Token"/>
+            span with the surrounding quote characters excluded (2 leading characters for a verbatim
+            string's <c>@"</c>, 1 otherwise; 1 trailing character for the closing <c>"</c>).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.Rename.StepRenameHandler.HandleRenameAsync(OmniSharp.Extensions.LanguageServer.Protocol.Models.RenameParams,System.Threading.CancellationToken)">
+            <summary>
+            Executes the rename. Validates the new name, resolves all feature step locations,
+            resolves the C# attribute string range, and returns a WorkspaceEdit covering all files.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.Rename.StepRenameHandler.HandleRenameTargetsAsync(OmniSharp.Extensions.LanguageServer.Protocol.Models.TextDocumentPositionParams,System.Threading.CancellationToken)">
+            <summary>
+            Handles <c>reqnroll/renameTargets</c> — enumerates all binding attributes
+            at the cursor position for the multi-attribute picker flow.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.Rename.StepRenameHandler.FindBindingsAtFeatureStep(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.String,OmniSharp.Extensions.LanguageServer.Protocol.Models.Position)">
+            <summary>
+            Finds all bindings that match the feature step at the given cursor position
+            by querying the binding match cache for the owning projects.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.Rename.StepRenameHandler.FindBindingsAtFeatureStep(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.String,OmniSharp.Extensions.LanguageServer.Protocol.Models.Position,OmniSharp.Extensions.LanguageServer.Protocol.Models.Range@)">
+            <summary>
+            Finds all bindings that match the feature step at the given cursor position, and the
+            matched step's own text span (excluding the keyword/indentation) via <paramref
+            name="matchedRange"/>. Callers that only need the range for editing (prepareRename must
+            offer exactly the text that HandleRenameAsync will later replace at <c>usage.Range</c> —
+            otherwise the keyword/indentation the client seeds the dialog with gets duplicated when
+            the edit is applied) should use this overload.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.Rename.StepRenameHandler.HandleSelectRenameTargetAsync(Reqnroll.IdeSupport.LSP.Server.Features.Rename.SelectRenameTargetParams,System.Threading.CancellationToken)">
+            <summary>
+            Handles <c>reqnroll/selectRenameTarget</c> — stores the selected attribute
+            for the next <c>textDocument/rename</c> call.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.Rename.StepRenameHandler.FindAttributeLiteralAsync(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding)">
+            <summary>
+            Resolves the string-literal attribute argument for <paramref name="binding"/> by its
+            SOURCE LOCATION, not by matching the registry's expression text. The registry
+            expression is a discovery-time projection (a Cucumber expression is rendered to a regex
+            during discovery, and it reflects the last compiled build rather than the live buffer),
+            so it cannot be relied on to equal the raw attribute string literal. Line drift from a
+            stale build is tolerated by choosing the nearest candidate method.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.Rename.StepRenameHandler.ShortenMethodQualifier(System.String)">
+            <summary>
+            Keeps only the last two dot-segments of a fully qualified method name (class + method),
+            dropping the namespace. Two ambiguous bindings from the same project usually share the
+            same namespace prefix, so keeping it just wastes the picker's limited width without
+            helping the user distinguish the entries.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.Rename.StepRenameHandler.ReconcileParameterTokens(System.String,System.String)">
+            <summary>
+            Rebuilds <paramref name="newExpression"/> so that its parameter slots carry the exact
+            tokens from <paramref name="sourceExpression"/> (positionally). This keeps the original
+            parameter syntax — a Cucumber <c>{int}</c> stays <c>{int}</c>, a regex <c>(.*)</c> stays
+            <c>(.*)</c> — even when the rename dialog seeded a different projection. The user's edits
+            to the non-parameter text are preserved. When the slot counts differ, the user's text is
+            honoured verbatim.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.Rename.StepRenameHandler.GetStepAttributeLiterals(Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax,Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ScenarioBlock)">
+            <summary>
+            Returns the first string-literal argument of every attribute on <paramref name="method"/>
+            that is a step-definition attribute for <paramref name="stepType"/> (<c>Given</c>/<c>When</c>/
+            <c>Then</c>, or <c>StepDefinition</c> which applies to all step kinds).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.Rename.StepRenameHandler.ReadStepText(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,OmniSharp.Extensions.LanguageServer.Protocol.Models.Range)">
+            <summary>
+            Reads the step text from a feature file at the given range, using the
+            document buffer if available (open file) or reading from disk.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.ISemanticTokenService">
+            <summary>
+            Maintains a per-document cache of LSP semantic tokens encoded from Gherkin
+            <see cref="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag"/> instances.
+            Encoding is deferred until <see cref="M:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.ISemanticTokenService.GetSemanticTokensAsync(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.Int32,System.Threading.CancellationToken)"/> is called; tags are
+            read directly from <see cref="!:IDocumentBufferService"/>.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.ISemanticTokenService.Legend">
+            <summary>The shared legend that must be returned by the server's initialize response.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.ISemanticTokenService.GetSemanticTokensAsync(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Returns the cached encoded token data for the requested document version,
+            or <see langword="null"/> when no data is available yet.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.ISemanticTokenService.InvalidateCache(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <summary>
+            Evicts any cached token result for <paramref name="uri"/>, forcing the next
+            <see cref="M:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.ISemanticTokenService.GetSemanticTokensAsync(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.Int32,System.Threading.CancellationToken)"/> call to re-encode from the current tags.
+            Call this whenever the document's tags are updated without a version bump
+            (e.g. after binding discovery completes for an already-open file).
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.PublishSemanticTokensParams">
+            <summary>
+            Payload for the <c>reqnroll/semanticTokens</c> server-to-client notification.
+            </summary>
+            <remarks>
+            The server pushes this to the Visual Studio client whenever a feature file's tokens change,
+            because VS's built-in LSP semantic-token colorizer cannot map Reqnroll's custom token types
+            and does not reliably pull tokens. The VS client decodes <see cref="P:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.PublishSemanticTokensParams.Data"/> with the legend
+            from the <c>initialize</c> response and colours the file via its own classifier. Other IDE
+            clients ignore this notification and use the standard pull-based semantic tokens flow.
+            </remarks>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.PublishSemanticTokensParams.Uri">
+            <summary>The document URI these tokens apply to.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.PublishSemanticTokensParams.Version">
+            <summary>The document version the tokens were encoded from.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.PublishSemanticTokensParams.Data">
+            <summary>The LSP semantic-token data (flat 5-int relative encoding).</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.ReqnrollSemanticTokens">
+            <summary>
+            The fixed Reqnroll semantic-token legend and the <see cref="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag"/>→token mapping.
+            </summary>
+            <remarks>
+            <para>
+            The server advertises one <b>shared</b> set of custom semantic token types whose names
+            (<c>reqnroll.keyword</c>, <c>reqnroll.tag</c>, …) match the custom
+            <c>ClassificationTypeDefinition</c> names used by the existing Reqnroll Visual Studio
+            extension (<c>DeveroomClassifications</c>).  The legend is identical for every IDE client;
+            it is the <i>client's</i> responsibility to map each legend name to a concrete editor colour:
+            </para>
+            <list type="bullet">
+              <item><b>Visual Studio</b> re-uses the <c>DeveroomClassifications</c> MEF exports, so each
+                    legend name resolves to the classification of the same name.</item>
+              <item><b>VS Code</b> maps the names via <c>semanticTokenScopes</c> / <c>configurationDefaults</c>.</item>
+              <item><b>Rider</b> registers a <c>TextAttributesKey</c> per name and maps via the LSP descriptor.</item>
+            </list>
+            <para>
+            Because the legend no longer varies per IDE, there is no profile abstraction or
+            <c>--ide</c>-based selection here: the definition is a single static contract.  No token
+            modifiers are used — each Reqnroll concept is its own classification/colour, so the
+            distinction is carried entirely by the token type name.
+            </para>
+            </remarks>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.ReqnrollSemanticTokens.Legend">
+            <summary>
+            The token-type legend advertised to every IDE client in the <c>initialize</c> response.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.ReqnrollSemanticTokens.TryGetToken(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag,System.Int32@,System.Int32@)">
+            <summary>
+            Maps a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag"/> to a zero-based index into <see cref="P:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.ReqnrollSemanticTokens.Legend"/> token
+            types and a modifier bitmask.
+            </summary>
+            <returns>
+            <see langword="true"/> if the tag should produce a semantic token; <see langword="false"/>
+            if it should be silently skipped (block/container tags and unclassified artifacts).
+            </returns>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.SemanticTokenService">
+            <summary>
+            Maps <see cref="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag"/> instances to LSP semantic token integer tuples
+            on demand and caches the encoded result per document version.
+            Encoding is deferred until the client sends a semantic tokens request.
+            The token type legend and the tag→token mapping are the fixed Reqnroll definitions
+            in <see cref="T:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.ReqnrollSemanticTokens"/> (identical for every IDE client).
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.SemanticTokenService.EmptyTokens">
+            <summary>
+            Shared empty token set — returned instead of null so that OmniSharp's
+            DelegatingRequestHandler never receives a null response (which throws
+            ArgumentNullException from JToken.FromObject(null)).
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.SemanticTokenService.Legend">
+            <inheritdoc/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.SemanticTokenService.InvalidateCache(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <summary>
+            Evicts the cached token result for <paramref name="uri"/> so that the next
+            <see cref="M:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.SemanticTokenService.GetSemanticTokensAsync(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.Int32,System.Threading.CancellationToken)"/> call re-encodes from the current tags.
+            Must be called whenever <see cref="M:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.IDocumentBufferService.UpdateTags(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.Collections.Generic.IReadOnlyCollection{Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag})"/> stores
+            a new tag set for a document whose version has not changed (e.g. after binding
+            discovery completes for an already-open file).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.SemanticTokenService.Encode(System.Collections.Generic.IReadOnlyCollection{Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag})">
+            <summary>
+            Converts a flat collection of <see cref="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag"/> instances into the
+            LSP semantic token integer encoding (5 ints per token):
+            deltaLine, deltaStartChar, length, tokenTypeIndex, tokenModifierBitset.
+            Only leaf-level tags that map to a token type are emitted; container
+            block tags (FeatureBlock, etc.) are not emitted themselves but their
+            children are processed recursively.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.SemanticTokenService.ResolvePosition(Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange,System.Int32)">
+            <summary>
+            Resolves an absolute character offset within a snapshot to (line, character).
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.SemanticTokensHandler">
+            <summary>
+            Handles <c>textDocument/semanticTokens/full</c>, <c>textDocument/semanticTokens/full/delta</c>,
+            and <c>textDocument/semanticTokens/range</c> requests by delegating to <see cref="T:Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.ISemanticTokenService"/>.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.CSharpFileText">
+            <summary>The live (possibly unsaved) text of an open <c>.cs</c> document, keyed by URI.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.CSharpFileText.#ctor(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.String)">
+            <summary>The live (possibly unsaved) text of an open <c>.cs</c> document, keyed by URI.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.ICSharpFileTextCache">
+            <summary>
+            Tracks the current (possibly unsaved) text of every <c>.cs</c> file the client has open,
+            independent of <see cref="T:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.IDocumentBufferService"/> — which is deliberately Gherkin-only and
+            never populated for <c>.cs</c> documents (see <c>TextDocumentSyncHandler</c>).
+            </summary>
+            <remarks>
+            Without this, any code that needs a <c>.cs</c> file's live content (e.g. Step Rename
+            refactoring locating the attribute literal to edit, or the Roslyn/C# source-level binding
+            discovery's incremental Roslyn reconciliation) had no source but disk, which is stale for
+            any unsaved edit — whether that edit came from the user typing directly in the file or from
+            this server's own Step Rename refactoring applying its own edit.
+            <c>TextDocumentSyncHandler</c> populates this on every <c>.cs</c> <c>didOpen</c>/
+            <c>didChange</c> regardless of source, and removes it on <c>didClose</c> — once closed, disk
+            is the source of truth again (VS prompts to save or discard before a close reaches the
+            server).
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.ICSharpFileTextCache.Update(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.String)">
+            <summary>Records or replaces the live text for the given <c>.cs</c> document.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.ICSharpFileTextCache.TryGet(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.String@)">
+            <summary>Attempts to retrieve the live text for the given <c>.cs</c> document.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.ICSharpFileTextCache.Remove(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <summary>Removes the cached text for the given <c>.cs</c> document, typically on <c>didClose</c>.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.ICSharpFileTextCache.All">
+            <summary>All <c>.cs</c> documents currently tracked by the cache.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.CSharpFileTextCache">
+            <summary>Default in-memory implementation of <see cref="T:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.ICSharpFileTextCache"/> backed by a concurrent dictionary keyed on URI.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.CSharpFileTextCache.Update(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.CSharpFileTextCache.TryGet(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.String@)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.CSharpFileTextCache.Remove(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <inheritdoc/>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.CSharpFileTextCache.All">
+            <inheritdoc/>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.DocumentBuffer">
+            <summary>The in-memory snapshot of an open document's URI, version, text, and any cached Gherkin tags.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.DocumentBuffer.#ctor(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.Nullable{System.Int32},System.String,System.Collections.Generic.IReadOnlyCollection{Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag})">
+            <summary>The in-memory snapshot of an open document's URI, version, text, and any cached Gherkin tags.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.IDocumentBufferService">
+            <summary>Tracks the live text and tag state of documents opened in the editor.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.IDocumentBufferService.Update(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.Nullable{System.Int32},System.String)">
+            <summary>Replaces the buffer for the given document with new text and version, discarding any cached tags.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.IDocumentBufferService.UpdateTags(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.Collections.Generic.IReadOnlyCollection{Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag})">
+            <summary>Updates the cached Gherkin tags for a document, creating an empty buffer entry if none exists yet.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.IDocumentBufferService.Remove(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <summary>Removes the buffer for the given document, typically when it is closed.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.IDocumentBufferService.TryGet(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,Reqnroll.IdeSupport.LSP.Server.Features.TextSync.DocumentBuffer@)">
+            <summary>Attempts to retrieve the current buffer for the given document.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.IDocumentBufferService.All">
+            <summary>All buffers currently tracked by the service.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.DocumentBufferService">
+            <summary>Default in-memory implementation of <see cref="T:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.IDocumentBufferService"/> backed by a concurrent dictionary keyed on URI.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.DocumentBufferService.Update(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.Nullable{System.Int32},System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.DocumentBufferService.UpdateTags(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.Collections.Generic.IReadOnlyCollection{Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag})">
+            <inheritdoc/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.DocumentBufferService.TryGet(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,Reqnroll.IdeSupport.LSP.Server.Features.TextSync.DocumentBuffer@)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.DocumentBufferService.Remove(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <inheritdoc/>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.DocumentBufferService.All">
+            <inheritdoc/>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Features.TextSync.TextDocumentSyncHandler">
+            <summary>
+            Single OmniSharp text-document sync handler covering both document types the server cares
+            about: <c>.feature</c> files (parsed into the Gherkin document buffer) and <c>.cs</c> files
+            (fed to Roslyn/C# source-level binding discovery). Both are registered
+            here so that a single sync handler owns text synchronization; the per-document branching is
+            done by file extension.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Hosting.ClientIdeContext">
+            <summary>
+            Carries the <c>--ide</c> identifier of the connecting client so that handlers can vary
+            behaviour per IDE.  Registered as a singleton in <see cref="M:Reqnroll.IdeSupport.LSP.Server.Hosting.Program.ConfigureServer(OmniSharp.Extensions.LanguageServer.Server.LanguageServerOptions,System.String,System.Diagnostics.TraceLevel,OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeTrace,System.Diagnostics.TraceLevel)"/>.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Hosting.ClientIdeContext.Ide">
+            <summary>The raw <c>--ide</c> value, or <see langword="null"/> when absent.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Hosting.ClientIdeContext.LogLevel">
+            <summary>
+            The file/protocol log verbosity requested via <c>--log-level</c>, defaulting to
+            <see cref="F:System.Diagnostics.TraceLevel.Warning"/> when the client did not specify one.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Hosting.ClientIdeContext.IsVisualStudio">
+            <summary>
+            True when the connecting client is Visual Studio, whose built-in LSP semantic-token
+            colorizer cannot map custom token types — so the server pushes tokens to it instead of
+            relying on it to pull them. See <see cref="!:Handlers.InternalHandlers.SemanticTokensPushHandler"/>.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Hosting.LanguageServerOptionsExtensions">
+            <summary>
+            Extension methods for configuring custom protocol handlers on <see cref="T:OmniSharp.Extensions.LanguageServer.Server.LanguageServerOptions"/>.
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Server.Hosting.LanguageServerOptionsExtensions.CamelCaseSerializer">
+            <summary>
+            <see cref="M:Newtonsoft.Json.Linq.JObject.FromObject(System.Object)"/>'s parameterless overload serializes with
+            Newtonsoft's global default settings — PascalCase property names, not the lowercase
+            camelCase every other LSP payload on the wire uses. That silently produced e.g.
+            <c>"Start"</c>/<c>"Character"</c> instead of <c>"start"</c>/<c>"character"</c> for plain
+            ranges, tolerated by clients doing case-insensitive property matching — but it breaks
+            <see cref="T:OmniSharp.Extensions.LanguageServer.Protocol.Models.RangeOrPlaceholderRange"/>'s union-type discrimination outright: its converter
+            looks for the exact lowercase keys <c>"range"</c>/<c>"placeholder"</c>/
+            <c>"defaultBehavior"</c> to tell which variant is present, and silently produces neither
+            on the read side when the write side used PascalCase (issue #33 follow-up).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Hosting.LanguageServerOptionsExtensions.AddStandardHandlers(OmniSharp.Extensions.LanguageServer.Server.LanguageServerOptions)">
+            <summary>
+            Registers standard OmniSharp handlers. 
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Hosting.LanguageServerOptionsExtensions.InitializeCustomProtocolRouting(OmniSharp.Extensions.LanguageServer.Server.LanguageServerOptions)">
+            <summary>
+            Seeds workspace scopes and configures custom Reqnroll protocol routing.
+            
+            Because OmniSharp's LSP parameter types (e.g., ReferenceParams, SemanticTokensParams) 
+            do not implement MediatR's IRequest, we must use OnRequest/OnNotification delegates 
+            for custom method routing. This method encapsulates the service resolution in a 
+            strongly-typed resolver initialized during OnStarted, eliminating nullable IServiceProvider 
+            captures and null-forgiving operators.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Hosting.LanguageServerOptionsExtensions.MeasuredAsync``1(Reqnroll.IdeSupport.LSP.Server.Hosting.LanguageServerOptionsExtensions.LspHandlerResolver,System.String,OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.Func{System.Threading.Tasks.Task{``0}})">
+            <summary>
+            Times a manual-route handler invocation through the Layer 4
+            <see cref="T:Reqnroll.IdeSupport.LSP.Server.Performance.IOperationDurationRecorder"/>, resolved from the running server's services.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Hosting.LanguageServerOptionsExtensions.LspHandlerResolver">
+            <summary>
+            Strongly-typed resolver for LSP handlers, eliminating nullable IServiceProvider captures.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Hosting.ProcessHelper">
+            <summary>Runs external command-line processes and captures their exit code, output, and errors.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Hosting.ProcessHelper.RunProcess(System.String,System.String,System.Collections.Generic.IEnumerable{System.String},System.Nullable{System.TimeSpan},System.Boolean,System.Text.Encoding)">
+            <summary>Starts the given executable with the supplied arguments and waits for it to exit, capturing its output.</summary>
+            <param name="throwException">When true, exceptions from starting or running the process are rethrown instead of being captured in the result.</param>
+            <returns>The captured exit code, standard output, and standard error, or a failure result if <paramref name="throwException"/> is false and an error occurred.</returns>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Hosting.ProcessHelper.RunProcessResult">
+            <summary>The captured outcome of running an external process via <see cref="M:Reqnroll.IdeSupport.LSP.Server.Hosting.ProcessHelper.RunProcess(System.String,System.String,System.Collections.Generic.IEnumerable{System.String},System.Nullable{System.TimeSpan},System.Boolean,System.Text.Encoding)"/>.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Hosting.ProcessHelper.RunProcessResult.#ctor(System.Int32,System.String,System.String,System.String,System.String,System.String)">
+            <summary>Creates a result describing how a process invocation completed.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Hosting.ProcessHelper.RunProcessResult.HasErrors">
+            <summary>True if the process wrote anything to standard error.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Hosting.ProcessHelper.RunProcessResult.CommandLine">
+            <summary>The working directory, executable, and arguments formatted as a single command-line string.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Hosting.Program">
+            <remarks>
+            <para>
+            <b>Logging split (issue #84):</b> app-level code in this server (handlers, discovery,
+            workspace/document services, etc.) logs exclusively through the DI-registered
+            <see cref="T:Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger"/> singleton (<see cref="T:Reqnroll.IdeSupport.LSP.Server.Logging.LspIdeSupportLogger"/>), consumed via
+            the <c>LogInfo</c>/<c>LogWarning</c>/<c>LogError</c>/... extension methods in
+            <see cref="T:Reqnroll.IdeSupport.Common.Logging.IdeSupportLoggerExtensions"/> — this is deliberate and should stay the pattern for new
+            app-level code, rather than switching individual classes to <c>ILogger&lt;T&gt;</c>.
+            </para>
+            <para>
+            Separately, <c>ILogger&lt;T&gt;</c> (<see cref="N:Microsoft.Extensions.Logging"/>) is what
+            OmniSharp's own internals log through — request dispatch, DryIoc, JSON-RPC plumbing. That
+            pipeline is established by <see cref="M:Reqnroll.IdeSupport.LSP.Server.Hosting.Program.ConfigureServer(OmniSharp.Extensions.LanguageServer.Server.LanguageServerOptions,System.String,System.Diagnostics.TraceLevel,OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeTrace,System.Diagnostics.TraceLevel)"/>'s <c>options.ConfigureLogging(...)</c>
+            call (<c>SetMinimumLevel</c>, <c>AddLanguageProtocolLogging</c>,
+            <see cref="T:Reqnroll.IdeSupport.LSP.Server.Logging.ProtocolLoggerProvider"/>) directly into <c>options.Services</c>, gated by its own
+            <c>--protocol-log-level</c> and writing to a dedicated <c>reqnroll-*-protocol-*.log</c> file via
+            the shared <see cref="T:Reqnroll.IdeSupport.Common.Logging.IdeSupportLoggerAdapter"/> — deliberately a separate store from the app-level
+            <see cref="T:Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger"/> "server" log. <b>Do not re-register <c>ILoggerFactory</c>/<c>ILogger&lt;&gt;</c>
+            anywhere else in this DI container</b> (e.g. in
+            <see cref="M:Reqnroll.IdeSupport.LSP.Server.Hosting.ServiceCollectionExtensions.AddReqnrollLspCoreServices(Microsoft.Extensions.DependencyInjection.IServiceCollection,System.String,System.Diagnostics.TraceLevel,OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeTrace)"/>) — a later registration wins
+            the last-registration-wins resolution and silently replaces this one, which previously caused
+            every OmniSharp-internal message to leak into the app-level "server" log at whatever
+            <c>--log-level</c> happened to be, instead of its own file gated by <c>--protocol-log-level</c>.
+            </para>
+            <para>
+            The three log-level dials below (<c>--log-level</c>, <c>--protocol-log-level</c>, <c>--trace</c>)
+            remain intentionally independent — see each parameter's remarks on <see cref="M:Reqnroll.IdeSupport.LSP.Server.Hosting.Program.ConfigureServer(OmniSharp.Extensions.LanguageServer.Server.LanguageServerOptions,System.String,System.Diagnostics.TraceLevel,OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeTrace,System.Diagnostics.TraceLevel)"/>.
+            </para>
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Hosting.Program.ConfigureServer(OmniSharp.Extensions.LanguageServer.Server.LanguageServerOptions,System.String,System.Diagnostics.TraceLevel,OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeTrace,System.Diagnostics.TraceLevel)">
+            <summary>
+            Applies the full server configuration (logging, DI graph, capabilities, custom
+            notifications) to <paramref name="options"/>.  The transport (input/output) is
+            intentionally NOT set here so that callers can choose it: production uses stdio
+            (see <see cref="M:Reqnroll.IdeSupport.LSP.Server.Hosting.Program.Main(System.String[])"/>); the in-process protocol specs host the server over an
+            in-memory pipe.
+            </summary>
+            <param name="clientIde">
+            The <c>--ide</c> identifier of the connecting client (e.g. <c>"visualstudio"</c>), or
+            <see langword="null"/> when absent.  Currently unused by the semantic-token pipeline
+            (the legend is shared across IDEs); retained for features that may vary behaviour per IDE.
+            </param>
+            <param name="logLevel">
+            The <c>--log-level</c> verbosity requested by the client, defaulting to
+            <see cref="F:System.Diagnostics.TraceLevel.Warning"/>. Drives only the file-backed <see cref="T:Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger"/>
+            (our own app-level logging) — deliberately independent of <paramref name="protocolLogLevel"/>.
+            </param>
+            <param name="initialTrace">
+            F41: the LSP protocol trace level (<c>$/logTrace</c>), resolved with the following
+            precedence — later stages only apply when they actually say something:
+            <list type="number">
+            <item><description>this <c>--trace</c> command-line default (defaults to <see cref="F:OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeTrace.Off"/>);</description></item>
+            <item><description><c>InitializeParams.Trace</c>, applied in <c>OnInitialized</c> below —
+            but only when the client sent something other than <see cref="F:OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeTrace.Off"/>, since
+            that value is indistinguishable from "the client didn't set this field at all" and must not
+            silently clobber an explicit <c>--trace</c> default;</description></item>
+            <item><description><c>$/setTrace</c> (<see cref="T:Reqnroll.IdeSupport.LSP.Server.Tracing.SetTraceNotificationHandler"/>), which can
+            set any value — including back to Off — at any time after that.</description></item>
+            </list>
+            </param>
+            <param name="protocolLogLevel">
+            The <c>--protocol-log-level</c> verbosity for OmniSharp's own internal diagnostics,
+            defaulting to <see cref="F:System.Diagnostics.TraceLevel.Warning"/>. Drives the OmniSharp protocol-logging
+            minimum level, which feeds both the standard <c>window/logMessage</c> notification
+            (<c>AddLanguageProtocolLogging()</c>, visible to the client) and <see cref="T:Reqnroll.IdeSupport.LSP.Server.Logging.ProtocolLoggerProvider"/>
+            (a dedicated <c>reqnroll-*-protocol-*.log</c> file, so that content survives even if the
+            client's Output panel is never inspected). Independent of <paramref name="logLevel"/> —
+            see that parameter's remarks.
+            </param>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Hosting.Program.ToLogLevel(System.Diagnostics.TraceLevel)">
+            <summary>
+            Maps the <see cref="T:Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger"/> verbosity scale onto
+            <see cref="T:Microsoft.Extensions.Logging.LogLevel"/> for the OmniSharp protocol-logging pipeline.
+            Delegates to the canonical, shared conversion in <see cref="T:Reqnroll.IdeSupport.Common.Logging.IdeSupportLogLevelConverter"/> so
+            there is exactly one <see cref="T:System.Diagnostics.TraceLevel"/>/<see cref="T:Microsoft.Extensions.Logging.LogLevel"/> mapping in the codebase.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Hosting.Program.ParseArg(System.String[],System.String)">
+            <summary>Returns the value following <paramref name="flag"/> in <paramref name="args"/>, or <see langword="null"/> when absent.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Hosting.Program.ParseLogLevel(System.String[])">
+            <summary>Parses <c>--log-level</c> from <paramref name="args"/>, defaulting to <see cref="F:System.Diagnostics.TraceLevel.Warning"/> when absent or unrecognized.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Hosting.Program.ParseProtocolLogLevel(System.String[])">
+            <summary>Parses <c>--protocol-log-level</c> from <paramref name="args"/>, defaulting to <see cref="F:System.Diagnostics.TraceLevel.Warning"/> when absent or unrecognized.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Hosting.Program.ParseTraceLevel(System.String[])">
+            <summary>Parses <c>--trace</c> (Off/Messages/Verbose) from <paramref name="args"/>, defaulting to <see cref="F:OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeTrace.Off"/> when absent or unrecognized.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Hosting.Program.ResolveInitialTrace(OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeTrace,OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeTrace)">
+            <summary>
+            F41: resolves the trace level to apply at the initialize handshake. <paramref
+            name="requested"/> (<c>InitializeParams.Trace</c>) wins whenever the client actually asked
+            for something; <see cref="F:OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeTrace.Off"/> there is indistinguishable from "the
+            client didn't set this field", so it must not clobber <paramref name="current"/> (the
+            <c>--trace</c> command-line default).
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Hosting.ProjectPreloadListener">
+            <summary>
+            Listens on a process-local named pipe for <c>reqnroll/projectLoaded</c> and
+            <c>reqnroll/projectFiles</c> payloads sent by IDE glue <b>before</b> the LSP
+            <c>initialize</c> handshake completes, and dispatches them directly to
+            <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager"/>.
+            </summary>
+            <remarks>
+            OmniSharp's <c>LanguageServer.Initialize()</c> blocks until the client's real
+            <c>initialize</c> request is received, and defers/queues any other request or notification
+            routed through its own JSON-RPC dispatcher until then. This listener bypasses that dispatcher
+            entirely — it is started against <c>LanguageServer.PreInit(...).Services</c>, which is fully
+            constructed (DI container built, <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager"/> resolvable) before
+            <c>Initialize()</c> is ever called. See <see cref="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.HandleProjectLoadedAsync(Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectLoadedParams,System.Threading.CancellationToken)"/>'s
+            own "auto-creating workspace scope" comment — the workspace/project model was already designed
+            to tolerate project notifications arriving before <c>initialize</c>'s workspace folders exist.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Hosting.ProjectPreloadListener.RunAsync(Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager,Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger,System.Threading.CancellationToken,System.String)">
+            <summary>
+            Accepts preload connections until <paramref name="cancellationToken"/> is cancelled
+            (the caller cancels once the real <c>initialize</c> handshake completes — the side
+            channel has no further purpose after that point).
+            </summary>
+            <param name="pipeName">
+            Defaults to <see cref="M:Reqnroll.IdeSupport.LSP.Server.Hosting.ProjectPreloadListener.PipeName(System.Int32)"/> of the current process; overridable for test isolation.
+            </param>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Hosting.ServiceCollectionExtensions">
+            <summary>
+            Extension methods for configuring the Dependency Injection container for the Reqnroll LSP Server.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Hosting.ServiceCollectionExtensions.AddReqnrollLspCoreServices(Microsoft.Extensions.DependencyInjection.IServiceCollection,System.String,System.Diagnostics.TraceLevel,OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeTrace)">
+            <summary>
+            Registers core infrastructure and cross-cutting services.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Hosting.ServiceCollectionExtensions.AddReqnrollProjectSystem(Microsoft.Extensions.DependencyInjection.IServiceCollection)">
+            <summary>
+            Registers project system, workspace, and binding discovery services.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Hosting.ServiceCollectionExtensions.AddReqnrollEditorServices(Microsoft.Extensions.DependencyInjection.IServiceCollection)">
+            <summary>
+            Registers editor services, parsing, and shared caching components.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Hosting.ServiceCollectionExtensions.AddReqnrollLspHandlers(Microsoft.Extensions.DependencyInjection.IServiceCollection)">
+            <summary>
+            Registers OmniSharp LSP protocol handlers as singletons.
+            
+            NOTE: MediatR notification handlers (e.g., SemanticTokensRefreshHandler, DiagnosticsPublishHandler) 
+            are auto-discovered and registered as transients by the AddMediatR call in ConfigureServer. 
+            DO NOT add explicit AddSingleton&lt;INotificationHandler&lt;T&gt;&gt; registrations here, as it will 
+            cause MediatR to dispatch every notification to two handler instances (the transient from the 
+            scan and the singleton from the explicit call). 
+            
+            The handlers listed below ARE registered explicitly as singletons because OmniSharp resolves 
+            them from the root DryIoc container (not from a per-request scope), and they hold injected 
+            ILanguageServer references that must live for the server's lifetime.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Logging.LspIdeSupportLogger">
+            <summary>
+            <see cref="T:Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger"/> used by the LSP server process.
+            Delegates to a <see cref="T:Reqnroll.IdeSupport.Common.Logging.IdeSupportCompositeLogger"/> composed of:
+            <list type="bullet">
+              <item><see cref="T:Reqnroll.IdeSupport.Common.Logging.IdeSupportDebugLogger"/> — writes to <see cref="T:System.Diagnostics.Debug"/> output</item>
+              <item><see cref="T:Reqnroll.IdeSupport.Common.Logging.SynchronousFileLogger"/> — appends to the Reqnroll log file</item>
+            </list>
+            Emits a session-start banner as the first log line so runs within a day-appended file
+            can be distinguished by version, PID, and server path.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Logging.LspIdeSupportLogger.#ctor(Reqnroll.IdeSupport.LSP.Server.Hosting.ClientIdeContext)">
+            <summary>Creates the composite logger for the current client IDE and logs a session-start banner.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Logging.LspIdeSupportLogger.Level">
+            <inheritdoc/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Logging.LspIdeSupportLogger.Log(Reqnroll.IdeSupport.Common.Logging.LogMessage)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Logging.ProtocolLoggerProvider">
+            <summary>
+            Bridges OmniSharp's own internal <see cref="N:Microsoft.Extensions.Logging"/> diagnostics
+            (request dispatch, DryIoc, JSON-RPC plumbing — whatever the library itself logs via
+            <c>ILogger&lt;T&gt;</c>) into a dedicated Reqnroll log file, in addition to the existing
+            <c>window/logMessage</c> notification (<c>AddLanguageProtocolLogging()</c>) that only reaches
+            the connected client.
+            </summary>
+            <remarks>
+            Without this, OmniSharp-internal diagnostics exist only as a transient client notification —
+            if the user doesn't think to copy their editor's Output panel, that information is gone by the
+            time we're asked to look at a bug report. Writes to a separate <c>reqnroll-*-protocol-*.log</c>
+            file (not the main server log) so two independent writers never append to the same file
+            concurrently, and gated by its own <c>--protocol-log-level</c> rather than the main
+            <c>--log-level</c> — the two are deliberately decoupled (F41 follow-up): a user turning up file
+            logging for our own app-level diagnosis shouldn't also flood their editor's Output panel with
+            library internals, and vice versa.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Logging.ProtocolLoggerProvider.#ctor(System.String,System.Diagnostics.TraceLevel)">
+            <summary>Creates the provider, building the default protocol-log file/debug sink for the given client IDE and log level.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Logging.ProtocolLoggerProvider.#ctor(Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger)">
+            <summary>Test seam: bypasses the real file/debug sinks.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Logging.ProtocolLoggerProvider.CreateLogger(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Logging.ProtocolLoggerProvider.Dispose">
+            <inheritdoc/>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Performance.IOperationDurationRecorder">
+            <summary>
+            Records the wall-clock duration of an LSP protocol operation for the architecture's Performance
+            Verification "Layer 4" field instrumentation: real-world P95 measured in the live server,
+            emitted via the existing logging path and (optionally, sampled) as a telemetry metric.
+            </summary>
+            <remarks>
+            This is the single cross-cutting sink invoked at each handler boundary. It exists because the
+            four interactive performance targets live on three different registration rails — manual
+            <c>OnRequest</c> delegates (<c>semanticTokens/full</c>), OmniSharp <c>AddHandler</c> handlers
+            (<c>completion</c>, <c>definition</c>) and a MediatR notification push
+            (<c>publishDiagnostics</c>) — so no single MediatR pipeline behavior can cover them all.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Performance.IOperationDurationRecorder.Measure(System.String,OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <summary>
+            Starts a timing scope; the elapsed time is recorded when the returned handle is disposed.
+            Usage: <c>using var _ = recorder.Measure("textDocument/completion", uri);</c>
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Performance.IOperationDurationRecorder.Record(System.String,System.Double,OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <summary>
+            Records an already-measured duration for <paramref name="operation"/>. Use this overload
+            when the operation label is only known after the work runs (e.g. keyword vs. step
+            completion).
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Performance.IPerfTelemetrySampler">
+            <summary>
+            Decides whether a given <c>PerfSample</c> telemetry event should be emitted. Field perf
+            instrumentation fires on every interactive request, so the telemetry metric is sampled to
+            bound event volume — the local log line (always written at verbose) is the unsampled record.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Performance.PerfTelemetrySampler">
+            <summary>
+            Probabilistic sampler. The rate is read from the <c>REQNROLL_PERF_TELEMETRY_SAMPLE</c>
+            environment variable (a fraction in <c>[0,1]</c>); when unset or unparsable it defaults to
+            <see cref="F:Reqnroll.IdeSupport.LSP.Server.Performance.PerfTelemetrySampler.DefaultSampleRate"/> = 0, i.e. perf telemetry is <b>opt-in</b>. Set it to e.g.
+            <c>0.05</c> to emit ~5% of samples. The host-side opt-out gate still applies downstream.
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Server.Performance.PerfTelemetrySampler.DefaultSampleRate">
+            <summary>Opt-in by default: no perf telemetry is emitted unless a rate is configured.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Performance.NullOperationDurationRecorder">
+            <summary>
+            No-op <see cref="T:Reqnroll.IdeSupport.LSP.Server.Performance.IOperationDurationRecorder"/>. Used as the default when a handler is
+            constructed without a recorder (unit tests, or a host that does not wire instrumentation),
+            keeping field instrumentation non-intrusive to feature logic.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Performance.NullOperationDurationRecorder.Measure(System.String,OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Performance.NullOperationDurationRecorder.Record(System.String,System.Double,OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Performance.OperationDurationRecorder">
+            <summary>
+            Default <see cref="T:Reqnroll.IdeSupport.LSP.Server.Performance.IOperationDurationRecorder"/>. Writes a structured, grep-able
+            <c>PERF</c> line to the existing log file on every call (the unsampled local record), and
+            optionally emits a sampled <c>PerfSample</c> telemetry event for field P95 aggregation.
+            </summary>
+            <remarks>
+            Privacy: the log line may carry the document URI for local diagnosis, but the telemetry
+            event must not — it carries only the operation label, the duration, a coarse bucket and the
+            IDE client, never a path or file content.
+            </remarks>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Server.Performance.OperationDurationRecorder.PerfSampleEventName">
+            <summary>Telemetry event name. Listed in the public telemetry inventory.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Performance.OperationDurationRecorder.Bucket(System.Double)">
+            <summary>Coarse latency buckets for cheap field aggregation without exposing raw paths.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.BindingRegistryChangedHandler">
+            <summary>
+            Handles <see cref="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.BindingRegistryChangedNotification"/> by re-parsing feature files
+            that belong to the affected project, then publishing a
+            <see cref="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.MatchCacheChangedNotification"/> for each open file so that semantic tokens
+            are refreshed against the new binding registry.
+            </summary>
+            <remarks>
+            <para>
+            When <see cref="P:Reqnroll.IdeSupport.LSP.Server.Pipeline.BindingRegistryChangedNotification.IsFullReplacement"/> is
+            <see langword="true"/> (startup, post-build connector run, or membership-baseline arrival),
+            all feature files owned by the project are scanned — including files not currently open
+            in the editor — so that the binding match cache is workspace-complete for Find Step
+            Definition Usages / Find All References.
+            The file list is obtained from the membership index (I1) when a baseline has been received;
+            otherwise it falls back to a folder glob for backwards compatibility with clients that do
+            not send <c>reqnroll/projectFiles</c>.
+            </para>
+            <para>
+            When <see cref="P:Reqnroll.IdeSupport.LSP.Server.Pipeline.BindingRegistryChangedNotification.IsFullReplacement"/> is
+            <see langword="false"/> (incremental Roslyn per-file patch on a <c>.cs</c> edit), only the
+            currently open feature files owned by the project are re-parsed.
+            </para>
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Pipeline.BindingRegistryChangedHandler.RemoveBindingFilesAsync(Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject,System.Collections.Generic.IReadOnlyCollection{System.String},System.Threading.CancellationToken)">
+            <summary>
+            Purges the given binding-role <c>.cs</c> files from <paramref name="project"/>'s registry
+            (issue #94). Called for files removed via a <c>reqnroll/projectFiles</c> delta -- e.g. the
+            user deletes a step-definition file in the IDE. Visual Studio never sends
+            <c>workspace/didChangeWatchedFiles</c> for this, so <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.WatchedFilesHandler"/>'s
+            deletion path (the one place removal was previously wired up) never fires for it; this
+            project-files-driven removal is what actually reaches VS. Uses
+            <see cref="M:Reqnroll.IdeSupport.LSP.Server.Discovery.ICSharpBindingDiscoveryService.UpdateFromSourceForProjectAsync(Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject,System.String,System.String,System.Threading.CancellationToken)"/> (not
+            <c>RemoveFileAsync</c>) because the membership index has already dropped the file by the
+            time this runs, so owner-resolution would find nothing to remove; parsing empty text
+            against the already-known project replaces the file's stale entries with none.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Pipeline.BindingRegistryChangedHandler.RequestCodeLensRefreshAsync(Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject)">
+            <summary>
+            Asks the client to re-pull C# step code lenses after a full registry replacement.
+            Visual Studio cannot route the standard <c>workspace/codeLens/refresh</c> request to our
+            pipe-based code-lens provider (the VS client's <c>StepCodeLensService</c> uses the
+            <c>LspInterceptingPipe</c> directly, not VS's built-in LSP code-lens infrastructure), so for
+            VS we push a custom <c>reqnroll/refreshCodeLens</c> notification the client intercepts to
+            invalidate its rendered lenses. VS Code / Rider use the standard request.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Pipeline.BindingRegistryChangedHandler.RediscoverCsFilesAsync(Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject,System.Threading.CancellationToken)">
+            <summary>
+            After a Connector full replacement (which loads bindings from the compiled assembly),
+            re-runs Roslyn source-level discovery on the project's <c>.cs</c> step-definition files
+            so that source edited <em>since the last build</em> overrides the stale compiled bindings.
+            <para>Covers two cases:</para>
+            <list type="bullet">
+              <item>open, possibly-unsaved <c>.cs</c> buffers — reconciled unconditionally, since an
+              unsaved edit is never reflected in the DLL; and</item>
+              <item>closed <c>.cs</c> files on disk whose last-write time is newer than the output
+              assembly — i.e. edited then saved without a rebuild. This is the case that survives a VS
+              restart: the file is on disk but not open, so without this it would never override the
+              stale compiled binding.</item>
+            </list>
+            Files unchanged since the build are faithfully represented by the DLL and are skipped to
+            bound the cost. Reconciliation is delegated to <see cref="T:Reqnroll.IdeSupport.LSP.Server.Discovery.ICSharpBindingDiscoveryService"/>,
+            which patches the project's registry directly without consulting the membership index
+            (the baseline may not have arrived yet at startup).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Pipeline.BindingRegistryChangedHandler.CollectCsFilesToReconcile(Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject)">
+            <summary>
+            Selects the <c>.cs</c> files to reconcile after a full replacement and pairs each with the
+            source text to parse: every open project-owned <c>.cs</c> buffer (unsaved edits always win,
+            using the buffer text), plus closed step-definition files newer than the compiled assembly
+            (using on-disk text).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Pipeline.BindingRegistryChangedHandler.EnumerateProjectStepDefinitionFiles(Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject)">
+            <summary>
+            Enumerates the project's <c>.cs</c> step-definition files: the membership index when a
+            baseline has been received (authoritative — includes linked files, excludes obj/bin),
+            otherwise a folder glob that skips build output.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.BindingRegistryChangedNotification">
+            <summary>
+            Published when a project's <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry"/>
+            is replaced after a successful connector discovery run (e.g. triggered by a build or a
+            <c>reqnroll.json</c> change).
+            </summary>
+            <remarks>
+            When <see cref="P:Reqnroll.IdeSupport.LSP.Server.Pipeline.BindingRegistryChangedNotification.IsFullReplacement"/> is <see langword="true"/> (e.g. startup or a post-build
+            reflection discovery run), consumers should re-parse <em>all</em> workspace feature files that
+            belong to <see cref="P:Reqnroll.IdeSupport.LSP.Server.Pipeline.BindingRegistryChangedNotification.Project"/> — not only the currently open ones — so that the binding match
+            cache covers the complete workspace for features such as Find Step Definition Usages / Find
+            All References.
+            When <see cref="P:Reqnroll.IdeSupport.LSP.Server.Pipeline.BindingRegistryChangedNotification.IsFullReplacement"/> is <see langword="false"/> (incremental Roslyn re-discovery
+            on a <c>.cs</c> edit), re-parsing only the open feature files is sufficient immediately, and
+            closed feature files are additionally rescanned after a debounce so their cached usage counts
+            stay correct without waiting for a rebuild. This notification is only published for an
+            incremental patch when it actually changed a binding's matched expression -- a patch that
+            didn't (e.g. a method-body edit) never reaches here, since there is nothing to re-parse.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Pipeline.BindingRegistryChangedNotification.#ctor(Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject,System.Boolean,System.Collections.Generic.IReadOnlyCollection{System.String})">
+            <summary>
+            Published when a project's <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry"/>
+            is replaced after a successful connector discovery run (e.g. triggered by a build or a
+            <c>reqnroll.json</c> change).
+            </summary>
+            <remarks>
+            When <see cref="P:Reqnroll.IdeSupport.LSP.Server.Pipeline.BindingRegistryChangedNotification.IsFullReplacement"/> is <see langword="true"/> (e.g. startup or a post-build
+            reflection discovery run), consumers should re-parse <em>all</em> workspace feature files that
+            belong to <see cref="P:Reqnroll.IdeSupport.LSP.Server.Pipeline.BindingRegistryChangedNotification.Project"/> — not only the currently open ones — so that the binding match
+            cache covers the complete workspace for features such as Find Step Definition Usages / Find
+            All References.
+            When <see cref="P:Reqnroll.IdeSupport.LSP.Server.Pipeline.BindingRegistryChangedNotification.IsFullReplacement"/> is <see langword="false"/> (incremental Roslyn re-discovery
+            on a <c>.cs</c> edit), re-parsing only the open feature files is sufficient immediately, and
+            closed feature files are additionally rescanned after a debounce so their cached usage counts
+            stay correct without waiting for a rebuild. This notification is only published for an
+            incremental patch when it actually changed a binding's matched expression -- a patch that
+            didn't (e.g. a method-body edit) never reaches here, since there is nothing to re-parse.
+            </remarks>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.DiagnosticsPublishHandler">
+             <summary>
+             Handles <see cref="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.MatchCacheChangedNotification"/> by aggregating the current parse-error
+             tags and binding-mismatch data for the affected feature file and pushing a
+             <c>textDocument/publishDiagnostics</c> notification to the IDE client.
+             </summary>
+             <remarks>
+             Fires alongside <see cref="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.SemanticTokensRefreshHandler"/> and
+             <see cref="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.SemanticTokensPushHandler"/> on every <see cref="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.MatchCacheChangedNotification"/>.
+             No ordering guarantee between these handlers is required — they are independent.
+            
+             The LSP specification requires that a single <c>publishDiagnostics</c> message delivers the
+             <em>complete</em> diagnostic set for a URI; sending a partial set clears the diagnostics not
+             included.  The <see cref="T:Reqnroll.IdeSupport.LSP.Core.Diagnostics.IDiagnosticsAggregator"/> combines both sources (parse errors and
+             binding mismatches) into one list before this handler sends the single push.
+            
+             For shared/linked features the primary owner's match set is used (primary-owner resolution /
+             shared-feature scoping 2A/2B: LSP provides one result per URI with no project context, so one
+             owner must be chosen).
+             </remarks>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.FeatureRescanDebouncer">
+            <inheritdoc cref="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.IFeatureRescanDebouncer"/>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.IFeatureRescanDebouncer">
+            <summary>
+            Debounces a per-project rescan action so a burst of rapid <c>.cs</c> edits (one per keystroke)
+            collapses into a single rescan after the edits settle, instead of running the (expensive,
+            whole-project) action on every keystroke.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Pipeline.IFeatureRescanDebouncer.ScheduleRescan(Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject,System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task})">
+            <summary>
+            Schedules <paramref name="rescanAsync"/> to run for <paramref name="project"/> after the
+            debounce window elapses. A call for the same project before the window elapses cancels the
+            pending run and restarts the window, so only the last scheduled action for a project
+            actually runs.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.InlayHintRefreshHandler">
+            <summary>
+            Handles <see cref="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.MatchCacheChangedNotification"/> by asking the LSP client to refresh its
+            inlay hints (F23), so binding-info hints stay in sync after edits/build without the user
+            having to scroll the viewport to re-pull them.
+            </summary>
+            <remarks>
+            Mirrors <see cref="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.SemanticTokensRefreshHandler"/>: debounces bursts of match-cache
+            notifications into a single <c>workspace/inlayHint/refresh</c> request, and only sends it when
+            the client advertised <c>workspace.inlayHint.refreshSupport</c>.
+            </remarks>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.MatchCacheChangedNotification">
+            <summary>
+            Published after a feature document has been (re)parsed and its binding matches recomputed
+            and stored in <see cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.IBindingMatchService"/> — i.e. whenever the match
+            cache for <see cref="P:Reqnroll.IdeSupport.LSP.Server.Pipeline.MatchCacheChangedNotification.Uri"/> changes, whether triggered by a text edit, a binding-registry
+            replacement, or a configuration change.
+            </summary>
+            <remarks>
+            This is the <c>MatchCacheChangedNotification</c> of section 3 / section 6 of the LSP IDE
+            Support design. Consumers re-read the current tags / match set rather than receiving them
+            <see cref="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.SemanticTokensRefreshHandler"/>
+            asks the client to refresh semantic tokens, and the (future) diagnostics aggregator pushes
+            <c>textDocument/publishDiagnostics</c>.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Pipeline.MatchCacheChangedNotification.#ctor(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.Int32)">
+            <summary>
+            Published after a feature document has been (re)parsed and its binding matches recomputed
+            and stored in <see cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.IBindingMatchService"/> — i.e. whenever the match
+            cache for <see cref="P:Reqnroll.IdeSupport.LSP.Server.Pipeline.MatchCacheChangedNotification.Uri"/> changes, whether triggered by a text edit, a binding-registry
+            replacement, or a configuration change.
+            </summary>
+            <remarks>
+            This is the <c>MatchCacheChangedNotification</c> of section 3 / section 6 of the LSP IDE
+            Support design. Consumers re-read the current tags / match set rather than receiving them
+            <see cref="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.SemanticTokensRefreshHandler"/>
+            asks the client to refresh semantic tokens, and the (future) diagnostics aggregator pushes
+            <c>textDocument/publishDiagnostics</c>.
+            </remarks>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.ReqnrollConfigChangedHandler">
+            <summary>
+            Handles <see cref="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.ReqnrollConfigChangedNotification"/> by re-parsing every open
+            feature file that belongs to the affected workspace root, then publishing a
+            <see cref="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.MatchCacheChangedNotification"/> for each so that semantic tokens
+            (and any other consumers) are refreshed.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.ReqnrollConfigChangedNotification">
+            <summary>
+            Published internally when a <c>reqnroll.json</c> file is created, changed, or deleted
+            in a workspace root. Consumers should re-parse all feature files in the affected workspace.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Pipeline.ReqnrollConfigChangedNotification.#ctor(System.String)">
+            <summary>
+            Published internally when a <c>reqnroll.json</c> file is created, changed, or deleted
+            in a workspace root. Consumers should re-parse all feature files in the affected workspace.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.SemanticTokensPushHandler">
+            <summary>
+            Pushes encoded semantic tokens to the Visual Studio client whenever a feature file's match
+            cache changes.
+            </summary>
+            <remarks>
+            Visual Studio's built-in LSP semantic-token colorizer maps token-type names through a fixed
+            internal table (so it cannot honour Reqnroll's custom <c>reqnroll.*</c> types) and only pulls
+            tokens lazily and unreliably. For VS we therefore push the tokens proactively via the custom
+            <c>reqnroll/semanticTokens</c> notification; the VS client decodes them and colours the file
+            with its own classifier. This handler is a no-op for every other client, which use the standard
+            pull-based flow handled by <see cref="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.SemanticTokensRefreshHandler"/>.
+            </remarks>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.SemanticTokensRefreshHandler">
+            <summary>
+            Handles <see cref="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.MatchCacheChangedNotification"/> by asking the LSP client
+            to refresh its semantic tokens. No tag encoding is performed here; encoding is
+            deferred until the client sends a <c>textDocument/semanticTokens/full</c> request.
+            </summary>
+            <remarks>
+            The refresh is driven by the match-cache notification (rather than a raw parse
+            notification) so that it fires only after binding matches have been recomputed and
+            the binding-overlay tags are current; refreshing earlier would re-encode pre-binding
+            tokens. Multiple notifications can arrive in quick succession (e.g. when several files
+            open at once, or a build replaces the registry). A debounce window collapses those
+            bursts into a single <c>workspace/semanticTokens/refresh</c> request so the client is
+            not flooded. The refresh is also guarded by a client-capability check: if the client
+            did not advertise <c>workspace.semanticTokens.refreshSupport</c> the request is skipped.
+            </remarks>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Protocol.Documents.GherkinRangeExtensions">
+            <summary>
+            Converts <see cref="T:Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange"/> and <see cref="T:Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshot"/> positions to
+            OmniSharp LSP types. The pure geometry math (offset → line/character) lives on
+            <see cref="T:Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange"/> itself; this class adds only the OmniSharp-typed surface that
+            belongs in the server layer.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Protocol.Documents.GherkinRangeExtensions.ToOffset(Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshot,System.Int32,System.Int32)">
+            <summary>
+            Converts a 0-based LSP (line, character) position to a 0-based absolute character offset
+            within <paramref name="snapshot"/>. Clamps to the snapshot length when
+            <paramref name="line"/> exceeds the last line.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Protocol.Documents.SourceLocationExtensions">
+            <summary>
+            Converts <see cref="T:Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation"/> values (1-based, discovery layer) to OmniSharp LSP types.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Protocol.Documents.SourceLocationExtensions.ToLspLocation(Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation)">
+            <summary>
+            Converts a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation"/> to an LSP <see cref="T:OmniSharp.Extensions.LanguageServer.Protocol.Models.Location"/> for use in
+            <c>textDocument/definition</c> responses.  Always produces a zero-width range at the
+            start position — consistent with LSP convention where the definition range identifies
+            the symbol, not its body.  End-position data from the discovery layer (e.g. PDB
+            sequence-point spans from the Connector) is intentionally discarded here.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Protocol.Documents.SourceLocationExtensions.WithIdentifierLocation(Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation,System.String)">
+            <summary>
+            Returns a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation"/> refined to the method identifier token rather
+            than the method body start.
+            <para>
+            The connector discovery path stores the first PDB sequence point — typically the
+            opening <c>{</c> of the method body.  This helper reads a small backward window in the
+            source file to locate the line that contains the method name, which is what the Roslyn
+            discovery path reports and what produces a useful "Code" column in the VS declarations
+            window.  When the file is inaccessible or the name cannot be found the original location
+            is returned unchanged.
+            </para>
+            </summary>
+            <param name="loc">The location to refine (typically pointing at <c>{</c>).</param>
+            <param name="qualifiedMethod">
+            The qualified method name from the binding, e.g. <c>"CalculatorSteps.AddNumbers(int, int)"</c>.
+            Only the simple name after the last <c>.</c> (and before any <c>(</c>) is used for the search.
+            </param>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Protocol.LspMethodNames">
+            <summary>
+            Centralizes all LSP method names (both standard and custom Reqnroll extensions)
+            used by the language server. This prevents magic strings scattered across the codebase
+            and makes refactoring or auditing registered endpoints much easier.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectFilesParams">
+            <summary>
+            Payload for the <c>reqnroll/projectFiles</c> client-to-server notification.
+            Sent by IDE glue to establish or update the authoritative project-membership index so
+            the server knows which files each project claims (including linked files, excluded files,
+            and glob-resolved SDK-style includes).
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectFilesParams.ProjectFile">
+            <summary>Absolute path of the <c>.csproj</c> file.  Part 1 of the index key.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectFilesParams.TargetFrameworkMoniker">
+            <summary>
+            Full target-framework moniker, e.g. <c>.NETCoreApp,Version=v8.0</c>.
+            Part 2 of the index key; distinguishes per-TFM conditional membership for
+            multi-targeted projects (Phase 1 ignores TFM; reserved for a follow-up).
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectFilesParams.Kind">
+            <summary>
+            Whether this payload is an initial complete snapshot (<see cref="F:Reqnroll.IdeSupport.LSP.Server.Protocol.ProjectFilesKind.Baseline"/>)
+            or an incremental update (<see cref="F:Reqnroll.IdeSupport.LSP.Server.Protocol.ProjectFilesKind.Delta"/>).
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectFilesParams.Files">
+            <summary>
+            For a baseline: all files owned by this (project, TFM) combination.
+            For a delta: the changed entries only (use <see cref="P:Reqnroll.IdeSupport.LSP.Server.Protocol.ProjectFileEntry.Added"/> to distinguish).
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Protocol.ProjectFilesKind">
+            <summary>Distinguishes a full snapshot from an incremental update.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Protocol.ProjectFileEntry">
+            <summary>One file attributed to a project in a <see cref="T:Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectFilesParams"/> payload.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Protocol.ProjectFileEntry.Path">
+            <summary>Absolute on-disk path with link targets already resolved.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Protocol.ProjectFileEntry.Role">
+            <summary>
+            Whether this file contributes feature scenarios (<see cref="F:Reqnroll.IdeSupport.LSP.Server.Protocol.ProjectFileRole.Feature"/>)
+            or step-definition bindings (<see cref="F:Reqnroll.IdeSupport.LSP.Server.Protocol.ProjectFileRole.Binding"/>).
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Protocol.ProjectFileEntry.Added">
+            <summary>
+            For <see cref="F:Reqnroll.IdeSupport.LSP.Server.Protocol.ProjectFilesKind.Delta"/> payloads only:
+            <see langword="true"/> = add to index, <see langword="false"/> = remove from index.
+            Ignored on baselines.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Protocol.ProjectFileRole">
+            <summary>Classifies a project file's contribution to the Reqnroll model.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectLoadedParams">
+            <summary>
+            Payload for the <c>reqnroll/projectLoaded</c> client-to-server notification.
+            Sent by each IDE glue component when a Reqnroll project is opened or its
+            build properties change (e.g. after a rebuild).
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectLoadedParams.WorkspaceFolder">
+            <summary>
+            Absolute path of the LSP workspace folder this project belongs to.
+            Must match one of the paths sent in the LSP <c>initialize</c> handshake.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectLoadedParams.ProjectFile">
+            <summary>Absolute path of the <c>.csproj</c> file.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectLoadedParams.ProjectFolder">
+            <summary>Directory that contains the <c>.csproj</c> file.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectLoadedParams.OutputAssemblyPath">
+            <summary>
+            Absolute path of the primary output assembly, e.g.
+            <c>C:\repos\MyApp\tests\MyApp.Tests\bin\Debug\net8.0\MyApp.Tests.dll</c>.
+            May be empty when the project has not yet been built.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectLoadedParams.TargetFrameworkMoniker">
+            <summary>
+            Full target-framework moniker as produced by MSBuild / the IDE project system,
+            e.g. <c>.NETCoreApp,Version=v8.0</c> or <c>.NETFramework,Version=v4.8.1</c>.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectLoadedParams.DefaultNamespace">
+            <summary>
+            The project's default namespace (e.g. <c>MyApp.Tests</c>).
+            Used to derive namespaces for generated step-definition files.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectLoadedParams.PackageReferences">
+            <summary>
+            NuGet package references resolved for this project.
+            Used to identify Reqnroll projects and determine the Reqnroll version.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Protocol.PackageReferenceInfo">
+            <summary>One resolved NuGet package reference.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Protocol.PackageReferenceInfo.InstallPath">
+            <summary>
+            Absolute path to the package's install directory in the NuGet cache,
+            e.g. <c>C:\Users\me\.nuget\packages\reqnroll\2.1.0</c>.
+            Empty when the install path is not available.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectUnloadedParams">
+            <summary>
+            Payload for the <c>reqnroll/projectUnloaded</c> client-to-server notification.
+            Sent by each IDE glue component when a Reqnroll project is removed from the
+            solution or the solution itself is closed.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectUnloadedParams.ProjectFile">
+            <summary>
+            Absolute path of the <c>.csproj</c> file that was unloaded.
+            Must match the <see cref="P:Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectLoadedParams.ProjectFile"/> sent earlier.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Registry.BindingRegistryProviderRouter">
+            <summary>
+            Singleton <see cref="T:Reqnroll.IdeSupport.LSP.Server.Registry.IProjectBindingRegistryLookup"/> registered in the DI container.
+            Owns one <see cref="T:Reqnroll.IdeSupport.LSP.Server.Registry.ConnectorBindingRegistryProvider"/> per <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject"/>
+            and routes registry lookups to the provider that owns the requested document's project.
+            </summary>
+            <remarks>
+            <para>
+            Subscribes to <see cref="E:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.ProjectDiscovered"/> /
+            <see cref="E:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.ProjectRemoved"/> so that per-project providers
+            are created and torn down automatically as the IDE glue sends project notifications.
+            </para>
+            <para>
+            The per-project provider is also stored in
+            <see cref="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.Properties"/>[<c>typeof(ConnectorBindingRegistryProvider)</c>]
+            so that <see cref="!:Handlers.ProtocolHandlers.WatchedFilesHandler"/> can reach it
+            for output-assembly change events without going through this singleton.
+            </para>
+            <para>
+            Registries are intentionally <b>not</b> merged: step definitions belong to a single
+            project and a feature file should only be matched against the bindings of its own project.
+            <see cref="M:Reqnroll.IdeSupport.LSP.Server.Registry.BindingRegistryProviderRouter.GetRegistryForUri(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)"/> routes to the correct per-project registry via
+            <see cref="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.ResolvePrimaryOwner(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)"/> (primary-owner resolution /
+            shared-feature scoping 2A: deterministic home-project rule; no nondeterminism from
+            baseline-arrival order).
+            </para>
+            <para>
+            When any project's registry is replaced the router publishes a
+            <see cref="T:Reqnroll.IdeSupport.LSP.Server.Pipeline.BindingRegistryChangedNotification"/> via MediatR so that open feature files
+            belonging to that project are re-parsed and semantic tokens refreshed.
+            </para>
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Registry.BindingRegistryProviderRouter.GetRegistryForUri(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Registry.BindingRegistryProviderRouter.GetAllRegistries">
+            <inheritdoc/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Registry.BindingRegistryProviderRouter.HasBindingAtLocation(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Registry.ConnectorBindingRegistryProvider">
+            <summary>
+            Per-project <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.IBindingRegistryProvider"/> backed by
+            <see cref="T:Reqnroll.IdeSupport.LSP.Server.Discovery.ConnectorDiscoveryService"/>.
+            <para>
+            One instance lives in <see cref="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.Properties"/> (keyed by
+            <c>typeof(ConnectorBindingRegistryProvider)</c>), created by
+            <see cref="T:Reqnroll.IdeSupport.LSP.Server.Registry.BindingRegistryProviderRouter"/> when a project is discovered.
+            </para>
+            <para>
+            Discovery runs are debounced (500 ms) and cancellable: calling
+            <see cref="M:Reqnroll.IdeSupport.LSP.Server.Registry.ConnectorBindingRegistryProvider.TriggerRefresh"/> while a run is in flight cancels it and starts a fresh one.
+            When a run succeeds the last-good registry is replaced atomically and
+            <see cref="E:Reqnroll.IdeSupport.LSP.Server.Registry.ConnectorBindingRegistryProvider.BindingRegistryChanged"/> is raised.  When a run fails the last-good registry
+            is kept and an error is logged; the registry is never replaced with
+            <see cref="F:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.Invalid"/> after it has been successfully populated once.
+            </para>
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Registry.ConnectorBindingRegistryProvider.#ctor(Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject,Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger)">
+            <summary>
+            Creates a provider backed by the default connector-based discovery service
+            (generic/custom connector selected per project configuration).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Registry.ConnectorBindingRegistryProvider.#ctor(Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject,Reqnroll.IdeSupport.LSP.Server.Discovery.IConnectorDiscoveryService,Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger)">
+            <summary>
+            Creates a provider backed by a caller-supplied discovery service.  Used by tests to
+            substitute discovery so the debounce/cancellation/swap behaviour can be verified in
+            isolation from the out-of-process connector.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Registry.ConnectorBindingRegistryProvider.#ctor(Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject,Reqnroll.IdeSupport.LSP.Server.Discovery.IConnectorDiscoveryService,Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger,Reqnroll.IdeSupport.LSP.Server.Telemetry.ILspTelemetryService)">
+            <summary>
+            Creates a provider backed by a caller-supplied discovery service and telemetry service.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Registry.ConnectorBindingRegistryProvider.Current">
+            <inheritdoc/>
+        </member>
+        <member name="E:Reqnroll.IdeSupport.LSP.Server.Registry.ConnectorBindingRegistryProvider.BindingRegistryChanged">
+            <inheritdoc/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Registry.ConnectorBindingRegistryProvider.TriggerRefresh">
+            <summary>
+            Schedules a debounced discovery run.  Any in-flight run is cancelled immediately;
+            the new run starts after <c>500 ms</c> to absorb rapid successive triggers (e.g.
+            several output files being written by a build).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Registry.ConnectorBindingRegistryProvider.ApplyRoslynFileUpdateAsync(Reqnroll.IdeSupport.LSP.Core.Bindings.CSharpStepDefinitionFile)">
+            <summary>
+            Applies an immediate, source-level (Roslyn) binding update for a single C# file on top of
+            the current registry, replacing only that file's step definitions and hooks (Roslyn/C#
+            source-level binding discovery).
+            </summary>
+            <remarks>
+            This is the in-process counterpart to the out-of-process reflection connector: it gives
+            instant feedback as the user edits a step-definition file, without waiting for a build.
+            The patch is layered on top of <see cref="P:Reqnroll.IdeSupport.LSP.Server.Registry.ConnectorBindingRegistryProvider.Current"/> and intentionally does <b>not</b>
+            advance the connector's last-good hash, so the next successful connector run (after a real
+            build, whose assembly hash differs) replaces the whole registry with the authoritative
+            post-build result. If no build has happened, the connector run is a hash-match no-op and
+            the Roslyn patch survives.
+            </remarks>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Registry.IProjectBindingRegistryLookup">
+            <summary>
+            Resolves the <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry"/> for a specific document URI within
+            the LSP server, routing the lookup to the <see cref="T:Reqnroll.IdeSupport.LSP.Server.Registry.ConnectorBindingRegistryProvider"/>
+            that owns the project the document belongs to.
+            </summary>
+            <remarks>
+            This is the correct server-side abstraction for step-definition lookup.
+            Unlike <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.IBindingRegistryProvider"/> (which is a per-project interface),
+            this interface is URI-aware so consumers do not need to know which project a
+            document belongs to — that routing is done here via
+            <see cref="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.GetProjectForUri(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)"/>.
+            <para>
+            Registry-change notifications flow through MediatR as
+            <see cref="!:Notifications.BindingRegistryChangedNotification"/> rather than through a
+            C# event on this interface, so that all cross-cutting LSP concerns follow the same
+            established notification pattern.
+            </para>
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Registry.IProjectBindingRegistryLookup.GetRegistryForUri(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <summary>
+            Returns the binding registry for the project that owns <paramref name="uri"/>,
+            or <see cref="F:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.Invalid"/> when the document has no
+            associated project or the project has not yet completed a discovery run.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Registry.IProjectBindingRegistryLookup.HasBindingAtLocation(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation)">
+            <summary>
+            Returns <see langword="true"/> when any registry owned by the projects that contain
+            <paramref name="csUri"/> has a step-definition binding whose source span covers
+            <paramref name="query"/>. Used by <see cref="!:Handlers.ProtocolHandlers.StepReferencesHandler"/>
+            to distinguish "no binding at this location" (return <see langword="null"/>) from
+            "binding with zero matching steps" (return empty).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Registry.IProjectBindingRegistryLookup.GetAllRegistries">
+            <summary>
+            Returns a snapshot of all currently-known (project name, owner, registry) triplets,
+            one per discovered project. Used by Find Unused Step Definitions to enumerate all step
+            definitions workspace-wide.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Registry.NullBindingRegistryProvider">
+            <summary>
+            Stub <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.IBindingRegistryProvider"/> that always returns
+            <see cref="F:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.Invalid"/>. Used until a real
+            discovery connector is wired in.
+            </summary>
+        </member>
+        <member name="E:Reqnroll.IdeSupport.LSP.Server.Registry.NullBindingRegistryProvider.BindingRegistryChanged">
+            <inheritdoc/>
+            <remarks>Never raised by this implementation.</remarks>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Tagging.GherkinDocumentTaggerService">
+            <summary>Default implementation of <see cref="T:Reqnroll.IdeSupport.LSP.Server.Tagging.IGherkinDocumentTaggerService"/> that parses Gherkin tags and maintains binding match sets for feature documents.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Tagging.GherkinDocumentTaggerService.#ctor(Reqnroll.IdeSupport.LSP.Server.Features.TextSync.IDocumentBufferService,Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IDeveroomTagParser,Reqnroll.IdeSupport.LSP.Server.Registry.IProjectBindingRegistryLookup,Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens.ISemanticTokenService,Reqnroll.IdeSupport.LSP.Core.Matching.IBindingMatchService,Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager,Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger)">
+            <summary>Creates the tagger service with its collaborating document, registry, and match-set dependencies.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Tagging.GherkinDocumentTaggerService.ParseAsync(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.Nullable{System.Int32})">
+            <inheritdoc/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Tagging.GherkinDocumentTaggerService.ScanClosedFileAsync(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.String,Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Tagging.GherkinDocumentTaggerService.RescanClosedFileAsync(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Tagging.IGherkinDocumentTaggerService">
+            <summary>Parses the Gherkin tags for open and closed feature documents and keeps their binding match sets up to date.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Tagging.IGherkinDocumentTaggerService.ParseAsync(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.Nullable{System.Int32})">
+            <summary>Parses the open document's current buffer into tags, matching it against its project's binding registry and storing the resulting match set.</summary>
+            <param name="version">The expected document version; if it does not match the buffer's current version, parsing is skipped and an empty collection is returned.</param>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Tagging.IGherkinDocumentTaggerService.ScanClosedFileAsync(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri,System.String,Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject)">
+            <summary>
+            Parses <paramref name="text"/> as the content of <paramref name="uri"/> using
+            <paramref name="project"/>'s binding registry and stores the resulting match set
+            keyed by <c>(uri, project)</c>.  The document buffer is not updated; open-file
+            semantics are unaffected.
+            Used for workspace-wide scans of feature files that are not currently open
+            (e.g. the initial scan triggered on startup by a full binding-registry replacement).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Tagging.IGherkinDocumentTaggerService.RescanClosedFileAsync(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <summary>
+            Re-scans <paramref name="uri"/> from disk as a closed file for every project that owns
+            it, repopulating the binding match cache. Called when a feature file is closed so its
+            usages stay discoverable (Find Usages / Rename) after the open buffer is removed.
+            No-op when the file is missing on disk or has no owning project.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Telemetry.FileLoggingLspTelemetryService">
+            <summary>
+            Decorates <see cref="T:Reqnroll.IdeSupport.LSP.Server.Telemetry.ILspTelemetryService"/> to mirror every emitted event to a local JSONL
+            debug log (<see cref="T:Reqnroll.IdeSupport.Common.Logging.ITelemetryDebugLog"/>) before forwarding to the wrapped service.
+            <para>
+            The mirror is independent of the host transmission and the analytics opt-out, so it records
+            exactly what the server <em>produced</em> even when the event is dropped downstream or
+            telemetry is disabled. When the debug log is not configured the sink is a no-op and this
+            decorator simply forwards.
+            </para>
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Telemetry.ILspTelemetryService">
+            <summary>
+            Allows LSP server components to emit telemetry/event notifications to the client
+            without a direct dependency on OmniSharp's <c>ILanguageServerFacade</c>.
+            <para>
+            The client-side <c>telemetry/event</c> handler (a VS interceptor) receives these
+            notifications and forwards them to <see cref="T:Reqnroll.IdeSupport.Common.Telemetry.ITelemetryTransmitter"/>.
+            </para>
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Telemetry.ILspTelemetryService.SendEvent(System.String,System.Collections.Generic.Dictionary{System.String,System.Object})">
+            <summary>
+            Sends a <c>telemetry/event</c> notification to the client with the specified
+            <paramref name="eventName"/> and <paramref name="properties"/>.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Telemetry.LspTelemetryService">
+            <summary>
+            Sends <c>telemetry/event</c> notifications to the LSP client via
+            <see cref="!:ILanguageServerFacade.SendNotification"/>.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Telemetry.NullTelemetryService">
+            <summary>
+            No-op <see cref="T:Reqnroll.IdeSupport.Common.Telemetry.ITelemetryService"/> for the LSP server process.
+            Telemetry is not collected from the server side.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Tracing.ITraceService">
+            <summary>
+            Tracks the LSP <c>trace</c> level negotiated with the client (F41) and issues
+            <c>$/logTrace</c> notifications when it is anything other than <see cref="F:OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeTrace.Off"/>.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Tracing.ITraceService.Level">
+            <summary>
+            The current trace level: the value from <c>InitializeParams.Trace</c> at startup,
+            subsequently overridden by any <c>$/setTrace</c> notification.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Tracing.ITraceService.Trace(System.String,System.Func{System.String})">
+            <summary>
+            Sends a <c>$/logTrace</c> notification to the client, unless <see cref="P:Reqnroll.IdeSupport.LSP.Server.Tracing.ITraceService.Level"/> is
+            <see cref="F:OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeTrace.Off"/>. <paramref name="verboseMessage"/> is only invoked (and
+            only sent) when <see cref="P:Reqnroll.IdeSupport.LSP.Server.Tracing.ITraceService.Level"/> is <see cref="F:OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeTrace.Verbose"/>, so callers
+            can defer building an expensive detail string until it is actually wanted.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Tracing.SetTraceNotificationHandler">
+            <summary>
+            Handles the standard <c>$/setTrace</c> notification (F41), letting the client change the
+            trace level at runtime without restarting the server.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Tracing.TraceService">
+            <inheritdoc cref="T:Reqnroll.IdeSupport.LSP.Server.Tracing.ITraceService"/>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager">
+            <summary>
+            Manages the two-tier workspace model:
+            <list type="bullet">
+              <item><term>Folder tier</term><description>
+                One <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspProjectScope"/> per LSP workspace folder, created from the
+                <c>initialize</c> handshake or <c>workspace/didChangeWorkspaceFolders</c>.
+              </description></item>
+              <item><term>Project tier</term><description>
+                One <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject"/> per <c>.csproj</c> inside a folder,
+                created from <c>reqnroll/projectLoaded</c> notifications sent by IDE glue.
+              </description></item>
+            </list>
+            </summary>
+        </member>
+        <member name="E:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.ScopeOpened">
+            <summary>Raised after a new <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspProjectScope"/> is registered.</summary>
+        </member>
+        <member name="E:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.ScopeClosed">
+            <summary>Raised just before a <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspProjectScope"/> is disposed.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.OpenWorkspace(System.String)">
+            <summary>Registers a new workspace-folder root.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.CloseWorkspace(System.String)">
+            <summary>Disposes and removes the scope for <paramref name="rootPath"/>.</summary>
+        </member>
+        <member name="E:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.ProjectDiscovered">
+            <summary>
+            Raised after a new <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject"/> is created inside a scope.
+            Not raised when an existing project's properties are updated.
+            </summary>
+        </member>
+        <member name="E:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.ProjectRemoved">
+            <summary>
+            Raised just before a <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject"/> is disposed and removed.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.HandleProjectLoadedAsync(Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectLoadedParams,System.Threading.CancellationToken)">
+            <summary>
+            Handles a <c>reqnroll/projectLoaded</c> notification.
+            Creates the containing <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspProjectScope"/> if it does not yet exist,
+            then creates or updates the <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject"/>.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.HandleProjectUnloadedAsync(Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectUnloadedParams,System.Threading.CancellationToken)">
+            <summary>
+            Handles a <c>reqnroll/projectUnloaded</c> notification.
+            Removes and disposes the matching <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject"/>.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.GetScopeForUri(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <summary>
+            Returns the <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspProjectScope"/> whose root is the closest ancestor
+            of the local file path represented by <paramref name="uri"/>, or <c>null</c>.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.GetProjectForUri(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <summary>
+            Returns the <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject"/> whose project folder is the
+            closest ancestor of <paramref name="uri"/>, or <c>null</c>.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.GetProjectByOutputPath(System.String)">
+            <summary>
+            Returns the <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject"/> whose
+            <see cref="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.OutputAssemblyPath"/> matches
+            <paramref name="assemblyPath"/> (case-insensitive), or <c>null</c>.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.GetConfigurationProviderForUri(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <summary>
+            Returns the <see cref="T:Reqnroll.IdeSupport.Common.ProjectSystem.Configuration.IDeveroomConfigurationProvider"/> for the project that
+            covers <paramref name="uri"/>, falling back to a default provider when no
+            project or workspace matches.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.ResolvePrimaryOwner(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <summary>
+            Returns the single deterministic owner for <paramref name="uri"/>:
+            the owner whose <see cref="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.ProjectFolder"/> is the longest path-prefix
+            of the file (home project); for files outside every owner's folder, the owner with the
+            ordinally-smallest <see cref="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.ProjectFullName"/> is used as a stable
+            tiebreak. Returns <see langword="null"/> when <see cref="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.ResolveOwners(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)"/> returns no owners.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.HandleProjectFilesAsync(Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectFilesParams,System.Threading.CancellationToken)">
+            <summary>
+            Handles a <c>reqnroll/projectFiles</c> notification.
+            Applies a baseline or delta to the authoritative path → projects membership index.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.GetProjectsForUri(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <summary>
+            Returns all projects that the membership index attributes <paramref name="uri"/> to.
+            Returns an empty collection when no project has claimed the file.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.ResolveOwners(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <summary>
+            Resolves the owning projects for <paramref name="uri"/> using the full fallback chain:
+            index hit → owners; pending (no baseline yet) → folder-prefix singleton;
+            unowned → empty.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.GetMembershipState(OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri)">
+            <summary>
+            Returns the membership state of <paramref name="uri"/> relative to the index.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.GetIndexedFeatureFiles(Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject)">
+            <summary>
+            Returns all feature-file paths attributed to <paramref name="project"/> by the index.
+            Returns an empty collection when no baseline has been received yet (caller should
+            check <see cref="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.HasBaselineForProject(Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject)"/> to distinguish empty-index from no-index).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.GetBindingFilePathsForProject(Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject)">
+            <summary>
+            Returns all binding (C#) file paths attributed to <paramref name="project"/> by the
+            membership index.  Returns an empty collection when no baseline has been received yet.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager.HasBaselineForProject(Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject)">
+            <summary>
+            Returns <see langword="true"/> when a baseline has been received for
+            <paramref name="project"/>, even if that baseline contained no files.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspIdeScope">
+            <summary>
+            Server-level singleton implementation of <see cref="T:Reqnroll.IdeSupport.Common.IIdeScope"/> for the LSP server process.
+            Provides infrastructure services (logger, file system, monitoring) to project scopes and
+            configuration providers without any VSSDK dependency.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspProjectScope">
+            <summary>
+            Represents one LSP workspace folder (the root directory sent by the client in
+            the <c>initialize</c> handshake or via <c>workspace/didChangeWorkspaceFolders</c>).
+            </summary>
+            <remarks>
+            This is a <em>folder container</em>, not a project.  Individual Reqnroll projects
+            (<c>.csproj</c> files) within this folder are tracked as <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject"/>
+            instances populated by <c>reqnroll/projectLoaded</c> notifications from the IDE glue.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.LspProjectScope.#ctor(System.String,Reqnroll.IdeSupport.Common.IIdeScope)">
+            <summary>Creates a scope for the given workspace folder root.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspProjectScope.RootFolder">
+            <summary>Normalised absolute path of the workspace folder root.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspProjectScope.Projects">
+            <summary>All Reqnroll projects currently registered within this workspace folder.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.LspProjectScope.AddOrUpdateProject(Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectLoadedParams)">
+            <summary>
+            Creates a new <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject"/> for the given notification, or
+            updates the matching existing one in-place and returns it.
+            </summary>
+            <returns>
+            (<c>project</c>, <c>isNew</c>, <c>discoveryInputChanged</c>).
+            <c>discoveryInputChanged</c> is <see langword="true"/> for a newly created project, or
+            for an updated project whose output assembly path or target framework moniker changed.
+            </returns>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.LspProjectScope.RemoveProject(System.String)">
+            <summary>
+            Removes the project identified by <paramref name="projectFile"/> and returns it,
+            or <c>null</c> if it was not registered.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.LspProjectScope.Dispose">
+            <summary>Disposes all projects registered within this workspace folder and clears the collection.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.LspProjectScope.ToString">
+            <summary>Returns the workspace folder's root path, for logging and debugging.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject">
+            <summary>
+            Represents one <c>.csproj</c> Reqnroll project within an <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspProjectScope"/>
+            (workspace folder).  This is the LSP server's equivalent of the VS extension's
+            <c>VsProjectScope</c> — one instance per <c>.csproj</c>, implementing
+            <see cref="T:Reqnroll.IdeSupport.Common.ProjectSystem.IProjectScope"/> so the shared connector and settings infrastructure
+            works without modification.
+            </summary>
+            <remarks>
+            Properties are populated from the <see cref="T:Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectLoadedParams"/> notification
+            sent by the IDE glue component.  They may be updated in-place when the IDE sends a
+            fresh notification for the same project (e.g. after a rebuild changes the output path).
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.#ctor(Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectLoadedParams,Reqnroll.IdeSupport.Common.IIdeScope)">
+            <summary>Creates a project scope from the IDE's initial project-loaded notification.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.ProjectName">
+            <inheritdoc/>  e.g. "MyApp.Tests"
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.ProjectFullName">
+            <inheritdoc/>  Full path to the .csproj file.
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.ProjectFolder">
+            <inheritdoc/>  Directory containing the .csproj.
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.Properties">
+            <inheritdoc/>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.OutputAssemblyPath">
+            <inheritdoc/>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.TargetFrameworkMoniker">
+            <inheritdoc/>  Full moniker, e.g. ".NETCoreApp,Version=v8.0"
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.TargetFrameworkMonikers">
+            <inheritdoc/>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.PlatformTargetName">
+            <inheritdoc/>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.DefaultNamespace">
+            <inheritdoc/>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.PackageReferences">
+            <inheritdoc/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.GetFeatureFileCount">
+            <inheritdoc/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.GetProjectFiles(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.Update(Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectLoadedParams)">
+            <summary>
+            Refreshes mutable properties from a fresh <see cref="T:Reqnroll.IdeSupport.LSP.Server.Protocol.ReqnrollProjectLoadedParams"/>
+            notification for the same project (same <see cref="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.ProjectFullName"/>).
+            </summary>
+            <returns>
+            <see langword="true"/> when a discovery-relevant input changed — the
+            <see cref="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.OutputAssemblyPath"/> or <see cref="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.TargetFrameworkMoniker"/> — so the caller
+            knows to trigger binding re-discovery; otherwise <see langword="false"/>.
+            </returns>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.Dispose">
+            <summary>Disposes any disposable values stored in <see cref="P:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.Properties"/> and clears the bag.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject.ToString">
+            <summary>Returns the project name, for logging and debugging.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspWorkspaceScopeManager">
+            <summary>
+            Thread-safe implementation of <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.ILspWorkspaceScopeManager"/>.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.LspWorkspaceScopeManager.TriggerBindingDiscovery(Reqnroll.IdeSupport.LSP.Server.Workspace.LspReqnrollProject)">
+            <summary>
+            Triggers a debounced binding re-discovery on the per-project
+            <see cref="T:Reqnroll.IdeSupport.LSP.Server.Registry.ConnectorBindingRegistryProvider"/> stored in the project's property bag,
+            if one has been registered by <see cref="T:Reqnroll.IdeSupport.LSP.Server.Registry.BindingRegistryProviderRouter"/>.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Workspace.MembershipState">
+            <summary>
+            Describes how a URI relates to the authoritative project-membership index populated by
+            <c>reqnroll/projectFiles</c> notifications.
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Server.Workspace.MembershipState.Owned">
+            <summary>
+            At least one project has claimed the file in a received baseline payload.
+            Binding-dependent features (step matching, diagnostics, Go-to-Definition) are available.
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Server.Workspace.MembershipState.Pending">
+            <summary>
+            No project has claimed the file yet, but at least one project that could cover this
+            path has not sent a baseline.  The server treats the file as best-effort: folder-prefix
+            fallback is used so startup does not regress until baselines arrive.
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Server.Workspace.MembershipState.Unowned">
+            <summary>
+            No project claims the file and every covering project has already sent its baseline.
+            The file is intentionally excluded from all projects.  Binding-dependent features are
+            suppressed to avoid phantom diagnostics (invariant I2).
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Workspace.ProjectKey">
+            <summary>
+            Identifies a (project, TFM) combination in the membership index.
+            Phase 1 matches on <see cref="P:Reqnroll.IdeSupport.LSP.Server.Workspace.ProjectKey.ProjectFile"/> only; <see cref="P:Reqnroll.IdeSupport.LSP.Server.Workspace.ProjectKey.Tfm"/> is stored for a
+            future per-TFM keying follow-up.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Server.Workspace.ProjectKey.#ctor(System.String,System.String)">
+            <summary>
+            Identifies a (project, TFM) combination in the membership index.
+            Phase 1 matches on <see cref="P:Reqnroll.IdeSupport.LSP.Server.Workspace.ProjectKey.ProjectFile"/> only; <see cref="P:Reqnroll.IdeSupport.LSP.Server.Workspace.ProjectKey.Tfm"/> is stored for a
+            future per-TFM keying follow-up.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Workspace.WatchedFilesHandler">
+            <summary>
+            Handles <c>workspace/didChangeWatchedFiles</c> notifications.
+            <list type="bullet">
+              <item><term>reqnroll.json changes</term>
+                <description>Reload the owning project's configuration and trigger binding re-discovery.</description>
+              </item>
+              <item><term>.editorconfig changes</term>
+                <description>Invalidate the EditorConfig cache and reload configuration for all projects
+                in the affected workspace scope.</description>
+              </item>
+              <item><term>Output assembly changes (<c>bin/**/*.dll</c>)</term>
+                <description>Trigger binding re-discovery for the project whose output path matches.</description>
+              </item>
+              <item><term>C# source file deletions (<c>*.cs</c>)</term>
+                <description>Remove the deleted file's step definitions from the binding registry so that
+                stale entries do not appear in Find Unused Step Definitions results.</description>
+              </item>
+            </list>
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Server.Workspace.WorkspaceFoldersHandler">
+            <summary>
+            Handles <c>workspace/didChangeWorkspaceFolders</c> notifications.
+            Opens/closes <see cref="T:Reqnroll.IdeSupport.LSP.Server.Workspace.LspProjectScope"/> instances in response to the client
+            adding or removing workspace roots.
+            </summary>
+        </member>
+    </members>
+</doc>

@@ -13,6 +13,7 @@ namespace Reqnroll.IdeSupport.Common.Logging;
 /// </summary>
 public static class IdeSupportLogLevelConverter
 {
+    /// <summary>Gets or sets the to trace level.</summary>
     public static TraceLevel ToTraceLevel(LogLevel level) => level switch
     {
         LogLevel.Trace or LogLevel.Debug    => TraceLevel.Verbose,
@@ -22,6 +23,7 @@ public static class IdeSupportLogLevelConverter
         _                                   => TraceLevel.Off,
     };
 
+    /// <summary>Gets or sets the to log level.</summary>
     public static LogLevel ToLogLevel(TraceLevel level) => level switch
     {
         TraceLevel.Off     => LogLevel.None,
@@ -39,14 +41,17 @@ public sealed class IdeSupportLoggerAdapter : ILogger
     private readonly string _categoryName;
     private readonly IIdeSupportLogger _logger;
 
+    /// <summary>Initializes a new instance of the <see cref="IdeSupportLoggerAdapter"/> class.</summary>
     public IdeSupportLoggerAdapter(string categoryName, IIdeSupportLogger logger)
     {
         _categoryName = categoryName;
         _logger = logger;
     }
 
+    /// <summary>Gets or sets the is enabled.</summary>
     public bool IsEnabled(LogLevel logLevel) => _logger.IsLogging(IdeSupportLogLevelConverter.ToTraceLevel(logLevel));
 
+    /// <summary>Gets or sets the log<tstate>.</summary>
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
         Func<TState, Exception?, string> formatter)
     {
@@ -54,6 +59,7 @@ public sealed class IdeSupportLoggerAdapter : ILogger
             _categoryName, exception));
     }
 
+    /// <summary>Gets or sets the begin scope<tstate>.</summary>
     public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
 
     private sealed class NullScope : IDisposable
@@ -73,12 +79,16 @@ public sealed class IdeSupportLoggerFactory : ILoggerFactory
 {
     private readonly IIdeSupportLogger _logger;
 
+    /// <summary>Initializes a new instance of the <see cref="IdeSupportLoggerFactory"/> class.</summary>
     public IdeSupportLoggerFactory(IIdeSupportLogger logger) => _logger = logger;
 
+    /// <summary>Gets or sets the create logger.</summary>
     public ILogger CreateLogger(string categoryName) => new IdeSupportLoggerAdapter(categoryName, _logger);
 
     // Single sink by design - IIdeSupportLogger already fans out via IdeSupportCompositeLogger when needed.
+    /// <summary>Gets or sets the add provider.</summary>
     public void AddProvider(ILoggerProvider provider) { }
 
+    /// <summary>Gets or sets the dispose.</summary>
     public void Dispose() { }
 }

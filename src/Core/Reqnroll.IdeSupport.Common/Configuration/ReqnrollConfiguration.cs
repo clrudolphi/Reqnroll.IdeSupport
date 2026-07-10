@@ -6,12 +6,17 @@ using System.Text.RegularExpressions;
 
 namespace Reqnroll.IdeSupport.Common.Configuration;
 
+/// <summary>ReqnrollConfiguration</summary>
 public class ReqnrollConfiguration
 {
+    /// <summary>Gets or sets the is reqnroll project.</summary>
     public bool? IsReqnrollProject { get; set; }
 
+    /// <summary>Gets or sets the version.</summary>
     public string Version { get; set; }
+    /// <summary>Gets or sets the config file path.</summary>
     public string ConfigFilePath { get; set; }
+    /// <summary>Gets or sets the traits.</summary>
     public ReqnrollProjectTraits[] Traits { get; set; } = new ReqnrollProjectTraits[0];
 
     private void FixEmptyContainers()
@@ -19,6 +24,7 @@ public class ReqnrollConfiguration
         Traits = Traits ?? new ReqnrollProjectTraits[0];
     }
 
+    /// <summary>Gets or sets the check configuration.</summary>
     public void CheckConfiguration()
     {
         FixEmptyContainers();
@@ -29,11 +35,13 @@ public class ReqnrollConfiguration
 
     #region Equality
 
+    /// <summary>Gets or sets the equals.</summary>
     protected bool Equals(ReqnrollConfiguration other) => IsReqnrollProject == other.IsReqnrollProject &&
                                                           string.Equals(Version, other.Version) &&
                                                           string.Equals(ConfigFilePath, other.ConfigFilePath) &&
                                                           Equals(Traits, other.Traits);
 
+    /// <summary>Gets or sets the equals.</summary>
     public override bool Equals(object obj)
     {
         if (ReferenceEquals(null, obj)) return false;
@@ -42,6 +50,7 @@ public class ReqnrollConfiguration
         return Equals((ReqnrollConfiguration) obj);
     }
 
+    /// <summary>Gets or sets the get hash code.</summary>
     public override int GetHashCode()
     {
         unchecked

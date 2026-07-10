@@ -23,6 +23,7 @@ public sealed class FindUnusedStepDefinitionsService : IFindUnusedStepDefinition
     private readonly IBindingMatchService _matchService;
     private readonly IIdeSupportLogger _logger;
 
+    /// <summary>Initializes a new instance of the <see cref="FindUnusedStepDefinitionsService"/> class.</summary>
     public FindUnusedStepDefinitionsService(IBindingMatchService matchService, IIdeSupportLogger logger)
     {
         _matchService = matchService;

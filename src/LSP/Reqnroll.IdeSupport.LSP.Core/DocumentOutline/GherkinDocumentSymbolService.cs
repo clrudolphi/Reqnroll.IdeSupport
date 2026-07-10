@@ -7,8 +7,10 @@ using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
 namespace Reqnroll.IdeSupport.LSP.Core.DocumentOutline;
 
+/// <summary>GherkinDocumentSymbolService</summary>
 public class GherkinDocumentSymbolService : IGherkinDocumentSymbolService
 {
+    /// <summary>Gets or sets the build symbols.</summary>
     public IReadOnlyList<GherkinDocumentSymbol> BuildSymbols(IReadOnlyCollection<DeveroomTag> tags)
     {
         var featureTag = tags.FirstOrDefault(t => t.Type == DeveroomTagTypes.FeatureBlock);

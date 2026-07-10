@@ -4,6 +4,7 @@ using System.Threading;
 
 namespace Reqnroll.IdeSupport.Common;
 
+/// <summary>DebuggableCancellationTokenSource</summary>
 public class DebuggableCancellationTokenSource : CancellationTokenSource
 {
     /// <summary>
@@ -15,6 +16,7 @@ public class DebuggableCancellationTokenSource : CancellationTokenSource
     {
     }
 
+    /// <summary>Gets or sets the get debugger timeout.</summary>
     public static TimeSpan GetDebuggerTimeout(TimeSpan nonDebuggerTimeout)
         => Debugger.IsAttached ? TimeSpan.FromMinutes(1) : nonDebuggerTimeout;
 }

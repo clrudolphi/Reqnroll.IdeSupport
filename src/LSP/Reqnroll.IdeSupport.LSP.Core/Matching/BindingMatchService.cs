@@ -10,6 +10,7 @@ public sealed class BindingMatchService : IBindingMatchService
 {
     private readonly ConcurrentDictionary<MatchSetKey, FeatureBindingMatchSet> _cache = new();
 
+    /// <summary>Gets or sets the store.</summary>
     public void Store(FeatureBindingMatchSet matchSet)
     {
         if (matchSet == null) throw new ArgumentNullException(nameof(matchSet));
@@ -20,6 +21,7 @@ public sealed class BindingMatchService : IBindingMatchService
             _cache.TryRemove(MatchSetKey.ForUnknownProject(matchSet.Key.DocumentId), out _);
     }
 
+    /// <summary>Gets or sets the try get.</summary>
     public bool TryGet(MatchSetKey key, out FeatureBindingMatchSet matchSet)
     {
         if (_cache.TryGetValue(key, out var found))
@@ -32,6 +34,7 @@ public sealed class BindingMatchService : IBindingMatchService
         return false;
     }
 
+    /// <summary>Gets or sets the invalidate all for document.</summary>
     public void InvalidateAllForDocument(string documentId)
     {
         if (string.IsNullOrEmpty(documentId))
@@ -44,6 +47,7 @@ public sealed class BindingMatchService : IBindingMatchService
         }
     }
 
+    /// <summary>Gets or sets the invalidate all for project.</summary>
     public void InvalidateAllForProject(ProjectOwner owner)
     {
         if (!owner.IsKnown)
@@ -57,8 +61,10 @@ public sealed class BindingMatchService : IBindingMatchService
         }
     }
 
+    /// <summary>Gets or sets the invalidate all.</summary>
     public void InvalidateAll() => _cache.Clear();
 
+    /// <summary>Gets or sets the find usages.</summary>
     public IReadOnlyList<StepBindingMatch> FindUsages(
         SourceLocation bindingLocation,
         IReadOnlyCollection<ProjectOwner>? projectFilter = null)

@@ -5,9 +5,12 @@ using System.Text.RegularExpressions;
 
 namespace Reqnroll.IdeSupport.Common.Configuration;
 
+/// <summary>TagLinkConfiguration</summary>
 public class TagLinkConfiguration
 {
+    /// <summary>Gets or sets the tag pattern.</summary>
     public string TagPattern { get; set; }
+    /// <summary>Gets or sets the url template.</summary>
     public string UrlTemplate { get; set; }
 
     internal Regex ResolvedTagPattern { get; private set; }
@@ -17,6 +20,7 @@ public class TagLinkConfiguration
         //nop;
     }
 
+    /// <summary>Gets or sets the check configuration.</summary>
     public void CheckConfiguration()
     {
         FixEmptyContainers();
@@ -39,10 +43,12 @@ public class TagLinkConfiguration
 
     #region Equality
 
+    /// <summary>Gets or sets the equals.</summary>
     protected bool Equals(TagLinkConfiguration other) => string.Equals(TagPattern, other.TagPattern) &&
                                                          string.Equals(UrlTemplate, other.UrlTemplate) &&
                                                          Equals(ResolvedTagPattern, other.ResolvedTagPattern);
 
+    /// <summary>Gets or sets the equals.</summary>
     public override bool Equals(object obj)
     {
         if (ReferenceEquals(null, obj)) return false;
@@ -51,6 +57,7 @@ public class TagLinkConfiguration
         return Equals((TagLinkConfiguration) obj);
     }
 
+    /// <summary>Gets or sets the get hash code.</summary>
     public override int GetHashCode()
     {
         unchecked

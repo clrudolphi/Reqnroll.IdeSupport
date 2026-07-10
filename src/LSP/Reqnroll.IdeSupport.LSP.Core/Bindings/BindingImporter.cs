@@ -31,6 +31,7 @@ public class BindingImporter
     private readonly ReqnrollTagExpressionParser _tagExpressionParser = new();
     private readonly Dictionary<string, string> _typeNames;
 
+    /// <summary>Initializes a new instance of the <see cref="BindingImporter"/> class.</summary>
     public BindingImporter(Dictionary<string, string> sourceFiles, Dictionary<string, string> typeNames,
         IIdeSupportLogger logger)
     {

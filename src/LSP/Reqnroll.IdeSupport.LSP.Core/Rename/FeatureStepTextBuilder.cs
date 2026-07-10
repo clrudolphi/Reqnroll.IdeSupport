@@ -32,6 +32,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Rename;
 /// </summary>
 public static class FeatureStepTextBuilder
 {
+    /// <summary>Gets or sets the build.</summary>
     public static string Build(
         string  newExpression,
         string? oldExpression,

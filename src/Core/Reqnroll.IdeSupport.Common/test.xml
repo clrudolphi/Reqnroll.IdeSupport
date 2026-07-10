@@ -1,0 +1,288 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Reqnroll.IdeSupport.Common</name>
+    </assembly>
+    <members>
+        <member name="T:Reqnroll.IdeSupport.Common.Classification.ReqnrollClassificationTypeNames">
+            <summary>
+            The canonical set of custom Reqnroll classification / semantic-token type names.
+            </summary>
+            <remarks>
+            <para>
+            These names are the single source of truth shared by:
+            </para>
+            <list type="bullet">
+              <item>the LSP server's semantic-token legend (advertised in the <c>initialize</c> response), and</item>
+              <item>the Visual Studio extension's MEF <c>ClassificationTypeDefinition</c> exports
+                    (<c>DeveroomClassifications</c>), which map each name to a concrete editor colour.</item>
+            </list>
+            <para>
+            Rather than emitting the generic LSP standard token types (<c>keyword</c>, <c>string</c>,
+            <c>parameter</c>, …), the server declares these Reqnroll-specific names so that each IDE
+            client can map a Reqnroll concept to a Reqnroll-specific colour instead of overloading a
+            host theme's generic scopes.  The values intentionally match the custom classification
+            names already used by the existing <c>Reqnroll.VisualStudio</c> extension, giving existing
+            users pixel-for-pixel continuity.
+            </para>
+            <para>
+            <b>Legend stability:</b> the order in <see cref="F:Reqnroll.IdeSupport.Common.Classification.ReqnrollClassificationTypeNames.Ordered"/> is the contract between the
+            server and every client (the index emitted in each semantic-token 5-tuple is an index into
+            this list).  Append new entries only — never reorder or remove existing ones — so that older
+            client index assumptions remain valid across versions.
+            </para>
+            </remarks>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.Common.Classification.ReqnrollClassificationTypeNames.UndefinedStep">
+            <summary>
+            Step text of a step with no matching binding.  Only carries meaning once Roslyn/C#
+            source-level binding discovery is available; reserved in the legend from Phase 1 so the legend never
+            changes across phases.
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.Common.Classification.ReqnrollClassificationTypeNames.AmbiguousStep">
+            <summary>
+            Step text of a step that matches more than one step-definition binding (ambiguous).
+            The test would fail at runtime with "Ambiguous step definitions"; highlighted to make
+            the conflict visible in the editor.
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.Common.Classification.ReqnrollClassificationTypeNames.Ordered">
+            <summary>
+            The legend order.  Indices into this array are the <c>tokenTypeIndex</c> emitted in the
+            LSP semantic-token 5-tuples.  Append-only (see "Legend stability" in the type remarks).
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.Common.Configuration.CSharpCodeGenerationConfiguration.NamespaceDeclarationStyle">
+            <summary>
+            Specifies the namespace declaration style for generated C# code.
+            Uses file-scoped namespaces when set to "file_scoped", otherwise uses block-scoped namespaces.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.Common.Configuration.CSharpCodeGenerationConfiguration.UseFileScopedNamespaces">
+            <summary>
+            Determines if file-scoped namespaces should be used based on the EditorConfig setting.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.Common.Configuration.EditorConfigOptionsExtensions.UpdateFromEditorConfig``1(Reqnroll.IdeSupport.Common.Configuration.IEditorConfigOptions,``0)">
+            <summary>
+            For each property on <paramref name="config"/> annotated with
+            <see cref="T:Reqnroll.IdeSupport.Common.Configuration.EditorConfigSettingAttribute"/>, reads the corresponding key from
+            <paramref name="options"/> and replaces the property value when the key is present.
+            Supported property types: <see langword="bool"/>, <see langword="int"/>,
+            <see langword="string"/>.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.Common.Configuration.GherkinFormatConfiguration.IndentFeatureChildren">
+            <summary>
+                Specifies whether child elements of Feature (Background, Rule, Scenario, Scenario Outline) should be indented.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.Common.Configuration.GherkinFormatConfiguration.IndentRuleChildren">
+            <summary>
+                Specifies whether child elements fo Rule (Background, Scenario, Scenario Outline) should be indented.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.Common.Configuration.GherkinFormatConfiguration.IndentSteps">
+            <summary>
+                Specifies whether steps of scenarios should be indented.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.Common.Configuration.GherkinFormatConfiguration.IndentAndSteps">
+            <summary>
+                Specifies whether the 'And' and 'But' steps of the scenarios should have an additional indentation.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.Common.Configuration.GherkinFormatConfiguration.IndentDataTable">
+            <summary>
+                Specifies whether DataTable arguments should be indented within the step.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.Common.Configuration.GherkinFormatConfiguration.IndentDocString">
+            <summary>
+                Specifies whether DocString arguments should be indented within the step.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.Common.Configuration.GherkinFormatConfiguration.IndentExamples">
+            <summary>
+                Specifies whether the Examples block should be indented within the Scenario Outline.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.Common.Configuration.GherkinFormatConfiguration.IndentExamplesTable">
+            <summary>
+                Specifies whether the Examples table should be indented within the Examples block.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.Common.Configuration.GherkinFormatConfiguration.TableCellPaddingSize">
+            <summary>
+                The number of space characters to be used on each sides as table cell padding.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.Common.Configuration.GherkinFormatConfiguration.TableCellRightAlignNumericContent">
+            <summary>
+                Right-align numeric table cells
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.Common.Configuration.IEditorConfigOptions">
+            <summary>
+            Read-only view of EditorConfig settings that apply to a specific file path.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.Common.Configuration.IEditorConfigOptions.GetOption``1(System.String,``0)">
+            <summary>Returns the value for <paramref name="key"/>, or <paramref name="defaultValue"/> if the key is absent.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.Common.Configuration.IEditorConfigOptions.GetBoolOption(System.String,System.Boolean)">
+            <summary>Convenience overload for boolean keys.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.Common.Configuration.IEditorConfigOptionsProvider">
+            <summary>
+            Resolves the EditorConfig options that apply to a given file-system path.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.Common.Configuration.IEditorConfigOptionsProvider.GetEditorConfigOptionsByPath(System.String)">
+            <summary>
+            Returns the merged EditorConfig settings that apply to <paramref name="filePath"/>,
+            following the standard search-upward-from-file-directory semantics.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.Common.Configuration.IEditorConfigOptionsProvider.InvalidateCache(System.String)">
+            <summary>
+            Evicts the cached parse result for the given <c>.editorconfig</c> file so that the
+            next call to <see cref="M:Reqnroll.IdeSupport.Common.Configuration.IEditorConfigOptionsProvider.GetEditorConfigOptionsByPath(System.String)"/> re-reads it from disk.
+            No-op when no cache entry exists.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.Common.Configuration.NullEditorConfigOptions">
+            <summary>
+            Returns the caller-supplied default for every key. Used when no .editorconfig applies.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.Common.Configuration.NullEditorConfigOptionsProvider">
+            <summary>
+            No-op provider that always returns <see cref="T:Reqnroll.IdeSupport.Common.Configuration.NullEditorConfigOptions"/>. Used in contexts
+            where .editorconfig lookup is unavailable (tests, non-LSP hosts).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.Common.DebuggableCancellationTokenSource.#ctor(System.TimeSpan)">
+            <summary>
+                Do not forget to Dispose!
+            </summary>
+            <param name="nonDebuggerTimeout"></param>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.Common.IIdeScope">
+            <summary>
+            Minimal IDE scope contract needed by the Wizards layer.
+            The full IIdeScope from Reqnroll.IdeSupport.VisualStudio has ~15 members (text buffers,
+            Roslyn, solution events, etc.) that wizards do not need.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.Common.IIdeActions">
+            <summary>
+            Minimal actions contract: only error/problem reporting used by wizards.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.Common.Logging.IdeSupportLogLevelConverter">
+            <summary>
+            Canonical <see cref="T:System.Diagnostics.TraceLevel"/> &lt;-&gt; <see cref="T:Microsoft.Extensions.Logging.LogLevel"/> mapping, shared by every
+            place that bridges <see cref="T:Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger"/> (our app-level logging API) onto
+            <see cref="N:Microsoft.Extensions.Logging"/>'s <c>ILogger</c>/<c>ILogger&lt;T&gt;</c> abstractions.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.Common.Logging.IdeSupportLoggerAdapter">
+            <summary>Adapts a single <see cref="N:Microsoft.Extensions.Logging"/> category onto an <see cref="T:Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger"/> sink.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.Common.Logging.IdeSupportLoggerFactory">
+            <summary>
+            Bridges a single <see cref="T:Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger"/> sink onto the standard
+            <see cref="T:Microsoft.Extensions.Logging.ILoggerFactory"/>/<see cref="T:Microsoft.Extensions.Logging.ILogger`1"/> abstractions, so that
+            consumers can be written against <c>ILogger&lt;T&gt;</c> while still writing through the same
+            file/debug sink as everything else using <see cref="T:Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger"/> directly.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.Common.Logging.ITelemetryDebugLog">
+            <summary>
+            Debug-only sink that mirrors telemetry events to a local file for later review.
+            <para>
+            Deliberately independent of the analytics opt-out gate (<c>REQNROLL_TELEMETRY_ENABLED</c>):
+            it records what the system <em>produced</em> even when transmission is disabled or the event
+            is dropped downstream. Implementations must never throw — telemetry debugging must not break
+            the feature path.
+            </para>
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.Common.Logging.ITelemetryDebugLog.IsEnabled">
+            <summary>Whether a sink is configured. When false, <see cref="M:Reqnroll.IdeSupport.Common.Logging.ITelemetryDebugLog.Record(System.String,System.String,System.Object,System.Nullable{System.Boolean},System.Nullable{System.Boolean},System.String)"/> is a no-op.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.Common.Logging.ITelemetryDebugLog.Record(System.String,System.String,System.Object,System.Nullable{System.Boolean},System.Nullable{System.Boolean},System.String)">
+            <summary>
+            Appends one record describing a telemetry event.
+            </summary>
+            <param name="source">Where the event was captured: <c>"server"</c> or <c>"host"</c>.</param>
+            <param name="eventName">The telemetry event name.</param>
+            <param name="properties">The event properties (serialized as a JSON object); may be null.</param>
+            <param name="enabled">Host only: whether the opt-out gate allowed transmission.</param>
+            <param name="transmitted">Host only: whether the event was actually handed to the channel.</param>
+            <param name="error">Host only: the message if transmission threw, otherwise null.</param>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.Common.Logging.NullTelemetryDebugLog">
+            <summary>No-op sink used when the debug log is not configured.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.Common.Logging.TelemetryDebugLog">
+            <summary>
+            Factory that builds an <see cref="T:Reqnroll.IdeSupport.Common.Logging.ITelemetryDebugLog"/> from the
+            <c>REQNROLL_TELEMETRY_DEBUG_LOG</c> environment variable. This is separate from
+            <c>REQNROLL_TELEMETRY_ENABLED</c> (the transmission opt-out): the debug log is a developer aid
+            and is <b>off by default</b>, regardless of whether telemetry transmission is enabled.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.Common.Logging.TelemetryDebugLog.FromEnvironment">
+            <summary>
+            Resolves the sink from the environment:
+            <list type="bullet">
+              <item>unset / empty / <c>"0"</c> / <c>"false"</c> → disabled (no-op);</item>
+              <item><c>"1"</c> / <c>"true"</c> → JSONL at <see cref="M:Reqnroll.IdeSupport.Common.Logging.TelemetryDebugLog.DefaultPath"/>;</item>
+              <item>any other value → treated as the target file path.</item>
+            </list>
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.Common.Logging.TelemetryDebugLog.DefaultPath">
+            <summary>
+            <c>%LOCALAPPDATA%\Reqnroll\reqnroll-telemetry-{yyyyMMdd}.jsonl</c> — a sibling of the
+            existing diagnostic logs written by <see cref="T:Reqnroll.IdeSupport.Common.Logging.AsynchronousFileLogger"/>.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.Common.Logging.FileTelemetryDebugLog">
+            <summary>
+            Appends telemetry records as newline-delimited JSON (one object per line) to a local file.
+            Append-only and lock-guarded; all I/O errors are swallowed so telemetry debugging never
+            affects the feature path.
+            </summary>
+        </member>
+        <member name="E:Reqnroll.IdeSupport.Common.ProjectSystem.Configuration.IDeveroomConfigurationProvider.ConfigurationChanged">
+            <summary>Raised on any thread when configuration changes.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.Common.ProjectSystem.NuGetVersion.RequestedRange">
+            <summary>The project's requested package range for the package.</summary>
+            <remarks>
+                If the project uses packages.config, this will be same as the installed package version.
+                If the project uses PackageReference, this is the version string in the project file, which may not match the
+                resolved package version, and may not be single version string.
+                If the project uses PackageReference, and the package is a transitive dependency, the value will be null.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.Common.ProjectSystem.PathUtils.IsUnderFolder(System.String,System.String)">
+            <summary>
+            True when <paramref name="filePath"/> is <paramref name="folder"/> itself, or lives
+            somewhere under it — with a directory-separator boundary check, unlike a bare
+            <c>filePath.StartsWith(folder)</c>.
+            </summary>
+            <remarks>
+            A plain string-prefix check treats a sibling folder whose name happens to extend the
+            prefix as "inside" it — e.g. <c>@"C:\Repo\Minimalnet481\Foo.cs"</c> starts with
+            <c>@"C:\Repo\Minimal"</c> even though <c>Minimalnet481</c> is a completely different
+            folder than <c>Minimal</c>. Confirmed live: this let a sibling project's step-definition
+            bindings bleed into another project's registry, producing false "ambiguous step" matches.
+            </remarks>
+        </member>
+    </members>
+</doc>

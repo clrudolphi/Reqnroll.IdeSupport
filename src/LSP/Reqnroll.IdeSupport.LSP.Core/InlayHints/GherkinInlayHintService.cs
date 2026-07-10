@@ -6,6 +6,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.InlayHints;
 /// <inheritdoc cref="IGherkinInlayHintService"/>
 public sealed class GherkinInlayHintService : IGherkinInlayHintService
 {
+    /// <summary>Gets or sets the build.</summary>
     public IReadOnlyList<GherkinInlayHint> Build(FeatureBindingMatchSet matchSet)
     {
         var hints = new List<GherkinInlayHint>();

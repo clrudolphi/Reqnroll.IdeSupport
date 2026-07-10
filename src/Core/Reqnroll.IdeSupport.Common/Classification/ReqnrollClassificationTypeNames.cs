@@ -31,14 +31,23 @@ namespace Reqnroll.IdeSupport.Common.Classification;
 /// </remarks>
 public static class ReqnrollClassificationTypeNames
 {
+    /// <summary>Gets or sets the keyword.</summary>
     public const string Keyword = "reqnroll.keyword";
+    /// <summary>Gets or sets the tag.</summary>
     public const string Tag = "reqnroll.tag";
+    /// <summary>Gets or sets the description.</summary>
     public const string Description = "reqnroll.description";
+    /// <summary>Gets or sets the comment.</summary>
     public const string Comment = "reqnroll.comment";
+    /// <summary>Gets or sets the doc string.</summary>
     public const string DocString = "reqnroll.doc_string";
+    /// <summary>Gets or sets the data table.</summary>
     public const string DataTable = "reqnroll.data_table";
+    /// <summary>Gets or sets the data table header.</summary>
     public const string DataTableHeader = "reqnroll.data_table_header";
+    /// <summary>Gets or sets the step parameter.</summary>
     public const string StepParameter = "reqnroll.step_parameter";
+    /// <summary>Gets or sets the scenario outline placeholder.</summary>
     public const string ScenarioOutlinePlaceholder = "reqnroll.scenario_outline_placeholder";
 
     /// <summary>
