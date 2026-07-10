@@ -5,17 +5,15 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
+using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Core.Bindings.TagExpressions;
-
-
-using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 
 
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Reqnroll.IdeSupport.LSP.Core.Bindings;
+namespace Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
 
 /// <summary>
 /// Roslyn-based (source-level) binding discovery (design doc feature F2). Scans a single
