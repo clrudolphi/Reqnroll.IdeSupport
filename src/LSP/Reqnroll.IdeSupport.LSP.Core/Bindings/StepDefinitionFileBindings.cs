@@ -8,6 +8,7 @@ public record StepDefinitionFileBindings(
     IReadOnlyList<ProjectStepDefinitionBinding> StepDefinitions,
     IReadOnlyList<ProjectHookBinding> Hooks)
 {
+    /// <summary>Sentinel for a file that contains no step definitions or hooks.</summary>
     public static readonly StepDefinitionFileBindings Empty =
         new(Array.Empty<ProjectStepDefinitionBinding>(), Array.Empty<ProjectHookBinding>());
 }

@@ -1,5 +1,10 @@
 namespace Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
+/// <summary>
+/// String constants identifying the kind of a <c>DeveroomTag</c> node produced while walking a
+/// parsed feature document (e.g. by <c>DeveroomTagParser</c>) — used to classify tags for
+/// semantic tokens, diagnostics, and binding-match lookup.
+/// </summary>
 public static class DeveroomTagTypes
 {
     public const string FeatureBlock = nameof(FeatureBlock);

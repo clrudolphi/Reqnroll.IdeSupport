@@ -7,6 +7,10 @@ using Reqnroll.IdeSupport.LSP.Core.Documents;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
+/// <summary>
+/// Walks a parsed feature document and produces the flattened <c>DeveroomTag</c> tree consumed
+/// for semantic tokens, diagnostics, and step binding matches.
+/// </summary>
 public interface IDeveroomTagParser
 {
     /// <summary>

@@ -7,6 +7,7 @@ using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Completions;
 
+/// <summary>Provides completion suggestions for feature files: Gherkin keywords and step-definition samples.</summary>
 public interface ICompletionService
 {
     /// <summary>

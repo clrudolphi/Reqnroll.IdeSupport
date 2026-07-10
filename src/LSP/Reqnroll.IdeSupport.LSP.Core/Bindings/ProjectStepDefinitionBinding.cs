@@ -7,8 +7,10 @@ using Reqnroll.IdeSupport.LSP.Core.Matching;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Bindings;
 
+/// <summary>A discovered Reqnroll step definition binding: its Given/When/Then type, matching regex, and scope.</summary>
 public class ProjectStepDefinitionBinding : ProjectBinding
 {
+    /// <summary>Creates a step definition binding.</summary>
     public ProjectStepDefinitionBinding(ScenarioBlock stepDefinitionType, Regex regex, BindingScope scope,
         ProjectBindingImplementation implementation, string specifiedExpression = null, string error = null)
     : base(implementation, scope, error)
@@ -18,11 +20,16 @@ public class ProjectStepDefinitionBinding : ProjectBinding
         SpecifiedExpression = specifiedExpression;
     }
 
+    /// <summary>True when the binding also has a compiled matching <see cref="Regex"/>.</summary>
     public override bool IsValid => Regex != null && base.IsValid;
+    /// <summary>The Given/When/Then block this step definition applies to.</summary>
     public ScenarioBlock StepDefinitionType { get; }
+    /// <summary>The step definition's original expression text as authored, when known (as opposed to one derived from <see cref="Regex"/>).</summary>
     public string SpecifiedExpression { get; }
+    /// <summary>The compiled regex used to match step text against this binding.</summary>
     public Regex Regex { get; }
 
+    /// <summary>The expression to display for this binding: <see cref="SpecifiedExpression"/> if known, otherwise derived from <see cref="Regex"/>.</summary>
     public string Expression => SpecifiedExpression ?? GetSpecifiedExpressionFromRegex();
 
     private string GetSpecifiedExpressionFromRegex()
@@ -42,6 +49,10 @@ public class ProjectStepDefinitionBinding : ProjectBinding
     private static Regex GetRegexFromSpecifiedExpression(string expression) =>
         new($"^{expression}$", RegexOptions.CultureInvariant);
 
+    /// <summary>
+    /// Attempts to match this binding against a step: checks the scenario block, regex, and
+    /// scope, then resolves the parameter match. Returns null if any of those fail.
+    /// </summary>
     public MatchResultItem Match(Step step, IGherkinDocumentContext context, string stepText = null)
     {
         if (!IsValid || !(step is DeveroomGherkinStep deveroomGherkinStep))
@@ -73,8 +84,10 @@ public class ProjectStepDefinitionBinding : ProjectBinding
         return new ParameterMatch(matchedStepParameters, step.Argument, Implementation.ParameterTypes);
     }
 
+    /// <summary>Returns a short description including the step type, expression, and implementation.</summary>
     public override string ToString() => $"[{StepDefinitionType}({Expression})]: {Implementation}";
 
+    /// <summary>Returns a copy of this binding with its expression (and derived regex) replaced.</summary>
     public ProjectStepDefinitionBinding WithSpecifiedExpression(string expression)
     {
         var regex = GetRegexFromSpecifiedExpression(expression);
