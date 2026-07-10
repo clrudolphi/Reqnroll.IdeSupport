@@ -3,6 +3,7 @@ using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
+using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Discovery;

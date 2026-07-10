@@ -8,9 +8,8 @@ using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Pipeline;
-using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
+namespace Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 /// <summary>
 /// Handles <c>workspace/didChangeWatchedFiles</c> notifications.

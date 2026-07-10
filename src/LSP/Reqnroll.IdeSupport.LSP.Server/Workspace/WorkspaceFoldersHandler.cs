@@ -3,9 +3,8 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using Reqnroll.IdeSupport.Common.Diagnostics;
-using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
+namespace Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 /// <summary>
 /// Handles <c>workspace/didChangeWorkspaceFolders</c> notifications.

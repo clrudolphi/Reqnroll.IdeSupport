@@ -3,7 +3,7 @@ using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Analytics;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Workspace;
+namespace Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
 /// <summary>
 /// No-op <see cref="IMonitoringService"/> for the LSP server process.

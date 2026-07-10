@@ -15,6 +15,7 @@ using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
+using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus;

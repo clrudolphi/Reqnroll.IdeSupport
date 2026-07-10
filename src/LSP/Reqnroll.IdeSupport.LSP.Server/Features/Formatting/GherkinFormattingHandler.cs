@@ -7,6 +7,7 @@ using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 using Reqnroll.IdeSupport.LSP.Core.Formatting;
 using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
+using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
 
 using Reqnroll.IdeSupport.LSP.Server.Workspace;

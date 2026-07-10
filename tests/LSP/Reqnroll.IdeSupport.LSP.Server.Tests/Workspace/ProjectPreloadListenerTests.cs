@@ -3,6 +3,7 @@ using System.Text;
 using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.LSP.Server.Hosting;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Workspace;

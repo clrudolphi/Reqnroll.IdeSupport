@@ -3,8 +3,9 @@ using System.Text;
 using Newtonsoft.Json.Linq;
 using Reqnroll.IdeSupport.Common.Diagnostics;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
+using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Workspace;
+namespace Reqnroll.IdeSupport.LSP.Server.Hosting;
 
 /// <summary>
 /// Listens on a process-local named pipe for <c>reqnroll/projectLoaded</c> and
