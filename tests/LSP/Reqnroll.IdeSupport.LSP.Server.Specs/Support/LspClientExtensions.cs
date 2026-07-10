@@ -66,24 +66,6 @@ public static class LspClientExtensions
                 new SemanticTokensParams { TextDocument = new TextDocumentIdentifier { Uri = uri } })
             .Returning<SemanticTokens?>(ct);
 
-    /// <summary>
-    /// Requests semantic tokens, retrying briefly until a non-empty result is available
-    /// (the server parses asynchronously after didOpen/didChange).
-    /// </summary>
-    public static async Task<SemanticTokens?> RequestSemanticTokensWhenReadyAsync(
-        this ILanguageClient client, DocumentUri uri, int timeoutMs = 5000)
-    {
-        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-        SemanticTokens? last = null;
-        while (DateTime.UtcNow < deadline)
-        {
-            last = await client.RequestSemanticTokensAsync(uri).ConfigureAwait(false);
-            if (last is { Data.Length: > 0 }) return last;
-            await Task.Delay(50).ConfigureAwait(false);
-        }
-        return last;
-    }
-
     public static void SendProjectLoaded(this ILanguageClient client, object payload)
         => client.SendNotification("reqnroll/projectLoaded", payload);
 
