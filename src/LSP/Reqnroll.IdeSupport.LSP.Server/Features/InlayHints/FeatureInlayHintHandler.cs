@@ -1,7 +1,4 @@
-﻿#nullable enable
-
-using OmniSharp.Extensions.LanguageServer.Protocol;
-using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Core.InlayHints;
 using Reqnroll.IdeSupport.LSP.Core.Matching;

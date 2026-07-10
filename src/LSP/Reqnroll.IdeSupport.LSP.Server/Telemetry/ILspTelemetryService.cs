@@ -1,7 +1,4 @@
-﻿#nullable enable
-
-using System.Collections.Generic;
-
+﻿
 namespace Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
 /// <summary>

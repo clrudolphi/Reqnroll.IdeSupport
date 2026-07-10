@@ -1,23 +1,15 @@
-﻿#nullable enable
-
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
-using Gherkin.Ast;
+﻿using Gherkin.Ast;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
+using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp;
 using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
-using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
-using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Benchmarks.Corpus;
 

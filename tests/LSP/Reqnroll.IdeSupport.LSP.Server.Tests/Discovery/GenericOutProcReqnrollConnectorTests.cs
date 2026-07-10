@@ -2,9 +2,7 @@
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
-using Reqnroll.IdeSupport.LSP.Server.Registry;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
-using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Discovery;
 

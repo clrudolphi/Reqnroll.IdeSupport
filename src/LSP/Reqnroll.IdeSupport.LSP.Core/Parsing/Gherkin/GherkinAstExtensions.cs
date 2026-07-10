@@ -1,7 +1,4 @@
-using Gherkin;
-using Gherkin.Ast;
-using System;
-using System.Linq;
+﻿using Gherkin.Ast;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 

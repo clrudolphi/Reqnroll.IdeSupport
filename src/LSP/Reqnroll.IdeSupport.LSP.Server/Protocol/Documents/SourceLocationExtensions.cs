@@ -1,6 +1,5 @@
-#nullable enable
+﻿#nullable enable
 
-using System.IO;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.LSP.Core.Documents;

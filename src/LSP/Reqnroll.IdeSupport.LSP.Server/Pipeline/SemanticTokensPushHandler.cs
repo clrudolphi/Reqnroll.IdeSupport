@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using MediatR;
+﻿using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Logging;
 

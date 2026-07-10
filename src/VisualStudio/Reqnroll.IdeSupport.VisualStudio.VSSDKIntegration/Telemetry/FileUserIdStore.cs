@@ -1,7 +1,6 @@
+﻿using System.ComponentModel.Composition;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Telemetry;
-using System;
-using System.ComponentModel.Composition;
 
 namespace Reqnroll.IdeSupport.VisualStudio.SDKIntegration.Telemetry;
 

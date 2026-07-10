@@ -1,9 +1,8 @@
-﻿#nullable disable
+﻿using System.IO;
+#nullable disable
 
 using Gherkin.Ast;
-using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Telemetry;
-using System.IO;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 

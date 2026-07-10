@@ -1,20 +1,11 @@
-﻿#nullable enable
-
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Core.Documents;
+using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
-using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Registry;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 

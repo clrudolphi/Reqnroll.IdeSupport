@@ -1,5 +1,4 @@
-﻿using Reqnroll.IdeSupport.LSP.Core.Bindings;
-
+﻿
 namespace Reqnroll.IdeSupport.LSP.Core.Tests.Bindings;
 
 /// <summary>

@@ -1,8 +1,5 @@
-﻿#nullable disable
-using Reqnroll;
+﻿using System.ComponentModel.Composition;
 using Reqnroll.IdeSupport.Common.Telemetry;
-using System.Collections.Generic;
-using System.ComponentModel.Composition;
 
 namespace Reqnroll.IdeSupport.VisualStudio.SDKIntegration.Telemetry;
 

@@ -7,8 +7,6 @@ using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
 using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.LSP.Connector.Models;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
-using Reqnroll.IdeSupport.LSP.Server.Discovery;
-using Reqnroll.IdeSupport.LSP.Server.Registry;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
 

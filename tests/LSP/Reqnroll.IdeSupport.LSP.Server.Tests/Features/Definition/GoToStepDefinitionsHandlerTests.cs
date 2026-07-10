@@ -1,19 +1,17 @@
 ﻿#nullable enable
 
 using System.Text.RegularExpressions;
-using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Core.Documents;
 
 
+using Reqnroll.IdeSupport.LSP.Core.Matching;
+
+
 
 using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
-
-
-using Reqnroll.IdeSupport.LSP.Core.Matching;
-using Reqnroll.IdeSupport.LSP.Server.Protocol.Documents;
 using Reqnroll.IdeSupport.LSP.Server.Features.Definition;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;

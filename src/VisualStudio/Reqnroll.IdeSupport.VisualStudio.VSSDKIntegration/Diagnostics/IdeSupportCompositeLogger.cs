@@ -1,7 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.ComponentModel.Composition;
 using Reqnroll.IdeSupport.Common.Logging;
-using System.Collections;
-using System.ComponentModel.Composition;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Diagnostics;
 

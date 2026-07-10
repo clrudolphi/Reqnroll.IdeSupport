@@ -1,7 +1,4 @@
-#nullable enable
-
-using System;
-using Reqnroll.IdeSupport.LSP.Server.Performance;
+﻿using Reqnroll.IdeSupport.LSP.Server.Performance;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Performance;
 

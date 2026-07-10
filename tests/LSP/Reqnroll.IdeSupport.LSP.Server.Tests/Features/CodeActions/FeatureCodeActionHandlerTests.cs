@@ -1,31 +1,20 @@
-﻿#nullable enable
-
-using System.Text.RegularExpressions;
-using Gherkin;
-using Gherkin.Ast;
-using NSubstitute;
-using OmniSharp.Extensions.LanguageServer.Protocol;
+﻿using Gherkin;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
-using Reqnroll.IdeSupport.LSP.Core.Bindings;
 
 
 using Reqnroll.IdeSupport.LSP.Core.Documents;
-using Reqnroll.IdeSupport.LSP.Core.Scaffolding;
-using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
-
+using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 
 
 using Reqnroll.IdeSupport.LSP.Core.Matching;
-using Reqnroll.IdeSupport.LSP.Server.Protocol.Documents;
+using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
+using Reqnroll.IdeSupport.LSP.Core.Scaffolding;
 using Reqnroll.IdeSupport.LSP.Server.Features.CodeActions;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
-using AwesomeAssertions;
-using Xunit;
-using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Features.CodeActions;
 

@@ -1,6 +1,4 @@
-#nullable disable
-using Reqnroll;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Reqnroll.IdeSupport.Common.Telemetry;
 

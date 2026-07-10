@@ -1,6 +1,4 @@
 ﻿using System.IO.Pipelines;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Extensibility;
@@ -13,10 +11,10 @@ using Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 using Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
 using Reqnroll.IdeSupport.VisualStudio.Extension.GoToHooks;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
+using Reqnroll.IdeSupport.VisualStudio.Extension.LspNotifications;
 using Reqnroll.IdeSupport.VisualStudio.Extension.NavigationBar;
 using Reqnroll.IdeSupport.VisualStudio.Extension.RenameStep;
 using Reqnroll.IdeSupport.VisualStudio.Extension.StepCodeLens;
-using Reqnroll.IdeSupport.VisualStudio.Extension.LspNotifications;
 using Reqnroll.IdeSupport.VisualStudio.NavigationBar;
 #pragma warning disable VSEXTPREVIEW_LSP
 

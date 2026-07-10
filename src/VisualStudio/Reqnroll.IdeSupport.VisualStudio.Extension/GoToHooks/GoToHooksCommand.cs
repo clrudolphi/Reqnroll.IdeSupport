@@ -1,14 +1,7 @@
-﻿#nullable enable
-
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.IO;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.Commands;
-using Microsoft.VisualStudio.Extensibility.Editor;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.VisualStudio.Extension.Navigation;
 

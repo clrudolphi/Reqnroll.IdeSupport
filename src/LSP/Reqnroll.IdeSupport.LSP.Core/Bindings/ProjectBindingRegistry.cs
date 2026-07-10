@@ -1,14 +1,13 @@
-using Gherkin.Ast;
-using Reqnroll.IdeSupport.LSP.Connector.Models;
-using Reqnroll.IdeSupport.LSP.Core.Documents;
-using Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp;
-using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
-using Reqnroll.IdeSupport.LSP.Core.Matching;
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Gherkin.Ast;
+using Reqnroll.IdeSupport.LSP.Core.Documents;
+using Reqnroll.IdeSupport.LSP.Core.Matching;
+using Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp;
+using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Bindings;
 

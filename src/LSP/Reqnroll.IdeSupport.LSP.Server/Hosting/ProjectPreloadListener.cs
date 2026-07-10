@@ -1,5 +1,4 @@
 ﻿using System.IO.Pipes;
-using System.Text;
 using Newtonsoft.Json.Linq;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;

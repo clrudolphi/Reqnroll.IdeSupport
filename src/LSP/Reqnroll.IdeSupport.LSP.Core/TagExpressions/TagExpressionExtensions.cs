@@ -1,6 +1,5 @@
-using Cucumber.TagExpressions;
+﻿using Cucumber.TagExpressions;
 using Gherkin.Ast;
-using System.Linq;
 
 namespace Reqnroll.IdeSupport.LSP.Core.TagExpressions;
 

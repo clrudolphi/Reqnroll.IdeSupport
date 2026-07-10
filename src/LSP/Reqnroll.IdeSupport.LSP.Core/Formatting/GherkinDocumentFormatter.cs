@@ -1,5 +1,4 @@
-using System.Text;
-using System.Text.RegularExpressions;
+﻿using System.Text;
 using Gherkin.Ast;
 using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 

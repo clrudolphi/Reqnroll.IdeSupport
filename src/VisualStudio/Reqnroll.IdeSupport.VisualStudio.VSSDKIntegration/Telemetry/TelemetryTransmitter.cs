@@ -1,17 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.ComponentModel.Composition;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.ApplicationInsights.Extensibility;
-using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.Common.Logging;
+using Reqnroll.IdeSupport.Common.Telemetry;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Telemetry;
 

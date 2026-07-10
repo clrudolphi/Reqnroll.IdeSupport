@@ -1,7 +1,4 @@
-#nullable enable
-
-using System;
-using System.Globalization;
+﻿using System.Globalization;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Performance;
 

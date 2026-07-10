@@ -1,16 +1,11 @@
-﻿using Microsoft.VisualStudio;
+﻿using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Reqnroll.IdeSupport.Common;
-using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.Common.Logging;
+using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.VisualStudio.Wizards.VsIntegration;
-using System;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Threading;
-using Task = System.Threading.Tasks.Task;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension;
 

@@ -1,6 +1,5 @@
-#nullable disable
+﻿#nullable disable
 using Gherkin.Ast;
-using Reqnroll;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 

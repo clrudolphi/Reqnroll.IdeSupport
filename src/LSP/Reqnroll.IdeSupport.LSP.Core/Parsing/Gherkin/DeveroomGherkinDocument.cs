@@ -1,8 +1,5 @@
 ﻿using Gherkin.Ast;
-using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Telemetry;
-using System;
-using System.Linq;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 

@@ -1,7 +1,4 @@
-#nullable enable
-
-using Reqnroll.IdeSupport.Common.Configuration;
-using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
+﻿using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Scaffolding;
 

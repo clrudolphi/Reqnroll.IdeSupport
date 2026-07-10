@@ -1,13 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
-using AwesomeAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json.Linq;
 using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
-using Xunit;
 
 namespace Reqnroll.VisualStudio.Tests.LspInterception;
 

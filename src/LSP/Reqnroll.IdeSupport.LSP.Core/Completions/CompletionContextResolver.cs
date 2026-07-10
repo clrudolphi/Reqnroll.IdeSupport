@@ -1,6 +1,4 @@
-﻿using Gherkin;
-using Reqnroll.IdeSupport.Common;
-using Reqnroll.IdeSupport.Common.Telemetry;
+﻿using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Core.Documents;
 

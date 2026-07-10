@@ -1,12 +1,7 @@
-﻿#nullable enable
-
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using OmniSharp.Extensions.LanguageServer.Protocol;
+﻿using System.Diagnostics;
 using Reqnroll.IdeSupport.Common.Logging;
-using Reqnroll.IdeSupport.LSP.Server.Performance;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 using Reqnroll.IdeSupport.LSP.Server.Tracing;
 

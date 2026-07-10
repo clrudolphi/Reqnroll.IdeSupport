@@ -1,6 +1,5 @@
-﻿using NSubstitute;
+﻿using System.Text.RegularExpressions;
 using Reqnroll.IdeSupport.Common.Telemetry;
-using System.Text.RegularExpressions;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Wizards.Tests.VsIntegration;
 

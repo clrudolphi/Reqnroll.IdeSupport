@@ -1,9 +1,4 @@
-﻿#nullable enable
-
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using OmniSharp.Extensions.LanguageServer.Protocol;
+﻿using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;

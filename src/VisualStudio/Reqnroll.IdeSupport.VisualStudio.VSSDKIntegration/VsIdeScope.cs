@@ -1,4 +1,7 @@
 ﻿#nullable disable
+using System.Collections.Concurrent;
+using System.ComponentModel.Composition;
+using System.Threading.Tasks;
 using EnvDTE;
 using Microsoft.VisualStudio.Shell;
 using Reqnroll.IdeSupport.Common;
@@ -8,11 +11,6 @@ using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.VisualStudio.Common;
 using Reqnroll.IdeSupport.VisualStudio.Package.ProjectSystem;
 using Reqnroll.IdeSupport.VisualStudio.SDKIntegration;
-using System.Collections.Concurrent;
-using System.ComponentModel.Composition;
-using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
-using Project = EnvDTE.Project;
 
 namespace Reqnroll.IdeSupport.VisualStudio.ProjectSystem;
 

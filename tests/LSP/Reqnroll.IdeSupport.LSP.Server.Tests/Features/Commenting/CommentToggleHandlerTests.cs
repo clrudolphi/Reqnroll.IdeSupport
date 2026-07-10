@@ -1,18 +1,14 @@
-﻿#nullable enable
-
-using MediatR;
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.JsonRpc;
-using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Core.Commenting;
 using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
+using Reqnroll.IdeSupport.LSP.Server.Features.Commenting;
 
 
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
-using Reqnroll.IdeSupport.LSP.Server.Features.Commenting;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Features.Commenting;

@@ -1,9 +1,7 @@
-﻿using Reqnroll.IdeSupport.Common.Logging;
-using Reqnroll.IdeSupport.Common.Telemetry;
-//using Reqnroll.IdeSupport.VisualStudio.Monitoring;
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using Reqnroll.IdeSupport.Common.Telemetry;
 
 namespace Reqnroll.IdeSupport.Common.Logging;
 

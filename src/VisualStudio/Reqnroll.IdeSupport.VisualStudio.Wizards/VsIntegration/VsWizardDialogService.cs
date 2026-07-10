@@ -1,7 +1,6 @@
 ﻿// VsIntegration layer — VS SDK references are expected here.
 using Microsoft.Internal.VisualStudio.PlatformUI;
 using Microsoft.VisualStudio.Shell.Interop;
-using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Telemetry;
 using Reqnroll.IdeSupport.VisualStudio.Wizards.Abstractions;
 

@@ -1,7 +1,6 @@
 ﻿using System.IO.Pipes;
 using System.Text;
 using MediatR;
-using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;

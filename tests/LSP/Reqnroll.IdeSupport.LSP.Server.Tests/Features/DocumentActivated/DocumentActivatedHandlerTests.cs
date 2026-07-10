@@ -1,5 +1,4 @@
-using MediatR;
-using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using MediatR;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 using Reqnroll.IdeSupport.LSP.Server.Features.DocumentActivated;

@@ -1,8 +1,5 @@
-﻿#nullable enable
-using Reqnroll;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Collections.Immutable;
-
 namespace Reqnroll.IdeSupport.Common.Telemetry;
 
 public record GenericEvent : ITelemetryEvent

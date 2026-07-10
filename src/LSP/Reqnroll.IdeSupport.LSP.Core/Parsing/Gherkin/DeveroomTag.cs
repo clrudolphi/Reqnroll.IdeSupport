@@ -1,7 +1,5 @@
 #nullable disable
 
-using Reqnroll;
-using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Core.Documents;
 
 

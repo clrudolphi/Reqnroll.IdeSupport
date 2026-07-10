@@ -1,7 +1,4 @@
-#nullable enable
-
-using System;
-using OmniSharp.Extensions.LanguageServer.Protocol;
+﻿using OmniSharp.Extensions.LanguageServer.Protocol;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Performance;
 

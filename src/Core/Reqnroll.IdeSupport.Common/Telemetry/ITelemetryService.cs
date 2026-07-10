@@ -1,9 +1,6 @@
-﻿#nullable disable
-
-using Reqnroll.IdeSupport.Common.Telemetry;
-using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
 
 namespace Reqnroll.IdeSupport.Common.Telemetry;
 

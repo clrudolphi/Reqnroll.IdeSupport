@@ -1,8 +1,4 @@
-﻿#nullable enable
-
-using System;
-using System.ComponentModel.Composition;
-using System.Threading;
+﻿using System.ComponentModel.Composition;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Editor;

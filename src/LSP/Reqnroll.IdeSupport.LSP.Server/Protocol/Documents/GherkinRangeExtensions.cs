@@ -1,6 +1,6 @@
-using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
-using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.LSP.Core.Documents;
+using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Protocol.Documents;
 

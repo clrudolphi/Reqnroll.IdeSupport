@@ -7,7 +7,6 @@ using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.VisualStudio.Package.ProjectSystem;
 using Reqnroll.IdeSupport.VisualStudio.Wizards.Abstractions;
 using Reqnroll.IdeSupport.VisualStudio.Wizards.Core;
-using Constants = EnvDTE.Constants;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Wizards.VsIntegration;
 

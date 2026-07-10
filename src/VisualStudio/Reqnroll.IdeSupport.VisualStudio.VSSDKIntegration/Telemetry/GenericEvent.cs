@@ -1,8 +1,7 @@
-﻿#nullable enable
-using Reqnroll.IdeSupport.Common.Telemetry;
-using System.Collections.Generic;
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.ComponentModel.Composition;
+#nullable enable
+using Reqnroll.IdeSupport.Common.Telemetry;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Telemetry;
 
