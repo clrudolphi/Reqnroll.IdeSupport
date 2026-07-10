@@ -11,6 +11,7 @@ using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Newtonsoft.Json;
+using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 using Reqnroll.IdeSupport.VisualStudio.SDKIntegration;
 
@@ -195,7 +196,7 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
             if (!IsSolutionProject(project))
                 continue;
             var folder = Path.GetDirectoryName(project.FullName) ?? string.Empty;
-            if (filePath.StartsWith(folder, StringComparison.OrdinalIgnoreCase) &&
+            if (PathUtils.IsUnderFolder(filePath, folder) &&
                 folder.Length > bestLen)
             {
                 best    = project;

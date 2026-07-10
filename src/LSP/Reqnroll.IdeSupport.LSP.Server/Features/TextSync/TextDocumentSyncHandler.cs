@@ -27,6 +27,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private readonly IGherkinDocumentTaggerService _taggerService;
     private readonly IBindingMatchService _bindingMatchService;
     private readonly ICSharpBindingDiscoveryService _csharpDiscoveryService;
+    private readonly ICSharpFileTextCache _csharpFileTextCache;
     private readonly IMediator _mediator;
     private readonly ILanguageServerFacade _languageServer;
     private readonly IIdeSupportLogger _logger;
@@ -43,6 +44,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         IGherkinDocumentTaggerService taggerService,
         IBindingMatchService bindingMatchService,
         ICSharpBindingDiscoveryService csharpDiscoveryService,
+        ICSharpFileTextCache csharpFileTextCache,
         IMediator mediator,
         ILanguageServerFacade languageServer,
         IIdeSupportLogger logger)
@@ -51,6 +53,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         _taggerService = taggerService;
         _bindingMatchService = bindingMatchService;
         _csharpDiscoveryService = csharpDiscoveryService;
+        _csharpFileTextCache = csharpFileTextCache;
         _mediator = mediator;
         _languageServer = languageServer;
         _logger = logger;
@@ -78,6 +81,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         if (IsCSharp(uri))
         {
             _logger.LogInfo($"C# document opened: {uri} (version {version})");
+            _csharpFileTextCache.Update(uri, text);
             await _csharpDiscoveryService.UpdateFromSourceAsync(uri, text, true, cancellationToken).ConfigureAwait(false);
             return Unit.Value;
         }
@@ -100,6 +104,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         if (IsCSharp(uri))
         {
             _logger.LogInfo($"C# document changed: {uri} (version {version})");
+            _csharpFileTextCache.Update(uri, text);
             await _csharpDiscoveryService.UpdateFromSourceAsync(uri, text, false, cancellationToken).ConfigureAwait(false);
             return Unit.Value;
         }
@@ -124,9 +129,15 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         var uri = request.TextDocument.Uri;
 
         // .cs files are not tracked in the Gherkin document buffer; their last-discovered bindings
-        // are intentionally retained after close (a rebuild, not a close, supersedes them).
+        // are intentionally retained after close (a rebuild, not a close, supersedes them). Their
+        // cached live text is the opposite: once closed, disk is the source of truth again (VS
+        // prompts to save or discard before a close reaches the server), so drop it here rather
+        // than risk later reads preferring a stale, possibly-discarded in-memory copy over disk.
         if (IsCSharp(uri))
+        {
+            _csharpFileTextCache.Remove(uri);
             return Unit.Value;
+        }
 
         _logger.LogInfo($"Document closed: {uri}");
         _documentBufferService.Remove(uri);

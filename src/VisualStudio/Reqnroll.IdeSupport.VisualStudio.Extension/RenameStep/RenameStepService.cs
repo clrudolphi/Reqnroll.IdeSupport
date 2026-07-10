@@ -198,22 +198,6 @@ internal sealed class RenameStepService
         return result;
     }
 
-    /// <summary>
-    /// Sends a <c>textDocument/didChange</c> notification so the server re-parses a file
-    /// that was modified by the rename workspace edit while closed.
-    /// </summary>
-    public Task SendDidChangeAsync(string localPath, string newContent, CancellationToken cancellationToken)
-    {
-        var escapedContent = Newtonsoft.Json.JsonConvert.ToString(newContent);
-        var featureUri = "file:///" + localPath.Replace('\\', '/');
-        var paramsJson = $"{{\"textDocument\":{{\"uri\":\"{featureUri}\",\"version\":1}},\"contentChanges\":[{{\"text\":{escapedContent}}}]}}";
-
-        _logger.LogInformation(
-            "RenameStepService: sending textDocument/didChange for {LocalPath}", localPath);
-
-        return _pipe.SendNotificationToServerAsync("textDocument/didChange", paramsJson, cancellationToken);
-    }
-
     private static string BuildPositionParams(string fileUri, int line0, int char0)
     {
         var escapedUri = JsonEscape(fileUri);

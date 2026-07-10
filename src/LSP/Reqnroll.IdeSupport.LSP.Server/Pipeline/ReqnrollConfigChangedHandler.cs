@@ -1,6 +1,7 @@
 ﻿using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 using Reqnroll.IdeSupport.LSP.Server.Tagging;
 namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
@@ -62,11 +63,5 @@ public class ReqnrollConfigChangedHandler : INotificationHandler<ReqnrollConfigC
     }
 
     private static bool IsUnderWorkspaceRoot(DocumentUri uri, string workspaceRootPath)
-    {
-        var filePath = uri.GetFileSystemPath();
-        if (string.IsNullOrEmpty(filePath))
-            return false;
-
-        return filePath.StartsWith(workspaceRootPath, StringComparison.OrdinalIgnoreCase);
-    }
+        => PathUtils.IsUnderFolder(uri.GetFileSystemPath(), workspaceRootPath);
 }

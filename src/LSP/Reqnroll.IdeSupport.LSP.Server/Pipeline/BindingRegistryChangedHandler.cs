@@ -2,6 +2,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Features.CodeLens;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
@@ -36,6 +37,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistryChangedNotification>
 {
     private readonly IDocumentBufferService         _documentBufferService;
+    private readonly ICSharpFileTextCache           _csharpFileTextCache;
     private readonly IGherkinDocumentTaggerService   _taggerService;
     private readonly ILspWorkspaceScopeManager       _scopeManager;
     private readonly ILanguageServerFacade            _languageServer;
@@ -47,6 +49,7 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
 
     public BindingRegistryChangedHandler(
         IDocumentBufferService documentBufferService,
+        ICSharpFileTextCache csharpFileTextCache,
         IGherkinDocumentTaggerService taggerService,
         ILspWorkspaceScopeManager scopeManager,
         ILanguageServerFacade languageServer,
@@ -57,6 +60,7 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
         IIdeSupportLogger logger)
     {
         _documentBufferService  = documentBufferService;
+        _csharpFileTextCache    = csharpFileTextCache;
         _taggerService          = taggerService;
         _scopeManager           = scopeManager;
         _languageServer         = languageServer;
@@ -305,13 +309,7 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
     }
 
     private static bool IsUnderProjectFolder(DocumentUri uri, string projectFolder)
-    {
-        var filePath = uri.GetFileSystemPath();
-        if (string.IsNullOrEmpty(filePath) || string.IsNullOrEmpty(projectFolder))
-            return false;
-
-        return filePath.StartsWith(projectFolder, StringComparison.OrdinalIgnoreCase);
-    }
+        => PathUtils.IsUnderFolder(uri.GetFileSystemPath(), projectFolder);
 
     /// <summary>
     /// After a Connector full replacement (which loads bindings from the compiled assembly),
@@ -370,19 +368,26 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
         if (string.IsNullOrEmpty(projectFolder))
             return [];
 
-        // 1. Open, project-owned .cs buffers — unsaved edits override the DLL regardless of mtime.
-        //    Folder-prefix (not the index) is used deliberately: at startup the membership baseline
-        //    may not have arrived, and these files are known to be in the editor anyway.
+        // 1. Open, project-owned .cs files — unsaved edits override the DLL regardless of mtime.
+        //    Ownership goes through ResolveOwners, which already encapsulates the correct
+        //    fallback chain (index hit → owners; pending, no baseline yet → folder-prefix
+        //    singleton; unowned → none) rather than reimplementing folder-prefix matching here
+        //    directly — a bare path-prefix check is exactly what caused a real cross-project
+        //    binding leak (issue confirmed live: Minimalnet481's bindings matched against
+        //    Minimal's feature files, since "Minimalnet481" is a string-prefix match for
+        //    "Minimal"). IDocumentBufferService never holds .cs content (Gherkin-only, by
+        //    design) — this reads from ICSharpFileTextCache instead, which TextDocumentSyncHandler
+        //    keeps live for every open .cs file regardless of what triggered the last edit.
         var openByPath = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var buffer in _documentBufferService.All)
+        foreach (var entry in _csharpFileTextCache.All)
         {
-            var path = buffer.Uri.GetFileSystemPath();
+            var path = entry.Uri.GetFileSystemPath();
             if (!string.IsNullOrEmpty(path)
                 && path!.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrEmpty(buffer.Text)
-                && path.StartsWith(projectFolder, StringComparison.OrdinalIgnoreCase))
+                && !string.IsNullOrEmpty(entry.Text)
+                && _scopeManager.ResolveOwners(entry.Uri).Contains(project))
             {
-                openByPath[path] = buffer.Text;
+                openByPath[path] = entry.Text;
             }
         }
 

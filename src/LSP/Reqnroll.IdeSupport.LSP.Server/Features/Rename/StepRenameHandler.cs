@@ -10,6 +10,8 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Diagnostics;
@@ -23,6 +25,7 @@ using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Core.Rename;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Documents;
+using Reqnroll.IdeSupport.LSP.Server.Hosting;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
@@ -43,6 +46,10 @@ public sealed class StepRenameHandler
     private readonly IIdeSupportLogger               _logger;
     private readonly IDocumentBufferService        _documentBuffer;
     private readonly RenameSessionManager          _sessionManager;
+    private readonly ICSharpFileTextCache          _csharpFileTextCache;
+    private readonly ICSharpBindingDiscoveryService _csharpDiscoveryService;
+    private readonly ILanguageServerFacade         _languageServer;
+    private readonly ClientIdeContext              _clientIdeContext;
     private readonly ILspTelemetryService?         _telemetryService;
 
     public StepRenameHandler(
@@ -51,6 +58,10 @@ public sealed class StepRenameHandler
         IProjectBindingRegistryLookup registryLookup,
         IIdeSupportLogger               logger,
         IDocumentBufferService        documentBuffer,
+        ICSharpFileTextCache          csharpFileTextCache,
+        ICSharpBindingDiscoveryService csharpDiscoveryService,
+        ILanguageServerFacade         languageServer,
+        ClientIdeContext              clientIdeContext,
         ILspTelemetryService?         telemetryService = null)
     {
         _matchService    = matchService;
@@ -59,6 +70,10 @@ public sealed class StepRenameHandler
         _logger          = logger;
         _documentBuffer  = documentBuffer;
         _sessionManager  = new RenameSessionManager();
+        _csharpFileTextCache = csharpFileTextCache;
+        _csharpDiscoveryService = csharpDiscoveryService;
+        _languageServer  = languageServer;
+        _clientIdeContext = clientIdeContext;
         _telemetryService = telemetryService;
     }
 
@@ -446,38 +461,113 @@ public sealed class StepRenameHandler
         }
 
         // ── 5. Build .cs file edit ────────────────────────────────────────────
+        DocumentUri? csFileUri = null;
+        string? newCsText = null;
         if (sourceLiteral != null)
         {
             var csEdit = BuildCSharpEdit(sourceLiteral, effectiveNewName);
             if (csEdit != null)
             {
-                var csUri = path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+                csFileUri = path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
                     ? uri
                     : DocumentUri.FromFileSystemPath(binding.Implementation!.SourceLocation!.SourceFile);
-                if (!changes.TryGetValue(csUri, out var list))
+                if (!changes.TryGetValue(csFileUri, out var list))
                 {
                     list = new List<TextEdit>();
-                    changes[csUri] = list;
+                    changes[csFileUri] = list;
                 }
                 list.Add(csEdit);
+
+                // Computed directly from the same Roslyn span BuildCSharpEdit used, so this is
+                // exact regardless of whether the .cs file is open or closed in the editor.
+                var sourceText = await sourceLiteral.SyntaxTree!.GetTextAsync(cancellationToken);
+                newCsText = sourceText
+                    .WithChanges(new Microsoft.CodeAnalysis.Text.TextChange(sourceLiteral.Token.Span, csEdit.NewText))
+                    .ToString();
             }
         }
 
         if (changes.Count == 0)
             return null;
 
-        // Invalidate the match cache for feature files that were modified by the rename.
-        // When a feature file is closed at rename time, no didChange notification fires,
-        // so the server's in-memory match cache would otherwise retain the old step text
-        // until the file is re-opened and re-parsed.
+        var workspaceEdit = new WorkspaceEdit
+        {
+            Changes = changes.ToDictionary(kvp => kvp.Key, kvp => (IEnumerable<TextEdit>)kvp.Value)
+        };
+
+        // VS's Rename Step command sends textDocument/rename over a custom interception pipe
+        // that swallows this method's return value before VS's built-in LSP client ever sees it
+        // (see #82) — so VS needs the edit pushed via a genuine workspace/applyEdit request
+        // instead, the same mechanism already proven for F13 (CommentToggleHandler). Other
+        // clients (e.g. VS Code) apply the returned WorkspaceEdit natively and must NOT also
+        // receive this push, or the edit would be applied twice.
+        //
+        // The push is awaited and its Applied flag checked *before* touching any server-side
+        // cache below: if VS rejects or fails to apply the edit (e.g. a locked/read-only file,
+        // or the user having closed the document with unsaved conflicting changes), the actual
+        // buffer/file content never changed, so self-refreshing the registry or invalidating the
+        // match cache here would desync server state from reality — the registry would claim the
+        // rename succeeded while the source still has the old text.
+        if (_clientIdeContext.IsVisualStudio)
+        {
+            var pushParams = new ApplyWorkspaceEditParams
+            {
+                Edit = new WorkspaceEdit
+                {
+                    DocumentChanges = new Container<WorkspaceEditDocumentChange>(
+                        changes.Select(kvp => new WorkspaceEditDocumentChange(new TextDocumentEdit
+                        {
+                            TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = kvp.Key, Version = null },
+                            Edits = new TextEditContainer(kvp.Value)
+                        })))
+                }
+            };
+
+            var response = await _languageServer.SendRequest(LspMethodNames.WorkspaceApplyEdit, pushParams)
+                .Returning<ApplyWorkspaceEditResponse>(cancellationToken);
+
+            if (response is not { Applied: true })
+            {
+                _logger.LogVerbose($"StepRenameHandler: VS rejected workspace/applyEdit (reason: '{response?.FailureReason}') — not refreshing server caches");
+                return null;
+            }
+
+            _logger.LogVerbose("StepRenameHandler: VS applied workspace/applyEdit");
+        }
+
+        // Invalidate the match cache for CLOSED feature files that were modified by the rename.
+        // When a feature file is closed at rename time, no didChange notification fires, so the
+        // server's in-memory match cache would otherwise retain the old step text until the file
+        // is re-opened and re-parsed. For OPEN files, applying the edit (via workspace/applyEdit
+        // for VS, or natively for other clients) already triggers a real textDocument/didChange,
+        // which reparses and correctly rebuilds the match cache through the normal sync pipeline
+        // — invalidating here too would race with that rebuild. Losing that race (which happens
+        // reliably, since this runs after awaiting the VS applyEdit round-trip) leaves the cache
+        // empty with nothing left to repopulate it, since the file's content isn't changing
+        // again: confirmed live as inlay hints silently disappearing for the whole file post-rename.
         foreach (var changedUri in changes.Keys)
         {
             var changedPath = changedUri.GetFileSystemPath();
-            if (!string.IsNullOrEmpty(changedPath) && changedPath.EndsWith(".feature", StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrEmpty(changedPath) && changedPath.EndsWith(".feature", StringComparison.OrdinalIgnoreCase) &&
+                !_documentBuffer.TryGet(changedUri, out _))
             {
                 _matchService.InvalidateAllForDocument(changedUri.ToString());
-                _logger.LogVerbose($"StepRenameHandler: invalidated match cache for '{changedUri}'");
+                _logger.LogVerbose($"StepRenameHandler: invalidated match cache for closed '{changedUri}'");
             }
+        }
+
+        // Self-refresh the C# binding registry for the edited .cs file directly, rather than
+        // relying on a client-echoed textDocument/didChange (there is no file-system watcher for
+        // .cs content changes, and a closed file may never round-trip one at all). For VS Code
+        // (no confirmed-apply signal available) this is optimistic, same as the .feature
+        // invalidation above; for VS it only runs once workspace/applyEdit has been confirmed
+        // applied. Any redundant didChange-triggered refresh the client's own sync machinery
+        // fires afterward is harmless (idempotent — same content, same result).
+        if (csFileUri is not null && newCsText != null)
+        {
+            await _csharpDiscoveryService.UpdateFromSourceAsync(csFileUri, newCsText, isOpen: false, cancellationToken);
+            _csharpFileTextCache.Update(csFileUri, newCsText);
+            _logger.LogVerbose($"StepRenameHandler: self-refreshed C# binding registry for '{csFileUri}'");
         }
 
         // Telemetry
@@ -486,10 +576,7 @@ public sealed class StepRenameHandler
             ["Erroneous"] = false,
         });
 
-        return new WorkspaceEdit
-        {
-            Changes = changes.ToDictionary(kvp => kvp.Key, kvp => (IEnumerable<TextEdit>)kvp.Value)
-        };
+        return workspaceEdit;
     }
 
     // ── Custom request handlers ─────────────────────────────────────────────────
@@ -643,22 +730,22 @@ public sealed class StepRenameHandler
                 if (step.Result is null || !(step.Result.HasDefined || step.Result.HasAmbiguous))
                     continue;
 
-                // Check if cursor falls within the step's range
-                var startPos = step.Range.StartLinePosition;
-                var endPos   = step.Range.EndLinePosition;
-                if (position.Line >= startPos.Line &&
-                    position.Line <= endPos.Line)
+                // Tolerate a cursor anywhere on the step's line(s), not just within the exact
+                // step-text span (e.g. on the keyword or leading indentation) — this used to
+                // compare position.Character directly against step.Range's own start/end
+                // character, the same narrow exact-text-span bug #101 fixed for Go to Definition,
+                // just re-derived independently here rather than shared (see #82 follow-up).
+                var snapshot  = step.Range.Snapshot;
+                var startLine = snapshot.GetLineFromLineNumber(step.Range.StartLinePosition.Line);
+                var endLine   = snapshot.GetLineFromLineNumber(step.Range.EndLinePosition.Line);
+                var offset    = snapshot.ToOffset(position.Line, position.Character);
+                if (offset >= startLine.Start && offset <= endLine.End)
                 {
-                    var stepStartChar = (position.Line == startPos.Line) ? startPos.Character : 0;
-                    var stepEndChar   = (position.Line == endPos.Line)   ? endPos.Character   : int.MaxValue;
-                    if (position.Character >= stepStartChar && position.Character <= stepEndChar)
+                    matchedRange ??= step.Range.ToLspRange();
+                    foreach (var item in step.Result.Items)
                     {
-                        matchedRange ??= step.Range.ToLspRange();
-                        foreach (var item in step.Result.Items)
-                        {
-                            if (item.MatchedStepDefinition != null)
-                                matchedBindings.Add(item.MatchedStepDefinition);
-                        }
+                        if (item.MatchedStepDefinition != null)
+                            matchedBindings.Add(item.MatchedStepDefinition);
                     }
                 }
             }
@@ -757,12 +844,23 @@ public sealed class StepRenameHandler
             }
         }
 
-        // Get file text from the document buffer, or read from disk
+        // Get file text: the live .cs text cache (updated by every didOpen/didChange for this
+        // file, from any source — not just our own rename edits, see ICSharpFileTextCache), the
+        // Gherkin document buffer (never actually populated for .cs paths — kept in case that
+        // ever changes), or disk as a last resort. Without the cache, a .cs edit applied via
+        // workspace/applyEdit is never saved to disk, so re-invoking rename on the same step
+        // before saving would silently read the pre-edit text back off disk and show a stale
+        // placeholder (confirmed live).
         string? fileText = null;
         var csUri = string.Equals(uri.GetFileSystemPath(), csPath, StringComparison.OrdinalIgnoreCase)
             ? uri
             : DocumentUri.FromFileSystemPath(csPath);
-        if (_documentBuffer.TryGet(csUri, out var buffer) && buffer?.Text != null)
+        if (_csharpFileTextCache.TryGet(csUri, out var cachedText) && cachedText != null)
+        {
+            fileText = cachedText;
+            _logger.LogVerbose($"StepRenameHandler: FindAttributeLiteralAsync — got text from live cache ({fileText.Length} chars)");
+        }
+        else if (_documentBuffer.TryGet(csUri, out var buffer) && buffer?.Text != null)
         {
             fileText = buffer.Text;
             _logger.LogVerbose($"StepRenameHandler: FindAttributeLiteralAsync — got text from buffer ({fileText.Length} chars)");

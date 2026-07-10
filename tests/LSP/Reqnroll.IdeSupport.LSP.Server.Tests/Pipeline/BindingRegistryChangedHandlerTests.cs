@@ -22,6 +22,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Tests.Pipeline;
 public class BindingRegistryChangedHandlerTests : IDisposable
 {
     private readonly IDocumentBufferService       _bufferService = Substitute.For<IDocumentBufferService>();
+    private readonly ICSharpFileTextCache         _csharpFileTextCache = new CSharpFileTextCache();
     private readonly IGherkinDocumentTaggerService _taggerService = Substitute.For<IGherkinDocumentTaggerService>();
     private readonly ILspWorkspaceScopeManager    _scopeManager  = Substitute.For<ILspWorkspaceScopeManager>();
     private readonly ILanguageServerFacade        _languageServer = Substitute.For<ILanguageServerFacade>();
@@ -73,7 +74,7 @@ public class BindingRegistryChangedHandlerTests : IDisposable
         => CreateSut(_clientIde);
 
     private BindingRegistryChangedHandler CreateSut(ClientIdeContext clientIde)
-        => new(_bufferService, _taggerService, _scopeManager, _languageServer, clientIde, _mediator, _csharpDiscovery, _rescanDebouncer, _logger);
+        => new(_bufferService, _csharpFileTextCache, _taggerService, _scopeManager, _languageServer, clientIde, _mediator, _csharpDiscovery, _rescanDebouncer, _logger);
 
     // ── Closed-file scanning — index-driven (baseline received) ───────────────
 
@@ -270,7 +271,7 @@ public class BindingRegistryChangedHandlerTests : IDisposable
     {
         var nonVsIde = new ClientIdeContext("vscode");
         var sut = new BindingRegistryChangedHandler(
-            _bufferService, _taggerService, _scopeManager, _languageServer, nonVsIde, _mediator, _csharpDiscovery, _rescanDebouncer, _logger);
+            _bufferService, _csharpFileTextCache, _taggerService, _scopeManager, _languageServer, nonVsIde, _mediator, _csharpDiscovery, _rescanDebouncer, _logger);
 
         _scopeManager.HasBaselineForProject(_project).Returns(true);
         _scopeManager.GetIndexedFeatureFiles(_project).Returns(Array.Empty<string>());
@@ -301,7 +302,7 @@ public class BindingRegistryChangedHandlerTests : IDisposable
     {
         var nonVsIde = new ClientIdeContext("vscode");
         var sut = new BindingRegistryChangedHandler(
-            _bufferService, _taggerService, _scopeManager, _languageServer, nonVsIde, _mediator, _csharpDiscovery, _rescanDebouncer, _logger);
+            _bufferService, _csharpFileTextCache, _taggerService, _scopeManager, _languageServer, nonVsIde, _mediator, _csharpDiscovery, _rescanDebouncer, _logger);
 
         _scopeManager.HasBaselineForProject(_project).Returns(true);
         _scopeManager.GetIndexedFeatureFiles(_project).Returns(Array.Empty<string>());
@@ -352,7 +353,7 @@ public class BindingRegistryChangedHandlerTests : IDisposable
     {
         var nonVsIde = new ClientIdeContext("vscode");
         var sut = new BindingRegistryChangedHandler(
-            _bufferService, _taggerService, _scopeManager, _languageServer, nonVsIde, _mediator, _csharpDiscovery, _rescanDebouncer, _logger);
+            _bufferService, _csharpFileTextCache, _taggerService, _scopeManager, _languageServer, nonVsIde, _mediator, _csharpDiscovery, _rescanDebouncer, _logger);
 
         var featureFile = Path.Combine(_projectFolder, "A.feature");
         File.WriteAllText(featureFile, "Feature: A\n");
@@ -434,7 +435,9 @@ public class BindingRegistryChangedHandlerTests : IDisposable
 
         var openPath = WriteCsFile("OpenSteps.cs", "// stale disk text", DateTime.UtcNow.AddHours(-2));
         var openUri  = DocumentUri.FromFileSystemPath(openPath);
-        _bufferService.All.Returns(new[] { new DocumentBuffer(openUri, 3, "// unsaved buffer edit") });
+        // .cs files are never tracked in IDocumentBufferService (Gherkin-only, by design) — the
+        // live/unsaved text for an open .cs file comes from ICSharpFileTextCache instead.
+        _csharpFileTextCache.Update(openUri, "// unsaved buffer edit");
 
         IndexBindingFiles(project, openPath);
 
@@ -452,6 +455,39 @@ public class BindingRegistryChangedHandlerTests : IDisposable
             project, Arg.Any<string>(), Arg.Is<string>(t => t.Contains("stale disk text")), Arg.Any<CancellationToken>());
 
         project.Dispose();
+    }
+
+    [Fact]
+    public async Task Rediscover_ignores_an_open_cs_buffer_owned_by_a_different_project()
+    {
+        // Regression: ownership must come from the membership index (ResolveOwners), not a
+        // folder-prefix check. A sibling project folder whose name extends this project's folder
+        // name (e.g. "Minimalnet481" vs "Minimal") must never have its open buffers reconciled
+        // into this project's registry just because the path happens to start with this folder.
+        var buildTime = DateTime.UtcNow.AddHours(-1);
+        var project    = MakeProjectWithBuiltAssembly(buildTime);
+        var otherProject = DiscoveryTestSupport.MakeProject(
+            _ideScope, _projectFolder + "net481", outputAssemblyPath: null);
+
+        var openPath = WriteCsFile("OpenSteps.cs", "// stale disk text", DateTime.UtcNow.AddHours(-2));
+        var openUri  = DocumentUri.FromFileSystemPath(openPath);
+        _csharpFileTextCache.Update(openUri, "// unsaved buffer edit");
+
+        // The buffer is indexed as owned by the OTHER project, not this one.
+        IndexBindingFiles(otherProject, openPath);
+        _scopeManager.HasBaselineForProject(project).Returns(true);
+        _scopeManager.GetBindingFilePathsForProject(project).Returns(Array.Empty<string>());
+        _scopeManager.GetIndexedFeatureFiles(project).Returns(Array.Empty<string>());
+
+        await CreateSut().Handle(
+            new BindingRegistryChangedNotification(project, IsFullReplacement: true),
+            CancellationToken.None);
+
+        await _csharpDiscovery.DidNotReceive().UpdateFromSourceForProjectAsync(
+            project, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+
+        project.Dispose();
+        otherProject.Dispose();
     }
 
     [Fact]
@@ -619,6 +655,13 @@ public class BindingRegistryChangedHandlerTests : IDisposable
         _scopeManager.GetBindingFilePathsForProject(project).Returns(bindingFiles);
         // Keep the (separate) feature-file scan a no-op for these tests.
         _scopeManager.GetIndexedFeatureFiles(project).Returns(Array.Empty<string>());
+        // ResolveOwners is the authoritative ownership check CollectCsFilesToReconcile uses for
+        // open .cs buffers — stub it consistently with an indexed binding file's real ownership.
+        foreach (var path in bindingFiles)
+        {
+            var uri = DocumentUri.FromFileSystemPath(path);
+            _scopeManager.ResolveOwners(uri).Returns(new[] { project });
+        }
     }
 
     private static bool PathEq(string actual, string expected)

@@ -2,6 +2,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.Common.Diagnostics;
+using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Pipeline;
@@ -194,7 +195,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
             return null;
 
         return _scopes.Values
-            .Where(s => filePath.StartsWith(s.RootFolder, StringComparison.OrdinalIgnoreCase))
+            .Where(s => PathUtils.IsUnderFolder(filePath, s.RootFolder))
             .OrderByDescending(s => s.RootFolder.Length)
             .FirstOrDefault();
     }
@@ -207,7 +208,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
 
         return _scopes.Values
             .SelectMany(s => s.Projects)
-            .Where(p => filePath.StartsWith(p.ProjectFolder, StringComparison.OrdinalIgnoreCase))
+            .Where(p => PathUtils.IsUnderFolder(filePath, p.ProjectFolder))
             .OrderByDescending(p => p.ProjectFolder.Length)
             .FirstOrDefault();
     }
@@ -384,8 +385,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         // Prefer the owner whose ProjectFolder is a prefix of the file path (home project).
         // If several qualify, pick the longest prefix (most specific containing project).
         var homeOwners = owners
-            .Where(p => !string.IsNullOrEmpty(p.ProjectFolder) &&
-                        filePath.StartsWith(p.ProjectFolder, StringComparison.OrdinalIgnoreCase))
+            .Where(p => PathUtils.IsUnderFolder(filePath, p.ProjectFolder))
             .OrderByDescending(p => p.ProjectFolder.Length)
             .ToList();
 
@@ -414,7 +414,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         // Any project that would cover this path via folder-prefix?
         var covering = _scopes.Values
             .SelectMany(s => s.Projects)
-            .Where(p => filePath.StartsWith(p.ProjectFolder, StringComparison.OrdinalIgnoreCase))
+            .Where(p => PathUtils.IsUnderFolder(filePath, p.ProjectFolder))
             .ToList();
 
         if (covering.Count == 0)
@@ -428,7 +428,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
             // Unowned — Unowned must only fire once we can be sure nothing will ever claim
             // the file (see invariant I2 in CSharpBindingDiscoveryService).
             var insideKnownScope = _scopes.Values.Any(
-                s => filePath.StartsWith(s.RootFolder, StringComparison.OrdinalIgnoreCase));
+                s => PathUtils.IsUnderFolder(filePath, s.RootFolder));
 
             return insideKnownScope ? MembershipState.Pending : MembershipState.Unowned;
         }

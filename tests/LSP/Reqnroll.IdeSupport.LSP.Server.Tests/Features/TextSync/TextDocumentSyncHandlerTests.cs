@@ -17,6 +17,7 @@ public class TextDocumentSyncHandlerTests
     private readonly IGherkinDocumentTaggerService _taggerService = Substitute.For<IGherkinDocumentTaggerService>();
     private readonly IBindingMatchService _bindingMatchService = Substitute.For<IBindingMatchService>();
     private readonly ICSharpBindingDiscoveryService _csharpDiscoveryService = Substitute.For<ICSharpBindingDiscoveryService>();
+    private readonly ICSharpFileTextCache _csharpFileTextCache = new CSharpFileTextCache();
     private readonly IMediator _mediator = Substitute.For<IMediator>();
     private readonly ILanguageServerFacade _languageServer = Substitute.For<ILanguageServerFacade>();
     private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
@@ -26,7 +27,7 @@ public class TextDocumentSyncHandlerTests
 
     private TextDocumentSyncHandler CreateSut() =>
         new(_bufferService, _taggerService, _bindingMatchService, _csharpDiscoveryService,
-            _mediator, _languageServer, _logger);
+            _csharpFileTextCache, _mediator, _languageServer, _logger);
 
     [Fact]
     public async Task Handle_DidOpen_stores_document_and_publishes_match_cache_changed_notification()
@@ -206,6 +207,9 @@ public class TextDocumentSyncHandlerTests
         result.Should().Be(Unit.Value);
         // .cs files are not parsed into the Gherkin document buffer.
         _bufferService.TryGet(CsUri, out _).Should().BeFalse();
+        // But the live-text cache is populated regardless — see ICSharpFileTextCache.
+        _csharpFileTextCache.TryGet(CsUri, out var cachedText).Should().BeTrue();
+        cachedText.Should().Be(source);
         await _csharpDiscoveryService.Received(1)
             .UpdateFromSourceAsync(CsUri, source, true, Arg.Any<CancellationToken>());
         await _mediator.DidNotReceiveWithAnyArgs().Publish(default!, default);
@@ -228,11 +232,16 @@ public class TextDocumentSyncHandlerTests
         await _csharpDiscoveryService.Received(1)
             .UpdateFromSourceAsync(CsUri, source, false, Arg.Any<CancellationToken>());
         _bufferService.TryGet(CsUri, out _).Should().BeFalse();
+        _csharpFileTextCache.TryGet(CsUri, out var cachedText).Should().BeTrue();
+        cachedText.Should().Be(source);
     }
 
     [Fact]
-    public async Task Handle_DidClose_for_cs_file_is_a_noop()
+    public async Task Handle_DidClose_for_cs_file_clears_the_live_text_cache_but_retains_bindings()
     {
+        const string source = "namespace S { [Reqnroll.Binding] class C { } }";
+        _csharpFileTextCache.Update(CsUri, source);
+
         var sut = CreateSut();
         var request = new DidCloseTextDocumentParams
         {
@@ -242,6 +251,10 @@ public class TextDocumentSyncHandlerTests
         var result = await sut.Handle(request, CancellationToken.None);
 
         result.Should().Be(Unit.Value);
+        // Once closed, disk is the source of truth again for the live-text cache — VS prompts to
+        // save or discard before a close reaches the server, so a stale in-memory copy could
+        // otherwise be preferred over disk indefinitely.
+        _csharpFileTextCache.TryGet(CsUri, out _).Should().BeFalse();
         // Closing a .cs file must not invalidate feature match state; bindings are retained until rebuild.
         _bindingMatchService.DidNotReceiveWithAnyArgs().InvalidateAllForDocument(default!);
         await _taggerService.DidNotReceiveWithAnyArgs().RescanClosedFileAsync(default!);
