@@ -1,4 +1,4 @@
-// VsIntegration layer
+﻿// VsIntegration layer
 using Reqnroll.IdeSupport.Common;
 using Reqnroll.IdeSupport.VisualStudio.Wizards.Core;
 
@@ -8,7 +8,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Wizards.VsIntegration;
 /// Ported from VsReqnrollProjectWizard.
 /// ReqnrollProjectTemplateWizard is resolved via MEF from the original
 /// extension's component model so it can receive IDeveroomWindowManager
-/// and IMonitoringService — these are replaced by the IWizardContext
+/// and ITelemetryService — these are replaced by the IWizardContext
 /// services constructed in VsTemplateWizardBase.RunStarted.
 /// </summary>
 public class VsReqnrollProjectWizard : VsTemplateWizardBase<ReqnrollProjectTemplateWizard>
@@ -24,7 +24,7 @@ public class VsReqnrollProjectWizard : VsTemplateWizardBase<ReqnrollProjectTempl
 
         var vsUiShell = VsUtils.SafeResolveMefDependency<Microsoft.VisualStudio.Shell.Interop.IVsUIShell>(dte);
         var dialogService = new VsWizardDialogService(vsUiShell);
-        var telemetry = new VsWizardTelemetry(ideScope.MonitoringService);
+        var telemetry = new VsWizardTelemetry(ideScope.TelemetryService);
 
         return new ReqnrollProjectTemplateWizard(dialogService, telemetry);
     }

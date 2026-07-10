@@ -10,12 +10,12 @@ namespace Reqnroll.IdeSupport.VisualStudio.Wizards.VsIntegration;
 public class VsWizardDialogService : IWizardDialogService
 {
     private readonly IVsUIShell _vsUiShell;
-    private readonly ITelemetryService? _monitoringService;
+    private readonly ITelemetryService? _telemetryService;
 
-    public VsWizardDialogService(IVsUIShell vsUiShell, ITelemetryService? monitoringService = null)
+    public VsWizardDialogService(IVsUIShell vsUiShell, ITelemetryService? telemetryService = null)
     {
         _vsUiShell = vsUiShell;
-        _monitoringService = monitoringService;
+        _telemetryService = telemetryService;
     }
 
     public AddNewProjectWizardResult? ShowAddNewProjectDialog()
@@ -53,7 +53,7 @@ public class VsWizardDialogService : IWizardDialogService
 
     private void WireLinkClicked(System.Windows.Window dialog)
     {
-        if (_monitoringService is null) return;
+        if (_telemetryService is null) return;
         if (dialog is WizardWindow wizard)
         {
             wizard.LinkClicked += (sender, e) =>
@@ -66,7 +66,7 @@ public class VsWizardDialogService : IWizardDialogService
 
                 var source = dialog.DataContext?.GetType().Name
                                  ?.Replace("ViewModel", "") ?? "Unknown";
-                _monitoringService.MonitorLinkClicked(source, uriString);
+                _telemetryService.MonitorLinkClicked(source, uriString);
             };
         }
     }

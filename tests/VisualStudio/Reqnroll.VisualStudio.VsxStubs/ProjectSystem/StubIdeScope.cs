@@ -5,7 +5,7 @@ public class StubIdeScope : IIdeScope, IDisposable
     public StubIdeScope(ITestOutputHelper testOutputHelper)
     {
         TelemetryTransmitter = new StubTelemetryTransmitter(Logger);
-        MonitoringService =
+        TelemetryService =
             new MonitoringService(
                 TelemetryTransmitter);
 
@@ -66,7 +66,7 @@ public class StubIdeScope : IIdeScope, IDisposable
         Substitute.For<IDeveroomOutputPaneServices>();
 
     public IDeveroomErrorListServices DeveroomErrorListServices => StubErrorListServices;
-    public ITelemetryService MonitoringService { get; }
+    public ITelemetryService TelemetryService { get; }
 
     public event EventHandler<EventArgs> WeakProjectsBuilt = null!;
     public event EventHandler<EventArgs> WeakProjectOutputsUpdated = null!;
@@ -109,7 +109,7 @@ public class StubIdeScope : IIdeScope, IDisposable
             }
             catch (Exception e)
             {
-                Logger.LogException(MonitoringService, e);
+                Logger.LogException(TelemetryService, e);
                 onException(e);
             }
         };

@@ -9,12 +9,12 @@ namespace Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
 
 public class DeveroomGherkinParser
 {
-    private readonly ITelemetryService _monitoringService;
+    private readonly ITelemetryService _telemetryService;
     private IAstBuilder<DeveroomGherkinDocument> _astBuilder;
 
-    public DeveroomGherkinParser(IGherkinDialectProvider dialectProvider, ITelemetryService monitoringService)
+    public DeveroomGherkinParser(IGherkinDialectProvider dialectProvider, ITelemetryService telemetryService)
     {
-        _monitoringService = monitoringService;
+        _telemetryService = telemetryService;
         DialectProvider = dialectProvider;
     }
 
@@ -43,7 +43,7 @@ public class DeveroomGherkinParser
         }
         catch (Exception e)
         {
-            logger.LogException(_monitoringService, e, "Exception during Gherkin parsing");
+            logger.LogException(_telemetryService, e, "Exception during Gherkin parsing");
             gherkinDocument = GetResult();
         }
 
@@ -77,7 +77,7 @@ public class DeveroomGherkinParser
         var tokenMatcher = new TokenMatcher(DialectProvider);
         _astBuilder = new DeveroomGherkinAstBuilder(sourceFilePath, () => tokenMatcher.CurrentDialect);
 
-        var parser = new InternalParser(_astBuilder, AstBuilder.RecordStateForLine, _monitoringService);
+        var parser = new InternalParser(_astBuilder, AstBuilder.RecordStateForLine, _telemetryService);
         var gherkinDocument = parser.Parse(tokenScanner, tokenMatcher);
 
         CheckSemanticErrors(gherkinDocument);
@@ -89,15 +89,15 @@ public class DeveroomGherkinParser
 
     private class InternalParser : Parser<DeveroomGherkinDocument>
     {
-        private readonly ITelemetryService _monitoringService;
+        private readonly ITelemetryService _telemetryService;
         private readonly Action<int, int> _recordStateForLine;
 
         public InternalParser(IAstBuilder<DeveroomGherkinDocument> astBuilder, Action<int, int> recordStateForLine,
-            ITelemetryService monitoringService)
+            ITelemetryService telemetryService)
             : base(astBuilder)
         {
             _recordStateForLine = recordStateForLine;
-            _monitoringService = monitoringService;
+            _telemetryService = telemetryService;
         }
 
         public int NullMatchToken(int state, Token token) =>
@@ -118,7 +118,7 @@ public class DeveroomGherkinParser
             }
             catch (InvalidOperationException ex)
             {
-                _monitoringService.MonitorError(ex);
+                _telemetryService.MonitorError(ex);
                 throw;
             }
         }
@@ -269,9 +269,9 @@ public class DeveroomGherkinParser
         public Token Read() => new Token(new Location());
     }
 
-    public static TokenType[] GetExpectedTokens(int state, ITelemetryService monitoringService)
+    public static TokenType[] GetExpectedTokens(int state, ITelemetryService telemetryService)
     {
-        var parser = new InternalParser(new NullAstBuilder(), null, monitoringService)
+        var parser = new InternalParser(new NullAstBuilder(), null, telemetryService)
         {
             StopAtFirstError = true
         };

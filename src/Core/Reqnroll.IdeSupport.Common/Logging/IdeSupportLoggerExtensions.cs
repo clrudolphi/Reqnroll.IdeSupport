@@ -49,10 +49,10 @@ public static class IdeSupportLoggerExtensions
         logger.Log(msg);
     }
 
-    public static void LogException(this IIdeSupportLogger logger, ITelemetryService monitoringService, Exception ex,
+    public static void LogException(this IIdeSupportLogger logger, ITelemetryService telemetryService, Exception ex,
         string message = "Exception", [CallerMemberName] string callerName = "???")
     {
-        monitoringService.MonitorError(ex);
+        telemetryService.MonitorError(ex);
         LogException(logger, ex, message, callerName);
     }
 
@@ -64,15 +64,15 @@ public static class IdeSupportLoggerExtensions
         logger.Log(msg);
     }
 
-    public static void LogVerboseException(this IIdeSupportLogger logger, ITelemetryService monitoringService,
+    public static void LogVerboseException(this IIdeSupportLogger logger, ITelemetryService telemetryService,
         Exception ex, string message = "Exception", [CallerMemberName] string callerName = "???")
     {
-        monitoringService.MonitorError(ex, false);
+        telemetryService.MonitorError(ex, false);
         var msg = new LogMessage(TraceLevel.Verbose, message, callerName, ex);
         logger.Log(msg);
     }
 
-    //TODO: merge IIdeSupportLogger with IMonitoringService
+    //TODO: merge IIdeSupportLogger with ITelemetryService
     public static void LogDebugException(this IIdeSupportLogger logger, Exception ex, string message = "Exception",
         [CallerMemberName] string callerName = "???")
     {

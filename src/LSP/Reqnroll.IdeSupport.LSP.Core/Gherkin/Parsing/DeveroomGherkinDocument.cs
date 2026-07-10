@@ -19,7 +19,7 @@ public class DeveroomGherkinDocument : GherkinDocument
 
     public GherkinDialect GherkinDialect { get; }
 
-    public TokenType[] GetExpectedTokens(int line, ITelemetryService monitoringService)
+    public TokenType[] GetExpectedTokens(int line, ITelemetryService telemetryService)
     {
         if (_statesForLines.Count <= line)
             return new TokenType[0];
@@ -27,6 +27,6 @@ public class DeveroomGherkinDocument : GherkinDocument
         var state = _statesForLines[line];
         if (state < 0)
             return new TokenType[0];
-        return DeveroomGherkinParser.GetExpectedTokens(state, monitoringService);
+        return DeveroomGherkinParser.GetExpectedTokens(state, telemetryService);
     }
 }

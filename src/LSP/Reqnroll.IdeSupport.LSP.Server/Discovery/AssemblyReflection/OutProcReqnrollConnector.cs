@@ -19,7 +19,7 @@ public abstract class OutProcReqnrollConnector
     protected readonly DeveroomConfiguration _configuration;
     protected readonly string _extensionFolder;
     protected readonly IIdeSupportLogger _logger;
-    protected readonly ITelemetryService _monitoringService;
+    protected readonly ITelemetryService _telemetryService;
     protected readonly ProcessorArchitectureSetting _processorArchitecture;
     protected readonly ProjectSettings _projectSettings;
     protected readonly TargetFrameworkMoniker _targetFrameworkMoniker;
@@ -28,7 +28,7 @@ public abstract class OutProcReqnrollConnector
     protected OutProcReqnrollConnector(DeveroomConfiguration configuration, IIdeSupportLogger logger,
         TargetFrameworkMoniker targetFrameworkMoniker, string extensionFolder,
         ProcessorArchitectureSetting processorArchitecture, ProjectSettings projectSettings,
-        ITelemetryService monitoringService)
+        ITelemetryService telemetryService)
     {
         _configuration = configuration;
         _logger = logger;
@@ -36,7 +36,7 @@ public abstract class OutProcReqnrollConnector
         _extensionFolder = extensionFolder;
         _processorArchitecture = processorArchitecture;
         _projectSettings = projectSettings;
-        _monitoringService = monitoringService;
+        _telemetryService = telemetryService;
     }
 
     private bool DebugConnector => _configuration.DebugConnector ||
@@ -141,8 +141,8 @@ public abstract class OutProcReqnrollConnector
         if (!string.IsNullOrEmpty(discoveryResult.ErrorMessage))
             discoveryResult.TelemetryProperties["Error"] = discoveryResult.ErrorMessage;
 
-        // DiscoveryResultEvent telemetry is not implemented in the LSP server; NullMonitoringService no-ops this.
-        // _monitoringService.TransmitEvent(new DiscoveryResultEvent(discoveryResult));
+        // DiscoveryResultEvent telemetry is not implemented in the LSP server; NullTelemetryService no-ops this.
+        // _telemetryService.TransmitEvent(new DiscoveryResultEvent(discoveryResult));
 
         return discoveryResult;
     }

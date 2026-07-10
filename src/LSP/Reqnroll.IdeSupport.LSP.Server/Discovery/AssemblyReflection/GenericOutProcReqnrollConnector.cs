@@ -25,7 +25,7 @@ public class GenericOutProcReqnrollConnector : OutProcReqnrollConnector
         string extensionFolder,
         ProcessorArchitectureSetting processorArchitecture,
         ProjectSettings projectSettings,
-        ITelemetryService monitoringService)
+        ITelemetryService telemetryService)
         : base(
             configuration,
             logger,
@@ -33,7 +33,7 @@ public class GenericOutProcReqnrollConnector : OutProcReqnrollConnector
             extensionFolder,
             processorArchitecture,
             projectSettings,
-            monitoringService)
+            telemetryService)
     {
     }
 

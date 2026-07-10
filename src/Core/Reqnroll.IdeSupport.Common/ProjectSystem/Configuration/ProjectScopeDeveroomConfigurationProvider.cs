@@ -33,7 +33,7 @@ public class ProjectScopeDeveroomConfigurationProvider : IDeveroomConfigurationP
     }
 
     private IIdeSupportLogger Logger => _projectScope.IdeScope.Logger;
-    private ITelemetryService MonitoringService => _projectScope.IdeScope.MonitoringService;
+    private ITelemetryService TelemetryService => _projectScope.IdeScope.TelemetryService;
     private IFileSystemForIDE FileSystem => _projectScope.IdeScope.FileSystem;
 
     //public event EventHandler<EventArgs> WeakConfigurationChanged
@@ -188,7 +188,7 @@ public class ProjectScopeDeveroomConfigurationProvider : IDeveroomConfigurationP
             catch (Exception ex)
             {
                 Logger.LogWarning($"Unable to load configuration from '{configSource.FilePath}': {ex.Message}");
-                Logger.LogVerboseException(MonitoringService, ex, "Unable to load configuration");
+                Logger.LogVerboseException(TelemetryService, ex, "Unable to load configuration");
             }
 
         if (loadedSources.Any())
@@ -201,7 +201,7 @@ public class ProjectScopeDeveroomConfigurationProvider : IDeveroomConfigurationP
         catch (Exception ex)
         {
             Logger.LogWarning($"Invalid Reqnroll Visual Studio configuration: {ex.Message}");
-            Logger.LogVerboseException(MonitoringService, ex, "Configuration error, using default config");
+            Logger.LogVerboseException(TelemetryService, ex, "Configuration error, using default config");
             configuration = new DeveroomConfiguration();
         }
 

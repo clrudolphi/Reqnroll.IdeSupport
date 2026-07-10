@@ -18,7 +18,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Tests.InlayHints;
 public class GherkinInlayHintServiceTests
 {
     private readonly IIdeSupportLogger _logger = Substitute.For<IIdeSupportLogger>();
-    private readonly ITelemetryService _monitoringService = Substitute.For<ITelemetryService>();
+    private readonly ITelemetryService _telemetryService = Substitute.For<ITelemetryService>();
     private readonly IDeveroomConfigurationProvider _configProvider = Substitute.For<IDeveroomConfigurationProvider>();
 
     private const string DocumentId = "file:///c:/proj/test.feature";
@@ -43,7 +43,7 @@ public class GherkinInlayHintServiceTests
 
     private FeatureBindingMatchSet MatchSetFor(string text, ProjectBindingRegistry? registry = null)
     {
-        var parser = new DeveroomTagParser(_logger, _monitoringService, _configProvider);
+        var parser = new DeveroomTagParser(_logger, _telemetryService, _configProvider);
         var reg = registry ?? RegistryWith();
         var tags = parser.Parse(Snap(text), reg);
         return FeatureBindingMatchSet.FromTags(DocumentId, 1, reg.Version, tags);

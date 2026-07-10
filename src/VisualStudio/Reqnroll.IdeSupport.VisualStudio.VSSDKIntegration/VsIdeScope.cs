@@ -28,14 +28,14 @@ public class VsIdeScope : IVsIdeScope
 
     [ImportingConstructor]
     public VsIdeScope([Import(typeof(SVsServiceProvider))] IServiceProvider serviceProvider,
-        ITelemetryService monitoringService,
+        ITelemetryService telemetryService,
         IFileSystemForIDE fileSystem,
         Reqnroll.IdeSupport.VisualStudio.Diagnostics.IdeSupportCompositeLogger compositeLogger)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         Logger = compositeLogger;
         ServiceProvider = serviceProvider;
-        MonitoringService = monitoringService;
+        TelemetryService = telemetryService;
         FileSystem = fileSystem;
 
         Dte = (DTE) serviceProvider.GetService(typeof(DTE));
@@ -51,7 +51,7 @@ public class VsIdeScope : IVsIdeScope
     public bool IsSolutionLoaded { get; private set; }
 
     public IIdeSupportLogger Logger { get; }
-    public ITelemetryService MonitoringService { get; }
+    public ITelemetryService TelemetryService { get; }
     public IIdeActions Actions { get; }
     public IFileSystemForIDE FileSystem { get; }
 
@@ -62,7 +62,7 @@ public class VsIdeScope : IVsIdeScope
             "Error on a background task in Reqnroll",
             exception =>
             {
-                Logger.LogException(MonitoringService, exception, $"Called from {callerName}");
+                Logger.LogException(TelemetryService, exception, $"Called from {callerName}");
                 onException(exception);
                 return true;
             });
@@ -80,7 +80,7 @@ public class VsIdeScope : IVsIdeScope
                 }
                 catch (Exception e)
                 {
-                    Logger.LogException(MonitoringService, e, $"Called from {callerName}");
+                    Logger.LogException(TelemetryService, e, $"Called from {callerName}");
                 }
             },
             _backgroundTaskTokenSource.Token,

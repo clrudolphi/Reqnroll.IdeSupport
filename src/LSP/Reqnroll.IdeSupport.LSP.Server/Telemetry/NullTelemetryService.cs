@@ -9,11 +9,11 @@ namespace Reqnroll.IdeSupport.LSP.Server.Telemetry;
 /// No-op <see cref="ITelemetryService"/> for the LSP server process.
 /// Telemetry is not collected from the server side.
 /// </summary>
-public sealed class NullMonitoringService : ITelemetryService
+public sealed class NullTelemetryService : ITelemetryService
 {
-    public static readonly NullMonitoringService Instance = new();
+    public static readonly NullTelemetryService Instance = new();
 
-    private NullMonitoringService() { }
+    private NullTelemetryService() { }
 
     public void MonitorLoadProjectSystem() { }
     public void MonitorOpenProjectSystem(IIdeScope ideScope) { }

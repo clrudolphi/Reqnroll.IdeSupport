@@ -10,14 +10,14 @@ public class SafeDispatcherTimer
     private readonly Func<bool> _action;
     private readonly DispatcherTimer _dispatcherTimer;
     private readonly IDeveroomLogger? _logger;
-    private readonly IWizardTelemetryLogger? _monitoringService;
+    private readonly IWizardTelemetryLogger? _telemetryService;
 
-    private SafeDispatcherTimer(int intervalSeconds, IDeveroomLogger? logger, IWizardTelemetryLogger? monitoringService,
+    private SafeDispatcherTimer(int intervalSeconds, IDeveroomLogger? logger, IWizardTelemetryLogger? telemetryService,
         Action action)
     {
         _action = () => { action(); return false; };
         _logger = logger;
-        _monitoringService = monitoringService;
+        _telemetryService = telemetryService;
         _dispatcherTimer = new DispatcherTimer(
             TimeSpan.FromSeconds(intervalSeconds),
             DispatcherPriority.ContextIdle,
@@ -25,12 +25,12 @@ public class SafeDispatcherTimer
             Dispatcher.CurrentDispatcher);
     }
 
-    private SafeDispatcherTimer(int intervalSeconds, IDeveroomLogger? logger, IWizardTelemetryLogger? monitoringService,
+    private SafeDispatcherTimer(int intervalSeconds, IDeveroomLogger? logger, IWizardTelemetryLogger? telemetryService,
         Func<bool> action)
     {
         _action = action;
         _logger = logger;
-        _monitoringService = monitoringService;
+        _telemetryService = telemetryService;
         _dispatcherTimer = new DispatcherTimer(
             TimeSpan.FromSeconds(intervalSeconds),
             DispatcherPriority.ContextIdle,
@@ -39,17 +39,17 @@ public class SafeDispatcherTimer
     }
 
     public static SafeDispatcherTimer CreateOneTime(int intervalSeconds, IDeveroomLogger? logger,
-        IWizardTelemetryLogger? monitoringService, Action action)
+        IWizardTelemetryLogger? telemetryService, Action action)
     {
         if (action == null) throw new ArgumentNullException(nameof(action));
-        return new SafeDispatcherTimer(intervalSeconds, logger, monitoringService, action);
+        return new SafeDispatcherTimer(intervalSeconds, logger, telemetryService, action);
     }
 
     public static SafeDispatcherTimer CreateContinuing(int intervalSeconds, IDeveroomLogger? logger,
-        IWizardTelemetryLogger? monitoringService, Func<bool> action)
+        IWizardTelemetryLogger? telemetryService, Func<bool> action)
     {
         if (action == null) throw new ArgumentNullException(nameof(action));
-        return new SafeDispatcherTimer(intervalSeconds, logger, monitoringService, action);
+        return new SafeDispatcherTimer(intervalSeconds, logger, telemetryService, action);
     }
 
     public void Start() => _dispatcherTimer.Start();
@@ -65,7 +65,7 @@ public class SafeDispatcherTimer
         }
         catch (Exception ex)
         {
-            _logger?.LogException(_monitoringService, ex);
+            _logger?.LogException(_telemetryService, ex);
             if (_logger == null)
                 MessageBox.Show("Unhandled exception: " + ex, "Reqnroll error",
                     MessageBoxButton.OK, MessageBoxImage.Error);

@@ -25,7 +25,7 @@ public class GenericOutProcReqnrollConnectorTests
                 extensionFolder,
                 ProcessorArchitectureSetting.UseSystem,
                 DiscoveryTestSupport.MinimalProjectSettings(TargetFrameworkMoniker.Create(tfm)),
-                NullMonitoringService.Instance)
+                NullTelemetryService.Instance)
         {
         }
 

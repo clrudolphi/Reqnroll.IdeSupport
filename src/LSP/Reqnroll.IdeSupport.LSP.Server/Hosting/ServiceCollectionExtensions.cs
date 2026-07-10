@@ -73,7 +73,7 @@ public static class ServiceCollectionExtensions
             // "protocol" file gated by the independent --protocol-log-level. Any new code that wants
             // ILogger<T> gets the correctly-configured one for free from that existing pipeline.
             .AddSingleton<IIdeScope, LspIdeScope>()
-            .AddSingleton<ITelemetryService>(sp => NullMonitoringService.Instance)
+            .AddSingleton<ITelemetryService>(sp => NullTelemetryService.Instance)
             // Telemetry: emit telemetry/event notifications, optionally mirrored to a local JSONL
             // debug log (REQNROLL_TELEMETRY_DEBUG_LOG). The decorator wraps the real emitter; when
             // the debug log is unconfigured the sink is a no-op and it simply forwards.

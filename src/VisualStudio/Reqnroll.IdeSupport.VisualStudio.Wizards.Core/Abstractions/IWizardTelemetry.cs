@@ -2,8 +2,8 @@ namespace Reqnroll.IdeSupport.VisualStudio.Wizards.Abstractions;
 
 /// <summary>
 /// Telemetry surface for wizard events only — extracted from the
-/// full IMonitoringService. Implemented by VsWizardTelemetry in the
-/// VsIntegration layer which delegates to the real IMonitoringService.
+/// full ITelemetryService. Implemented by VsWizardTelemetry in the
+/// VsIntegration layer which delegates to the real ITelemetryService.
 /// </summary>
 public interface IWizardTelemetry
 {

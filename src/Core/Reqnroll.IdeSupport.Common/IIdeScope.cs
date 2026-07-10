@@ -13,7 +13,7 @@ public interface IIdeScope
 {
     bool IsSolutionLoaded { get; }
     IIdeSupportLogger Logger { get; }
-    ITelemetryService MonitoringService { get; }
+    ITelemetryService TelemetryService { get; }
     IIdeActions Actions { get; }
     IFileSystemForIDE FileSystem { get; }
 }

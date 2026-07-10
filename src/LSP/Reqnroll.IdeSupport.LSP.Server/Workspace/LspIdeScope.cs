@@ -16,13 +16,13 @@ public sealed class LspIdeScope : IIdeScope
     {
         Logger = logger;
         FileSystem = new FileSystemForIDE();
-        MonitoringService = NullMonitoringService.Instance;
+        TelemetryService = NullTelemetryService.Instance;
         Actions = new LspIdeActions(logger);
     }
 
     public bool IsSolutionLoaded => true;
     public IIdeSupportLogger Logger { get; }
-    public ITelemetryService MonitoringService { get; }
+    public ITelemetryService TelemetryService { get; }
     public IIdeActions Actions { get; }
     public IFileSystemForIDE FileSystem { get; }
 

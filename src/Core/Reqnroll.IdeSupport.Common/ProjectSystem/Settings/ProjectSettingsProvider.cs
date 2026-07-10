@@ -29,7 +29,7 @@ public class ProjectSettingsProvider : IDisposable, IProjectSettingsProvider
     }
 
     private IIdeSupportLogger Logger => _projectScope.IdeScope.Logger;
-    private ITelemetryService MonitoringService => _projectScope.IdeScope.MonitoringService;
+    private ITelemetryService TelemetryService => _projectScope.IdeScope.TelemetryService;
 
     public void Dispose()
     {
@@ -120,7 +120,7 @@ public class ProjectSettingsProvider : IDisposable, IProjectSettingsProvider
 
     private void OnSettingsInitialized(ProjectSettings settings, int? featureFileCount)
     {
-        MonitoringService.MonitorOpenProject(settings, featureFileCount);
+        TelemetryService.MonitorOpenProject(settings, featureFileCount);
         Logger.LogInfo($"Project settings initialized: {settings.GetShortLabel()}");
         //SettingsInitialized?.Invoke(this, EventArgs.Empty);
     }

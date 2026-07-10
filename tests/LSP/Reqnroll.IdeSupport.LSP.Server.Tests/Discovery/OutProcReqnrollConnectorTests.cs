@@ -30,7 +30,7 @@ public class OutProcReqnrollConnectorTests
                 ProcessorArchitectureSetting.UseSystem,
                 DiscoveryTestSupport.MinimalProjectSettings(
                     TargetFrameworkMoniker.Create(".NETCoreApp,Version=v8.0")),
-                NullMonitoringService.Instance)
+                NullTelemetryService.Instance)
         {
             _connectorPath = connectorPath;
         }

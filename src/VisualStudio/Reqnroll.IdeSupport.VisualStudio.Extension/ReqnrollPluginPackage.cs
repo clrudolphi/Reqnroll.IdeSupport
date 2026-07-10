@@ -134,8 +134,8 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
             }
             _logger.LogInfo("RunWelcomeServiceAsync: IVsUIShell resolved OK.");
 
-            var monitoringService = ideScope.MonitoringService;
-            var dialogService = new VsWizardDialogService(vsUiShell, monitoringService);
+            var telemetryService = ideScope.TelemetryService;
+            var dialogService = new VsWizardDialogService(vsUiShell, telemetryService);
 
             _logger.LogInfo("RunWelcomeServiceAsync: creating WelcomeService...");
             var welcomeService = new WelcomeService(

@@ -216,7 +216,7 @@ public sealed class GherkinFormattingHandler
     {
         var language = _configurationProvider.GetConfiguration().DefaultFeatureLanguage ?? "en";
         var dialectProvider = ReqnrollGherkinDialectProvider.Get(language);
-        var parser = new DeveroomGherkinParser(dialectProvider, NullMonitoringService.Instance);
+        var parser = new DeveroomGherkinParser(dialectProvider, NullTelemetryService.Instance);
         parser.ParseAndCollectErrors(text, _logger, out var gherkinDocument, out _);
         return gherkinDocument;
     }

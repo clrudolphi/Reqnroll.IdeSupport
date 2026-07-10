@@ -10,13 +10,13 @@ namespace Reqnroll.IdeSupport.VisualStudio.Monitoring;
 [Export(typeof(ITelemetryService))]
 public class MonitoringService : ITelemetryService
 {
-    private readonly ITelemetryTransmitter _analyticsTransmitter;
+    private readonly ITelemetryTransmitter _telemetryTransmitter;
     //private readonly IWelcomeService _welcomeService;
 
     [ImportingConstructor]
-    public MonitoringService(ITelemetryTransmitter analyticsTransmitter)
+    public MonitoringService(ITelemetryTransmitter telemetryTransmitter)
     {
-        _analyticsTransmitter = analyticsTransmitter;
+        _telemetryTransmitter = telemetryTransmitter;
     }
 
     // OPEN
@@ -30,12 +30,12 @@ public class MonitoringService : ITelemetryService
     {
         //_welcomeService.OnIdeScopeActivityStarted(ideScope, this);
 
-        _analyticsTransmitter.TransmitEvent(new GenericEvent("Extension loaded"));
+        _telemetryTransmitter.TransmitEvent(new GenericEvent("Extension loaded"));
     }
 
     public void MonitorOpenProject(ProjectSettings settings, int? featureFileCount)
     {
-        _analyticsTransmitter.TransmitEvent(new GenericEvent("Project loaded",
+        _telemetryTransmitter.TransmitEvent(new GenericEvent("Project loaded",
             GetProjectSettingsProps(settings,
                 new Dictionary<string, object>
                 {
@@ -46,13 +46,13 @@ public class MonitoringService : ITelemetryService
 
     public void MonitorOpenFeatureFile(ProjectSettings projectSettings)
     {
-        _analyticsTransmitter.TransmitEvent(new GenericEvent("Feature file opened",
+        _telemetryTransmitter.TransmitEvent(new GenericEvent("Feature file opened",
             GetProjectSettingsProps(projectSettings)));
     }
 
     public void MonitorParserParse(ProjectSettings settings, Dictionary<string, object> additionalProps)
     {
-        _analyticsTransmitter.TransmitEvent(new GenericEvent("Feature file parsed",
+        _telemetryTransmitter.TransmitEvent(new GenericEvent("Feature file parsed",
             GetProjectSettingsProps(settings, additionalProps)));
     }
 
@@ -61,12 +61,12 @@ public class MonitoringService : ITelemetryService
 
     public void MonitorExtensionInstalled()
     {
-        _analyticsTransmitter.TransmitEvent(new GenericEvent("Extension installed"));
+        _telemetryTransmitter.TransmitEvent(new GenericEvent("Extension installed"));
     }
 
     public void MonitorExtensionUpgraded(string oldExtensionVersion)
     {
-        _analyticsTransmitter.TransmitEvent(new GenericEvent("Extension upgraded",
+        _telemetryTransmitter.TransmitEvent(new GenericEvent("Extension upgraded",
             new Dictionary<string, object>
             {
                 {"OldExtensionVersion", oldExtensionVersion}
@@ -75,7 +75,7 @@ public class MonitoringService : ITelemetryService
 
     public void MonitorExtensionDaysOfUsage(int usageDays)
     {
-        _analyticsTransmitter.TransmitEvent(new GenericEvent($"{usageDays} day usage"));
+        _telemetryTransmitter.TransmitEvent(new GenericEvent($"{usageDays} day usage"));
     }
 
 
@@ -83,13 +83,13 @@ public class MonitoringService : ITelemetryService
 
     public void MonitorCommandAddFeatureFile(ProjectSettings settings)
     {
-        _analyticsTransmitter.TransmitEvent(new GenericEvent("Feature file added",
+        _telemetryTransmitter.TransmitEvent(new GenericEvent("Feature file added",
             GetProjectSettingsProps(settings)));
     }
 
     public void MonitorCommandAddReqnrollConfigFile(ProjectSettings settings)
     {
-        _analyticsTransmitter.TransmitEvent(new GenericEvent("Reqnroll config added",
+        _telemetryTransmitter.TransmitEvent(new GenericEvent("Reqnroll config added",
             GetProjectSettingsProps(settings)));
     }
 
@@ -97,7 +97,7 @@ public class MonitoringService : ITelemetryService
 
     public void MonitorReqnrollGeneration(bool isFailed, ProjectSettings projectSettings)
     {
-        _analyticsTransmitter.TransmitEvent(new GenericEvent("Reqnroll Generation executed",
+        _telemetryTransmitter.TransmitEvent(new GenericEvent("Reqnroll Generation executed",
             GetProjectSettingsProps(projectSettings,
                 new Dictionary<string, object>
                 {
@@ -110,9 +110,9 @@ public class MonitoringService : ITelemetryService
     public void MonitorError(Exception exception, bool? isFatal = null)
     {
         if (isFatal.HasValue)
-            _analyticsTransmitter.TransmitFatalExceptionEvent(exception, isFatal.Value);
+            _telemetryTransmitter.TransmitFatalExceptionEvent(exception, isFatal.Value);
         else
-            _analyticsTransmitter.TransmitExceptionEvent(exception, ImmutableDictionary<string, object>.Empty);
+            _telemetryTransmitter.TransmitExceptionEvent(exception, ImmutableDictionary<string, object>.Empty);
     }
 
 
@@ -120,13 +120,13 @@ public class MonitoringService : ITelemetryService
 
     public void MonitorProjectTemplateWizardStarted()
     {
-        _analyticsTransmitter.TransmitEvent(new GenericEvent("Project Template Wizard Started"));
+        _telemetryTransmitter.TransmitEvent(new GenericEvent("Project Template Wizard Started"));
     }
 
     public void MonitorProjectTemplateWizardCompleted(string dotNetFramework, string unitTestFramework,
         bool addFluentAssertions)
     {
-        _analyticsTransmitter.TransmitEvent(new GenericEvent("Project Template Wizard Completed",
+        _telemetryTransmitter.TransmitEvent(new GenericEvent("Project Template Wizard Completed",
             new Dictionary<string, object>
             {
                 {"SelectedDotNetFramework", dotNetFramework},
@@ -138,13 +138,13 @@ public class MonitoringService : ITelemetryService
 
     //public void MonitorNotificationShown(NotificationData notification)
     //{
-    //    _analyticsTransmitter.TransmitEvent(new GenericEvent("Notification shown",
+    //    _telemetryTransmitter.TransmitEvent(new GenericEvent("Notification shown",
     //        GetNotificationProps(notification)));
     //}
 
     //public void MonitorNotificationDismissed(NotificationData notification)
     //{
-    //    _analyticsTransmitter.TransmitEvent(new GenericEvent("Notification dismissed",
+    //    _telemetryTransmitter.TransmitEvent(new GenericEvent("Notification dismissed",
     //        GetNotificationProps(notification)));
     //}
 
@@ -153,24 +153,24 @@ public class MonitoringService : ITelemetryService
         additionalProps ??= new Dictionary<string, object>();
         additionalProps.Add("Source", source);
         additionalProps.Add("URL", url);
-        _analyticsTransmitter.TransmitEvent(new GenericEvent("Link clicked",
+        _telemetryTransmitter.TransmitEvent(new GenericEvent("Link clicked",
             additionalProps));
     }
 
     public void MonitorUpgradeDialogDismissed(Dictionary<string, object> additionalProps)
     {
-        _analyticsTransmitter.TransmitEvent(new GenericEvent("Upgrade dialog dismissed",
+        _telemetryTransmitter.TransmitEvent(new GenericEvent("Upgrade dialog dismissed",
             additionalProps));
     }
 
     public void MonitorWelcomeDialogDismissed(Dictionary<string, object> additionalProps)
     {
-        _analyticsTransmitter.TransmitEvent(new GenericEvent("Welcome dialog dismissed",
+        _telemetryTransmitter.TransmitEvent(new GenericEvent("Welcome dialog dismissed",
             additionalProps));
     }
 
     public void TransmitEvent(ITelemetryEvent runtimeEvent)
-        => _analyticsTransmitter.TransmitEvent(runtimeEvent);
+        => _telemetryTransmitter.TransmitEvent(runtimeEvent);
 
 
     private ImmutableDictionary<string, object> GetProjectSettingsProps(ProjectSettings settings)

@@ -1,43 +1,43 @@
 ﻿// VsIntegration layer — VS SDK references are expected here.
-// Adapts the full IMonitoringService to the narrow IWizardTelemetry surface.
+// Adapts the full ITelemetryService to the narrow IWizardTelemetry surface.
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
 using Reqnroll.IdeSupport.VisualStudio.Wizards.Abstractions;
-using OriginalMonitoringService = Reqnroll.IdeSupport.Common.Telemetry.ITelemetryService;
+using OriginalTelemetryService = Reqnroll.IdeSupport.Common.Telemetry.ITelemetryService;
 using OriginalProjectSettings = Reqnroll.IdeSupport.Common.ProjectSystem.Settings.ProjectSettings;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Wizards.VsIntegration;
 
 /// <summary>
-/// Adapts IMonitoringService to IWizardTelemetry. Also implements
+/// Adapts ITelemetryService to IWizardTelemetry. Also implements
 /// IWizardTelemetryLogger for use by SafeDispatcherTimer.
 /// </summary>
 public class VsWizardTelemetry : IWizardTelemetry, IWizardTelemetryLogger
 {
-    private readonly OriginalMonitoringService _monitoringService;
+    private readonly OriginalTelemetryService _telemetryService;
 
-    public VsWizardTelemetry(OriginalMonitoringService monitoringService)
+    public VsWizardTelemetry(OriginalTelemetryService telemetryService)
     {
-        _monitoringService = monitoringService;
+        _telemetryService = telemetryService;
     }
 
     public void OnFeatureFileAdded(WizardProjectSettings settings) =>
-        _monitoringService.MonitorCommandAddFeatureFile(MapSettings(settings));
+        _telemetryService.MonitorCommandAddFeatureFile(MapSettings(settings));
 
     public void OnConfigFileAdded(WizardProjectSettings settings) =>
-        _monitoringService.MonitorCommandAddReqnrollConfigFile(MapSettings(settings));
+        _telemetryService.MonitorCommandAddReqnrollConfigFile(MapSettings(settings));
 
     public void OnProjectTemplateWizardStarted() =>
-        _monitoringService.MonitorProjectTemplateWizardStarted();
+        _telemetryService.MonitorProjectTemplateWizardStarted();
 
     public void OnProjectTemplateWizardCompleted(string dotNetFramework, string unitTestFramework) =>
-        _monitoringService.MonitorProjectTemplateWizardCompleted(dotNetFramework, unitTestFramework, false);
+        _telemetryService.MonitorProjectTemplateWizardCompleted(dotNetFramework, unitTestFramework, false);
 
     public void MonitorError(Exception exception, bool? isFatal = null) =>
-        _monitoringService.MonitorError(exception, isFatal);
+        _telemetryService.MonitorError(exception, isFatal);
 
     // OriginalProjectSettings is a record — we construct a minimal stub
-    // just to satisfy the IMonitoringService signatures that expect it.
+    // just to satisfy the ITelemetryService signatures that expect it.
     // TODO: Once MonitorCommandAdd* is refactored to accept a plain label
     // string this adapter can be simplified.
     private static OriginalProjectSettings MapSettings(WizardProjectSettings wps)

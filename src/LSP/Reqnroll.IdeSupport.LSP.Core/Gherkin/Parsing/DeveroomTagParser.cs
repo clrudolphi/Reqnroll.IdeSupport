@@ -19,16 +19,16 @@ public class DeveroomTagParser : IDeveroomTagParser
     internal static readonly Regex NewLineRe = new(@"\r\n|\n|\r");
     private readonly IDeveroomConfigurationProvider _deveroomConfigurationProvider;
     private readonly IIdeSupportLogger _logger;
-    private readonly ITelemetryService _monitoringService;
+    private readonly ITelemetryService _telemetryService;
 
     public DeveroomTagParser(
         IIdeSupportLogger logger,
-        ITelemetryService monitoringService,
+        ITelemetryService telemetryService,
         IDeveroomConfigurationProvider deveroomConfigurationProvider
     )
     {
         _logger = logger;
-        _monitoringService = monitoringService;
+        _telemetryService = telemetryService;
         _deveroomConfigurationProvider = deveroomConfigurationProvider;
     }
 
@@ -47,7 +47,7 @@ public class DeveroomTagParser : IDeveroomTagParser
         }
         catch (Exception ex)
         {
-            _logger.LogException(_monitoringService, ex, "Unhandled parsing error");
+            _logger.LogException(_telemetryService, ex, "Unhandled parsing error");
             return Array.Empty<DeveroomTag>();
         }
         finally
@@ -63,7 +63,7 @@ public class DeveroomTagParser : IDeveroomTagParser
         DeveroomConfiguration deveroomConfiguration)
     {
         var dialectProvider = ReqnrollGherkinDialectProvider.Get(deveroomConfiguration.DefaultFeatureLanguage);
-        var parser = new DeveroomGherkinParser(dialectProvider, _monitoringService);
+        var parser = new DeveroomGherkinParser(dialectProvider, _telemetryService);
 
         parser.ParseAndCollectErrors(fileSnapshot.GetText(), _logger,
             out var gherkinDocument, out var parserErrors);

@@ -49,7 +49,7 @@ public sealed record CorpusFingerprint(
         var registry = await BuildRegistryAsync(Path.Combine(corpusRoot, "Bindings")).ConfigureAwait(false);
 
         var tagParser = new DeveroomTagParser(
-            new IdeSupportNullLogger(), NullMonitoringService.Instance, new DefaultConfigurationProvider());
+            new IdeSupportNullLogger(), NullTelemetryService.Instance, new DefaultConfigurationProvider());
 
         var featureFiles = Directory
             .EnumerateFiles(Path.Combine(corpusRoot, "Features"), "*.feature", SearchOption.AllDirectories)
@@ -93,7 +93,7 @@ public sealed record CorpusFingerprint(
     private static void CountScenarios(string featureText, ref int scenarios, ref int outlines)
     {
         var parser = new DeveroomGherkinParser(
-            ReqnrollGherkinDialectProvider.Get("en"), NullMonitoringService.Instance);
+            ReqnrollGherkinDialectProvider.Get("en"), NullTelemetryService.Instance);
         parser.ParseAndCollectErrors(featureText, new IdeSupportNullLogger(), out var doc, out _);
         if (doc?.Feature is null) return;
 

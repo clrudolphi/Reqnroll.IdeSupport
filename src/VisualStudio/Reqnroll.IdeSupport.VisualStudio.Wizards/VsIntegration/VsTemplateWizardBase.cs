@@ -1,4 +1,4 @@
-// VsIntegration layer — VS SDK (IWizard, DTE, EnvDTE) references expected here.
+﻿// VsIntegration layer — VS SDK (IWizard, DTE, EnvDTE) references expected here.
 #nullable disable
 using EnvDTE;
 using Microsoft.VisualStudio.TemplateWizard;
@@ -74,7 +74,7 @@ public abstract class VsTemplateWizardBase<TWizard> : IWizard
 
         var vsUiShell = VsUtils.SafeResolveMefDependency<Microsoft.VisualStudio.Shell.Interop.IVsUIShell>(dte);
         var dialogService = new VsWizardDialogService(vsUiShell);
-        var telemetry = new VsWizardTelemetry(ideScope.MonitoringService);
+        var telemetry = new VsWizardTelemetry(ideScope.TelemetryService);
 
         _wizardContext = new VsWizardContext(
             isAddNewItem, projectScope, ideScope, templateFolder,

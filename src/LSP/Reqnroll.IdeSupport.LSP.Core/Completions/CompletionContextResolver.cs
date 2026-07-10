@@ -20,12 +20,12 @@ namespace Reqnroll.IdeSupport.LSP.Core.Completions;
 public sealed class CompletionContextResolver : ICompletionContextResolver
 {
     private readonly IDeveroomTagParser _tagParser;
-    private readonly ITelemetryService _monitoringService;
+    private readonly ITelemetryService _telemetryService;
 
-    public CompletionContextResolver(IDeveroomTagParser tagParser, ITelemetryService monitoringService)
+    public CompletionContextResolver(IDeveroomTagParser tagParser, ITelemetryService telemetryService)
     {
         _tagParser         = tagParser;
-        _monitoringService = monitoringService;
+        _telemetryService = telemetryService;
     }
 
     public CompletionContext? Resolve(
@@ -71,7 +71,7 @@ public sealed class CompletionContextResolver : ICompletionContextResolver
         }
 
         // ── F7: keyword completion ──────────────────────────────────────────────
-        var tokens = gherkinDoc?.GetExpectedTokens(cursorLine, _monitoringService)
+        var tokens = gherkinDoc?.GetExpectedTokens(cursorLine, _telemetryService)
                      ?? Array.Empty<TokenType>();
 
         return new KeywordCompletionContext(dialect, tokens);
