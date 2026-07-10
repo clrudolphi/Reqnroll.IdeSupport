@@ -7,6 +7,7 @@ using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
 
 
 using Reqnroll.IdeSupport.LSP.Connector.Models;
+using Reqnroll.IdeSupport.LSP.Core.Matching;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Bindings;
 

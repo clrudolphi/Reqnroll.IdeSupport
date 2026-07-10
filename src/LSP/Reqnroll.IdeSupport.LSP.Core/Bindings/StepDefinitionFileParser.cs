@@ -9,6 +9,7 @@ using Reqnroll.IdeSupport.LSP.Core.Bindings.TagExpressions;
 
 
 using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
+using Reqnroll.IdeSupport.LSP.Core.Matching;
 
 
 using System.Text;

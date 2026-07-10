@@ -1,4 +1,4 @@
-namespace Reqnroll.IdeSupport.LSP.Core.Bindings;
+namespace Reqnroll.IdeSupport.LSP.Core.Matching;
 public enum HookType
 {
     Unknown = 0,

@@ -1,9 +1,10 @@
 #nullable disable
 
 using Gherkin.Ast;
+using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
 
-namespace Reqnroll.IdeSupport.LSP.Core.Bindings;
+namespace Reqnroll.IdeSupport.LSP.Core.Matching;
 
 public class UndefinedStepDescriptor
 {

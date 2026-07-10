@@ -1,5 +1,6 @@
+using Reqnroll.IdeSupport.LSP.Core.Bindings;
 
-namespace Reqnroll.IdeSupport.LSP.Core.Bindings;
+namespace Reqnroll.IdeSupport.LSP.Core.Matching;
 public class HookMatchResult
 {
     public ProjectHookBinding[] Items { get; }

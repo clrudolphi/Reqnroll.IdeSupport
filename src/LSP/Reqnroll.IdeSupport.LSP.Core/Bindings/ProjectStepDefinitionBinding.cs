@@ -2,6 +2,7 @@
 
 using Gherkin.Ast;
 using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
+using Reqnroll.IdeSupport.LSP.Core.Matching;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Bindings;
 
