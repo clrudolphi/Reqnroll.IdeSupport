@@ -2,6 +2,10 @@ import * as vscode from 'vscode';
 import { ExecuteCommandRequest, LanguageClient } from 'vscode-languageclient/node';
 import { normalizeSelectionLines } from './selectionUtils';
 
+/**
+ * Toggles line comments on the active editor's selection by asking the server to compute the
+ * edit (via the `reqnroll.toggleComment` command) for the selected line range.
+ */
 export async function doToggleComment(client: LanguageClient): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   if (!editor) return;

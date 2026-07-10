@@ -16,6 +16,11 @@ interface GoToStepDefinitionLocation {
   methodName: string;
 }
 
+/**
+ * Implements Go to Step Definition: queries the server for step definitions matching the step
+ * at the cursor and navigates directly if there's exactly one, or shows a rich `QuickPick`
+ * (method name + step type) to choose among several.
+ */
 export async function doGoToStepDefinition(client: LanguageClient): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   if (!editor) return;

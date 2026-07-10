@@ -8,8 +8,10 @@ import {
   DidSaveTextDocumentNotification,
 } from 'vscode-languageclient/node';
 
+/** A predicate selecting which text documents a sync path is responsible for. */
 export type DocumentPredicate = (document: vscode.TextDocument) => boolean;
 
+/** True when `document` is a C# source file (matched by its `.cs` file extension). */
 export function isCSharpDocument(document: vscode.TextDocument): boolean {
   return document.uri.path.toLowerCase().endsWith('.cs');
 }

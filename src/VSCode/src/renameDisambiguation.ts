@@ -84,8 +84,9 @@ export function selectRenameTarget(
 
 /**
  * Builds a `RenameMiddleware.prepareRename` override that surfaces server-side rename ambiguity
- * (F16 multi-attribute case) with a VS Code–idiomatic `QuickPick`, mirroring the disambiguation
- * dialog the Visual Studio client shows via `RenameStepCommand`/`RenameStepService`.
+ * (the Step Rename refactoring's multi-attribute case) with a VS Code–idiomatic `QuickPick`,
+ * mirroring the disambiguation dialog the Visual Studio client shows via
+ * `RenameStepCommand`/`RenameStepService`.
  *
  * When the server reports zero or exactly one candidate at the cursor, this delegates to `next`
  * unchanged (the standard `textDocument/prepareRename` flow). When it reports two or more, the

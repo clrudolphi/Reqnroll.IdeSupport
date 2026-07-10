@@ -77,6 +77,11 @@ function resolveServerPath(context: vscode.ExtensionContext): string {
   );
 }
 
+/**
+ * Extension entry point: resolves and launches the Reqnroll LSP server, wires up the
+ * language client (middleware, status bar, telemetry, manual `.cs` document sync), and
+ * registers all Reqnroll commands.
+ */
 export function activate(context: vscode.ExtensionContext): void {
   const notReady = (label: string) => () => {
     void vscode.window.showInformationMessage(
@@ -93,7 +98,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('reqnroll.showOutputChannel', () => outputChannel.show()),
 
-    // F13 — Comment/Uncomment (Ctrl+/ for gherkin files)
+    // Comment/Uncomment toggle (Ctrl+/ for gherkin files)
     vscode.commands.registerCommand('reqnroll.toggleComment', async () => {
       if (!client) {
         notReady('Toggle Comment')();
@@ -102,7 +107,7 @@ export function activate(context: vscode.ExtensionContext): void {
       await doToggleComment(client);
     }),
 
-    // F14 — Find Step Usages (invoked from command palette, context menu, or CodeLens click)
+    // Find Step Definition Usages (invoked from command palette, context menu, or CodeLens click)
     // When invoked from a CodeLens the server passes [uri, line, char] as arguments.
     vscode.commands.registerCommand('reqnroll.findStepUsages', async (...args: unknown[]) => {
       if (!client) {
@@ -128,7 +133,7 @@ export function activate(context: vscode.ExtensionContext): void {
       await doFindStepUsages(client, uriStr, line, char);
     }),
 
-    // F14 — No-op command for CodeLens items that report 0 usages. Deliberately absent from
+    // No-op command for CodeLens items that report 0 usages. Deliberately absent from
     // package.json's contributes.commands: it's only ever invoked as a CodeLens click target
     // (see StepCodeLensHandler.cs), never from the command palette, so it doesn't need a
     // manifest entry — VS Code only requires one for palette/keybinding/menu visibility.
@@ -138,7 +143,7 @@ export function activate(context: vscode.ExtensionContext): void {
       );
     }),
 
-    // F15 — Find Unused Step Definitions
+    // Find Unused Step Definitions
     vscode.commands.registerCommand('reqnroll.findUnusedStepDefinitions', async () => {
       if (!client) {
         notReady('Find Unused Step Definitions')();
@@ -147,7 +152,7 @@ export function activate(context: vscode.ExtensionContext): void {
       await doFindUnusedStepDefinitions(client);
     }),
 
-    // F17 — Go to Hooks
+    // Hook Navigation ("Go to Hooks")
     vscode.commands.registerCommand('reqnroll.goToHooks', async () => {
       if (!client) {
         notReady('Go to Hooks')();
@@ -156,7 +161,7 @@ export function activate(context: vscode.ExtensionContext): void {
       await doGoToHooks(client);
     }),
 
-    // F5 — Go to Step Definition (rich picker with method name + step type)
+    // Go to Step Definition (rich picker with method name + step type)
     vscode.commands.registerCommand('reqnroll.goToStepDefinition', async () => {
       if (!client) {
         notReady('Go to Step Definition')();
@@ -165,12 +170,12 @@ export function activate(context: vscode.ExtensionContext): void {
       await doGoToStepDefinition(client);
     }),
 
-    // F6 — Define Steps (delegates to VS Code's native code-action picker)
+    // Define Steps (code action / quick-fix that generates step stubs; delegates to VS Code's native code-action picker)
     vscode.commands.registerCommand('reqnroll.defineSteps', async () => {
       await vscode.commands.executeCommand('editor.action.quickFix');
     }),
 
-    // F16 — Rename Step (delegates to VS Code's native rename; server handles textDocument/rename)
+    // Step Rename refactoring (delegates to VS Code's native rename; server handles textDocument/rename)
     vscode.commands.registerCommand('reqnroll.renameStep', async () => {
       await vscode.commands.executeCommand('editor.action.rename');
     }),
@@ -215,7 +220,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // .cs sync is driven manually (see manualDocumentSync.ts) because
     // vscode-languageclient's built-in sync has proven unreliable for it; this middleware
     // stops the built-in path from also emitting sync notifications for .cs documents.
-    // F16 — prepareRename is intercepted to surface multi-attribute rename ambiguity via a
+    // Step Rename refactoring — prepareRename is intercepted to surface multi-attribute rename ambiguity via a
     // QuickPick before delegating to the standard rename flow (see renameDisambiguation.ts).
     // `() => client` is passed rather than `client` directly because `client` isn't assigned
     // until after this object is constructed.
@@ -238,7 +243,7 @@ export function activate(context: vscode.ExtensionContext): void {
     .start()
     .then(() => {
       projectManager = new ProjectManager(client!);
-      // F18 — Step usage CodeLens for C# files (registered after client is running)
+      // Step usage count CodeLens for C# files (registered after client is running)
       registerStepCodeLens(client!, context);
       // Manually sync .cs documents (see manualDocumentSync.ts / createManualSyncMiddleware
       // above) instead of relying on vscode-languageclient's built-in sync feature.
@@ -252,6 +257,7 @@ export function activate(context: vscode.ExtensionContext): void {
     });
 }
 
+/** Extension teardown: disposes the project manager and stops the language client. */
 export function deactivate(): Thenable<void> | undefined {
   projectManager?.dispose();
   return client?.stop();

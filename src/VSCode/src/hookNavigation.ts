@@ -16,6 +16,11 @@ interface GoToHookLocation {
   methodName: string;
 }
 
+/**
+ * Implements Hook Navigation ("Go to Hooks"): queries the server for hooks applicable at the
+ * cursor position and navigates directly if there's exactly one, or shows a `QuickPick` to
+ * choose among several.
+ */
 export async function doGoToHooks(client: LanguageClient): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   if (!editor) return;

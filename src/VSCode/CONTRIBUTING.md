@@ -29,7 +29,7 @@ src/LSP/                  ← the shared LSP server (C#)
 ## Activation events
 
 `package.json`'s `activationEvents` includes `workspaceContains:**/*.feature` in addition to
-the more obvious `onLanguage:gherkin`. This is intentional, not left over: F18's step-usage
+the more obvious `onLanguage:gherkin`. This is intentional, not left over: the step-usage-count
 CodeLens (`stepCodeLens.ts`) needs the LSP client and `ProjectManager` running as soon as a
 `.cs` file with step-definition CodeLenses is opened — which can happen before the user ever
 opens a `.feature` file (`onLanguage:gherkin` wouldn't have fired yet). `workspaceContains` lets
