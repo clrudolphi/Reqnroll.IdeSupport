@@ -4,6 +4,7 @@ using Reqnroll.IdeSupport.Common.Logging;
 
 using Reqnroll.IdeSupport.LSP.Server.Features.SemanticTokens;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 
@@ -25,17 +26,20 @@ public class SemanticTokensPushHandler : INotificationHandler<MatchCacheChangedN
     private readonly ISemanticTokenService _tokenService;
     private readonly ClientIdeContext _clientIde;
     private readonly IIdeSupportLogger _logger;
+    private readonly IOperationDurationRecorder _recorder;
 
     public SemanticTokensPushHandler(
         ILanguageServerFacade languageServer,
         ISemanticTokenService tokenService,
         ClientIdeContext clientIde,
-        IIdeSupportLogger logger)
+        IIdeSupportLogger logger,
+        IOperationDurationRecorder? recorder = null)
     {
         _languageServer = languageServer;
         _tokenService = tokenService;
         _clientIde = clientIde;
         _logger = logger;
+        _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public async Task Handle(MatchCacheChangedNotification notification, CancellationToken cancellationToken)
@@ -46,6 +50,8 @@ public class SemanticTokensPushHandler : INotificationHandler<MatchCacheChangedN
             _logger.LogVerbose($"SemanticTokensPushHandler: skipped (client is not VS) for {notification.Uri} v{notification.Version}");
             return;
         }
+
+        using var _perf = _recorder.Measure(LspMethodNames.ReqnrollSemanticTokens, notification.Uri);
 
         var tokens = await _tokenService
             .GetSemanticTokensAsync(notification.Uri, notification.Version, cancellationToken)

@@ -25,6 +25,7 @@ public static class LspMethodNames
     // ── Standard LSP Methods ────────────────────────────────────────────────
     public const string TextDocumentSemanticTokensFull = "textDocument/semanticTokens/full";
     public const string TextDocumentSemanticTokensFullDelta = "textDocument/semanticTokens/full/delta";
+    public const string TextDocumentSemanticTokensRange = "textDocument/semanticTokens/range";
     public const string TextDocumentCompletion = "textDocument/completion";
     public const string TextDocumentDefinition = "textDocument/definition";
     public const string TextDocumentReferences = "textDocument/references";
@@ -34,11 +35,28 @@ public static class LspMethodNames
     public const string TextDocumentPrepareRename = "textDocument/prepareRename";
     public const string TextDocumentRename = "textDocument/rename";
     public const string TextDocumentPublishDiagnostics = "textDocument/publishDiagnostics";
+    public const string TextDocumentFormatting = "textDocument/formatting";
+    public const string TextDocumentRangeFormatting = "textDocument/rangeFormatting";
+    public const string TextDocumentOnTypeFormatting = "textDocument/onTypeFormatting";
+    public const string TextDocumentCodeAction = "textDocument/codeAction";
+    public const string TextDocumentDocumentSymbol = "textDocument/documentSymbol";
+    public const string TextDocumentDidOpen = "textDocument/didOpen";
+    public const string TextDocumentDidChange = "textDocument/didChange";
+    public const string TextDocumentDidClose = "textDocument/didClose";
 
     // ── Workspace Methods ───────────────────────────────────────────────────
     public const string WorkspaceApplyEdit = "workspace/applyEdit";
     public const string WorkspaceCodeLensRefresh = "workspace/codeLens/refresh";
+    public const string WorkspaceDidChangeWatchedFiles = "workspace/didChangeWatchedFiles";
+    public const string WorkspaceDidChangeWorkspaceFolders = "workspace/didChangeWorkspaceFolders";
+    public const string WorkspaceSemanticTokensRefresh = "workspace/semanticTokens/refresh";
+    public const string WorkspaceInlayHintRefresh = "workspace/inlayHint/refresh";
 
     // ── Telemetry ───────────────────────────────────────────────────────────
     public const string TelemetryEvent = "telemetry/event";
+
+    // ── Internal Pipeline Operations (not on the wire; perf-recorder labels only) ──
+    public const string InternalBindingRegistryReconcile = "internal/bindingRegistryReconcile";
+    public const string InternalReqnrollConfigReconcile = "internal/reqnrollConfigReconcile";
+    public const string InternalFeatureRescan = "internal/featureRescan";
 }

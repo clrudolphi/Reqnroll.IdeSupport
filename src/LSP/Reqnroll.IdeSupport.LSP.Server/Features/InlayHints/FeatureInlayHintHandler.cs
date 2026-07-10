@@ -2,6 +2,8 @@
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Core.InlayHints;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Protocol.Documents;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
@@ -30,22 +32,28 @@ public sealed class FeatureInlayHintHandler
     private readonly ILspWorkspaceScopeManager _scopeManager;
     private readonly IGherkinInlayHintService  _hintService;
     private readonly IIdeSupportLogger           _logger;
+    private readonly IOperationDurationRecorder _recorder;
 
     public FeatureInlayHintHandler(
         IBindingMatchService      matchService,
         ILspWorkspaceScopeManager scopeManager,
         IGherkinInlayHintService  hintService,
-        IIdeSupportLogger           logger)
+        IIdeSupportLogger           logger,
+        IOperationDurationRecorder? recorder = null)
     {
         _matchService = matchService;
         _scopeManager = scopeManager;
         _hintService  = hintService;
         _logger       = logger;
+        _recorder     = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public Task<InlayHintContainer?> HandleAsync(InlayHintParams request, CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
+
+        // Performance Verification (Layer 4): fires per visible range on scroll — frequent, was uninstrumented.
+        using var _perf = _recorder.Measure(LspMethodNames.TextDocumentInlayHint, uri);
 
         var primaryOwner = _scopeManager.ResolvePrimaryOwner(uri);
         var matchKey = primaryOwner is not null

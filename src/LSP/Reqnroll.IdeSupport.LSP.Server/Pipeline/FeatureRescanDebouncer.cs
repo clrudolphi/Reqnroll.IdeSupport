@@ -1,4 +1,6 @@
 ﻿using Reqnroll.IdeSupport.Common.Logging;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
@@ -9,11 +11,13 @@ public sealed class FeatureRescanDebouncer : IFeatureRescanDebouncer, IDisposabl
     private const int DebounceMilliseconds = 500;
 
     private readonly IIdeSupportLogger _logger;
+    private readonly IOperationDurationRecorder _recorder;
     private readonly ConcurrentDictionary<LspReqnrollProject, CancellationTokenSource> _pending = new();
 
-    public FeatureRescanDebouncer(IIdeSupportLogger logger)
+    public FeatureRescanDebouncer(IIdeSupportLogger logger, IOperationDurationRecorder? recorder = null)
     {
         _logger = logger;
+        _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public void ScheduleRescan(LspReqnrollProject project, Func<CancellationToken, Task> rescanAsync)
@@ -38,6 +42,10 @@ public sealed class FeatureRescanDebouncer : IFeatureRescanDebouncer, IDisposabl
         try
         {
             await Task.Delay(DebounceMilliseconds, cts.Token).ConfigureAwait(false);
+
+            // Performance Verification (Layer 4): time the debounced rescan that actually runs —
+            // distinguishing "slow" from "wrong" the next time a cross-project binding issue is reported.
+            using var _perf = _recorder.Measure(LspMethodNames.InternalFeatureRescan);
             await rescanAsync(cts.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)

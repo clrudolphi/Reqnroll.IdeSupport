@@ -16,6 +16,7 @@ using Reqnroll.IdeSupport.LSP.Core.Rename;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Protocol.Documents;
 using Reqnroll.IdeSupport.LSP.Server.Registry;
@@ -43,6 +44,7 @@ public sealed class StepRenameHandler
     private readonly ILanguageServerFacade         _languageServer;
     private readonly ClientIdeContext              _clientIdeContext;
     private readonly ILspTelemetryService?         _telemetryService;
+    private readonly IOperationDurationRecorder    _recorder;
 
     public StepRenameHandler(
         IBindingMatchService          matchService,
@@ -54,7 +56,8 @@ public sealed class StepRenameHandler
         ICSharpBindingDiscoveryService csharpDiscoveryService,
         ILanguageServerFacade         languageServer,
         ClientIdeContext              clientIdeContext,
-        ILspTelemetryService?         telemetryService = null)
+        ILspTelemetryService?         telemetryService = null,
+        IOperationDurationRecorder?   recorder = null)
     {
         _matchService    = matchService;
         _scopeManager    = scopeManager;
@@ -67,6 +70,7 @@ public sealed class StepRenameHandler
         _languageServer  = languageServer;
         _clientIdeContext = clientIdeContext;
         _telemetryService = telemetryService;
+        _recorder        = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     // ── textDocument/prepareRename ──────────────────────────────────────────────
@@ -93,6 +97,9 @@ public sealed class StepRenameHandler
     {
         var uri  = request.TextDocument.Uri;
         var path = uri.GetFileSystemPath();
+
+        // Performance Verification (Layer 4): time the prepareRename cursor-validation round-trip.
+        using var _perf = _recorder.Measure(LspMethodNames.TextDocumentPrepareRename, uri);
 
         if (string.IsNullOrEmpty(path))
             return null;
@@ -259,6 +266,10 @@ public sealed class StepRenameHandler
         var uri  = request.TextDocument.Uri;
         var path = uri.GetFileSystemPath();
         var newName = request.NewName;
+
+        // Performance Verification (Layer 4): time the full rename — the highest-blast-radius,
+        // most complex operation in the server (workspace-wide applyEdit).
+        using var _perf = _recorder.Measure(LspMethodNames.TextDocumentRename, uri);
 
         if (string.IsNullOrEmpty(path) || string.IsNullOrEmpty(newName))
             return null;
@@ -584,6 +595,9 @@ public sealed class StepRenameHandler
         var uri  = request.TextDocument.Uri;
         var path = uri.GetFileSystemPath();
 
+        // Performance Verification (Layer 4): time the rename-targets picker resolution.
+        using var _perf = _recorder.Measure(LspMethodNames.ReqnrollRenameTargets, uri);
+
         if (string.IsNullOrEmpty(path))
             return null;
 
@@ -754,6 +768,7 @@ public sealed class StepRenameHandler
         SelectRenameTargetParams request,
         CancellationToken        cancellationToken)
     {
+        using var _perf = _recorder.Measure(LspMethodNames.ReqnrollSelectRenameTarget, request.Uri);
         _sessionManager.SetSession(request.Uri.ToString(), request.Version, request.AttributeIndex);
         return Task.CompletedTask;
     }

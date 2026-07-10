@@ -2,6 +2,8 @@
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Core.Folding;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Features.Folding;
 
@@ -24,20 +26,27 @@ public sealed class FeatureFoldingRangeHandler
     private readonly IDocumentBufferService        _documentBufferService;
     private readonly IGherkinFoldingRangeService    _foldingService;
     private readonly IIdeSupportLogger               _logger;
+    private readonly IOperationDurationRecorder     _recorder;
 
     public FeatureFoldingRangeHandler(
         IDocumentBufferService documentBufferService,
         IGherkinFoldingRangeService foldingService,
-        IIdeSupportLogger logger)
+        IIdeSupportLogger logger,
+        IOperationDurationRecorder? recorder = null)
     {
         _documentBufferService = documentBufferService;
         _foldingService         = foldingService;
         _logger                = logger;
+        _recorder              = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public Task<Container<FoldingRange>?> HandleAsync(
         FoldingRangeRequestParam request, CancellationToken ct)
     {
+        // Benchmarked as load-only in the synthetic harness (no published target); now also
+        // has field visibility so a real P95 bar can be set.
+        using var _perf = _recorder.Measure(LspMethodNames.TextDocumentFoldingRange, request.TextDocument.Uri);
+
         _logger.LogInfo($"F10 textDocument/foldingRange: {request.TextDocument.Uri}");
 
         if (!_documentBufferService.TryGet(request.TextDocument.Uri, out var buffer) || buffer?.Tags is null)

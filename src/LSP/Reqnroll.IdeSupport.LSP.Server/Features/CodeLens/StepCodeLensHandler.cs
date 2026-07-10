@@ -6,6 +6,8 @@ using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Core.Documents;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Registry;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
@@ -28,17 +30,20 @@ public sealed class StepCodeLensHandler
     private readonly ILspWorkspaceScopeManager     _scopeManager;
     private readonly IProjectBindingRegistryLookup _registryLookup;
     private readonly IIdeSupportLogger               _logger;
+    private readonly IOperationDurationRecorder    _recorder;
 
     public StepCodeLensHandler(
         IBindingMatchService          matchService,
         ILspWorkspaceScopeManager     scopeManager,
         IProjectBindingRegistryLookup registryLookup,
-        IIdeSupportLogger               logger)
+        IIdeSupportLogger               logger,
+        IOperationDurationRecorder?   recorder = null)
     {
         _matchService   = matchService;
         _scopeManager   = scopeManager;
         _registryLookup = registryLookup;
         _logger         = logger;
+        _recorder       = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     /// <summary>
@@ -50,6 +55,8 @@ public sealed class StepCodeLensHandler
     public Task<global::OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeLens[]> HandleAsync(CodeLensParams request, CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
+
+        using var _perf = _recorder.Measure(LspMethodNames.TextDocumentCodeLens, uri);
 
         if (!IsCSharp(uri))
         {

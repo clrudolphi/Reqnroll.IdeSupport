@@ -7,6 +7,8 @@ using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Core.Scaffolding;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -24,17 +26,20 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
     private readonly IStepScaffoldService          _scaffoldService;
     private readonly ILspWorkspaceScopeManager     _scopeManager;
     private readonly IIdeSupportLogger               _logger;
+    private readonly IOperationDurationRecorder    _recorder;
 
     public FeatureCodeActionHandler(
         IBindingMatchService      matchService,
         IStepScaffoldService      scaffoldService,
         ILspWorkspaceScopeManager scopeManager,
-        IIdeSupportLogger            logger)
+        IIdeSupportLogger            logger,
+        IOperationDurationRecorder? recorder = null)
     {
         _matchService    = matchService;
         _scaffoldService = scaffoldService;
         _scopeManager    = scopeManager;
         _logger          = logger;
+        _recorder        = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public CodeActionRegistrationOptions GetRegistrationOptions(
@@ -53,6 +58,8 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
         CancellationToken   cancellationToken)
     {
         var uri = request.TextDocument.Uri;
+
+        using var _perf = _recorder.Measure(LspMethodNames.TextDocumentCodeAction, uri);
 
         if (!IsFeatureFile(uri))
         {

@@ -3,6 +3,8 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Protocol.Documents;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
@@ -29,19 +31,22 @@ public sealed class GoToStepDefinitionsHandler
     private readonly ILspWorkspaceScopeManager _scopeManager;
     private readonly IIdeSupportLogger           _logger;
     private readonly ILspTelemetryService?     _telemetryService;
+    private readonly IOperationDurationRecorder _recorder;
 
     public GoToStepDefinitionsHandler(
         IBindingMatchService      matchService,
         IDocumentBufferService    bufferService,
         ILspWorkspaceScopeManager scopeManager,
         IIdeSupportLogger           logger,
-        ILspTelemetryService?     telemetryService = null)
+        ILspTelemetryService?     telemetryService = null,
+        IOperationDurationRecorder? recorder = null)
     {
         _matchService  = matchService;
         _bufferService = bufferService;
         _scopeManager  = scopeManager;
         _logger        = logger;
         _telemetryService = telemetryService;
+        _recorder      = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public Task<GoToStepDefinitionsResponse> HandleAsync(
@@ -49,6 +54,10 @@ public sealed class GoToStepDefinitionsHandler
         CancellationToken          cancellationToken)
     {
         var uri = request.TextDocument.Uri;
+
+        // Performance Verification (Layer 4): same latency class as textDocument/definition,
+        // recorded separately since this is a distinct custom request.
+        using var _perf = _recorder.Measure(LspMethodNames.ReqnrollGoToStepDefinitions, uri);
 
         if (!IsFeatureFile(uri))
         {

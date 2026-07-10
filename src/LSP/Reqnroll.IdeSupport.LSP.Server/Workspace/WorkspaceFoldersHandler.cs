@@ -3,6 +3,8 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using Reqnroll.IdeSupport.Common.Logging;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Workspace;
 
@@ -15,15 +17,22 @@ public class WorkspaceFoldersHandler : IDidChangeWorkspaceFoldersHandler
 {
     private readonly ILspWorkspaceScopeManager _scopeManager;
     private readonly IIdeSupportLogger _logger;
+    private readonly IOperationDurationRecorder _recorder;
 
-    public WorkspaceFoldersHandler(ILspWorkspaceScopeManager scopeManager, IIdeSupportLogger logger)
+    public WorkspaceFoldersHandler(
+        ILspWorkspaceScopeManager scopeManager,
+        IIdeSupportLogger logger,
+        IOperationDurationRecorder? recorder = null)
     {
         _scopeManager = scopeManager;
         _logger = logger;
+        _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public Task<Unit> Handle(DidChangeWorkspaceFoldersParams request, CancellationToken cancellationToken)
     {
+        using var _perf = _recorder.Measure(LspMethodNames.WorkspaceDidChangeWorkspaceFolders);
+
         if (request.Event?.Added is not null)
         {
             foreach (var folder in request.Event.Added)

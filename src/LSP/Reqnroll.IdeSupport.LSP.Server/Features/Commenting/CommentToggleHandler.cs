@@ -9,6 +9,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Core.Commenting;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
@@ -29,19 +30,22 @@ public sealed class CommentToggleHandler : IExecuteCommandHandler
     private readonly ILanguageServerFacade     _languageServer;
     private readonly IIdeSupportLogger           _logger;
     private readonly ILspTelemetryService?     _telemetryService;
+    private readonly IOperationDurationRecorder _recorder;
 
     public CommentToggleHandler(
         IDocumentBufferService documentBufferService,
         ICommentToggleService toggleService,
         ILanguageServerFacade languageServer,
         IIdeSupportLogger logger,
-        ILspTelemetryService? telemetryService = null)
+        ILspTelemetryService? telemetryService = null,
+        IOperationDurationRecorder? recorder = null)
     {
         _documentBufferService = documentBufferService;
         _toggleService         = toggleService;
         _languageServer        = languageServer;
         _logger                = logger;
         _telemetryService      = telemetryService;
+        _recorder              = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public ExecuteCommandRegistrationOptions GetRegistrationOptions(
@@ -56,6 +60,8 @@ public sealed class CommentToggleHandler : IExecuteCommandHandler
         ExecuteCommandParams request,
         CancellationToken cancellationToken)
     {
+        using var _perf = _recorder.Measure(ToggleCommentCommand);
+
         if (request.Command != ToggleCommentCommand)
         {
             _logger.LogVerbose($"CommentToggleHandler: unknown command '{request.Command}'");

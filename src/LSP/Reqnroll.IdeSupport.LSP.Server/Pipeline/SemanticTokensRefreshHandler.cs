@@ -2,6 +2,8 @@
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Logging;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 
 /// <summary>
@@ -25,14 +27,19 @@ public class SemanticTokensRefreshHandler : INotificationHandler<MatchCacheChang
 
     private readonly ILanguageServerFacade _languageServer;
     private readonly IIdeSupportLogger _logger;
+    private readonly IOperationDurationRecorder _recorder;
 
     private CancellationTokenSource? _debounceCts;
     private readonly object _debounceLock = new object();
 
-    public SemanticTokensRefreshHandler(ILanguageServerFacade languageServer, IIdeSupportLogger logger)
+    public SemanticTokensRefreshHandler(
+        ILanguageServerFacade languageServer,
+        IIdeSupportLogger logger,
+        IOperationDurationRecorder? recorder = null)
     {
         _languageServer = languageServer;
         _logger = logger;
+        _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public Task Handle(MatchCacheChangedNotification notification, CancellationToken cancellationToken)
@@ -65,6 +72,8 @@ public class SemanticTokensRefreshHandler : INotificationHandler<MatchCacheChang
         try
         {
             await Task.Delay(DebounceDelay, debounceToken).ConfigureAwait(false);
+
+            using var _perf = _recorder.Measure(LspMethodNames.WorkspaceSemanticTokensRefresh);
 
             _logger.LogVerbose("SemanticTokensRefreshHandler: sending workspace/semanticTokens/refresh");
             await _languageServer.Client
