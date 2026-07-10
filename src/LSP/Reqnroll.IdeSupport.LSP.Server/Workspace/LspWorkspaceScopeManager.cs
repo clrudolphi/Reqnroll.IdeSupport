@@ -22,7 +22,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
     private readonly ConcurrentDictionary<string, LspProjectScope> _scopes
         = new(StringComparer.OrdinalIgnoreCase);
 
-    // ── Membership index (Q17) ────────────────────────────────────────────────
+    // ── Membership index (workspace scope / project membership tracking) ────
     // path (normalised, OrdinalIgnoreCase) → { ProjectKey → ProjectFileRole }
     private readonly Dictionary<string, Dictionary<ProjectKey, ProjectFileRole>> _membership
         = new(StringComparer.OrdinalIgnoreCase);
@@ -235,7 +235,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         return new ProjectSystemDeveroomConfigurationProvider(_ideScope);
     }
 
-    // ── Membership index (Q17) ────────────────────────────────────────────────
+    // ── Membership index (workspace scope / project membership tracking) ────
 
     public async Task HandleProjectFilesAsync(
         ReqnrollProjectFilesParams parameters,

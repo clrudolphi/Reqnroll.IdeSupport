@@ -32,8 +32,9 @@ namespace Reqnroll.IdeSupport.LSP.Server.Registry;
 /// Registries are intentionally <b>not</b> merged: step definitions belong to a single
 /// project and a feature file should only be matched against the bindings of its own project.
 /// <see cref="GetRegistryForUri"/> routes to the correct per-project registry via
-/// <see cref="ILspWorkspaceScopeManager.ResolvePrimaryOwner"/> (Q18 2A: deterministic
-/// home-project rule; no nondeterminism from baseline-arrival order).
+/// <see cref="ILspWorkspaceScopeManager.ResolvePrimaryOwner"/> (primary-owner resolution /
+/// shared-feature scoping 2A: deterministic home-project rule; no nondeterminism from
+/// baseline-arrival order).
 /// </para>
 /// <para>
 /// When any project's registry is replaced the router publishes a
@@ -78,8 +79,9 @@ public sealed class BindingRegistryProviderRouter : IProjectBindingRegistryLooku
     /// <inheritdoc/>
     public ProjectBindingRegistry GetRegistryForUri(DocumentUri uri)
     {
-        // Q18 2A: use the deterministic primary owner (home-project rule) instead of
-        // nondeterministic FirstOrDefault() on the full owner set.
+        // Primary-owner resolution / shared-feature scoping 2A: use the deterministic primary
+        // owner (home-project rule) instead of nondeterministic FirstOrDefault() on the full
+        // owner set.
         var project = _scopeManager.ResolvePrimaryOwner(uri);
         if (project is null)
             return ProjectBindingRegistry.Invalid;

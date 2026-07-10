@@ -15,7 +15,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.Formatting;
 
 /// <summary>
 /// Handles <c>textDocument/formatting</c> and <c>textDocument/rangeFormatting</c>
-/// LSP requests for <c>.feature</c> files (F11 — Document Auto-formatting).
+/// LSP requests for <c>.feature</c> files (Document auto-formatting).
 /// </summary>
 public sealed class GherkinFormattingHandler
     : IDocumentFormattingHandler, IDocumentRangeFormattingHandler, IDocumentOnTypeFormattingHandler
@@ -54,7 +54,7 @@ public sealed class GherkinFormattingHandler
     {
         using var _perf = _recorder.Measure(LspMethodNames.TextDocumentFormatting, request.TextDocument.Uri);
         var filePath = request.TextDocument.Uri.GetFileSystemPath();
-        _logger.LogInfo($"F11 textDocument/formatting: {request.TextDocument.Uri}");
+        _logger.LogInfo($"Document auto-formatting textDocument/formatting: {request.TextDocument.Uri}");
         return FormatDocumentAsync(request.TextDocument.Uri, filePath, request.Options,
             startLine: null, endLine: null);
     }
@@ -69,7 +69,7 @@ public sealed class GherkinFormattingHandler
     {
         using var _perf = _recorder.Measure(LspMethodNames.TextDocumentRangeFormatting, request.TextDocument.Uri);
         var filePath = request.TextDocument.Uri.GetFileSystemPath();
-        _logger.LogInfo($"F11 textDocument/rangeFormatting: {request.TextDocument.Uri}");
+        _logger.LogInfo($"Document auto-formatting textDocument/rangeFormatting: {request.TextDocument.Uri}");
         return await FormatDocumentAsync(
             request.TextDocument.Uri, filePath, request.Options,
             startLine: (int)request.Range.Start.Line,

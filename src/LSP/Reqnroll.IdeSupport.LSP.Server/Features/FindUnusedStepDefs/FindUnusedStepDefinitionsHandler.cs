@@ -7,7 +7,8 @@ using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 namespace Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs;
 
 /// <summary>
-/// Handles the custom <c>reqnroll/findUnusedStepDefinitions</c> request (F15). Resolves all
+/// Handles the custom <c>reqnroll/findUnusedStepDefinitions</c> request (Find Unused Step
+/// Definitions). Resolves all
 /// project binding registries and delegates the scan/dedupe/match algorithm to
 /// <see cref="IFindUnusedStepDefinitionsService"/> (LSP.Core), then maps the result to the wire
 /// <see cref="FindUnusedStepDefinitionsResponse"/> shape and fires telemetry.

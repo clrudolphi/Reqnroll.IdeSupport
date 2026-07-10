@@ -9,7 +9,7 @@ using Reqnroll.IdeSupport.LSP.Server.Workspace;
 namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
 
 /// <summary>
-/// Drives Roslyn-based (source-level) binding discovery (design doc feature F2) when a
+/// Drives Roslyn/C# source-level binding discovery when a
 /// <c>.cs</c> step-definition file is opened or edited.  Resolves all projects that own the
 /// document via the membership index (<see cref="ILspWorkspaceScopeManager.ResolveOwners"/>),
 /// parses the supplied source text with <see cref="StepDefinitionFileParser"/> (via
@@ -66,7 +66,7 @@ public sealed class CSharpBindingDiscoveryService : ICSharpBindingDiscoveryServi
             await ApplyToProjectAsync(project, filePath, text).ConfigureAwait(false);
         }
 
-        // Telemetry: Roslyn discovery event (design doc Q17 §2.3).
+        // Telemetry: Roslyn discovery event (membership index / telemetry design §2.3).
         var fileName = Path.GetFileName(filePath);
         var triggerContext = isOpen ? "csOpen" : "csEdit";
         _telemetryService?.SendEvent("Reqnroll Discovery executed", new()

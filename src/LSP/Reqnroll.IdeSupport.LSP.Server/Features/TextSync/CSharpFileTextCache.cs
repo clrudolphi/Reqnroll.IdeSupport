@@ -10,10 +10,11 @@ public record CSharpFileText(DocumentUri Uri, string Text);
 /// never populated for <c>.cs</c> documents (see <c>TextDocumentSyncHandler</c>).
 /// </summary>
 /// <remarks>
-/// Without this, any code that needs a <c>.cs</c> file's live content (e.g. F16 rename locating
-/// the attribute literal to edit, or F2's incremental Roslyn reconciliation) had no source but
-/// disk, which is stale for any unsaved edit — whether that edit came from the user typing
-/// directly in the file or from this server's own F16 rename applying its own edit.
+/// Without this, any code that needs a <c>.cs</c> file's live content (e.g. Step Rename
+/// refactoring locating the attribute literal to edit, or the Roslyn/C# source-level binding
+/// discovery's incremental Roslyn reconciliation) had no source but disk, which is stale for
+/// any unsaved edit — whether that edit came from the user typing directly in the file or from
+/// this server's own Step Rename refactoring applying its own edit.
 /// <c>TextDocumentSyncHandler</c> populates this on every <c>.cs</c> <c>didOpen</c>/
 /// <c>didChange</c> regardless of source, and removes it on <c>didClose</c> — once closed, disk
 /// is the source of truth again (VS prompts to save or discard before a close reaches the

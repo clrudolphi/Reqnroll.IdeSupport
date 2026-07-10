@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Features.Rename;
 
-/// <summary>Response DTO for the custom reqnroll/renameTargets request (F16).</summary>
+/// <summary>Response DTO for the custom reqnroll/renameTargets request (Step Rename refactoring).</summary>
 public sealed class RenameTargetsResponse
 {
     [JsonProperty("targets")]

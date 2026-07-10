@@ -18,7 +18,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 /// <summary>
 /// Single OmniSharp text-document sync handler covering both document types the server cares
 /// about: <c>.feature</c> files (parsed into the Gherkin document buffer) and <c>.cs</c> files
-/// (fed to Roslyn source-level binding discovery, design doc feature F2). Both are registered
+/// (fed to Roslyn/C# source-level binding discovery). Both are registered
 /// here so that a single sync handler owns text synchronization; the per-document branching is
 /// done by file extension.
 /// </summary>

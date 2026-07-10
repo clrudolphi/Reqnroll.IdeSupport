@@ -6,7 +6,8 @@ namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
 /// <summary>
 /// Applies an immediate, source-level (Roslyn) binding update for a single <c>.cs</c> file,
 /// patching the owning project's binding registry so step matches update as the user types —
-/// before any build. See <see cref="CSharpBindingDiscoveryService"/> and design doc feature F2.
+/// before any build. See <see cref="CSharpBindingDiscoveryService"/> (Roslyn/C# source-level
+/// binding discovery).
 /// </summary>
 public interface ICSharpBindingDiscoveryService
 {

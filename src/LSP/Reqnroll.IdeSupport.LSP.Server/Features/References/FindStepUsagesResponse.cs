@@ -6,7 +6,8 @@ using Newtonsoft.Json;
 namespace Reqnroll.IdeSupport.LSP.Server.Features.References;
 
 /// <summary>
-/// Response DTO for the custom <c>reqnroll/findStepUsages</c> request (F14 P2b).
+/// Response DTO for the custom <c>reqnroll/findStepUsages</c> request (Find Step Definition
+/// Usages / Find All References, phase 2b).
 /// <para>
 /// Carries the full three-state contract that <c>textDocument/references</c> cannot express
 /// because OmniSharp's <c>LocationOrLocationLinks</c> serializer cannot return <c>null</c>:

@@ -16,7 +16,7 @@ using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 namespace Reqnroll.IdeSupport.LSP.Server.Features.Definition;
 
 /// <summary>
-/// Handles the custom <c>reqnroll/goToHooks</c> request (F17 — Hook Navigation).
+/// Handles the custom <c>reqnroll/goToHooks</c> request (Hook Navigation — "Go to Hooks").
 /// <para>
 /// Given a cursor position in a <c>.feature</c> file, returns all hook bindings that are
 /// applicable at that position, filtered by context level (Feature / Scenario / Step) and
@@ -31,7 +31,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.Definition;
 /// </summary>
 public sealed class GoToHooksHandler
 {
-    // Hook types visible at each context level, per design doc F17.
+    // Hook types visible at each context level, per the Hook Navigation design doc.
     private static readonly IReadOnlySet<HookType> FeatureLevelHooks = new HashSet<HookType>
     {
         HookType.BeforeTestRun,  HookType.AfterTestRun,

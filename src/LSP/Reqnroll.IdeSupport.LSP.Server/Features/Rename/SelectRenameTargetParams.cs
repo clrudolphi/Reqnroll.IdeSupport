@@ -5,7 +5,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Features.Rename;
 
-/// <summary>Parameters for reqnroll/selectRenameTarget notification (F16).</summary>
+/// <summary>Parameters for reqnroll/selectRenameTarget notification (Step Rename refactoring).</summary>
 public sealed class SelectRenameTargetParams
 {
     // DocumentUri (not string): every other URI-keyed lookup in this codebase (MatchSetKey,

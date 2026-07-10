@@ -8,7 +8,7 @@ using Reqnroll.IdeSupport.LSP.Server.Protocol;
 namespace Reqnroll.IdeSupport.LSP.Server.Features.Folding;
 
 /// <summary>
-/// Handles <c>textDocument/foldingRange</c> for <c>.feature</c> files (F10 — Code Folding).
+/// Handles <c>textDocument/foldingRange</c> for <c>.feature</c> files (Code Folding).
 /// Returns foldable regions for Feature bodies, Scenario/Background/Rule blocks,
 /// Doc strings, Data tables, and Examples blocks.
 /// </summary>
@@ -47,7 +47,7 @@ public sealed class FeatureFoldingRangeHandler
         // has field visibility so a real P95 bar can be set.
         using var _perf = _recorder.Measure(LspMethodNames.TextDocumentFoldingRange, request.TextDocument.Uri);
 
-        _logger.LogInfo($"F10 textDocument/foldingRange: {request.TextDocument.Uri}");
+        _logger.LogInfo($"Code Folding textDocument/foldingRange: {request.TextDocument.Uri}");
 
         if (!_documentBufferService.TryGet(request.TextDocument.Uri, out var buffer) || buffer?.Tags is null)
             return Task.FromResult<Container<FoldingRange>?>(new Container<FoldingRange>());

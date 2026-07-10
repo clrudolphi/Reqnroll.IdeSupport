@@ -43,7 +43,8 @@ public interface IProjectBindingRegistryLookup
 
     /// <summary>
     /// Returns a snapshot of all currently-known (project name, owner, registry) triplets,
-    /// one per discovered project. Used by F15 to enumerate all step definitions workspace-wide.
+    /// one per discovered project. Used by Find Unused Step Definitions to enumerate all step
+    /// definitions workspace-wide.
     /// </summary>
     IReadOnlyList<(string ProjectName, ProjectOwner Owner, ProjectBindingRegistry Registry)> GetAllRegistries();
 }

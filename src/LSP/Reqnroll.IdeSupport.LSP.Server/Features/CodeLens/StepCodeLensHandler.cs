@@ -14,7 +14,7 @@ using Reqnroll.IdeSupport.LSP.Server.Workspace;
 namespace Reqnroll.IdeSupport.LSP.Server.Features.CodeLens;
 
 /// <summary>
-/// Handles the standard <c>textDocument/codeLens</c> request for C# files (F18 — Step Code Lens).
+/// Handles the standard <c>textDocument/codeLens</c> request for C# files (step usage count code lens).
 /// Returns one lens per step-binding attribute found in the file, annotated
 /// with the number of matching feature steps.
 /// </summary>
@@ -75,7 +75,8 @@ public sealed class StepCodeLensHandler
             return Task.FromResult<global::OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeLens[]>(Array.Empty<global::OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeLens>());
         }
 
-        // Restrict usage search to the projects that own this .cs file (Q18 2B).
+        // Restrict usage search to the projects that own this .cs file (primary-owner resolution
+        // / shared-feature scoping 2B).
         var owners = _scopeManager.ResolveOwners(uri);
         IReadOnlyCollection<ProjectOwner>? projectFilter = owners.Count > 0
             ? owners.Select(p => new ProjectOwner(p.ProjectFullName, p.TargetFrameworkMoniker))

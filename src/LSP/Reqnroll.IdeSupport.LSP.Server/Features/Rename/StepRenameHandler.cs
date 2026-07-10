@@ -29,7 +29,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.Rename;
 /// <summary>
 /// Handles <c>textDocument/prepareRename</c>, <c>textDocument/rename</c>,
 /// <c>reqnroll/renameTargets</c>, and <c>reqnroll/selectRenameTarget</c> for the
-/// F16 Step Rename Refactoring feature.
+/// Step Rename refactoring feature.
 /// </summary>
 public sealed class StepRenameHandler
 {

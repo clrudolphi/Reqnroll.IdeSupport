@@ -110,7 +110,8 @@ public class GherkinDocumentTaggerService : IGherkinDocumentTaggerService
 
         // Use the project's own registry directly (bypasses the router) so that the match set
         // for a shared/linked feature is computed against THIS project's bindings, not the
-        // primary owner's bindings. This is the per-(uri, project) correctness requirement (Q18 2B).
+        // primary owner's bindings. This is the per-(uri, project) correctness requirement
+        // (primary-owner resolution / shared-feature scoping 2B).
         var registry = project.Properties.TryGetValue(typeof(ConnectorBindingRegistryProvider), out var obj)
                        && obj is ConnectorBindingRegistryProvider provider
             ? provider.Current

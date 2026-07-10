@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs;
 
-/// <summary>Response DTO for the custom <c>reqnroll/findUnusedStepDefinitions</c> request (F15).</summary>
+/// <summary>Response DTO for the custom <c>reqnroll/findUnusedStepDefinitions</c> request (Find Unused Step Definitions).</summary>
 public sealed class FindUnusedStepDefinitionsResponse
 {
     [JsonProperty("items")]

@@ -140,7 +140,8 @@ public static class LanguageServerOptionsExtensions
             (request, ct) => resolver!.Get<FindStepUsagesHandler>().HandleAsync(request, ct));
 
         // Always-hierarchical documentSymbol for the VS extension's own Navigation Bar (Issue #5
-        // / Q22 Option B) — distinct from textDocument/documentSymbol, whose shape depends on the
+        // / Navigation Bar symbol source design, Option B) — distinct from
+        // textDocument/documentSymbol, whose shape depends on the
         // real client's declared hierarchicalDocumentSymbolSupport capability. See remarks on
         // FeatureDocumentSymbolHandler.HandleHierarchicalAsync.
         options.OnRequest<DocumentSymbolParams, IReadOnlyList<DocumentSymbol>>(
@@ -174,7 +175,7 @@ public static class LanguageServerOptionsExtensions
             LspMethodNames.ReqnrollFindUnusedStepDefinitions,
             (_, ct) => resolver!.Get<FindUnusedStepDefinitionsHandler>().HandleAsync(ct));
 
-        // ── F16 Step Rename ────────────────────────────────────────────────────
+        // ── Step Rename refactoring ──────────────────────────────────────────────
         // prepareRename null → null: per the LSP spec, a null prepareRename result means
         // "rename not supported at the given position", and vscode-languageclient handles that
         // quietly. Throwing here instead surfaces the raw exception text as a visible error
