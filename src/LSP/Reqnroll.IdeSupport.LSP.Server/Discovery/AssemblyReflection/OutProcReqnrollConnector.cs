@@ -62,7 +62,7 @@ public abstract class OutProcReqnrollConnector
             return new DiscoveryResult
             {
                 ErrorMessage = $"Error during binding discovery. Unable to find connector: {connectorPath}",
-                AnalyticsProperties = new Dictionary<string, object>(),
+                TelemetryProperties = new Dictionary<string, object>(),
                 ConnectorType = GetConnectorType()
             };
 
@@ -126,20 +126,20 @@ public abstract class OutProcReqnrollConnector
         }
 
         discoveryResult.ErrorMessage = formatErrorMessage(discoveryResult);
-        discoveryResult.AnalyticsProperties ??= new Dictionary<string, object>();
+        discoveryResult.TelemetryProperties ??= new Dictionary<string, object>();
 
-        discoveryResult.AnalyticsProperties["ProjectTargetFramework"] = _targetFrameworkMoniker;
-        discoveryResult.AnalyticsProperties["ProjectReqnrollVersion"] = ReqnrollVersion;
+        discoveryResult.TelemetryProperties["ProjectTargetFramework"] = _targetFrameworkMoniker;
+        discoveryResult.TelemetryProperties["ProjectReqnrollVersion"] = ReqnrollVersion;
         if (_projectSettings.IsSpecFlowProject)             
-            discoveryResult.AnalyticsProperties["LegacySpecFlow"] = true;
-        discoveryResult.AnalyticsProperties["ConnectorType"] = discoveryResult.ConnectorType;
-        discoveryResult.AnalyticsProperties["ConnectorArguments"] = result.Arguments;
-        discoveryResult.AnalyticsProperties["ConnectorExitCode"] = result.ExitCode;
+            discoveryResult.TelemetryProperties["LegacySpecFlow"] = true;
+        discoveryResult.TelemetryProperties["ConnectorType"] = discoveryResult.ConnectorType;
+        discoveryResult.TelemetryProperties["ConnectorArguments"] = result.Arguments;
+        discoveryResult.TelemetryProperties["ConnectorExitCode"] = result.ExitCode;
         if (!string.IsNullOrEmpty(discoveryResult.ReqnrollVersion))
-            discoveryResult.AnalyticsProperties["ReqnrollVersion"] = discoveryResult.ReqnrollVersion;
+            discoveryResult.TelemetryProperties["ReqnrollVersion"] = discoveryResult.ReqnrollVersion;
 
         if (!string.IsNullOrEmpty(discoveryResult.ErrorMessage))
-            discoveryResult.AnalyticsProperties["Error"] = discoveryResult.ErrorMessage;
+            discoveryResult.TelemetryProperties["Error"] = discoveryResult.ErrorMessage;
 
         // DiscoveryResultEvent telemetry is not implemented in the LSP server; NullMonitoringService no-ops this.
         // _monitoringService.TransmitEvent(new DiscoveryResultEvent(discoveryResult));

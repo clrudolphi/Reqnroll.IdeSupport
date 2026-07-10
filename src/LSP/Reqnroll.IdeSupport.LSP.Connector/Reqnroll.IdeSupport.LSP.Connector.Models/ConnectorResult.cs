@@ -1,4 +1,4 @@
-#nullable disable
+﻿#nullable disable
 using System.Collections.Generic;
 
 namespace Reqnroll.IdeSupport.LSP.Connector.Models;
@@ -11,5 +11,5 @@ public abstract class ConnectorResult
     public bool IsFailed => !string.IsNullOrWhiteSpace(ErrorMessage);
     public string[] LogMessages { get; set; }
     public string[] Warnings { get; set; }
-    public Dictionary<string, object> AnalyticsProperties { get; set; }
+    public Dictionary<string, object> TelemetryProperties { get; set; }
 }
