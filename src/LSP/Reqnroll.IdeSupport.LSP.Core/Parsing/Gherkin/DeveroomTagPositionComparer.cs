@@ -1,4 +1,4 @@
-namespace Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
+namespace Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
 internal class DeveroomTagPositionComparer : IComparer<DeveroomTag>
 {

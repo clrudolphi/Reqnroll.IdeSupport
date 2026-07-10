@@ -3,7 +3,7 @@
 using Reqnroll.IdeSupport.LSP.Core.TagExpressions;
 
 
-using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
+using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
 
 using Reqnroll.IdeSupport.LSP.Connector.Models;

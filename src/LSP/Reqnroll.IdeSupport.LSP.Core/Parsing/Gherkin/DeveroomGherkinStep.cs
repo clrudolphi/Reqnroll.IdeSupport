@@ -1,6 +1,6 @@
 using Gherkin.Ast;
 
-namespace Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
+namespace Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
 public class DeveroomGherkinStep : Step
 {

@@ -7,7 +7,7 @@ using Reqnroll.IdeSupport.LSP.Core.Documents;
 
 
 
-using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
+using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
 
 using Reqnroll.IdeSupport.LSP.Core.Matching;

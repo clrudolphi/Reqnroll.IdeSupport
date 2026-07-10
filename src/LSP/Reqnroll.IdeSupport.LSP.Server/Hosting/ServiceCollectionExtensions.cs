@@ -16,7 +16,7 @@ using Reqnroll.IdeSupport.LSP.Core.FindUnusedStepDefs;
 using Reqnroll.IdeSupport.LSP.Core.Folding;
 using Reqnroll.IdeSupport.LSP.Core.Commenting;
 using Reqnroll.IdeSupport.LSP.Core.InlayHints;
-using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
+using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
 
 using Reqnroll.IdeSupport.LSP.Core.Matching;

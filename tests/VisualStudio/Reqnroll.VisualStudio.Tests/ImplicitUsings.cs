@@ -23,7 +23,7 @@ global using Reqnroll.IdeSupport.LSP.Core.Bindings;
 global using Reqnroll.IdeSupport.LSP.Core.TagExpressions;
 
 
-global using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
+global using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
 
 global using Reqnroll.IdeSupport.LSP.Connector.Models;

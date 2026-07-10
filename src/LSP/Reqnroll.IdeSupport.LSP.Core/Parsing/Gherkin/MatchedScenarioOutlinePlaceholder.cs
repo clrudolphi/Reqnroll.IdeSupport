@@ -2,7 +2,7 @@ using Gherkin.Ast;
 using System;
 using System.Linq;
 
-namespace Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
+namespace Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
 public struct MatchedScenarioOutlinePlaceholder
 {

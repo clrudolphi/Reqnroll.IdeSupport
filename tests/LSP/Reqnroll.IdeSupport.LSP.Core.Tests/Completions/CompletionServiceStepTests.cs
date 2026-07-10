@@ -3,7 +3,7 @@ using Gherkin;
 using NSubstitute;
 using Reqnroll.IdeSupport.LSP.Core.Completions;
 using Reqnroll.IdeSupport.LSP.Core.Completions.Matching;
-using Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
+using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
 
 using GherkinLocation = Gherkin.Ast.Location;

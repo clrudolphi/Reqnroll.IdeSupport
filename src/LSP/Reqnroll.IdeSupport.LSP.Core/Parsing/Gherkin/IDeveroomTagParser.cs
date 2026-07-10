@@ -5,7 +5,7 @@ using Reqnroll.IdeSupport.LSP.Core.Documents;
 
 
 
-namespace Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
+namespace Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
 public interface IDeveroomTagParser
 {

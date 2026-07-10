@@ -2,7 +2,7 @@
 using Gherkin.Ast;
 using Reqnroll;
 
-namespace Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
+namespace Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
 internal class DeveroomGherkinAstBuilder : AstBuilder<DeveroomGherkinDocument>, IAstBuilder<DeveroomGherkinDocument>
 {

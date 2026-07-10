@@ -283,7 +283,7 @@ public class DeveroomSteps : Steps
     }
 
     [Then(@"there is a ""(.*)"" step with regex ""(.*)""")]
-    public void ThenThereIsAStepWithRegex(Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing.ScenarioBlock stepType, string stepDefRegex)
+    public void ThenThereIsAStepWithRegex(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ScenarioBlock stepType, string stepDefRegex)
     {
         _bindingRegistry.Should().NotBeNull();
         _bindingRegistry.StepDefinitions.Should().Contain(sd =>
@@ -316,7 +316,7 @@ public class DeveroomSteps : Steps
     }
 
     [Then(@"there is a ""(.*)"" step with source file containing ""(.*)""")]
-    public void ThenThereIsAStepWithSourceFileContaining(Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing.ScenarioBlock stepType, string expectedPathPart)
+    public void ThenThereIsAStepWithSourceFileContaining(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ScenarioBlock stepType, string expectedPathPart)
     {
         _bindingRegistry.Should().NotBeNull();
         _bindingRegistry.StepDefinitions.Should().Contain(sd =>

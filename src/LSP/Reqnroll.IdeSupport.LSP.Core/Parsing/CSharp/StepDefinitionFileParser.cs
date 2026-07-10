@@ -9,12 +9,13 @@ using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Core.TagExpressions;
 using Reqnroll.IdeSupport.LSP.Core.Documents;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
+using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
 
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
+namespace Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp;
 
 /// <summary>
 /// Roslyn-based (source-level) binding discovery (design doc feature F2). Scans a single

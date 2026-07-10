@@ -1,7 +1,7 @@
 #nullable disable
 using Gherkin.Ast;
 
-namespace Reqnroll.IdeSupport.LSP.Core.Gherkin.Parsing;
+namespace Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
 public interface IGherkinDocumentContext
 {
