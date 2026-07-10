@@ -11,6 +11,7 @@ using Reqnroll.IdeSupport.LSP.Core.Completions;
 using Reqnroll.IdeSupport.LSP.Core.Completions.Matching;
 using Reqnroll.IdeSupport.LSP.Core.Scaffolding;
 using Reqnroll.IdeSupport.LSP.Core.DocumentOutline;
+using Reqnroll.IdeSupport.LSP.Core.FindUnusedStepDefs;
 using Reqnroll.IdeSupport.LSP.Core.Folding;
 using Reqnroll.IdeSupport.LSP.Core.Commenting;
 using Reqnroll.IdeSupport.LSP.Core.InlayHints;
@@ -173,6 +174,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<GherkinCompletionHandler>()
             .AddSingleton<IStepScaffoldService, StepScaffoldService>()
             .AddSingleton<FeatureCodeActionHandler>()
+            .AddSingleton<IFindUnusedStepDefinitionsService, FindUnusedStepDefinitionsService>()
             .AddSingleton<FindUnusedStepDefinitionsHandler>()
             .AddSingleton<DocumentActivatedHandler>()
             .AddSingleton<GherkinFormattingHandler>()

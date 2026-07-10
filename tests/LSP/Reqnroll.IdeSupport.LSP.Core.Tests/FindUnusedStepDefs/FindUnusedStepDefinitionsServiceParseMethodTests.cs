@@ -1,11 +1,9 @@
-using AwesomeAssertions;
-using Reqnroll.IdeSupport.LSP.Server.Documents;
-using Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs;
+using Reqnroll.IdeSupport.LSP.Core.FindUnusedStepDefs;
 
-namespace Reqnroll.IdeSupport.LSP.Server.Tests.Features.FindUnusedStepDefs;
+namespace Reqnroll.IdeSupport.LSP.Core.Tests.FindUnusedStepDefs;
 
 /// <summary>Unit tests for the Method string parser used by F15.</summary>
-public class FindUnusedStepDefinitionsParseMethodTests
+public class FindUnusedStepDefinitionsServiceParseMethodTests
 {
     [Theory]
     [InlineData("StepDefs.GivenSomething()",           "StepDefs",   "GivenSomething")]
@@ -19,7 +17,7 @@ public class FindUnusedStepDefinitionsParseMethodTests
     public void ParseMethod_returns_expected_class_and_method(
         string? method, string expectedClass, string expectedMethod)
     {
-        var (className, methodName) = FindUnusedStepDefinitionsHandler.ParseMethod(method);
+        var (className, methodName) = FindUnusedStepDefinitionsService.ParseMethod(method);
         className.Should().Be(expectedClass);
         methodName.Should().Be(expectedMethod);
     }
