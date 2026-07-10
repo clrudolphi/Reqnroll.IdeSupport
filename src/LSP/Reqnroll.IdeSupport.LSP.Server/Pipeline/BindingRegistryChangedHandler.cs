@@ -7,6 +7,7 @@ using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Features.CodeLens;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Tagging;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
@@ -46,6 +47,7 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
     private readonly ICSharpBindingDiscoveryService   _csharpDiscoveryService;
     private readonly IFeatureRescanDebouncer          _rescanDebouncer;
     private readonly IIdeSupportLogger                  _logger;
+    private readonly IOperationDurationRecorder         _recorder;
 
     public BindingRegistryChangedHandler(
         IDocumentBufferService documentBufferService,
@@ -57,7 +59,8 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
         IMediator mediator,
         ICSharpBindingDiscoveryService csharpDiscoveryService,
         IFeatureRescanDebouncer rescanDebouncer,
-        IIdeSupportLogger logger)
+        IIdeSupportLogger logger,
+        IOperationDurationRecorder? recorder = null)
     {
         _documentBufferService  = documentBufferService;
         _csharpFileTextCache    = csharpFileTextCache;
@@ -69,12 +72,17 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
         _csharpDiscoveryService = csharpDiscoveryService;
         _rescanDebouncer        = rescanDebouncer;
         _logger                 = logger;
+        _recorder               = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public async Task Handle(
         BindingRegistryChangedNotification notification,
         CancellationToken cancellationToken)
     {
+        // Performance Verification (Layer 4): time the binding-registry reconciliation —
+        // the pipeline behind several cross-project binding-ownership bugs (issue #113).
+        using var _perf = _recorder.Measure(LspMethodNames.InternalBindingRegistryReconcile);
+
         if (notification.RemovedBindingFilePaths is { Count: > 0 } removedPaths)
         {
             await RemoveBindingFilesAsync(notification.Project, removedPaths, cancellationToken)

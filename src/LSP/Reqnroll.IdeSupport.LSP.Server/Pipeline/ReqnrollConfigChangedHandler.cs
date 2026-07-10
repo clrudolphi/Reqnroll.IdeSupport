@@ -3,6 +3,8 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Tagging;
 namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 
@@ -18,21 +20,27 @@ public class ReqnrollConfigChangedHandler : INotificationHandler<ReqnrollConfigC
     private readonly IGherkinDocumentTaggerService _taggerService;
     private readonly IMediator _mediator;
     private readonly IIdeSupportLogger _logger;
+    private readonly IOperationDurationRecorder _recorder;
 
     public ReqnrollConfigChangedHandler(
         IDocumentBufferService documentBufferService,
         IGherkinDocumentTaggerService taggerService,
         IMediator mediator,
-        IIdeSupportLogger logger)
+        IIdeSupportLogger logger,
+        IOperationDurationRecorder? recorder = null)
     {
         _documentBufferService = documentBufferService;
         _taggerService = taggerService;
         _mediator = mediator;
         _logger = logger;
+        _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public async Task Handle(ReqnrollConfigChangedNotification notification, CancellationToken cancellationToken)
     {
+        // Performance Verification (Layer 4): time the reqnroll.json-change reconciliation.
+        using var _perf = _recorder.Measure(LspMethodNames.InternalReqnrollConfigReconcile);
+
         var affectedBuffers = _documentBufferService.All
             .Where(b => IsUnderWorkspaceRoot(b.Uri, notification.WorkspaceRootPath))
             .ToList();

@@ -1,4 +1,6 @@
 ﻿using Reqnroll.IdeSupport.LSP.Core.FindUnusedStepDefs;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Registry;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
@@ -15,19 +17,26 @@ public sealed class FindUnusedStepDefinitionsHandler
     private readonly IProjectBindingRegistryLookup _registryLookup;
     private readonly IFindUnusedStepDefinitionsService _service;
     private readonly ILspTelemetryService? _telemetryService;
+    private readonly IOperationDurationRecorder _recorder;
 
     public FindUnusedStepDefinitionsHandler(
         IProjectBindingRegistryLookup registryLookup,
         IFindUnusedStepDefinitionsService service,
-        ILspTelemetryService? telemetryService = null)
+        ILspTelemetryService? telemetryService = null,
+        IOperationDurationRecorder? recorder = null)
     {
         _registryLookup = registryLookup;
         _service = service;
         _telemetryService = telemetryService;
+        _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public Task<FindUnusedStepDefinitionsResponse> HandleAsync(CancellationToken cancellationToken)
     {
+        // Performance Verification (Layer 4): time the full-workspace unused-step-definitions scan —
+        // the operation shape most likely to regress silently on large solutions.
+        using var _perf = _recorder.Measure(LspMethodNames.ReqnrollFindUnusedStepDefinitions);
+
         var allRegistries = _registryLookup.GetAllRegistries();
 
         var unused = _service.FindUnusedStepDefinitions(

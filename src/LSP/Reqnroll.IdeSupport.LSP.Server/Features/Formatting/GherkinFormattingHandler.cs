@@ -7,6 +7,8 @@ using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 using Reqnroll.IdeSupport.LSP.Core.Formatting;
 using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Features.Formatting;
@@ -22,6 +24,7 @@ public sealed class GherkinFormattingHandler
     private readonly IEditorConfigOptionsProvider _editorConfigOptionsProvider;
     private readonly IDeveroomConfigurationProvider _configurationProvider;
     private readonly IIdeSupportLogger _logger;
+    private readonly IOperationDurationRecorder _recorder;
     private readonly GherkinDocumentFormatter _formatter = new();
 
     private static readonly TextDocumentSelector FeatureSelector = new(
@@ -31,12 +34,14 @@ public sealed class GherkinFormattingHandler
         IDocumentBufferService documentBufferService,
         IEditorConfigOptionsProvider editorConfigOptionsProvider,
         IDeveroomConfigurationProvider configurationProvider,
-        IIdeSupportLogger logger)
+        IIdeSupportLogger logger,
+        IOperationDurationRecorder? recorder = null)
     {
         _documentBufferService = documentBufferService;
         _editorConfigOptionsProvider = editorConfigOptionsProvider;
         _configurationProvider = configurationProvider;
         _logger = logger;
+        _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     // ── IDocumentFormattingHandler ────────────────────────────────────────────
@@ -47,6 +52,7 @@ public sealed class GherkinFormattingHandler
 
     public Task<TextEditContainer?> Handle(DocumentFormattingParams request, CancellationToken ct)
     {
+        using var _perf = _recorder.Measure(LspMethodNames.TextDocumentFormatting, request.TextDocument.Uri);
         var filePath = request.TextDocument.Uri.GetFileSystemPath();
         _logger.LogInfo($"F11 textDocument/formatting: {request.TextDocument.Uri}");
         return FormatDocumentAsync(request.TextDocument.Uri, filePath, request.Options,
@@ -61,6 +67,7 @@ public sealed class GherkinFormattingHandler
 
     public async Task<TextEditContainer> Handle(DocumentRangeFormattingParams request, CancellationToken ct)
     {
+        using var _perf = _recorder.Measure(LspMethodNames.TextDocumentRangeFormatting, request.TextDocument.Uri);
         var filePath = request.TextDocument.Uri.GetFileSystemPath();
         _logger.LogInfo($"F11 textDocument/rangeFormatting: {request.TextDocument.Uri}");
         return await FormatDocumentAsync(
@@ -83,6 +90,7 @@ public sealed class GherkinFormattingHandler
 
     public Task<TextEditContainer?> Handle(DocumentOnTypeFormattingParams request, CancellationToken ct)
     {
+        using var _perf = _recorder.Measure(LspMethodNames.TextDocumentOnTypeFormatting, request.TextDocument.Uri);
         var filePath = request.TextDocument.Uri.GetFileSystemPath();
         _logger.LogInfo($"F12 textDocument/onTypeFormatting: trigger='{request.Character}' {request.TextDocument.Uri}");
 

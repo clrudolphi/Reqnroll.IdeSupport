@@ -2,6 +2,8 @@
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Logging;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 
 /// <summary>
@@ -20,14 +22,19 @@ public class InlayHintRefreshHandler : INotificationHandler<MatchCacheChangedNot
 
     private readonly ILanguageServerFacade _languageServer;
     private readonly IIdeSupportLogger _logger;
+    private readonly IOperationDurationRecorder _recorder;
 
     private CancellationTokenSource? _debounceCts;
     private readonly object _debounceLock = new object();
 
-    public InlayHintRefreshHandler(ILanguageServerFacade languageServer, IIdeSupportLogger logger)
+    public InlayHintRefreshHandler(
+        ILanguageServerFacade languageServer,
+        IIdeSupportLogger logger,
+        IOperationDurationRecorder? recorder = null)
     {
         _languageServer = languageServer;
         _logger = logger;
+        _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public Task Handle(MatchCacheChangedNotification notification, CancellationToken cancellationToken)
@@ -58,6 +65,8 @@ public class InlayHintRefreshHandler : INotificationHandler<MatchCacheChangedNot
         try
         {
             await Task.Delay(DebounceDelay, debounceToken).ConfigureAwait(false);
+
+            using var _perf = _recorder.Measure(LspMethodNames.WorkspaceInlayHintRefresh);
 
             _logger.LogVerbose("InlayHintRefreshHandler: sending workspace/inlayHint/refresh");
             await _languageServer.Client

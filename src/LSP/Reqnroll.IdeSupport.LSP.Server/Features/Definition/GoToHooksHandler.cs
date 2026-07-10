@@ -7,6 +7,8 @@ using Reqnroll.IdeSupport.LSP.Core.Matching;
 
 using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Protocol.Documents;
 using Reqnroll.IdeSupport.LSP.Server.Registry;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
@@ -51,17 +53,20 @@ public sealed class GoToHooksHandler
     private readonly IProjectBindingRegistryLookup _registryLookup;
     private readonly IIdeSupportLogger               _logger;
     private readonly ILspTelemetryService?          _telemetryService;
+    private readonly IOperationDurationRecorder     _recorder;
 
     public GoToHooksHandler(
         IDocumentBufferService        bufferService,
         IProjectBindingRegistryLookup registryLookup,
         IIdeSupportLogger               logger,
-        ILspTelemetryService?         telemetryService = null)
+        ILspTelemetryService?         telemetryService = null,
+        IOperationDurationRecorder?   recorder = null)
     {
         _bufferService  = bufferService;
         _registryLookup = registryLookup;
         _logger         = logger;
         _telemetryService = telemetryService;
+        _recorder       = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public Task<GoToHooksResponse> HandleAsync(
@@ -69,6 +74,9 @@ public sealed class GoToHooksHandler
         CancellationToken          cancellationToken)
     {
         var uri = request.TextDocument.Uri;
+
+        // Performance Verification (Layer 4): same latency class as textDocument/definition.
+        using var _perf = _recorder.Measure(LspMethodNames.ReqnrollGoToHooks, uri);
 
         if (!IsFeatureFile(uri))
         {

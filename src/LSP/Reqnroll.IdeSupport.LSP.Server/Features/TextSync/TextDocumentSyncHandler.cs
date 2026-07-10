@@ -8,6 +8,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
 using Reqnroll.IdeSupport.LSP.Server.Pipeline;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Tagging;
@@ -31,6 +32,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private readonly IMediator _mediator;
     private readonly ILanguageServerFacade _languageServer;
     private readonly IIdeSupportLogger _logger;
+    private readonly IOperationDurationRecorder _recorder;
 
     private static readonly TextDocumentSelector _documentSelector = new(
         new TextDocumentFilter { Pattern = "**/*.feature" },
@@ -47,7 +49,8 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         ICSharpFileTextCache csharpFileTextCache,
         IMediator mediator,
         ILanguageServerFacade languageServer,
-        IIdeSupportLogger logger)
+        IIdeSupportLogger logger,
+        IOperationDurationRecorder? recorder = null)
     {
         _documentBufferService = documentBufferService;
         _taggerService = taggerService;
@@ -57,6 +60,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         _mediator = mediator;
         _languageServer = languageServer;
         _logger = logger;
+        _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public override TextDocumentAttributes GetTextDocumentAttributes(DocumentUri uri)
@@ -77,6 +81,9 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         var uri = request.TextDocument.Uri;
         var version = request.TextDocument.Version;
         var text = request.TextDocument.Text;
+
+        // Performance Verification (Layer 4): the trigger side of every downstream operation.
+        using var _perf = _recorder.Measure(LspMethodNames.TextDocumentDidOpen, uri);
 
         if (IsCSharp(uri))
         {
@@ -100,6 +107,10 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
         // With TextDocumentSyncKind.Full the single change contains the full document text.
         var text = request.ContentChanges.LastOrDefault()?.Text ?? string.Empty;
+
+        // Performance Verification (Layer 4): the trigger side of every downstream operation
+        // (only the diagnostics-publish half was measured before issue #113).
+        using var _perf = _recorder.Measure(LspMethodNames.TextDocumentDidChange, uri);
 
         if (IsCSharp(uri))
         {
@@ -127,6 +138,8 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     public override async Task<Unit> Handle(DidCloseTextDocumentParams request, CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
+
+        using var _perf = _recorder.Measure(LspMethodNames.TextDocumentDidClose, uri);
 
         // .cs files are not tracked in the Gherkin document buffer; their last-discovered bindings
         // are intentionally retained after close (a rebuild, not a close, supersedes them). Their

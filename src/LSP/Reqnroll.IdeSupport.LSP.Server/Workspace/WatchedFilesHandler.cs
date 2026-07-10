@@ -7,6 +7,8 @@ using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Registry;
 using Reqnroll.IdeSupport.LSP.Server.Pipeline;
 
@@ -38,19 +40,22 @@ public class WatchedFilesHandler : IDidChangeWatchedFilesHandler
     private readonly IIdeSupportLogger              _logger;
     private readonly IEditorConfigOptionsProvider _editorConfigProvider;
     private readonly ICSharpBindingDiscoveryService _csharpDiscoveryService;
+    private readonly IOperationDurationRecorder _recorder;
 
     public WatchedFilesHandler(
         ILspWorkspaceScopeManager scopeManager,
         IMediator mediator,
         IIdeSupportLogger logger,
         IEditorConfigOptionsProvider editorConfigProvider,
-        ICSharpBindingDiscoveryService csharpDiscoveryService)
+        ICSharpBindingDiscoveryService csharpDiscoveryService,
+        IOperationDurationRecorder? recorder = null)
     {
         _scopeManager           = scopeManager;
         _mediator               = mediator;
         _logger                 = logger;
         _editorConfigProvider   = editorConfigProvider;
         _csharpDiscoveryService = csharpDiscoveryService;
+        _recorder               = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public DidChangeWatchedFilesRegistrationOptions GetRegistrationOptions(
@@ -87,6 +92,8 @@ public class WatchedFilesHandler : IDidChangeWatchedFilesHandler
         DidChangeWatchedFilesParams request,
         CancellationToken cancellationToken)
     {
+        using var _perf = _recorder.Measure(LspMethodNames.WorkspaceDidChangeWatchedFiles);
+
         foreach (var fileEvent in request.Changes)
         {
             var uri        = fileEvent.Uri;

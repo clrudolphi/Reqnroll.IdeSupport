@@ -5,6 +5,8 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Core.Documents;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Protocol.Documents;
 using Reqnroll.IdeSupport.LSP.Server.Registry;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
@@ -30,17 +32,20 @@ public sealed class StepReferencesHandler
     private readonly ILspWorkspaceScopeManager    _scopeManager;
     private readonly IProjectBindingRegistryLookup _registryLookup;
     private readonly IIdeSupportLogger               _logger;
+    private readonly IOperationDurationRecorder    _recorder;
 
     public StepReferencesHandler(
         IBindingMatchService          matchService,
         ILspWorkspaceScopeManager     scopeManager,
         IProjectBindingRegistryLookup registryLookup,
-        IIdeSupportLogger               logger)
+        IIdeSupportLogger               logger,
+        IOperationDurationRecorder?   recorder = null)
     {
         _matchService   = matchService;
         _scopeManager   = scopeManager;
         _registryLookup = registryLookup;
         _logger         = logger;
+        _recorder       = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public Task<LocationOrLocationLinks> HandleAsync(
@@ -48,6 +53,9 @@ public sealed class StepReferencesHandler
         CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
+
+        // Performance Verification (Layer 4): time the workspace-wide references search.
+        using var _perf = _recorder.Measure(LspMethodNames.TextDocumentReferences, uri);
 
         if (!IsCSharp(uri))
         {

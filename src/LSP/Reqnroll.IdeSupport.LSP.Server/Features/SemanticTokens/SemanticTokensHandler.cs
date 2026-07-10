@@ -1,6 +1,8 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using LspSemanticTokens = OmniSharp.Extensions.LanguageServer.Protocol.Models.SemanticTokens;
 using LspSemanticTokensFullOrDelta = OmniSharp.Extensions.LanguageServer.Protocol.Models.SemanticTokensFullOrDelta;
 
@@ -20,15 +22,18 @@ public class SemanticTokensHandler
     private readonly ISemanticTokenService _semanticTokenService;
     private readonly IDocumentBufferService _documentBufferService;
     private readonly IIdeSupportLogger _logger;
+    private readonly IOperationDurationRecorder _recorder;
 
     public SemanticTokensHandler(
         ISemanticTokenService semanticTokenService,
         IDocumentBufferService documentBufferService,
-        IIdeSupportLogger logger)
+        IIdeSupportLogger logger,
+        IOperationDurationRecorder? recorder = null)
     {
         _semanticTokenService = semanticTokenService;
         _documentBufferService = documentBufferService;
         _logger = logger;
+        _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     // ── Full ──────────────────────────────────────────────────────────────────
@@ -38,6 +43,11 @@ public class SemanticTokensHandler
         CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
+
+        // Performance Verification (Layer 4): close the gap between the asserted 100ms synthetic
+        // target and real-world field data — this operation had none before issue #113.
+        using var _perf = _recorder.Measure(LspMethodNames.TextDocumentSemanticTokensFull, uri);
+
         if (!IsFeatureFile(uri)) return EmptyTokens;
         var version = GetCurrentVersion(uri);
 
@@ -56,6 +66,9 @@ public class SemanticTokensHandler
         CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
+
+        using var _perf = _recorder.Measure(LspMethodNames.TextDocumentSemanticTokensFullDelta, uri);
+
         if (!IsFeatureFile(uri)) return new LspSemanticTokensFullOrDelta(EmptyTokens);
         var version = GetCurrentVersion(uri);
 
@@ -75,6 +88,9 @@ public class SemanticTokensHandler
         CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
+
+        using var _perf = _recorder.Measure(LspMethodNames.TextDocumentSemanticTokensRange, uri);
+
         if (!IsFeatureFile(uri)) return EmptyTokens;
         var version = GetCurrentVersion(uri);
 

@@ -4,6 +4,8 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Core.DocumentOutline;
+using Reqnroll.IdeSupport.LSP.Server.Performance;
+using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Protocol.Documents;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 
@@ -34,6 +36,7 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
     private readonly IDocumentBufferService        _documentBufferService;
     private readonly IGherkinDocumentSymbolService _symbolService;
     private readonly IIdeSupportLogger               _logger;
+    private readonly IOperationDurationRecorder    _recorder;
 
     private static readonly TextDocumentSelector FeatureSelector = new(
         new TextDocumentFilter { Pattern = "**/*.feature" });
@@ -47,11 +50,13 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
     public FeatureDocumentSymbolHandler(
         IDocumentBufferService documentBufferService,
         IGherkinDocumentSymbolService symbolService,
-        IIdeSupportLogger logger)
+        IIdeSupportLogger logger,
+        IOperationDurationRecorder? recorder = null)
     {
         _documentBufferService = documentBufferService;
         _symbolService         = symbolService;
         _logger                = logger;
+        _recorder              = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
     public DocumentSymbolRegistrationOptions GetRegistrationOptions(
@@ -64,6 +69,10 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
     public Task<SymbolInformationOrDocumentSymbolContainer?> Handle(
         DocumentSymbolParams request, CancellationToken ct)
     {
+        // Benchmarked as load-only in the synthetic harness (no published target); now also
+        // has field visibility so a real P95 bar can be set.
+        using var _perf = _recorder.Measure(LspMethodNames.TextDocumentDocumentSymbol, request.TextDocument.Uri);
+
         _logger.LogInfo(
             $"F9 textDocument/documentSymbol: {request.TextDocument.Uri} " +
             $"(hierarchicalSupport={_hierarchicalSupport})");
@@ -99,6 +108,7 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
     public Task<IReadOnlyList<DocumentSymbol>> HandleHierarchicalAsync(
         DocumentSymbolParams request, CancellationToken ct)
     {
+        using var _perf = _recorder.Measure(LspMethodNames.ReqnrollDocumentSymbolHierarchical, request.TextDocument.Uri);
         var symbols = GetSymbols(request.TextDocument.Uri);
         return Task.FromResult<IReadOnlyList<DocumentSymbol>>(symbols.Select(ToDocumentSymbol).ToList());
     }
