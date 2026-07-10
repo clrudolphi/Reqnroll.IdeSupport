@@ -80,6 +80,16 @@ public static class BenchmarkRunner
             (PerfTargets.DefinitionCacheHit, await scenarios.DefinitionAsync().ConfigureAwait(false)),
             (PerfTargets.StepPrepareRename, await scenarios.PrepareRenameAsync().ConfigureAwait(false)),
             (PerfTargets.RenameTargets, await scenarios.RenameTargetsAsync().ConfigureAwait(false)),
+            (PerfTargets.FindStepUsages, await scenarios.FindStepUsagesAsync().ConfigureAwait(false)),
+            (PerfTargets.StepReferences, await scenarios.StepReferencesAsync().ConfigureAwait(false)),
+            (PerfTargets.GoToStepDefinitions, await scenarios.GoToStepDefinitionsAsync().ConfigureAwait(false)),
+            (PerfTargets.GoToHooks, await scenarios.GoToHooksAsync().ConfigureAwait(false)),
+            (PerfTargets.StepCodeLens, await scenarios.StepCodeLensAsync(corpusRoot).ConfigureAwait(false)),
+            (PerfTargets.InlayHint, await scenarios.InlayHintAsync().ConfigureAwait(false)),
+            (PerfTargets.CodeAction, await scenarios.CodeActionAsync().ConfigureAwait(false)),
+            (PerfTargets.DocumentFormatting, await scenarios.DocumentFormattingAsync().ConfigureAwait(false)),
+            (PerfTargets.RangeFormatting, await scenarios.RangeFormattingAsync().ConfigureAwait(false)),
+            (PerfTargets.OnTypeFormatting, await scenarios.OnTypeFormattingAsync().ConfigureAwait(false)),
             (PerfTargets.PublishDiagnostics, await scenarios.DiagnosticsPushAsync().ConfigureAwait(false)),
         };
 
@@ -94,6 +104,14 @@ public static class BenchmarkRunner
                 await BatchScenarios.ColdStartScanAsync(
                     corpusRoot, outOfProcess: outOfProcess, serverExePath: serverExe,
                     phases: coldStartPhases).ConfigureAwait(false)));
+
+            Console.WriteLine("Running reconciliation/push batch scenarios (watched-files reconfig, refresh pushes)...");
+            summaries.Add((PerfTargets.WatchedFilesReconfig,
+                await BatchScenarios.WatchedFilesReconfigAsync(harness, corpusRoot, features[0]).ConfigureAwait(false)));
+            summaries.Add((PerfTargets.SemanticTokensRefresh,
+                await BatchScenarios.SemanticTokensRefreshAsync(harness, features).ConfigureAwait(false)));
+            summaries.Add((PerfTargets.InlayHintRefresh,
+                await BatchScenarios.InlayHintRefreshAsync(harness, features).ConfigureAwait(false)));
         }
 
         // Binding-discovery batch scenarios: only measurable once a built corpus bindings assembly

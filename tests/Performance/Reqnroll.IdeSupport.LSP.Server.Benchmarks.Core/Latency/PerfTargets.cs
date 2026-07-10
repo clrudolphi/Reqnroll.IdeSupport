@@ -81,6 +81,53 @@ public static class PerfTargets
     public static readonly PerfTarget SemanticTokensDelta =
         new("textDocument/semanticTokens/full/delta", 0, PerfTargetKind.InteractiveP95, "Semantic tokens delta pull");
 
+    // Remaining previously-dark handlers from issue #113/#118, synthetic coverage added by #119
+    // follow-up. Same load-only rationale as above: field-instrumented, no published threshold.
+    public static readonly PerfTarget FindStepUsages =
+        new("reqnroll/findStepUsages", 0, PerfTargetKind.InteractiveP95, "Find step usages from a .cs binding (F17)");
+
+    public static readonly PerfTarget StepReferences =
+        new("textDocument/references", 0, PerfTargetKind.InteractiveP95, "Find references from a .feature step");
+
+    public static readonly PerfTarget GoToStepDefinitions =
+        new("reqnroll/goToStepDefinitions", 0, PerfTargetKind.InteractiveP95, "Go to step definition(s) (F5)");
+
+    public static readonly PerfTarget GoToHooks =
+        new("reqnroll/goToHooks", 0, PerfTargetKind.InteractiveP95, "Go to hook bindings for a step/scenario");
+
+    public static readonly PerfTarget StepCodeLens =
+        new("textDocument/codeLens", 0, PerfTargetKind.InteractiveP95, "Step code lens on a .cs binding file (F18)");
+
+    public static readonly PerfTarget DocumentFormatting =
+        new("textDocument/formatting", 0, PerfTargetKind.InteractiveP95, "Whole-document Gherkin formatting (F11)");
+
+    public static readonly PerfTarget RangeFormatting =
+        new("textDocument/rangeFormatting", 0, PerfTargetKind.InteractiveP95, "Range Gherkin formatting (F11)");
+
+    public static readonly PerfTarget OnTypeFormatting =
+        new("textDocument/onTypeFormatting", 0, PerfTargetKind.InteractiveP95, "On-type table formatting (F12)");
+
+    public static readonly PerfTarget InlayHint =
+        new("textDocument/inlayHint", 0, PerfTargetKind.InteractiveP95, "Binding-info inlay hints (F23)");
+
+    public static readonly PerfTarget CodeAction =
+        new("textDocument/codeAction", 0, PerfTargetKind.InteractiveP95, "Undefined-step quick-fix scaffold (F6)");
+
+    // Indirect/reaction scenarios: not a single request/response — the client sends a trigger
+    // (a watched-files change, an edit) and the benchmark waits for the resulting server-initiated
+    // push/request, so the measured number includes the pipeline's fixed debounce window (same
+    // "from last didChange"-style honesty as PublishDiagnostics). Batch-classified: coarse,
+    // workspace-reaction wall-clock, not a per-request percentile.
+    public static readonly PerfTarget WatchedFilesReconfig =
+        new("workspace/didChangeWatchedFiles#reqnroll.json", 0, PerfTargetKind.Batch,
+            "reqnroll.json change reaction (WatchedFilesHandler -> ReqnrollConfigChangedHandler -> re-diagnose)");
+
+    public static readonly PerfTarget SemanticTokensRefresh =
+        new("workspace/semanticTokens/refresh", 0, PerfTargetKind.Batch, "Server-initiated semantic tokens refresh push");
+
+    public static readonly PerfTarget InlayHintRefresh =
+        new("workspace/inlayHint/refresh", 0, PerfTargetKind.Batch, "Server-initiated inlay hint refresh push");
+
     /// <summary>All performance targets, in table order.</summary>
     public static readonly IReadOnlyList<PerfTarget> All = new[]
     {

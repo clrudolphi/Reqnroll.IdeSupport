@@ -153,6 +153,96 @@ public static class BatchScenarios
     }
 
     /// <summary>
+    /// <c>reqnroll.json</c> change reaction, workspace-wide (issue #119 follow-up): simulates the
+    /// client's file-watcher reporting a config change (<c>workspace/didChangeWatchedFiles</c>),
+    /// which drives <c>WatchedFilesHandler</c> → <c>ReqnrollConfigChangedHandler</c> → per-file
+    /// re-diagnose. There's no direct request/response for this — the client only ever sends the
+    /// notification — so this waits for the resulting <c>publishDiagnostics</c> push on the first
+    /// open feature as the completion signal, the same "trigger, then wait for the observable
+    /// side-effect" pattern <c>InteractiveScenarios.DiagnosticsPushAsync</c> uses for edits.
+    /// <c>BindingRegistryChangedHandler</c> and <c>FeatureRescanDebouncer</c> sit downstream of this
+    /// same reconciliation pipeline and have no protocol identity of their own to time separately —
+    /// their cost is folded into this number (and into the Roslyn/reflection discovery scenarios,
+    /// which exercise the same pipeline from a different trigger).
+    /// </summary>
+    public static async Task<LatencySummary> WatchedFilesReconfigAsync(
+        BenchmarkLspHarness harness, string corpusRoot, OpenFeature signalFeature, int repetitions = 5)
+    {
+        var recorder = new LatencyRecorder(PerfTargets.WatchedFilesReconfig.Operation);
+        var configUri = DocumentUri.FromFileSystemPath(Path.Combine(corpusRoot, "reqnroll.json"));
+
+        for (var rep = 0; rep < repetitions; rep++)
+        {
+            var start = Stopwatch.GetTimestamp();
+            harness.SendConfigFileChanged(configUri);
+            var ms = await harness.WaitForDiagnosticsAsync(signalFeature.Uri, start).ConfigureAwait(false);
+            if (ms is not null) recorder.Add(ms.Value);
+        }
+
+        return recorder.Summarize();
+    }
+
+    // Both refresh handlers debounce match-cache changes into a single request 500ms after the
+    // last one. A settle delay longer than that debounce, taken before each repetition's own edit,
+    // drains any refresh still in flight from an earlier scenario (e.g. WatchedFilesReconfigAsync's
+    // own edits) — otherwise that leftover request can land just after this repetition's "start" and
+    // read as an implausibly fast sample.
+    private static readonly TimeSpan RefreshSettleDelay = TimeSpan.FromMilliseconds(700);
+
+    /// <summary>
+    /// Server-initiated <c>workspace/semanticTokens/refresh</c> push (issue #119 follow-up):
+    /// <c>SemanticTokensRefreshHandler</c> only fires when the client advertised
+    /// <c>workspace.semanticTokens.refreshSupport</c> (declared by
+    /// <see cref="BenchmarkLspHarness"/>'s client capabilities); edits a feature and waits for the
+    /// debounced (500ms) refresh request, so the measured number is dominated by that fixed window —
+    /// same honesty as the diagnostics-push target's "from end of debounce" phrasing.
+    /// </summary>
+    public static async Task<LatencySummary> SemanticTokensRefreshAsync(
+        BenchmarkLspHarness harness, IReadOnlyList<OpenFeature> features, int repetitions = 3)
+    {
+        var recorder = new LatencyRecorder(PerfTargets.SemanticTokensRefresh.Operation);
+        // High starting version: these scenarios reuse the same feature URIs already edited by
+        // earlier interactive scenarios (DiagnosticsPushAsync etc.), so this must stay clear of
+        // whatever version count --iterations produced there.
+        var version = 1_000_000;
+
+        for (var rep = 0; rep < repetitions; rep++)
+        {
+            await Task.Delay(RefreshSettleDelay).ConfigureAwait(false);
+            var f = features[rep % features.Count];
+            var start = Stopwatch.GetTimestamp();
+            harness.ChangeFeature(f.Uri, version++, f.Text + $"\n  # refresh-probe edit {version}\n");
+            var ms = await harness.WaitForSemanticTokensRefreshAsync(start).ConfigureAwait(false);
+            if (ms is not null) recorder.Add(ms.Value);
+        }
+
+        return recorder.Summarize();
+    }
+
+    /// <summary>
+    /// Server-initiated <c>workspace/inlayHint/refresh</c> push (issue #119 follow-up). Mirrors
+    /// <see cref="SemanticTokensRefreshAsync"/> for <c>InlayHintRefreshHandler</c>.
+    /// </summary>
+    public static async Task<LatencySummary> InlayHintRefreshAsync(
+        BenchmarkLspHarness harness, IReadOnlyList<OpenFeature> features, int repetitions = 3)
+    {
+        var recorder = new LatencyRecorder(PerfTargets.InlayHintRefresh.Operation);
+        var version = 2_000_000;
+
+        for (var rep = 0; rep < repetitions; rep++)
+        {
+            await Task.Delay(RefreshSettleDelay).ConfigureAwait(false);
+            var f = features[rep % features.Count];
+            var start = Stopwatch.GetTimestamp();
+            harness.ChangeFeature(f.Uri, version++, f.Text + $"\n  # refresh-probe edit {version}\n");
+            var ms = await harness.WaitForInlayHintRefreshAsync(start).ConfigureAwait(false);
+            if (ms is not null) recorder.Add(ms.Value);
+        }
+
+        return recorder.Summarize();
+    }
+
+    /// <summary>
     /// Roslyn single-file re-discovery: open a synthetic <c>.cs</c> binding document (not part of
     /// the corpus tree) with a pattern that doesn't match anything, then edit it in place to match
     /// one of the corpus's deliberately-unbound steps ("undefined step F-S occurs" — see

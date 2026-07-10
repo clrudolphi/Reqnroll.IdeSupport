@@ -11,12 +11,16 @@ using Nerdbank.Streams;
 using OmniSharp.Extensions.LanguageServer.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Server;
+using Reqnroll.IdeSupport.LSP.Server.Features.Definition;
 using Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs;
+using Reqnroll.IdeSupport.LSP.Server.Features.References;
 using Reqnroll.IdeSupport.LSP.Server.Features.Rename;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
+using LspCodeLens = OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeLens;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Benchmarks.Harness;
 
@@ -42,6 +46,10 @@ public sealed class BenchmarkLspHarness : IAsyncDisposable
 
     private readonly object _diagLock = new();
     private readonly Dictionary<string, long> _lastDiagTimestamp = new(StringComparer.Ordinal);
+
+    private readonly object _refreshLock = new();
+    private long? _lastSemanticTokensRefreshTimestamp;
+    private long? _lastInlayHintRefreshTimestamp;
 
     public ILanguageClient Client =>
         _client ?? throw new InvalidOperationException("Harness not started.");
@@ -113,12 +121,33 @@ public sealed class BenchmarkLspHarness : IAsyncDisposable
             options.WithRootUri(DocumentUri.FromFileSystemPath(workspaceFolder));
             options.WithWorkspaceFolder(DocumentUri.FromFileSystemPath(workspaceFolder), "benchmark-workspace");
 
+            // Advertise refresh support so SemanticTokensRefreshHandler / InlayHintRefreshHandler
+            // (both capability-gated) actually send their debounced workspace/*/refresh requests to
+            // this client — otherwise those two handlers have nothing to synthetically benchmark.
+            options.ClientCapabilities.Workspace?.SemanticTokens =
+                new Supports<SemanticTokensWorkspaceCapability>(true, new SemanticTokensWorkspaceCapability { RefreshSupport = true });
+            options.ClientCapabilities.Workspace?.InlayHint =
+                new Supports<InlayHintWorkspaceClientCapabilities>(true, new InlayHintWorkspaceClientCapabilities { RefreshSupport = true });
+
             // Timestamp every publishDiagnostics push so a didChange can be timed against the
             // resulting diagnostics for the matching URI.
             options.OnNotification("textDocument/publishDiagnostics", (PublishDiagnosticsParams p) =>
             {
                 lock (_diagLock)
                     _lastDiagTimestamp[p.Uri.ToString()] = Stopwatch.GetTimestamp();
+                return Task.CompletedTask;
+            });
+
+            // Both refresh requests carry no params and expect a void/null result (server sends them
+            // via .ReturningVoid(...)) — just timestamp arrival and acknowledge.
+            options.OnRequest(LspMethodNames.WorkspaceSemanticTokensRefresh, (CancellationToken _) =>
+            {
+                lock (_refreshLock) _lastSemanticTokensRefreshTimestamp = Stopwatch.GetTimestamp();
+                return Task.CompletedTask;
+            });
+            options.OnRequest(LspMethodNames.WorkspaceInlayHintRefresh, (CancellationToken _) =>
+            {
+                lock (_refreshLock) _lastInlayHintRefreshTimestamp = Stopwatch.GetTimestamp();
                 return Task.CompletedTask;
             });
         }).ConfigureAwait(false);
@@ -266,6 +295,140 @@ public sealed class BenchmarkLspHarness : IAsyncDisposable
     public Task<FindUnusedStepDefinitionsResponse?> RequestFindUnusedStepDefinitionsAsync(CancellationToken ct = default) =>
         RequestAsync<FindUnusedStepDefinitionsResponse?>(
             LspMethodNames.ReqnrollFindUnusedStepDefinitions, new FindUnusedStepDefinitionsParams(), ct);
+
+    // ── References / go-to (F5/F17) ─────────────────────────────────────────────
+
+    public Task<FindStepUsagesResponse?> RequestFindStepUsagesAsync(
+        DocumentUri uri, int line, int character, CancellationToken ct = default) =>
+        RequestAsync<FindStepUsagesResponse?>(LspMethodNames.ReqnrollFindStepUsages,
+            new ReferenceParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = uri },
+                Position = new Position(line, character),
+                Context = new ReferenceContext { IncludeDeclaration = true },
+            }, ct);
+
+    public Task<LocationOrLocationLinks?> RequestStepReferencesAsync(
+        DocumentUri uri, int line, int character, CancellationToken ct = default) =>
+        RequestAsync<LocationOrLocationLinks?>(LspMethodNames.TextDocumentReferences,
+            new ReferenceParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = uri },
+                Position = new Position(line, character),
+                Context = new ReferenceContext { IncludeDeclaration = true },
+            }, ct);
+
+    public Task<GoToStepDefinitionsResponse?> RequestGoToStepDefinitionsAsync(
+        DocumentUri uri, int line, int character, CancellationToken ct = default) =>
+        RequestAsync<GoToStepDefinitionsResponse?>(LspMethodNames.ReqnrollGoToStepDefinitions,
+            new TextDocumentPositionParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = uri },
+                Position = new Position(line, character),
+            }, ct);
+
+    public Task<GoToHooksResponse?> RequestGoToHooksAsync(
+        DocumentUri uri, int line, int character, CancellationToken ct = default) =>
+        RequestAsync<GoToHooksResponse?>(LspMethodNames.ReqnrollGoToHooks,
+            new TextDocumentPositionParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = uri },
+                Position = new Position(line, character),
+            }, ct);
+
+    // ── Code lens (F18), inlay hints (F23), code actions (F6) ───────────────────
+
+    public Task<LspCodeLens[]?> RequestCodeLensAsync(DocumentUri uri, CancellationToken ct = default) =>
+        RequestAsync<LspCodeLens[]?>(LspMethodNames.TextDocumentCodeLens,
+            new CodeLensParams { TextDocument = new TextDocumentIdentifier { Uri = uri } }, ct);
+
+    public Task<InlayHintContainer?> RequestInlayHintAsync(
+        DocumentUri uri, OmniSharp.Extensions.LanguageServer.Protocol.Models.Range range, CancellationToken ct = default) =>
+        RequestAsync<InlayHintContainer?>(LspMethodNames.TextDocumentInlayHint,
+            new InlayHintParams { TextDocument = new TextDocumentIdentifier { Uri = uri }, Range = range }, ct);
+
+    public Task<CommandOrCodeActionContainer?> RequestCodeActionAsync(
+        DocumentUri uri, OmniSharp.Extensions.LanguageServer.Protocol.Models.Range range, CancellationToken ct = default) =>
+        RequestAsync<CommandOrCodeActionContainer?>(LspMethodNames.TextDocumentCodeAction,
+            new CodeActionParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = uri },
+                Range = range,
+                Context = new CodeActionContext { Diagnostics = new Container<Diagnostic>() },
+            }, ct);
+
+    // ── Formatting (F11/F12) ─────────────────────────────────────────────────────
+
+    private static readonly FormattingOptions DefaultFormattingOptions = new() { TabSize = 2, InsertSpaces = true };
+
+    public Task<TextEditContainer?> RequestDocumentFormattingAsync(DocumentUri uri, CancellationToken ct = default) =>
+        RequestAsync<TextEditContainer?>(LspMethodNames.TextDocumentFormatting,
+            new DocumentFormattingParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = uri },
+                Options = DefaultFormattingOptions,
+            }, ct);
+
+    public Task<TextEditContainer?> RequestRangeFormattingAsync(
+        DocumentUri uri, OmniSharp.Extensions.LanguageServer.Protocol.Models.Range range, CancellationToken ct = default) =>
+        RequestAsync<TextEditContainer?>(LspMethodNames.TextDocumentRangeFormatting,
+            new DocumentRangeFormattingParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = uri },
+                Range = range,
+                Options = DefaultFormattingOptions,
+            }, ct);
+
+    public Task<TextEditContainer?> RequestOnTypeFormattingAsync(
+        DocumentUri uri, int line, int character, string triggerCharacter, CancellationToken ct = default) =>
+        RequestAsync<TextEditContainer?>(LspMethodNames.TextDocumentOnTypeFormatting,
+            new DocumentOnTypeFormattingParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = uri },
+                Position = new Position(line, character),
+                Character = triggerCharacter,
+                Options = DefaultFormattingOptions,
+            }, ct);
+
+    // ── Watched files / config reconciliation ───────────────────────────────────
+
+    /// <summary>
+    /// Simulates the client's file-watcher reporting a <c>reqnroll.json</c> change — the trigger for
+    /// <c>WatchedFilesHandler</c> → <c>ReqnrollConfigChangedHandler</c> → per-file re-diagnose. Fire
+    /// and forget, like every other <c>workspace/didChangeWatchedFiles</c> notification.
+    /// </summary>
+    public void SendConfigFileChanged(DocumentUri reqnrollJsonUri) =>
+        Client.SendNotification(LspMethodNames.WorkspaceDidChangeWatchedFiles, new DidChangeWatchedFilesParams
+        {
+            Changes = new Container<FileEvent>(new FileEvent { Uri = reqnrollJsonUri, Type = FileChangeType.Changed }),
+        });
+
+    // ── Server-initiated refresh push timing ────────────────────────────────────
+    // Mirrors WaitForDiagnosticsAsync: the client capabilities above make the server actually send
+    // these debounced (500ms) workspace/*/refresh requests; these wait for the next one after a
+    // given origin timestamp.
+
+    public Task<double?> WaitForSemanticTokensRefreshAsync(long sinceTimestamp, int timeoutMs = 3000) =>
+        WaitForRefreshAsync(() => _lastSemanticTokensRefreshTimestamp, sinceTimestamp, timeoutMs);
+
+    public Task<double?> WaitForInlayHintRefreshAsync(long sinceTimestamp, int timeoutMs = 3000) =>
+        WaitForRefreshAsync(() => _lastInlayHintRefreshTimestamp, sinceTimestamp, timeoutMs);
+
+    private async Task<double?> WaitForRefreshAsync(Func<long?> readTimestamp, long sinceTimestamp, int timeoutMs)
+    {
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (DateTime.UtcNow < deadline)
+        {
+            lock (_refreshLock)
+            {
+                var ts = readTimestamp();
+                if (ts is { } value && value >= sinceTimestamp)
+                    return Stopwatch.GetElapsedTime(sinceTimestamp, value).TotalMilliseconds;
+            }
+            await Task.Delay(10).ConfigureAwait(false);
+        }
+        return null;
+    }
 
     // ── Diagnostics push timing ─────────────────────────────────────────────────
 
