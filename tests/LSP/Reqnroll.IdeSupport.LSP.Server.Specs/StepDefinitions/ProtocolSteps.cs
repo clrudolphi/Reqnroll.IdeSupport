@@ -31,7 +31,7 @@ public sealed class ProtocolSteps
         _ctx.LastDocumentText = content;
         _ctx.LastVersion = 1;
         _ctx.Harness.Client.OpenDocument(uri, 1, content);
-        _ctx.LastTokens = await _ctx.Harness.Client.RequestSemanticTokensWhenReadyAsync(uri);
+        _ctx.LastTokens = await _ctx.Harness.Client.RequestSemanticTokensAsync(uri);
     }
 
     [When(@"the feature file ""(.*)"" is changed to")]
@@ -42,7 +42,7 @@ public sealed class ProtocolSteps
         _ctx.LastDocumentText = content;
         _ctx.LastVersion += 1;
         _ctx.Harness.Client.ChangeDocument(uri, _ctx.LastVersion, content);
-        _ctx.LastTokens = await _ctx.Harness.Client.RequestSemanticTokensWhenReadyAsync(uri);
+        _ctx.LastTokens = await _ctx.Harness.Client.RequestSemanticTokensAsync(uri);
     }
 
     [When(@"the feature file ""(.*)"" is closed")]
@@ -51,7 +51,7 @@ public sealed class ProtocolSteps
 
     [When("the semantic tokens are requested again")]
     public async Task WhenTheSemanticTokensAreRequestedAgain()
-        => _ctx.LastTokens = await _ctx.Harness.Client.RequestSemanticTokensWhenReadyAsync(_ctx.LastUri!);
+        => _ctx.LastTokens = await _ctx.Harness.Client.RequestSemanticTokensAsync(_ctx.LastUri!);
 
     [When("the semantic tokens are requested once")]
     public async Task WhenTheSemanticTokensAreRequestedOnce()
