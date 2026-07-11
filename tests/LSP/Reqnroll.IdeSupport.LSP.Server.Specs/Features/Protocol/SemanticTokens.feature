@@ -70,3 +70,21 @@ Scenario: Steps are not marked as errors when no bindings are available
 			When I press add
 		"""
 	Then the semantic tokens do not include any "reqnroll.undefined_step" token
+
+Scenario: The server advertises and serves textDocument/semanticTokens/range (issue #123)
+	Given the LSP server is started
+	Then the server advertises range support for semantic tokens
+	When the feature file "meta.feature" is opened with
+		"""
+		# a leading comment
+		@smoke @fast
+		Feature: Metadata
+
+		This describes the feature.
+
+		Scenario: S
+			When I press add
+		"""
+	And the semantic tokens for the whole-document range are requested
+	Then the semantic tokens include a "reqnroll.comment" token for "# a leading comment"
+	And the semantic tokens include a "reqnroll.tag" token for "@smoke"

@@ -57,6 +57,14 @@ public sealed class ProtocolSteps
     public async Task WhenTheSemanticTokensAreRequestedOnce()
         => _ctx.LastTokens = await _ctx.Harness.Client.RequestSemanticTokensAsync(_ctx.LastUri!);
 
+    [When("the semantic tokens for the whole-document range are requested")]
+    public async Task WhenTheSemanticTokensForTheWholeDocumentRangeAreRequested()
+    {
+        var lineCount = _ctx.LastDocumentText!.Split('\n').Length;
+        var range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(0, 0, lineCount, 0);
+        _ctx.LastTokens = await _ctx.Harness.Client.RequestSemanticTokensRangeAsync(_ctx.LastUri!, range);
+    }
+
     [When(@"the project is announced with output assembly ""(.*)"" for ""(.*)""")]
     public void WhenTheProjectIsAnnounced(string outputAssembly, string fileName)
     {
@@ -143,6 +151,17 @@ public sealed class ProtocolSteps
     [Then("the server advertises a semantic tokens provider")]
     public void ThenTheServerAdvertisesASemanticTokensProvider()
         => GetLegend().Should().NotBeNull();
+
+    [Then("the server advertises range support for semantic tokens")]
+    public void ThenTheServerAdvertisesRangeSupportForSemanticTokens()
+    {
+        var provider = _ctx.Harness.ServerInitializeResult.Capabilities.SemanticTokensProvider;
+        provider.Should().NotBeNull("the server should advertise a semantic tokens provider");
+        provider!.Range!.IsBool.Should().BeTrue("Range is declared as a plain bool flag, not the object-options form");
+        provider.Range!.Bool.Should().BeTrue(
+            "VS Code and Rider both support textDocument/semanticTokens/range (issue #123); " +
+            "the handler is wired up via manual routing in LanguageServerOptionsExtensions");
+    }
 
     [Then("the server statically advertises textDocumentSync with full sync and openClose")]
     public void ThenTheServerStaticallyAdvertisesTextDocumentSync()
