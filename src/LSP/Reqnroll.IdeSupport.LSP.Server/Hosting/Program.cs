@@ -1,4 +1,5 @@
-﻿using MediatR;
+﻿using System.Reflection;
+using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -177,7 +178,7 @@ public class Program
         options.WithServerInfo(new ServerInfo
         {
             Name = "Reqnroll Language Server",
-            Version = "0.1.0"
+            Version = GetServerVersion()
         });
 
         // Configure Dependency Injection
@@ -280,6 +281,17 @@ public class Program
     /// there is exactly one <see cref="TraceLevel"/>/<see cref="LogLevel"/> mapping in the codebase.
     /// </summary>
     internal static LogLevel ToLogLevel(TraceLevel level) => IdeSupportLogLevelConverter.ToLogLevel(level);
+
+    /// <summary>
+    /// Returns the build-stamped version reported in <c>serverInfo.version</c> during LSP
+    /// <c>initialize</c>. Reads <see cref="AssemblyInformationalVersionAttribute"/>, which the SDK
+    /// populates from <c>VersionPrefix</c>/<c>VersionSuffix</c> (see build/Version.props) plus the
+    /// commit SHA, so it always reflects the build number CI passed via
+    /// <c>-p:ReqnrollBuildNumber=...</c> without any further wiring here.
+    /// </summary>
+    internal static string GetServerVersion()
+        => typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+           ?? "unknown";
 
     /// <summary>Returns the value following <paramref name="flag"/> in <paramref name="args"/>, or <see langword="null"/> when absent.</summary>
     internal static string? ParseArg(string[] args, string flag)

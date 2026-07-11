@@ -81,6 +81,10 @@ on:
 env:
   DOTNET_VERSION: '10.0.x'
   CONFIGURATION: Release
+  # See test-lsp.yml for what this feeds (VersionPrefix -> AssemblyInformationalVersion ->
+  # ServerInfo.Version). Applied here too so the Extension assembly carries the same build
+  # number as the LSP server it ships alongside.
+  BUILD_NUMBER_ARG: -p:ReqnrollBuildNumber=${{ github.run_number }}
   EXTENSION_PROJECT: src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Extension/Reqnroll.IdeSupport.VisualStudio.Extension.csproj
   TESTS_PROJECT: tests/VisualStudio/Reqnroll.VisualStudio.Tests/Reqnroll.VisualStudio.Tests.csproj
   WIZARDS_TESTS_PROJECT: tests/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Wizards.Tests/Reqnroll.IdeSupport.VisualStudio.Wizards.Tests.csproj
@@ -133,7 +137,7 @@ jobs:
         run: dotnet restore ${{ env.EXTENSION_PROJECT }} -p:UseExternalLspServerBuild=true "-p:LspServerBuildDir=${{ github.workspace }}\lsp-server-win-x64\"
 
       - name: Build VSIX (${{ env.CONFIGURATION }})
-        run: dotnet build ${{ env.EXTENSION_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} -p:UseExternalLspServerBuild=true "-p:LspServerBuildDir=${{ github.workspace }}\lsp-server-win-x64\"
+        run: dotnet build ${{ env.EXTENSION_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} -p:UseExternalLspServerBuild=true "-p:LspServerBuildDir=${{ github.workspace }}\lsp-server-win-x64\" ${{ env.BUILD_NUMBER_ARG }}
 
       - name: Upload VSIX candidate artifact
         uses: actions/upload-artifact@v4
@@ -185,7 +189,7 @@ jobs:
         run: dotnet restore ${{ env.TESTS_PROJECT }} -p:UseExternalLspServerBuild=true "-p:LspServerBuildDir=${{ github.workspace }}\lsp-server-win-x64\"
 
       - name: Test
-        run: dotnet test ${{ env.TESTS_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} --logger trx --results-directory TestResults -p:UseExternalLspServerBuild=true "-p:LspServerBuildDir=${{ github.workspace }}\lsp-server-win-x64\"
+        run: dotnet test ${{ env.TESTS_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} --logger trx --results-directory TestResults -p:UseExternalLspServerBuild=true "-p:LspServerBuildDir=${{ github.workspace }}\lsp-server-win-x64\" ${{ env.BUILD_NUMBER_ARG }}
 
       - name: Upload Test Result TRX Files
         uses: actions/upload-artifact@v4

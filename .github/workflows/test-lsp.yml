@@ -25,6 +25,11 @@ on:
 env:
   DOTNET_VERSION: '10.0.x'
   CONFIGURATION: Release
+  # Build number injected into VersionPrefix (build/Version.props) and, from there, into
+  # AssemblyInformationalVersion / ServerInfo.Version (see Program.GetServerVersion). The
+  # GitHub Actions run number is monotonically increasing and never reused, so it sorts
+  # consistently across builds — see reqnroll/Reqnroll.VisualStudio's ci.yml for the pattern.
+  BUILD_NUMBER_ARG: -p:ReqnrollBuildNumber=${{ github.run_number }}
   CONNECTOR_PROJECT: src/LSP/Reqnroll.IdeSupport.LSP.Connector/Connector/Connector.csproj
   LSP_CORE_PROJECT: src/LSP/Reqnroll.IdeSupport.LSP.Core/Reqnroll.IdeSupport.LSP.Core.csproj
   LSP_SERVER_PROJECT: src/LSP/Reqnroll.IdeSupport.LSP.Server/Reqnroll.IdeSupport.LSP.Server.csproj
@@ -72,10 +77,10 @@ jobs:
         run: dotnet restore ${{ env.LSP_SERVER_PROJECT }}
 
       - name: Build LSP.Core
-        run: dotnet build ${{ env.LSP_CORE_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }}
+        run: dotnet build ${{ env.LSP_CORE_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} ${{ env.BUILD_NUMBER_ARG }}
 
       - name: Build LSP.Server
-        run: dotnet build ${{ env.LSP_SERVER_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }}
+        run: dotnet build ${{ env.LSP_SERVER_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} ${{ env.BUILD_NUMBER_ARG }}
 
   # ---------------------------------------------------------------------------
   # Job 2: Unit test LSP — Reqnroll.IdeSupport.LSP.Core.Tests and
@@ -112,13 +117,13 @@ jobs:
         run: dotnet restore ${{ env.LSP_CORE_TESTS_PROJECT }}
 
       - name: Test LSP.Core
-        run: dotnet test ${{ env.LSP_CORE_TESTS_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} --logger trx --results-directory TestResults
+        run: dotnet test ${{ env.LSP_CORE_TESTS_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} --logger trx --results-directory TestResults ${{ env.BUILD_NUMBER_ARG }}
 
       - name: Restore LSP.Server.Tests
         run: dotnet restore ${{ env.LSP_SERVER_TESTS_PROJECT }}
 
       - name: Test LSP.Server
-        run: dotnet test ${{ env.LSP_SERVER_TESTS_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} --logger trx --results-directory TestResults
+        run: dotnet test ${{ env.LSP_SERVER_TESTS_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} --logger trx --results-directory TestResults ${{ env.BUILD_NUMBER_ARG }}
 
       - name: Upload Test Result TRX Files
         uses: actions/upload-artifact@v4
@@ -160,7 +165,7 @@ jobs:
         run: dotnet restore ${{ env.LSP_SERVER_SPECS_PROJECT }}
 
       - name: Test LSP.Server.Specs
-        run: dotnet test ${{ env.LSP_SERVER_SPECS_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} --logger trx --results-directory TestResults
+        run: dotnet test ${{ env.LSP_SERVER_SPECS_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} --logger trx --results-directory TestResults ${{ env.BUILD_NUMBER_ARG }}
 
       - name: Upload Test Result TRX Files
         uses: actions/upload-artifact@v4
@@ -210,7 +215,8 @@ jobs:
             --configuration ${{ env.CONFIGURATION }} \
             --runtime ${{ matrix.rid }} \
             --self-contained true \
-            --output "publish/${{ matrix.rid }}"
+            --output "publish/${{ matrix.rid }}" \
+            ${{ env.BUILD_NUMBER_ARG }}
 
       - name: Upload server artifact (${{ matrix.rid }})
         uses: actions/upload-artifact@v4

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Reqnroll.IdeSupport.LSP.Server.Hosting;
@@ -134,5 +135,23 @@ public class ProgramTests
     public void ToLogLevel_maps_each_TraceLevel_to_the_matching_LogLevel(TraceLevel traceLevel, LogLevel expected)
     {
         Program.ToLogLevel(traceLevel).Should().Be(expected);
+    }
+
+    [Fact]
+    public void GetServerVersion_returns_the_assembly_informational_version()
+    {
+        var expected = typeof(Program).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion;
+
+        Program.GetServerVersion().Should().Be(expected).And.NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public void GetServerVersion_matches_the_MainVersion_dot_BuildNumber_pattern()
+    {
+        // build/Version.props stamps VersionPrefix as <ReqnrollMainVersion>.<ReqnrollBuildNumber>
+        // (e.g. "0.1.99999"), with an optional "-<suffix>" and a "+<git-sha>" appended by the SDK.
+        Program.GetServerVersion().Should().MatchRegex(@"^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?(\+[0-9a-f]+)?$");
     }
 }
