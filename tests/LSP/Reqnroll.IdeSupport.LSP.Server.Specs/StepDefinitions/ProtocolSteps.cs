@@ -20,6 +20,13 @@ public sealed class ProtocolSteps
     [Given(@"the LSP server is started for IDE ""(.*)""")]
     public async Task GivenTheLspServerIsStartedForIde(string ide) => await _ctx.EnsureStartedAsync(ide);
 
+    // Issue #70: the harness's simulated client negotiates LSP 3.16 change-annotation support
+    // only when a scenario opts in via this step — every other scenario keeps the default
+    // (unsupported) capabilities so its assertions against WorkspaceEdit.Changes stay unaffected.
+    [Given("the LSP client supports rename change annotations")]
+    public async Task GivenTheLspClientSupportsRenameChangeAnnotations() =>
+        await _ctx.EnsureStartedAsync(supportsChangeAnnotations: true);
+
     // ── When ───────────────────────────────────────────────────────────────────
 
     [When(@"the feature file ""(.*)"" is opened with")]

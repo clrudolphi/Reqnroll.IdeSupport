@@ -1,5 +1,6 @@
 ﻿using System.Text.RegularExpressions;
 using OmniSharp.Extensions.JsonRpc;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Logging;
@@ -96,6 +97,30 @@ public class StepRenameHandlerTests
                 ci[1] = null;
                 return false;
             });
+    }
+
+    // ── Change-annotation negotiation (issue #70) ───────────────────────────────
+    // By default _languageServer.ClientSettings is unstubbed (null), which HandleRenameAsync
+    // treats as "no annotation support" — the existing tests above exercise that fallback
+    // path implicitly. Call this to opt a test into the annotated DocumentChanges shape.
+    private void SetChangeAnnotationSupport(bool documentChanges, bool changeAnnotationSupport)
+    {
+        _languageServer.ClientSettings.Returns(new InitializeParams
+        {
+            Capabilities = new ClientCapabilities
+            {
+                Workspace = new WorkspaceClientCapabilities
+                {
+                    WorkspaceEdit = new Supports<WorkspaceEditCapability?>(true, new WorkspaceEditCapability
+                    {
+                        DocumentChanges = documentChanges,
+                        ChangeAnnotationSupport = changeAnnotationSupport
+                            ? new WorkspaceEditSupportCapabilitiesChangeAnnotationSupport()
+                            : null
+                    })
+                }
+            }
+        });
     }
 
     private static ProjectStepDefinitionBinding MakeBinding(
@@ -1263,6 +1288,188 @@ public class StepRenameHandlerTests
         var csEdit = result.Changes[csUri].ToList();
         csEdit.Should().ContainSingle();
         csEdit[0].NewText.Should().Be("\"to be and not to be\"");
+    }
+
+    // ── Change-annotation negotiation (issue #70), test conditions 1 & 5 (plan §5.2):
+    //    a client that advertises documentChanges + changeAnnotationSupport gets a
+    //    DocumentChanges-shaped, annotated WorkspaceEdit instead of the legacy Changes map. ──
+
+    [Fact]
+    public async Task Rename_returns_annotated_DocumentChanges_when_the_client_supports_change_annotations()
+    {
+        SetChangeAnnotationSupport(documentChanges: true, changeAnnotationSupport: true);
+
+        var featureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+        var csUri = DocumentUri.FromFileSystemPath("/workspace/Steps.cs");
+
+        const string csText =
+            "using Reqnroll;\n" +
+            "namespace N\n" +
+            "{\n" +
+            "    [Binding]\n" +
+            "    public class Steps\n" +
+            "    {\n" +
+            "        [Then(\"to be or not to be\")]\n" +
+            "        public void ThenToBeOrNotToBe() { }\n" +
+            "    }\n" +
+            "}\n";
+
+        SetupBuffers((csUri, csText));
+
+        var binding = MakeBinding(
+            ScenarioBlock.Then,
+            new Regex("^to be or not to be$"),
+            specifiedExpression: "to be or not to be",
+            line: 8, column: 9,
+            method: "Steps.ThenToBeOrNotToBe()");
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { binding }));
+
+        var project = MakeTestProject();
+        _scopeManager.ResolveOwners(featureUri).Returns(new[] { project });
+
+        var matchSet = MakeFeatureMatchSet(
+            featureUri.ToString(), binding,
+            "Then", "to be or not to be", stepLine: 2, stepChar: 5);
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+            .Returns(ci =>
+            {
+                ci[1] = matchSet;
+                return true;
+            });
+
+        const string featureText = "Feature: F\nScenario: S\n\tThen to be or not to be\n";
+        var snapshot = new LspTextSnapshot(featureUri.ToString(), 1, featureText);
+        const string stepText = "to be or not to be";
+        var stepOffset = featureText.IndexOf("\tThen " + stepText) + "\tThen ".Length;
+        var usageMatch = new StepBindingMatch(
+            featureUri.ToString(),
+            GherkinRange.FromPoint(snapshot, startOffset: stepOffset, length: stepText.Length),
+            MatchResult.CreateMultiMatch(new[]
+            {
+                MatchResultItem.CreateMatch(binding, ParameterMatch.NotMatch)
+            }));
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(new[] { usageMatch });
+
+        var sut = CreateSut();
+        await sut.HandleSelectRenameTargetAsync(
+            new SelectRenameTargetParams { Uri = featureUri.ToString(), Version = 0, AttributeIndex = 0 },
+            CancellationToken.None);
+
+        var result = await sut.HandleRenameAsync(
+            new RenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 14),
+                NewName = "to be and not to be"
+            },
+            CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result!.Changes.Should().BeNull();
+        result.DocumentChanges.Should().NotBeNull();
+
+        var docChanges = result.DocumentChanges!.ToList();
+        docChanges.Should().HaveCount(2);
+
+        var featureEdit = docChanges.Single(c => c.TextDocumentEdit!.TextDocument.Uri == featureUri).TextDocumentEdit!;
+        featureEdit.TextDocument.Version.Should().BeNull(); // condition 5: versionless identifier
+        var featureAnnotated = featureEdit.Edits.Single().Should().BeOfType<AnnotatedTextEdit>().Subject;
+        featureAnnotated.NewText.Should().Be("to be and not to be");
+        ((string)featureAnnotated.AnnotationId).Should().Be(RenameChangeAnnotations.Feature);
+
+        var csEditEntry = docChanges.Single(c => c.TextDocumentEdit!.TextDocument.Uri == csUri).TextDocumentEdit!;
+        var csAnnotated = csEditEntry.Edits.Single().Should().BeOfType<AnnotatedTextEdit>().Subject;
+        csAnnotated.NewText.Should().Be("\"to be and not to be\"");
+        ((string)csAnnotated.AnnotationId).Should().Be(RenameChangeAnnotations.Binding);
+
+        result.ChangeAnnotations.Should().ContainKey(RenameChangeAnnotations.Feature);
+        result.ChangeAnnotations.Should().ContainKey(RenameChangeAnnotations.Binding);
+    }
+
+    [Fact]
+    public async Task Rename_falls_back_to_the_legacy_Changes_shape_when_the_client_lacks_changeAnnotationSupport()
+    {
+        // documentChanges alone (no changeAnnotationSupport) is exactly Visual Studio's
+        // negotiated capability per Phase 0 — see docs/Rename-ChangeAnnotations-Implementation-Plan.md.
+        SetChangeAnnotationSupport(documentChanges: true, changeAnnotationSupport: false);
+
+        var featureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
+        var csUri = DocumentUri.FromFileSystemPath("/workspace/Steps.cs");
+
+        const string csText =
+            "using Reqnroll;\n" +
+            "namespace N\n" +
+            "{\n" +
+            "    [Binding]\n" +
+            "    public class Steps\n" +
+            "    {\n" +
+            "        [Then(\"to be or not to be\")]\n" +
+            "        public void ThenToBeOrNotToBe() { }\n" +
+            "    }\n" +
+            "}\n";
+
+        SetupBuffers((csUri, csText));
+
+        var binding = MakeBinding(
+            ScenarioBlock.Then,
+            new Regex("^to be or not to be$"),
+            specifiedExpression: "to be or not to be",
+            line: 8, column: 9,
+            method: "Steps.ThenToBeOrNotToBe()");
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { binding }));
+
+        var project = MakeTestProject();
+        _scopeManager.ResolveOwners(featureUri).Returns(new[] { project });
+
+        var matchSet = MakeFeatureMatchSet(
+            featureUri.ToString(), binding,
+            "Then", "to be or not to be", stepLine: 2, stepChar: 5);
+        _matchService.TryGet(Arg.Any<MatchSetKey>(), out Arg.Any<FeatureBindingMatchSet>())
+            .Returns(ci =>
+            {
+                ci[1] = matchSet;
+                return true;
+            });
+
+        const string featureText = "Feature: F\nScenario: S\n\tThen to be or not to be\n";
+        var snapshot = new LspTextSnapshot(featureUri.ToString(), 1, featureText);
+        const string stepText = "to be or not to be";
+        var stepOffset = featureText.IndexOf("\tThen " + stepText) + "\tThen ".Length;
+        var usageMatch = new StepBindingMatch(
+            featureUri.ToString(),
+            GherkinRange.FromPoint(snapshot, startOffset: stepOffset, length: stepText.Length),
+            MatchResult.CreateMultiMatch(new[]
+            {
+                MatchResultItem.CreateMatch(binding, ParameterMatch.NotMatch)
+            }));
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(new[] { usageMatch });
+
+        var sut = CreateSut();
+        await sut.HandleSelectRenameTargetAsync(
+            new SelectRenameTargetParams { Uri = featureUri.ToString(), Version = 0, AttributeIndex = 0 },
+            CancellationToken.None);
+
+        var result = await sut.HandleRenameAsync(
+            new RenameParams
+            {
+                TextDocument = new TextDocumentIdentifier { Uri = featureUri },
+                Position = new Position(2, 14),
+                NewName = "to be and not to be"
+            },
+            CancellationToken.None);
+
+        // Regression guard: structurally identical to the pre-#70 (mode-2) output.
+        result.Should().NotBeNull();
+        result!.DocumentChanges.Should().BeNull();
+        result.ChangeAnnotations.Should().BeNull();
+        result.Changes!.Should().ContainKey(featureUri);
+        result.Changes.Should().ContainKey(csUri);
+        result.Changes[featureUri].Should().ContainSingle(e => e.NewText == "to be and not to be");
+        result.Changes[csUri].Should().ContainSingle(e => e.NewText == "\"to be and not to be\"");
     }
 
     // ── Regression (#82 follow-up): confirmed live in VS — after a successful rename, inlay

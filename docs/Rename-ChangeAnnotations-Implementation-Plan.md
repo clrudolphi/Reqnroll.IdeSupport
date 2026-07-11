@@ -1,6 +1,10 @@
 # Rename Change Annotations — Implementation Plan
 
-> **Status:** Phase 0 verified (2026-07-07) — go, VS on `Changes` fallback. Not yet implemented (Phases A–C).
+> **Status:** Implemented (2026-07-11) — Phases A–C complete. `WorkspaceEditBuilder` +
+> `RenameChangeAnnotations` land in `src/LSP/Reqnroll.IdeSupport.LSP.Server/Features/Rename/`;
+> `StepRenameHandler.HandleRenameAsync` negotiates via `ILanguageServerFacade.ClientSettings`.
+> VS remains on the `Changes` fallback per Phase 0; VS Code (and presumably Rider) get the
+> annotated `DocumentChanges` shape. VS manual verification (undo granularity, RA-1) still open.
 > **Audience:** Core team contributors
 > **Based on:** [F16 Step Rename](F16-Step-Rename-Implementation-Plan.md); LSP 3.16 `ChangeAnnotation` / `AnnotatedTextEdit`
 > **Library support:** Already modelled in OmniSharp.Extensions.LanguageServer 0.19.9

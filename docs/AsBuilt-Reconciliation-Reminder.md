@@ -11,7 +11,7 @@
 
 | Plan | Protocol origin | Status |
 |---|---|---|
-| [Rename-ChangeAnnotations-Implementation-Plan.md](Rename-ChangeAnnotations-Implementation-Plan.md) | LSP 3.16 `ChangeAnnotation` / `AnnotatedTextEdit` | Draft — not yet implemented |
+| [Rename-ChangeAnnotations-Implementation-Plan.md](Rename-ChangeAnnotations-Implementation-Plan.md) | LSP 3.16 `ChangeAnnotation` / `AnnotatedTextEdit` | **Implemented (2026-07-11)** — Phases A–C done; VS manual undo-granularity verification (RA-1) still open |
 | [InlayHints-Implementation-Plan.md](InlayHints-Implementation-Plan.md) | LSP 3.17 `textDocument/inlayHint` | Draft — not yet implemented |
 | ~~PullDiagnostics-Implementation-Plan.md~~ | LSP 3.17 `textDocument/diagnostic` | **Abandoned (2026-06-25), moved to `docs/Archive/`** — OmniSharp 0.19.9 can't serve it (write-side JSON converters are unimplemented stubs). No as-built reconciliation applies; the abandonment decision itself is recorded in `docs/LSP-IDE-Support-Open-Questions.md` Q19. |
 
