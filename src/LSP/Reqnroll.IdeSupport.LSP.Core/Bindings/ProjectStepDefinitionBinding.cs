@@ -12,12 +12,14 @@ public class ProjectStepDefinitionBinding : ProjectBinding
 {
     /// <summary>Creates a step definition binding.</summary>
     public ProjectStepDefinitionBinding(ScenarioBlock stepDefinitionType, Regex regex, BindingScope scope,
-        ProjectBindingImplementation implementation, string specifiedExpression = null, string error = null)
+        ProjectBindingImplementation implementation, string specifiedExpression = null, string error = null,
+        int? attributeSourceLine = null)
     : base(implementation, scope, error)
     {
         StepDefinitionType = stepDefinitionType;
         Regex = regex;
         SpecifiedExpression = specifiedExpression;
+        AttributeSourceLine = attributeSourceLine;
     }
 
     /// <summary>True when the binding also has a compiled matching <see cref="Regex"/>.</summary>
@@ -28,6 +30,12 @@ public class ProjectStepDefinitionBinding : ProjectBinding
     public string SpecifiedExpression { get; }
     /// <summary>The compiled regex used to match step text against this binding.</summary>
     public Regex Regex { get; }
+    /// <summary>
+    /// The 1-based source line of the binding attribute (e.g. the <c>[Given("...")]</c> line).
+    /// Populated during syntax-based discovery; <see langword="null"/> for connector-discovered bindings.
+    /// When set, <c>CoversQuery</c> uses this for exact AST-based matching instead of the heuristic line window.
+    /// </summary>
+    public int? AttributeSourceLine { get; }
 
     /// <summary>The expression to display for this binding: <see cref="SpecifiedExpression"/> if known, otherwise derived from <see cref="Regex"/>.</summary>
     public string Expression => SpecifiedExpression ?? GetSpecifiedExpressionFromRegex();
@@ -91,6 +99,6 @@ public class ProjectStepDefinitionBinding : ProjectBinding
     public ProjectStepDefinitionBinding WithSpecifiedExpression(string expression)
     {
         var regex = GetRegexFromSpecifiedExpression(expression);
-        return new ProjectStepDefinitionBinding(StepDefinitionType, regex, Scope, Implementation, expression, Error);
+        return new ProjectStepDefinitionBinding(StepDefinitionType, regex, Scope, Implementation, expression, Error, AttributeSourceLine);
     }
 }
