@@ -4,21 +4,20 @@ using System.Threading;
 
 namespace Reqnroll.IdeSupport.Common.Logging;
 
+/// <summary>Represents a single log entry captured through <see cref="IIdeSupportLogger"/>.</summary>
+/// <param name="Level">The trace/severity level of the log entry.</param>
+/// <param name="Message">The log message text.</param>
+/// <param name="CallerMethod">The name of the method that produced the log entry.</param>
+/// <param name="Exception">An optional exception associated with the log entry.</param>
 [DebuggerDisplay("{TimeStamp} {CallerMethod} {Message}")]
-/// <summary>Initializes a new instance of the <see cref="LogMessage"/> class.</summary>
-/// <summary>LogMessage</summary>
 public record LogMessage(
-    /// <summary>Gets or sets the level.</summary>
     TraceLevel Level,
-    /// <summary>Gets or sets the message.</summary>
     string Message,
-    /// <summary>Gets or sets the caller method.</summary>
     string CallerMethod,
-    /// <summary>Gets or sets the exception.</summary>
     Exception? Exception = default!)
 {
-    /// <summary>Gets or sets the time stamp.</summary>
+    /// <summary>Gets the timestamp when the log entry was created.</summary>
     public DateTimeOffset TimeStamp { get; } = DateTimeOffset.Now;
-    /// <summary>Gets or sets the managed thread id.</summary>
+    /// <summary>Gets the managed thread ID that created the log entry.</summary>
     public int ManagedThreadId { get; } = Thread.CurrentThread.ManagedThreadId;
 }

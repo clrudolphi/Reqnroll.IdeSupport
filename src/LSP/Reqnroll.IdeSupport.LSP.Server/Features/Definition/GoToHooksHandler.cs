@@ -55,6 +55,7 @@ public sealed class GoToHooksHandler
     private readonly ILspTelemetryService?          _telemetryService;
     private readonly IOperationDurationRecorder     _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="GoToHooksHandler"/> class.</summary>
     public GoToHooksHandler(
         IDocumentBufferService        bufferService,
         IProjectBindingRegistryLookup registryLookup,
@@ -69,6 +70,7 @@ public sealed class GoToHooksHandler
         _recorder       = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Handles a <c>reqnroll/goToHooks</c> request for hook navigation.</summary>
     public Task<GoToHooksResponse> HandleAsync(
         TextDocumentPositionParams request,
         CancellationToken          cancellationToken)

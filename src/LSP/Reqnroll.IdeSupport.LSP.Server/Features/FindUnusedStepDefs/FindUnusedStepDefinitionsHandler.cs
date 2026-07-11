@@ -20,6 +20,7 @@ public sealed class FindUnusedStepDefinitionsHandler
     private readonly ILspTelemetryService? _telemetryService;
     private readonly IOperationDurationRecorder _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="FindUnusedStepDefinitionsHandler"/> class.</summary>
     public FindUnusedStepDefinitionsHandler(
         IProjectBindingRegistryLookup registryLookup,
         IFindUnusedStepDefinitionsService service,
@@ -32,6 +33,7 @@ public sealed class FindUnusedStepDefinitionsHandler
         _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Handles a <c>reqnroll/findUnusedStepDefinitions</c> request.</summary>
     public Task<FindUnusedStepDefinitionsResponse> HandleAsync(CancellationToken cancellationToken)
     {
         // Performance Verification (Layer 4): time the full-workspace unused-step-definitions scan —

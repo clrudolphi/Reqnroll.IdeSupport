@@ -6,6 +6,6 @@ namespace Reqnroll.IdeSupport.VisualStudio.ProjectSystem;
 /// <summary>IDeveroomWindowManager</summary>
 public interface IDeveroomWindowManager
 {
-    /// <summary>Gets or sets the show dialog<tview model>.</summary>
+    /// <summary>Shows a modal dialog for the specified view-model.</summary>
     bool? ShowDialog<TViewModel>(TViewModel viewModel);
 }

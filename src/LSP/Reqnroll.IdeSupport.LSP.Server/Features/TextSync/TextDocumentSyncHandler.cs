@@ -41,6 +41,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         new TextDocumentFilter { Pattern = "**/*.cs" }
     );
 
+    /// <summary>Initializes a new instance of the <see cref="TextDocumentSyncHandler"/> class.</summary>
     public TextDocumentSyncHandler(
         IDocumentBufferService documentBufferService,
         IGherkinDocumentTaggerService taggerService,
@@ -63,9 +64,11 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Gets or sets the get text document attributes.</summary>
     public override TextDocumentAttributes GetTextDocumentAttributes(DocumentUri uri)
         => new(uri, IsCSharp(uri) ? "csharp" : "gherkin");
 
+    /// <summary>Gets or sets the create registration options.</summary>
     protected override TextDocumentSyncRegistrationOptions CreateRegistrationOptions(
         TextSynchronizationCapability capability,
         ClientCapabilities clientCapabilities)
@@ -76,6 +79,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
             Save = new SaveOptions { IncludeText = false }
         };
 
+    /// <summary>Gets or sets the handle.</summary>
     public override async Task<Unit> Handle(DidOpenTextDocumentParams request, CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
@@ -100,6 +104,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         return Unit.Value;
     }
 
+    /// <summary>Gets or sets the handle.</summary>
     public override async Task<Unit> Handle(DidChangeTextDocumentParams request, CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
@@ -127,6 +132,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         return Unit.Value;
     }
 
+    /// <summary>Gets or sets the handle.</summary>
     public override Task<Unit> Handle(DidSaveTextDocumentParams request, CancellationToken cancellationToken)
     {
         _logger.LogInfo($"Document saved: {request.TextDocument.Uri}");
@@ -135,6 +141,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         return Unit.Task;
     }
 
+    /// <summary>Gets or sets the handle.</summary>
     public override async Task<Unit> Handle(DidCloseTextDocumentParams request, CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;

@@ -46,6 +46,7 @@ public sealed class StepRenameHandler
     private readonly ILspTelemetryService?         _telemetryService;
     private readonly IOperationDurationRecorder    _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="StepRenameHandler"/> class.</summary>
     public StepRenameHandler(
         IBindingMatchService          matchService,
         ILspWorkspaceScopeManager     scopeManager,

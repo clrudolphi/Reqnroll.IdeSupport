@@ -9,6 +9,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Performance;
 /// </summary>
 public interface IPerfTelemetrySampler
 {
+    /// <summary>Gets or sets the should sample.</summary>
     bool ShouldSample();
 }
 
@@ -20,6 +21,7 @@ public interface IPerfTelemetrySampler
 /// </summary>
 public sealed class PerfTelemetrySampler : IPerfTelemetrySampler
 {
+    /// <summary>Gets or sets the sample rate env var.</summary>
     public const string SampleRateEnvVar = "REQNROLL_PERF_TELEMETRY_SAMPLE";
 
     /// <summary>Opt-in by default: no perf telemetry is emitted unless a rate is configured.</summary>
@@ -28,12 +30,14 @@ public sealed class PerfTelemetrySampler : IPerfTelemetrySampler
     private readonly double _rate;
     private readonly Random _random;
 
+    /// <summary>Initializes a new instance of the <see cref="PerfTelemetrySampler"/> class.</summary>
     public PerfTelemetrySampler(double rate, Random? random = null)
     {
         _rate = Math.Clamp(rate, 0.0, 1.0);
         _random = random ?? Random.Shared;
     }
 
+    /// <summary>Gets or sets the should sample.</summary>
     public bool ShouldSample()
     {
         if (_rate <= 0.0) return false;
@@ -41,6 +45,7 @@ public sealed class PerfTelemetrySampler : IPerfTelemetrySampler
         return _random.NextDouble() < _rate;
     }
 
+    /// <summary>Gets or sets the from environment.</summary>
     public static PerfTelemetrySampler FromEnvironment()
     {
         var raw = Environment.GetEnvironmentVariable(SampleRateEnvVar);

@@ -32,6 +32,7 @@ public sealed class CommentToggleHandler : IExecuteCommandHandler
     private readonly ILspTelemetryService?     _telemetryService;
     private readonly IOperationDurationRecorder _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="CommentToggleHandler"/> class.</summary>
     public CommentToggleHandler(
         IDocumentBufferService documentBufferService,
         ICommentToggleService toggleService,
@@ -48,6 +49,7 @@ public sealed class CommentToggleHandler : IExecuteCommandHandler
         _recorder              = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Gets or sets the get registration options.</summary>
     public ExecuteCommandRegistrationOptions GetRegistrationOptions(
         ExecuteCommandCapability capability,
         ClientCapabilities clientCapabilities)
@@ -56,6 +58,7 @@ public sealed class CommentToggleHandler : IExecuteCommandHandler
             Commands = new Container<string>(ToggleCommentCommand)
         };
 
+    /// <summary>Handles a <c>workspace/executeCommand</c> request for the comment-toggle command.</summary>
     public async Task<Unit> Handle(
         ExecuteCommandParams request,
         CancellationToken cancellationToken)

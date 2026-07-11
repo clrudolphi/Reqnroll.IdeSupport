@@ -2,22 +2,22 @@ using System;
 
 namespace Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
 
+/// <summary>Flags that describe additional traits of a Reqnroll project.</summary>
 [Flags]
-/// <summary>ReqnrollProjectTraits</summary>
 public enum ReqnrollProjectTraits
 {
-    /// <summary>Gets or sets the none.</summary>
+    /// <summary>No special traits.</summary>
     None = 0,
-    /// <summary>Gets or sets the ms build generation.</summary>
+    /// <summary>The project uses MSBuild generation.</summary>
     MsBuildGeneration               = 0b00000001,
-    /// <summary>Gets or sets the xunit adapter.</summary>
+    /// <summary>The project has an xUnit adapter.</summary>
     XUnitAdapter                    = 0b00000010,
-    /// <summary>Gets or sets the design time feature file generation.</summary>
+    /// <summary>The project supports design-time feature file generation.</summary>
     DesignTimeFeatureFileGeneration = 0b00000100,
-    /// <summary>Gets or sets the cucumber expression.</summary>
+    /// <summary>The project uses Cucumber expressions.</summary>
     CucumberExpression              = 0b00001000,
-    /// <summary>Gets or sets the legacy spec flow.</summary>
+    /// <summary>The project targets a legacy SpecFlow version.</summary>
     LegacySpecFlow                  = 0b00010000,
-    /// <summary>Gets or sets the spec flow compatibility.</summary>
+    /// <summary>The project is in SpecFlow compatibility mode.</summary>
     SpecFlowCompatibility           = 0b00100000
 }

@@ -47,6 +47,7 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
     // test constructing the handler directly) still gets the hierarchical shape by default.
     private bool _hierarchicalSupport = true;
 
+    /// <summary>Initializes a new instance of the <see cref="FeatureDocumentSymbolHandler"/> class.</summary>
     public FeatureDocumentSymbolHandler(
         IDocumentBufferService documentBufferService,
         IGherkinDocumentSymbolService symbolService,
@@ -59,6 +60,7 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
         _recorder              = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Gets or sets the get registration options.</summary>
     public DocumentSymbolRegistrationOptions GetRegistrationOptions(
         DocumentSymbolCapability capability, ClientCapabilities clientCapabilities)
     {
@@ -66,6 +68,7 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
         return new() { DocumentSelector = FeatureSelector };
     }
 
+    /// <summary>Handles a <c>textDocument/documentSymbol</c> request for the feature-outline tree.</summary>
     public Task<SymbolInformationOrDocumentSymbolContainer?> Handle(
         DocumentSymbolParams request, CancellationToken ct)
     {

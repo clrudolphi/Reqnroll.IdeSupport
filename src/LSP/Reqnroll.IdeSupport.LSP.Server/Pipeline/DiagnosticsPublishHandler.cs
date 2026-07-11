@@ -43,6 +43,7 @@ public sealed class DiagnosticsPublishHandler : INotificationHandler<MatchCacheC
     private readonly IIdeSupportLogger           _logger;
     private readonly IOperationDurationRecorder _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="DiagnosticsPublishHandler"/> class.</summary>
     public DiagnosticsPublishHandler(
         IDocumentBufferService    documentBufferService,
         IBindingMatchService      bindingMatchService,
@@ -63,6 +64,7 @@ public sealed class DiagnosticsPublishHandler : INotificationHandler<MatchCacheC
         _recorder              = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Gets or sets the handle.</summary>
     public Task Handle(MatchCacheChangedNotification notification, CancellationToken cancellationToken)
     {
         var uri = notification.Uri;

@@ -43,6 +43,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Hosting;
 /// </remarks>
 public class Program
 {
+    /// <summary>Gets or sets the main.</summary>
     public static async Task Main(string[] args)
     {
         // Each IDE's glue component passes --ide <identifier> when spawning the server.

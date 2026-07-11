@@ -10,8 +10,8 @@ public sealed class NullEditorConfigOptions : IEditorConfigOptions
 
     private NullEditorConfigOptions() { }
 
-    /// <summary>Gets or sets the get option<tresult>.</summary>
+    /// <summary>Gets the option value for the specified key.</summary>
     public TResult GetOption<TResult>(string key, TResult defaultValue) => defaultValue;
-    /// <summary>Gets or sets the get bool option.</summary>
+    /// <summary>Gets the bool option value for the specified key.</summary>
     public bool GetBoolOption(string key, bool defaultValue) => defaultValue;
 }

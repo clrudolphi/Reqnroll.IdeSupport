@@ -20,6 +20,7 @@ public sealed class OutProcReqnrollConnectorFactory : IOutProcConnectorFactory
 {
     private readonly IIdeSupportLogger _logger;
 
+    /// <summary>Initializes a new instance of the <see cref="OutProcReqnrollConnectorFactory"/> class.</summary>
     public OutProcReqnrollConnectorFactory(IIdeSupportLogger logger)
     {
         _logger = logger;

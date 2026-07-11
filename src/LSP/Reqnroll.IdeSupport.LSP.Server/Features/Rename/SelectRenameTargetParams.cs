@@ -16,12 +16,15 @@ public sealed class SelectRenameTargetParams
     // never matched HandleRenameAsync's DocumentUri-derived key for real client traffic — typing
     // this the same way the rest of the codebase does removes the mismatch at its source, rather
     // than relying solely on string-normalization to paper over it.
+    /// <summary>Gets or sets the uri.</summary>
     [JsonProperty("uri")]
     public DocumentUri Uri { get; set; } = null!;
 
+    /// <summary>Gets or sets the version.</summary>
     [JsonProperty("version")]
     public int Version { get; set; }
 
+    /// <summary>Gets or sets the attribute index.</summary>
     [JsonProperty("attributeIndex")]
     public int AttributeIndex { get; set; }
 }

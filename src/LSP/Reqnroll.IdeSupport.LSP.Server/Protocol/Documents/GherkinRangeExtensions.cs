@@ -12,18 +12,21 @@ namespace Reqnroll.IdeSupport.LSP.Server.Protocol.Documents;
 /// </summary>
 public static class GherkinRangeExtensions
 {
+    /// <summary>Gets or sets the to lsp start position.</summary>
     public static Position ToLspStartPosition(this GherkinRange range)
     {
         var (line, character) = range.StartLinePosition;
         return new Position(line, character);
     }
 
+    /// <summary>Gets or sets the to lsp end position.</summary>
     public static Position ToLspEndPosition(this GherkinRange range)
     {
         var (line, character) = range.EndLinePosition;
         return new Position(line, character);
     }
 
+    /// <summary>Gets or sets the to lsp range.</summary>
     public static LspRange ToLspRange(this GherkinRange range)
         => new(range.ToLspStartPosition(), range.ToLspEndPosition());
 

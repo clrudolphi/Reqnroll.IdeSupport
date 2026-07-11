@@ -5,6 +5,7 @@ using Gherkin.Ast;
 
 
 using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
+using Reqnroll.IdeSupport.LSP.Core.Bindings;
 
 
 
@@ -50,7 +51,7 @@ public sealed class FeatureBindingMatchSet
     /// <summary>The feature document version these matches were computed for, when known.</summary>
     public int? DocumentVersion { get; }
 
-    /// <summary>The <see cref="ProjectBindingRegistry.Version"/> these matches were computed against.</summary>
+    /// <summary>The <see cref="ProjectBindingRegistry"/> version these matches were computed against.</summary>
     public int RegistryVersion { get; }
 
     /// <summary>Gets or sets the steps.</summary>

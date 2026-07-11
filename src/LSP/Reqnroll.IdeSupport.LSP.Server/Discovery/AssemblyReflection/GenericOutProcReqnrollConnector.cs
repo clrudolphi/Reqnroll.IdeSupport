@@ -38,6 +38,7 @@ public class GenericOutProcReqnrollConnector : OutProcReqnrollConnector
     {
     }
 
+    /// <summary>Gets or sets the get connector path.</summary>
     protected override string GetConnectorPath(List<string> arguments)
     {
         var connector = ConnectorNet80;

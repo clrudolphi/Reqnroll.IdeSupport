@@ -32,6 +32,7 @@ public sealed class StepCodeLensHandler
     private readonly IIdeSupportLogger               _logger;
     private readonly IOperationDurationRecorder    _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="StepCodeLensHandler"/> class.</summary>
     public StepCodeLensHandler(
         IBindingMatchService          matchService,
         ILspWorkspaceScopeManager     scopeManager,

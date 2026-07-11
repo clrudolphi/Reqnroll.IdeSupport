@@ -35,6 +35,7 @@ public sealed class StepReferencesHandler
     private readonly IIdeSupportLogger               _logger;
     private readonly IOperationDurationRecorder    _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="StepReferencesHandler"/> class.</summary>
     public StepReferencesHandler(
         IBindingMatchService          matchService,
         ILspWorkspaceScopeManager     scopeManager,
@@ -49,6 +50,7 @@ public sealed class StepReferencesHandler
         _recorder       = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Handles a <c>textDocument/references</c> request for step-usage references.</summary>
     public Task<LocationOrLocationLinks> HandleAsync(
         ReferenceParams request,
         CancellationToken cancellationToken)

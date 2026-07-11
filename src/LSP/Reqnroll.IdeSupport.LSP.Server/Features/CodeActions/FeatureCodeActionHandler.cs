@@ -28,6 +28,7 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
     private readonly IIdeSupportLogger               _logger;
     private readonly IOperationDurationRecorder    _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="FeatureCodeActionHandler"/> class.</summary>
     public FeatureCodeActionHandler(
         IBindingMatchService      matchService,
         IStepScaffoldService      scaffoldService,
@@ -42,6 +43,7 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
         _recorder        = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Gets or sets the get registration options.</summary>
     public CodeActionRegistrationOptions GetRegistrationOptions(
         CodeActionCapability capability,
         ClientCapabilities   clientCapabilities)
@@ -53,6 +55,7 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
             ResolveProvider = false
         };
 
+    /// <summary>Handles a <c>textDocument/codeAction</c> request (lightbulb actions).</summary>
     public Task<CommandOrCodeActionContainer?> Handle(
         CodeActionParams    request,
         CancellationToken   cancellationToken)

@@ -42,6 +42,7 @@ public class WatchedFilesHandler : IDidChangeWatchedFilesHandler
     private readonly ICSharpBindingDiscoveryService _csharpDiscoveryService;
     private readonly IOperationDurationRecorder _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="WatchedFilesHandler"/> class.</summary>
     public WatchedFilesHandler(
         ILspWorkspaceScopeManager scopeManager,
         IMediator mediator,
@@ -58,6 +59,7 @@ public class WatchedFilesHandler : IDidChangeWatchedFilesHandler
         _recorder               = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Gets or sets the get registration options.</summary>
     public DidChangeWatchedFilesRegistrationOptions GetRegistrationOptions(
         DidChangeWatchedFilesCapability capability,
         ClientCapabilities clientCapabilities)
@@ -88,6 +90,7 @@ public class WatchedFilesHandler : IDidChangeWatchedFilesHandler
             }
         };
 
+    /// <summary>Gets or sets the handle.</summary>
     public async Task<MediatR.Unit> Handle(
         DidChangeWatchedFilesParams request,
         CancellationToken cancellationToken)

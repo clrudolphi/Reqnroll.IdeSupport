@@ -15,6 +15,7 @@ public class CustomOutProcReqnrollConnector : OutProcReqnrollConnector
     {
     }
 
+    /// <summary>Gets or sets the get connector path.</summary>
     protected override string GetConnectorPath(List<string> arguments)
     {
         var connectorPath = Path.Combine(GetConnectorsFolder(), Environment.ExpandEnvironmentVariables(_configuration.BindingDiscovery.ConnectorPath ?? "<not specified>"));

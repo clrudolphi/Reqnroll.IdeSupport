@@ -50,6 +50,7 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
     private readonly IIdeSupportLogger                  _logger;
     private readonly IOperationDurationRecorder         _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="BindingRegistryChangedHandler"/> class.</summary>
     public BindingRegistryChangedHandler(
         IDocumentBufferService documentBufferService,
         ICSharpFileTextCache csharpFileTextCache,
@@ -76,6 +77,7 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
         _recorder               = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Gets or sets the handle.</summary>
     public async Task Handle(
         BindingRegistryChangedNotification notification,
         CancellationToken cancellationToken)

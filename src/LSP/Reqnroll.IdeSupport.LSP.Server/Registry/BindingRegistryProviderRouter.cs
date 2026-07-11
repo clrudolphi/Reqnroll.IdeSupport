@@ -57,6 +57,7 @@ public sealed class BindingRegistryProviderRouter : IProjectBindingRegistryLooku
         (ConnectorBindingRegistryProvider Provider, EventHandler<bool> Handler)>
         _entries = new();
 
+    /// <summary>Initializes a new instance of the <see cref="BindingRegistryProviderRouter"/> class.</summary>
     public BindingRegistryProviderRouter(
         ILspWorkspaceScopeManager scopeManager,
         IMediator mediator,
@@ -135,6 +136,7 @@ public sealed class BindingRegistryProviderRouter : IProjectBindingRegistryLooku
 
     // ── IDisposable ───────────────────────────────────────────────────────────
 
+    /// <summary>Gets or sets the dispose.</summary>
     public void Dispose()
     {
         _scopeManager.ProjectDiscovered -= OnProjectDiscovered;

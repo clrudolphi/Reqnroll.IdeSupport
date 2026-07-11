@@ -8,6 +8,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.FindUnusedStepDefs;
 /// <summary>Response DTO for the custom <c>reqnroll/findUnusedStepDefinitions</c> request (Find Unused Step Definitions).</summary>
 public sealed class FindUnusedStepDefinitionsResponse
 {
+    /// <summary>Gets or sets the items.</summary>
     [JsonProperty("items")]
     public List<UnusedStepDefinitionItem> Items { get; set; } = new();
 }

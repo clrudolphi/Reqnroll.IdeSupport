@@ -1,0 +1,2499 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Reqnroll.IdeSupport.LSP.Core</name>
+    </assembly>
+    <members>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Bindings.BindingImporter">
+            <summary>
+            Converts the wire-format <see cref="T:Reqnroll.IdeSupport.LSP.Connector.Models.StepDefinition"/>/<see cref="T:Reqnroll.IdeSupport.LSP.Connector.Models.Hook"/> DTOs received from
+            the connector into <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding"/>/<see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectHookBinding"/>
+            instances, resolving indexed source-file/type-name references and de-duplicating shared
+            <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementation"/> instances by method name.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.BindingImporter.#ctor(System.Collections.Generic.Dictionary{System.String,System.String},System.Collections.Generic.Dictionary{System.String,System.String},Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger)">
+            <summary>Initializes a new instance of the <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.BindingImporter"/> class.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.BindingImporter.ImportStepDefinition(Reqnroll.IdeSupport.LSP.Connector.Models.StepDefinition)">
+            <summary>Converts a wire-format step definition DTO into a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding"/>, or null if it's invalid.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.BindingImporter.ImportHook(Reqnroll.IdeSupport.LSP.Connector.Models.Hook)">
+            <summary>Converts a wire-format hook DTO into a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectHookBinding"/>, or null if it's invalid.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Bindings.IBindingRegistryProvider">
+            <summary>
+            Provides the current ProjectBindingRegistry and notifies when it is replaced.
+            VS implementation: thin wrapper over IDiscoveryService.BindingRegistryCache.
+            LSP implementation: populated by MSBuild/JSON connector-based discovery.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.IBindingRegistryProvider.Current">
+            <summary>The most recently discovered binding registry for the project.</summary>
+        </member>
+        <member name="E:Reqnroll.IdeSupport.LSP.Core.Bindings.IBindingRegistryProvider.BindingRegistryChanged">
+            <summary>
+            Raised on any thread when the registry is replaced.
+            The <c>bool</c> argument is <see langword="true"/> for a full registry replacement
+            (connector/reflection discovery) and <see langword="false"/> for an incremental Roslyn
+            per-file patch. Implementations only raise this for a Roslyn patch when it actually
+            changed a binding's matched expression -- a patch that didn't (e.g. a method-body edit)
+            raises nothing, since there would be no feature-file match to recompute.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBinding">
+            <summary>
+            Base class for a discovered Reqnroll binding (step definition or hook): the scope it's
+            restricted to, the method it maps to, and any error recorded while importing it.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBinding.Scope">
+            <summary>The tag/feature/scenario scope restricting where this binding applies, or null for no restriction.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBinding.Implementation">
+            <summary>The bound method's identity (name, parameter types, source location).</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBinding.IsValid">
+            <summary>True when the binding has no import error and its scope (if any) is valid.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBinding.Error">
+            <summary>A description of why this binding could not be imported/used, or null if it's valid.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBinding.#ctor(Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementation,Reqnroll.IdeSupport.LSP.Core.Documents.BindingScope,System.String)">
+            <summary>Creates a binding from its implementation, scope, and optional error.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBinding.MatchScope(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IGherkinDocumentContext)">
+            <summary>Checks whether this binding's <see cref="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBinding.Scope"/> (tag expression, feature title, scenario title) matches the given context.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementation">
+            <summary>Identifies the .NET method a step definition or hook binding maps to: its name, parameter types, and source location.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementation.#ctor(System.String,System.String[],Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation)">
+            <summary>Creates a binding implementation descriptor.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementation.Method">
+            <summary>The bound method's name/identity as reported by discovery.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementation.ParameterTypes">
+            <summary>The resolved .NET parameter types of the bound method, in order.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementation.SourceLocation">
+            <summary>The source location of the bound method, when known.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementation.ToString">
+            <summary>Returns the method name for diagnostics/logging.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementationEqualityComparer">
+            <summary>Compares <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementation"/> instances by method, parameter types, and source location rather than reference identity.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementationEqualityComparer.Equals(Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementation,Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementation)">
+            <summary>True when both implementations have the same method, parameter types, and source location.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementationEqualityComparer.GetHashCode(Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementation)">
+            <summary>Computes a hash code consistent with <see cref="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementationEqualityComparer.Equals(Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementation,Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementation)"/>.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry">
+            <summary>
+            The immutable set of step definitions and hooks discovered for a project, plus the matching
+            logic (regex/scope/overload resolution) that resolves a Gherkin step or scenario against
+            them. Each mutation (connector refresh, Roslyn per-file patch) produces a new instance with
+            a bumped <see cref="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.Version"/>.
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.Invalid">
+            <summary>Sentinel registry used before any bindings have been discovered for a project.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.#ctor(System.Collections.Generic.IEnumerable{Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding},System.Collections.Generic.IEnumerable{Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectHookBinding},System.Int32)">
+            <summary>Creates a registry from a full set of step definitions and hooks, tagged with the project's content hash.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.Version">
+            <summary>A process-wide, monotonically increasing version, bumped on every new registry instance.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.ProjectHash">
+            <summary>The hash of the project's binding sources at the time of a full (connector/reflection) discovery, or null for a Roslyn patch.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.IsPatched">
+            <summary>True when this registry was produced by an incremental Roslyn per-file patch rather than a full discovery.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.StepDefinitions">
+            <summary>The step definitions in this registry.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.Hooks">
+            <summary>The hooks in this registry.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.ToString">
+            <summary>Returns a short "ProjectBindingRegistry_V{Version}_H{ProjectHash}" identifier for diagnostics/logging.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.MatchScenarioToHooks(Gherkin.Ast.Scenario,Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IGherkinDocumentContext)">
+            <summary>Returns the hooks (ordered by <see cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.HookType"/> then hook order) that apply to the given scenario.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.MatchStep(Gherkin.Ast.Step,Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IGherkinDocumentContext)">
+            <summary>
+            Matches a Gherkin step against this registry's step definitions, handling scenario
+            outline placeholder substitution and background multi-scope matching as needed.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.HandleDataTableOverloads(Gherkin.Ast.Step,Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem[])">
+            <summary>
+                Selects DataTable overload, this can be eliminated later when we process conversions
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.HandleDocStringOverloads(Gherkin.Ast.Step,Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem[])">
+            <summary>
+                Selects DocString overload, this can be eliminated later when we process conversions
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.HandleArgumentlessOverloads(Gherkin.Ast.Step,Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem[])">
+            <summary>
+                Selects argumentless overload, this can be eliminated later when we process conversions(?)
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.HandleScopeOverloads(Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem[])">
+            <summary>
+                Selects scoped overload
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.FromBindings(System.Collections.Generic.IEnumerable{Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding},System.Collections.Generic.IEnumerable{Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectHookBinding})">
+            <summary>Creates a registry from step definitions and hooks with no known project hash (e.g. an incremental patch).</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.WithStepDefinitions(System.Collections.Generic.IEnumerable{Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding})">
+            <summary>Returns a new registry with the given step definitions appended to this one's, keeping the same hooks.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.ReplaceStepDefinition(Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding,Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding)">
+            <summary>Returns a new registry with <paramref name="original"/> swapped for <paramref name="replacement"/>.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.Where(System.Func{Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding,System.Boolean})">
+            <summary>Returns a new registry containing only the step definitions matching <paramref name="predicate"/>, keeping the same hooks.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.ReplaceStepDefinitions(Reqnroll.IdeSupport.LSP.Core.Bindings.CSharpStepDefinitionFile)">
+            <summary>Re-parses <paramref name="stepDefinitionFile"/> and replaces its step definitions, leaving bindings from other files untouched.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.ReplaceBindings(Reqnroll.IdeSupport.LSP.Core.Bindings.CSharpStepDefinitionFile)">
+            <summary>
+            Replaces all step definitions and hooks originating from the given C# source file with
+            freshly discovered ones, leaving bindings from other files untouched. This is the
+            per-file replacement used by Roslyn/C# source-level binding discovery.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.HasExpressionChanges(Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry,Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry,System.String)">
+            <summary>
+            Compares the step-definition expressions for <paramref name="sourceFile"/> between
+            <paramref name="before"/> and <paramref name="after"/>, keyed by
+            <c>(StepDefinitionType, Method, ParameterTypes)</c> rather than source line -- an edit
+            elsewhere in the file shifts line numbers without changing binding identity, and line
+            number is deliberately excluded from this comparison. Returns <see langword="true"/> if a
+            binding for this file was added, removed, or had its matched expression change; edits to
+            method bodies, comments, or anything else that doesn't touch a step's matched expression
+            report no change.
+            </summary>
+            <remarks>
+            A method can carry multiple attributes of the same step type with the same parameter
+            types but different expression text (e.g. two <c>[When(...)]</c> on one method), which
+            collapse to the same key. Bindings are therefore grouped by key and compared as a sorted
+            multiset of expressions per key, rather than a single expression per key.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.IsSameSourceFile(System.String,System.String)">
+            <summary>
+            Compares two source-file paths for identity. The comparison normalizes the paths and is
+            case-insensitive: the reflection connector records source paths from the PDB (often with an
+            upper-case drive letter), while Roslyn discovery derives them from an LSP document URI (which
+            can carry a lower-case drive letter). A case-sensitive compare would treat those as different
+            files and fail to replace a file's previous bindings, leaving a stale binding behind.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.FindBindingAtLocation(Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation)">
+            <summary>
+            Finds the first step-definition binding whose source location covers
+            <paramref name="location"/> (same file, line within leeway — see <see cref="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.CoversQuery(Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation,Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation)"/>).
+            Returns <see langword="null"/> when no binding matches.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectHookBinding">
+            <summary>A discovered Reqnroll hook binding: which lifecycle event it runs on, its ordering, and its scope.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectHookBinding.DefaultHookOrder">
+            <summary>The hook order used when none was specified.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectHookBinding.HookType">
+            <summary>The lifecycle event this hook runs on.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectHookBinding.HookOrder">
+            <summary>The relative execution order among hooks of the same <see cref="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectHookBinding.HookType"/> (lower runs first).</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectHookBinding.#ctor(Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementation,Reqnroll.IdeSupport.LSP.Core.Documents.BindingScope,Reqnroll.IdeSupport.LSP.Core.Matching.HookType,System.Nullable{System.Int32},System.String)">
+            <summary>Creates a hook binding, defaulting its order to <see cref="F:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectHookBinding.DefaultHookOrder"/> when not specified.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectHookBinding.Match(Gherkin.Ast.Scenario,Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IGherkinDocumentContext)">
+            <summary>True when this hook's scope allows it to run for the given scenario.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectHookBinding.ToString">
+            <summary>Returns a short description including the hook type, scope (if any), and implementation.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding">
+            <summary>A discovered Reqnroll step definition binding: its Given/When/Then type, matching regex, and scope.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding.#ctor(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ScenarioBlock,System.Text.RegularExpressions.Regex,Reqnroll.IdeSupport.LSP.Core.Documents.BindingScope,Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingImplementation,System.String,System.String)">
+            <summary>Creates a step definition binding.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding.IsValid">
+            <summary>True when the binding also has a compiled matching <see cref="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding.Regex"/>.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding.StepDefinitionType">
+            <summary>The Given/When/Then block this step definition applies to.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding.SpecifiedExpression">
+            <summary>The step definition's original expression text as authored, when known (as opposed to one derived from <see cref="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding.Regex"/>).</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding.Regex">
+            <summary>The compiled regex used to match step text against this binding.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding.Expression">
+            <summary>The expression to display for this binding: <see cref="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding.SpecifiedExpression"/> if known, otherwise derived from <see cref="P:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding.Regex"/>.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding.Match(Gherkin.Ast.Step,Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IGherkinDocumentContext,System.String)">
+            <summary>
+            Attempts to match this binding against a step: checks the scenario block, regex, and
+            scope, then resolves the parameter match. Returns null if any of those fail.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding.ToString">
+            <summary>Returns a short description including the step type, expression, and implementation.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding.WithSpecifiedExpression(System.String)">
+            <summary>Returns a copy of this binding with its expression (and derived regex) replaced.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Bindings.CSharpStepDefinitionFile">
+            <summary>A step definition source file with its content already parsed into a Roslyn <see cref="T:Microsoft.CodeAnalysis.SyntaxTree"/>.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.CSharpStepDefinitionFile.#ctor(Reqnroll.IdeSupport.Common.FileDetails,Microsoft.CodeAnalysis.SyntaxTree)">
+            <summary>A step definition source file with its content already parsed into a Roslyn <see cref="T:Microsoft.CodeAnalysis.SyntaxTree"/>.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Bindings.StepDefinitionFile">
+            <summary>A source file that may contain step definitions/hooks, paired with its parsed content.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.StepDefinitionFile.#ctor(Reqnroll.IdeSupport.Common.FileDetails,Microsoft.CodeAnalysis.SyntaxTree)">
+            <summary>Creates a step definition file from its file details and parsed content.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Bindings.StepDefinitionFile.Content">
+            <summary>The parsed C# syntax tree for this file's content.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Bindings.FileDetailsExtensions">
+            <summary>Convenience extensions for attaching parsed C# content to a <see cref="T:Reqnroll.IdeSupport.Common.FileDetails"/>.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.FileDetailsExtensions.WithCSharpContent(Reqnroll.IdeSupport.Common.FileDetails,System.String)">
+            <summary>Parses <paramref name="content"/> as C# and wraps it with <paramref name="fileDetails"/> as a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.CSharpStepDefinitionFile"/>.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Bindings.StepDefinitionFileBindings">
+            <summary>
+            The complete set of bindings discovered in a single C# source file by Roslyn-based
+            (source-level) discovery: step definitions and hooks.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Bindings.StepDefinitionFileBindings.#ctor(System.Collections.Generic.IReadOnlyList{Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding},System.Collections.Generic.IReadOnlyList{Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectHookBinding})">
+            <summary>
+            The complete set of bindings discovered in a single C# source file by Roslyn-based
+            (source-level) discovery: step definitions and hooks.
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Bindings.StepDefinitionFileBindings.Empty">
+            <summary>Sentinel for a file that contains no step definitions or hooks.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Commenting.CommentToggleService">
+            <summary>
+            Toggles <c>#</c> comments on Gherkin feature file lines.
+            If every line in the range is already commented, all are uncommented.
+            Otherwise all are commented (regardless of per-line state).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Commenting.CommentToggleService.ToggleComment(System.String,System.Int32,System.Int32)">
+            <summary>Gets or sets the toggle comment.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Commenting.GherkinCommentEdit">
+            <summary>
+            Protocol-agnostic edit describing a single line's replacement text.
+            Both lines are 0-based inclusive.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Commenting.GherkinCommentEdit.#ctor(System.Int32,System.Int32,System.String)">
+            <summary>
+            Protocol-agnostic edit describing a single line's replacement text.
+            Both lines are 0-based inclusive.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Commenting.GherkinCommentToggleResult">
+            <summary>
+            The result of a comment-toggle operation: a set of per-line text replacements.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Commenting.GherkinCommentToggleResult.#ctor(System.Collections.Generic.IReadOnlyList{Reqnroll.IdeSupport.LSP.Core.Commenting.GherkinCommentEdit})">
+            <summary>
+            The result of a comment-toggle operation: a set of per-line text replacements.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Commenting.ICommentToggleService">
+            <summary>
+            Toggles Gherkin comments (<c>#</c>) on a range of lines in a feature-file document.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Commenting.ICommentToggleService.ToggleComment(System.String,System.Int32,System.Int32)">
+            <summary>
+            Toggles the comment state for lines <paramref name="rangeStartLine"/> to
+            <paramref name="rangeEndLine"/> (0-based, inclusive).
+            If ALL lines in the range are commented (start with <c>#</c>), they are
+            uncommented. Otherwise ALL lines are commented.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionPart">
+            <summary>AnalyzedStepDefinitionExpressionPart</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionPart.ExpressionText">
+            <summary>Gets or sets the expression text.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionSimpleTextPart">
+            <summary>Plain text with no regex operators — can be safely displayed after unescaping.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionSimpleTextPart.#ctor(System.String,System.String)">
+            <summary>Initializes a new instance of the <see cref="T:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionSimpleTextPart"/> class.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionSimpleTextPart.Text">
+            <summary>Gets or sets the text.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionSimpleTextPart.UnescapedText">
+            <summary>Gets or sets the unescaped text.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionSimpleTextPart.ExpressionText">
+            <summary>Gets or sets the expression text.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionWithOperatorsTextPart">
+            <summary>Plain text that contains regex operators; the sampler falls back to the raw regex when any text part has this type.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionWithOperatorsTextPart.#ctor(System.String)">
+            <summary>Initializes a new instance of the <see cref="T:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionWithOperatorsTextPart"/> class.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionWithOperatorsTextPart.Text">
+            <summary>Gets or sets the text.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionWithOperatorsTextPart.ExpressionText">
+            <summary>Gets or sets the expression text.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionParameterPart">
+            <summary>A capturing group that corresponds to a step-definition parameter.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionParameterPart.#ctor(System.String)">
+            <summary>Initializes a new instance of the <see cref="T:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionParameterPart"/> class.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionParameterPart.ParameterExpression">
+            <summary>Gets or sets the parameter expression.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionParameterPart.ExpressionText">
+            <summary>Gets or sets the expression text.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpression">
+            <summary>
+            Result of parsing a step-definition regex expression into alternating text/parameter parts.
+            Odd-indexed parts (0, 2, 4, …) are text; even-indexed parts (1, 3, 5, …) are parameters.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpression.#ctor(System.Collections.Immutable.ImmutableArray{Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionPart})">
+            <summary>Initializes a new instance of the <see cref="T:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpression"/> class.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpression.Parts">
+            <summary>Gets or sets the parts.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpression.ContainsOnlySimpleText">
+            <summary>
+            <see langword="true"/> when every text-position part (0, 2, 4, …) is a
+            <see cref="T:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpressionSimpleTextPart"/>, i.e. no regex operators
+            appear outside capturing groups.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.AnalyzedStepDefinitionExpression.ParameterParts">
+            <summary>Gets or sets the parameter parts.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionContext">
+            <summary>
+            Base type for the two mutually exclusive completion contexts resolved from a cursor position
+            in a .feature file. Use a <c>switch</c> expression on the concrete subtype to dispatch.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.KeywordCompletionContext">
+            <summary>
+            Cursor is on a keyword position (start of line, or before any step text).
+            <see cref="P:Reqnroll.IdeSupport.LSP.Core.Completions.KeywordCompletionContext.ExpectedTokens"/> is empty when the document could not be parsed — callers should
+            fall back to <see cref="M:Reqnroll.IdeSupport.LSP.Core.Completions.ICompletionService.GetDefaultKeywordCompletions(Gherkin.GherkinDialect)"/> in that case.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.KeywordCompletionContext.Dialect">
+            <summary>Gets or sets the dialect.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.KeywordCompletionContext.ExpectedTokens">
+            <summary>Gets or sets the expected tokens.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.KeywordCompletionContext.#ctor(Gherkin.GherkinDialect,Gherkin.TokenType[])">
+            <summary>Initializes a new instance of the <see cref="T:Reqnroll.IdeSupport.LSP.Core.Completions.KeywordCompletionContext"/> class.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.StepCompletionContext">
+            <summary>
+            Cursor is on a step line, past the step keyword — trigger step-definition sample completion.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.StepCompletionContext.Step">
+            <summary>The Gherkin step the cursor is on, used to filter completions by <c>ScenarioBlock</c>.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.StepCompletionContext.TypedAfterKeyword">
+            <summary>Text the user has typed after the keyword and its trailing space.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.StepCompletionContext.StepTextStartColumn">
+            <summary>Zero-based column index of the first character after the keyword (the start of the step text).</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.StepCompletionContext.#ctor(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinStep,System.String,System.Int32)">
+            <summary>Initializes a new instance of the <see cref="T:Reqnroll.IdeSupport.LSP.Core.Completions.StepCompletionContext"/> class.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionContextResolver">
+            <summary>
+            Walks the parsed Deveroom tag tree for a snapshot to decide whether the cursor calls for
+            Gherkin keyword completion or step-definition sample completion, and packages all the
+            Gherkin-specific data the handler needs to fulfil the request.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionContextResolver.#ctor(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IDeveroomTagParser,Reqnroll.IdeSupport.Common.Telemetry.ITelemetryService)">
+            <summary>Initializes a new instance of the <see cref="T:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionContextResolver"/> class.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionContextResolver.Resolve(Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshot,System.Int32,System.Int32,Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry,System.String)">
+            <summary>Gets or sets the resolve.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionEntryKind">
+            <summary>LSP-agnostic completion item kind, mapping to CompletionItemKind values.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionEntryKind.Text">
+            <summary>Gets or sets the text.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionEntryKind.Keyword">
+            <summary>Gets or sets the keyword.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionEntry">
+            <summary>
+            A single framework-neutral completion candidate returned by <see cref="T:Reqnroll.IdeSupport.LSP.Core.Completions.ICompletionService"/>.
+            The Server handler maps this to an OmniSharp <c>CompletionItem</c>.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionEntry.#ctor(System.String,System.String,Reqnroll.IdeSupport.LSP.Core.Completions.CompletionEntryKind,System.String,System.String,System.String)">
+            <summary>
+            A single framework-neutral completion candidate returned by <see cref="T:Reqnroll.IdeSupport.LSP.Core.Completions.ICompletionService"/>.
+            The Server handler maps this to an OmniSharp <c>CompletionItem</c>.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionResult">
+            <summary>
+            The result of a completion query: an ordered list of candidates plus an
+            <see cref="P:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionResult.IsIncomplete"/> flag that maps to the LSP <c>CompletionList.isIncomplete</c> field.
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionResult.Empty">
+            <summary>Gets or sets the empty.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionResult.#ctor(System.Collections.Generic.IReadOnlyList{Reqnroll.IdeSupport.LSP.Core.Completions.CompletionEntry},System.Boolean)">
+            <summary>Initializes a new instance of the <see cref="T:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionResult"/> class.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionResult.Entries">
+            <summary>Gets or sets the entries.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionResult.IsIncomplete">
+            <summary>Gets or sets the is incomplete.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionService">
+            <summary>
+            VS-free, netstandard2.0-compatible implementation of <see cref="T:Reqnroll.IdeSupport.LSP.Core.Completions.ICompletionService"/>.
+            Ports keyword-completion logic from the legacy <c>DeveroomCompletionSource</c> and
+            step-completion logic that uses <see cref="T:Reqnroll.IdeSupport.LSP.Core.Completions.StepDefinitionSampler"/>.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionService.GetKeywordCompletions(Gherkin.TokenType[],Gherkin.GherkinDialect)">
+            <summary>Gets or sets the get keyword completions.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionService.GetDefaultKeywordCompletions(Gherkin.GherkinDialect)">
+            <summary>Gets or sets the get default keyword completions.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.CompletionService.GetStepCompletions(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinStep,System.String,Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry,System.Func{Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding,System.Int32},Reqnroll.IdeSupport.LSP.Core.Completions.Matching.ICompletionMatcher)">
+            <summary>Gets or sets the get step completions.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.ICompletionContextResolver">
+            <summary>
+            Determines what kind of completion to offer at a cursor position in a .feature file,
+            encapsulating all Gherkin structural knowledge (tag walking, step offset arithmetic,
+            dialect resolution, and keyword-vs-step-completion dispatch).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.ICompletionContextResolver.Resolve(Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshot,System.Int32,System.Int32,Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry,System.String)">
+            <summary>
+            Resolves the completion context for the given cursor position.
+            Returns <see langword="null"/> only when no completion is appropriate
+            (e.g. the buffer is empty or the cursor is inside a comment).
+            Otherwise returns a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Completions.KeywordCompletionContext"/> or
+            <see cref="T:Reqnroll.IdeSupport.LSP.Core.Completions.StepCompletionContext"/>.
+            </summary>
+            <param name="snapshot">Current document snapshot.</param>
+            <param name="cursorLine">0-based line index of the cursor.</param>
+            <param name="cursorChar">0-based character index of the cursor within the line.</param>
+            <param name="registry">Binding registry for the owning project; may be <see cref="F:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.Invalid"/>.</param>
+            <param name="fallbackLanguage">
+            BCP-47 language tag (e.g. <c>"en"</c>, <c>"de"</c>) used to resolve the Gherkin dialect
+            when the document cannot be parsed. Callers derive this from project configuration;
+            Core uses it only as a last resort.
+            </param>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.ICompletionService">
+            <summary>Provides completion suggestions for feature files: Gherkin keywords and step-definition samples.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.ICompletionService.GetKeywordCompletions(Gherkin.TokenType[],Gherkin.GherkinDialect)">
+            <summary>
+            Returns keyword completions for the given set of expected Gherkin token types.
+            Called when the Gherkin parser can determine valid tokens at the cursor position.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.ICompletionService.GetDefaultKeywordCompletions(Gherkin.GherkinDialect)">
+            <summary>
+            Returns the full set of keyword completions regardless of parse context.
+            Used as a fallback when the document cannot be parsed or yields no expected tokens.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.ICompletionService.GetStepCompletions(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinStep,System.String,Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry,System.Func{Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding,System.Int32},Reqnroll.IdeSupport.LSP.Core.Completions.Matching.ICompletionMatcher)">
+            <summary>
+            Returns step-definition samples that match the given <paramref name="step"/>'s
+            <see cref="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ScenarioBlock"/> type, ranked by <paramref name="matcher"/>.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.Matching.StepCandidate">
+            <summary>A step-completion candidate before ranking.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.Matching.StepCandidate.#ctor(System.String,System.Int32)">
+            <summary>A step-completion candidate before ranking.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.Matching.ScoredCandidate">
+            <summary>A ranked step-completion candidate.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.Matching.ScoredCandidate.#ctor(System.String,System.Double)">
+            <summary>A ranked step-completion candidate.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.Matching.ICompletionMatcher">
+            <summary>
+            Ranks a list of <see cref="T:Reqnroll.IdeSupport.LSP.Core.Completions.Matching.StepCandidate"/> objects against the text the user has typed
+            after the step keyword. The default implementation (<see cref="T:Reqnroll.IdeSupport.LSP.Core.Completions.Matching.ReturnAllCompletionMatcher"/>)
+            returns all candidates unfiltered and lets the LSP client do the filtering.
+            The FuzzySharp contingency implementation performs server-side two-tier ranking.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.Matching.ICompletionMatcher.Rank(System.String,System.Collections.Generic.IReadOnlyList{Reqnroll.IdeSupport.LSP.Core.Completions.Matching.StepCandidate})">
+            <summary>
+            Returns candidates ranked best-first. Implementations may trim the list.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.Matching.ICompletionMatcher.IsIncomplete">
+            <summary>
+            When <see langword="true"/> the server marks the returned <c>CompletionList</c>
+            as incomplete, causing the LSP client to re-query on every keystroke.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.Matching.ReturnAllCompletionMatcher">
+            <summary>
+            Default <see cref="T:Reqnroll.IdeSupport.LSP.Core.Completions.Matching.ICompletionMatcher"/> that returns every candidate in a stable order
+            without filtering or scoring.  The LSP client applies its own built-in word-contains
+            filter.  <see cref="P:Reqnroll.IdeSupport.LSP.Core.Completions.Matching.ReturnAllCompletionMatcher.IsIncomplete"/> is <see langword="false"/> so one server round-trip
+            suffices for the whole typing session.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Completions.Matching.ReturnAllCompletionMatcher.IsIncomplete">
+            <summary>Gets or sets the is incomplete.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.Matching.ReturnAllCompletionMatcher.Rank(System.String,System.Collections.Generic.IReadOnlyList{Reqnroll.IdeSupport.LSP.Core.Completions.Matching.StepCandidate})">
+            <summary>Gets or sets the rank.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.RegexStepDefinitionExpressionAnalyzer">
+            <summary>
+            Splits a step-definition regex expression into alternating text and capturing-group parts
+            so that the <see cref="T:Reqnroll.IdeSupport.LSP.Core.Completions.StepDefinitionSampler"/> can substitute type placeholders.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.RegexStepDefinitionExpressionAnalyzer.Parse(System.String)">
+            <summary>Gets or sets the parse.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Completions.StepDefinitionSampler">
+            <summary>
+            Produces a human-readable sample string from a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding"/>'s
+            regex expression, substituting parameter placeholders such as <c>[int]</c> for capturing
+            groups.  Falls back to the raw regex string when the expression contains regex operators
+            outside capturing groups.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Completions.StepDefinitionSampler.GetStepDefinitionSample(Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding)">
+            <summary>Gets or sets the get step definition sample.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Diagnostics.DiagnosticsAggregator">
+            <inheritdoc cref="T:Reqnroll.IdeSupport.LSP.Core.Diagnostics.IDiagnosticsAggregator"/>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Diagnostics.DiagnosticsAggregator.ParserSource">
+            <summary>LSP <c>source</c> field value for Gherkin parse-error diagnostics.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Diagnostics.DiagnosticsAggregator.BindingSource">
+            <summary>LSP <c>source</c> field value for undefined-step/binding diagnostics.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Diagnostics.DiagnosticsAggregator.UndefinedStepMessage">
+            <summary>Hover message shown for every unmatched step.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Diagnostics.DiagnosticsAggregator.Aggregate(System.Collections.Generic.IReadOnlyCollection{Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag},Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Diagnostics.GherkinDiagnostic">
+            <summary>
+            A protocol-agnostic diagnostic produced for a Gherkin document.
+            The server layer converts this to an LSP <c>Diagnostic</c> before pushing
+            <c>textDocument/publishDiagnostics</c>.
+            </summary>
+            <param name="Message">Human-readable description shown on hover.</param>
+            <param name="Range">The text span to underline in the feature file.</param>
+            <param name="Severity">Error (parse failure) or Warning (unmatched step).</param>
+            <param name="Source">
+            <c>"reqnroll.parser"</c> for parser-error diagnostics;
+            <c>"reqnroll.binding"</c> for undefined-step/binding diagnostics.
+            </param>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Diagnostics.GherkinDiagnostic.#ctor(System.String,Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange,Reqnroll.IdeSupport.LSP.Core.Diagnostics.GherkinDiagnosticSeverity,System.String)">
+            <summary>
+            A protocol-agnostic diagnostic produced for a Gherkin document.
+            The server layer converts this to an LSP <c>Diagnostic</c> before pushing
+            <c>textDocument/publishDiagnostics</c>.
+            </summary>
+            <param name="Message">Human-readable description shown on hover.</param>
+            <param name="Range">The text span to underline in the feature file.</param>
+            <param name="Severity">Error (parse failure) or Warning (unmatched step).</param>
+            <param name="Source">
+            <c>"reqnroll.parser"</c> for parser-error diagnostics;
+            <c>"reqnroll.binding"</c> for undefined-step/binding diagnostics.
+            </param>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Diagnostics.GherkinDiagnostic.Message">
+            <summary>Human-readable description shown on hover.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Diagnostics.GherkinDiagnostic.Range">
+            <summary>The text span to underline in the feature file.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Diagnostics.GherkinDiagnostic.Severity">
+            <summary>Error (parse failure) or Warning (unmatched step).</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Diagnostics.GherkinDiagnostic.Source">
+            <summary>
+            <c>"reqnroll.parser"</c> for parser-error diagnostics;
+            <c>"reqnroll.binding"</c> for undefined-step/binding diagnostics.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Diagnostics.GherkinDiagnosticSeverity">
+            <summary>
+            Protocol-agnostic severity for a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Diagnostics.GherkinDiagnostic"/>.
+            The server layer maps these values to <c>OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity</c>.
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Diagnostics.GherkinDiagnosticSeverity.Error">
+            <summary>Gets or sets the error.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Diagnostics.GherkinDiagnosticSeverity.Warning">
+            <summary>Gets or sets the warning.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Diagnostics.IDiagnosticsAggregator">
+            <summary>
+            Combines parse-error tags and binding-mismatch data into a single, ordered list of
+            <see cref="T:Reqnroll.IdeSupport.LSP.Core.Diagnostics.GherkinDiagnostic"/> items ready for conversion to LSP <c>Diagnostic</c> objects.
+            </summary>
+            <remarks>
+            The LSP specification requires that a single <c>textDocument/publishDiagnostics</c> message
+            delivers the <em>complete</em> diagnostic set for a URI; a partial message clears any
+            diagnostics not included in it. This aggregator is therefore the single point of truth
+            for what gets pushed — callers must not supplement or filter its output.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Diagnostics.IDiagnosticsAggregator.Aggregate(System.Collections.Generic.IReadOnlyCollection{Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag},Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet)">
+            <summary>
+            Produces the combined set of diagnostics for a feature document.
+            </summary>
+            <param name="tags">
+            The full flat tag collection for the document as stored in <c>IDocumentBufferService</c>.
+            <see cref="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.ParserError"/> tags are the source for parser-error diagnostics.
+            </param>
+            <param name="matchSet">
+            The binding match set for the document as stored in <c>IBindingMatchService</c>.
+            <see cref="P:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet.Undefined"/> steps are the source for undefined-step/binding diagnostics.
+            </param>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinSymbolKind">
+            <summary>GherkinSymbolKind</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinSymbolKind.Feature">
+            <summary>Feature</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinSymbolKind.Background">
+            <summary>Background</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinSymbolKind.Rule">
+            <summary>Rule</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinSymbolKind.Scenario">
+            <summary>Scenario</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinSymbolKind.ScenarioOutline">
+            <summary>ScenarioOutline</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinSymbolKind.Step">
+            <summary>Step</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinSymbolKind.Examples">
+            <summary>Examples</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinDocumentSymbol">
+            <summary>Represents a symbol in the Gherkin document outline.</summary>
+            <param name="Name">The symbol name.</param>
+            <param name="Detail">Optional detail text.</param>
+            <param name="Kind">The symbol kind.</param>
+            <param name="Range">The full range of the symbol.</param>
+            <param name="SelectionRange">The selection range of the symbol.</param>
+            <param name="Children">Nested child symbols.</param>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinDocumentSymbol.#ctor(System.String,System.String,Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinSymbolKind,Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange,Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange,System.Collections.Generic.IReadOnlyList{Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinDocumentSymbol})">
+            <summary>Represents a symbol in the Gherkin document outline.</summary>
+            <param name="Name">The symbol name.</param>
+            <param name="Detail">Optional detail text.</param>
+            <param name="Kind">The symbol kind.</param>
+            <param name="Range">The full range of the symbol.</param>
+            <param name="SelectionRange">The selection range of the symbol.</param>
+            <param name="Children">Nested child symbols.</param>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinDocumentSymbol.Name">
+            <summary>The symbol name.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinDocumentSymbol.Detail">
+            <summary>Optional detail text.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinDocumentSymbol.Kind">
+            <summary>The symbol kind.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinDocumentSymbol.Range">
+            <summary>The full range of the symbol.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinDocumentSymbol.SelectionRange">
+            <summary>The selection range of the symbol.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinDocumentSymbol.Children">
+            <summary>Nested child symbols.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinDocumentSymbolService">
+            <summary>GherkinDocumentSymbolService</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinDocumentSymbolService.BuildSymbols(System.Collections.Generic.IReadOnlyCollection{Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag})">
+            <summary>Gets or sets the build symbols.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.GherkinDocumentSymbolService.FirstLineRange(Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange)">
+            <summary>Returns a range covering only the first (header) line of <paramref name="range"/>.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.IGherkinDocumentSymbolService">
+            <summary>Builds the hierarchical document outline (Document Symbol) tree for a feature file from its parsed tags.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.DocumentOutline.IGherkinDocumentSymbolService.BuildSymbols(System.Collections.Generic.IReadOnlyCollection{Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag})">
+            <summary>Builds the outline symbol tree (feature/rule/scenario/steps) from a feature document's flattened tags.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Documents.BindingScope">
+            <summary>BindingScope</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.BindingScope.Tag">
+            <summary>Gets or sets the tag.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.BindingScope.FeatureTitle">
+            <summary>Gets or sets the feature title.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.BindingScope.ScenarioTitle">
+            <summary>Gets or sets the scenario title.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.BindingScope.Error">
+            <summary>Gets or sets the error.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.BindingScope.IsValid">
+            <summary>Gets or sets the is valid.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Documents.BindingScope.ToString">
+            <summary>Gets or sets the to string.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange">
+            <summary>GherkinRange</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange.#ctor(Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshot,System.Int32,System.Int32)">
+            <summary>Initializes a new instance of the <see cref="T:Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange"/> class.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange.Snapshot">
+            <summary>Gets or sets the snapshot.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange.Start">
+            <summary>Gets or sets the start.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange.Length">
+            <summary>Gets or sets the length.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange.End">
+            <summary>Gets or sets the end.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange.FromLines(Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshot,Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshotLine,Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshotLine)">
+            <summary>Gets or sets the from lines.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange.FromPoint(Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshot,System.Int32,System.Int32)">
+            <summary>Gets or sets the from point.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange.IntersectsWith(Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange)">
+            <summary>Gets or sets the intersects with.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange.Equals(Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange)">
+            <summary>Gets or sets the equals.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange.StartLinePosition">
+            <summary>Gets or sets the start line position.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange.EndLinePosition">
+            <summary>Gets or sets the end line position.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange.ResolveOffset(Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshot,System.Int32)">
+            <summary>
+            Converts an absolute character offset to a (line, character) pair using the given snapshot.
+            Lines and characters are both 0-based (LSP convention).
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange.Empty">
+            <summary>Gets or sets the empty.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshot">
+            <summary>
+            VS-free, immutable, versioned document snapshot.
+            LSP implementation: LspTextSnapshot, constructed from textDocument/didChange content.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshot.Version">
+            <summary>Gets or sets the version.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshot.LineCount">
+            <summary>Gets or sets the line count.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshot.Length">
+            <summary>Gets or sets the length.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshot.GetText">
+            <summary>Gets or sets the get text.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshot.GetLineFromLineNumber(System.Int32)">
+            <summary>Gets or sets the get line from line number.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshotLine">
+            <summary>IGherkinTextSnapshotLine</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshotLine.LineNumber">
+            <summary>Gets or sets the line number.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshotLine.Start">
+            <summary>Gets or sets the start.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshotLine.End">
+            <summary>Gets or sets the end.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshotLine.GetText">
+            <summary>Gets or sets the get text.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Documents.LspTextSnapshot">
+            <summary>
+            An immutable, line-indexed view of an LSP text document's content at a given version,
+            lazily splitting the text into lines (handling \r, \n, and \r\n) on first access.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Documents.LspTextSnapshot.#ctor(System.String,System.Int32,System.String)">
+            <summary>Creates a snapshot of a document's text at a given version.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.LspTextSnapshot.Uri">
+            <summary>The document's URI.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.LspTextSnapshot.Version">
+            <summary>The document version this snapshot was taken at.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Documents.LspTextSnapshot.GetText">
+            <summary>Returns the full document text.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.LspTextSnapshot.LineCount">
+            <summary>The number of lines in the document.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.LspTextSnapshot.Length">
+            <summary>The total length, in characters, of the document text.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Documents.LspTextSnapshot.GetLineFromLineNumber(System.Int32)">
+            <summary>Returns the line at <paramref name="lineNumber"/>, clamped to the last line if out of range.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Documents.LspTextSnapshotLine">
+            <summary>A single line's span (character offsets) within an <see cref="T:Reqnroll.IdeSupport.LSP.Core.Documents.LspTextSnapshot"/>, excluding its line break.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Documents.LspTextSnapshotLine.#ctor(Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshot,System.Int32,System.Int32,System.Int32)">
+            <summary>Creates a line descriptor for the given snapshot and character range.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.LspTextSnapshotLine.LineNumber">
+            <summary>The zero-based line number.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.LspTextSnapshotLine.Start">
+            <summary>The character offset where the line starts within the document.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.LspTextSnapshotLine.End">
+            <summary>The character offset where the line ends (exclusive of the line break) within the document.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Documents.LspTextSnapshotLine.GetText">
+            <summary>Returns this line's text, excluding its line break.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation">
+            <summary>SourceLocation</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation.#ctor(System.String,System.Int32,System.Int32,System.Nullable{System.Int32},System.Nullable{System.Int32})">
+            <summary>Initializes a new instance of the <see cref="T:Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation"/> class.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation.SourceFile">
+            <summary>Gets or sets the source file.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation.SourceFileLine">
+            <summary>Gets or sets the source file line.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation.SourceFileColumn">
+            <summary>Gets or sets the source file column.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation.SourceFileEndLine">
+            <summary>Gets or sets the source file end line.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation.SourceFileEndColumn">
+            <summary>Gets or sets the source file end column.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation.HasEndPosition">
+            <summary>Gets or sets the has end position.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation.ContainsLine(System.Int32)">
+            <summary>Returns <see langword="true"/> when <paramref name="line1Based"/> falls within
+            the span [<see cref="P:Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation.SourceFileLine"/>, <see cref="P:Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation.SourceFileEndLine"/>].</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation.ToString">
+            <summary>Gets or sets the to string.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.FindUnusedStepDefs.FindUnusedStepDefinitionsService">
+            <summary>
+            Implements the scan behind the custom <c>reqnroll/findUnusedStepDefinitions</c> request.
+            <para>
+            Scans all supplied project binding registries and returns one row per unused
+            <em>binding expression</em>. A C# method decorated with multiple step attributes produces
+            multiple <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding"/> objects; each expression is checked
+            independently — used expressions are omitted, unused ones each produce a row.
+            </para>
+            <para>
+            Uses <see cref="M:Reqnroll.IdeSupport.LSP.Core.Matching.IBindingMatchService.FindUsages(Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation,System.Collections.Generic.IReadOnlyCollection{Reqnroll.IdeSupport.LSP.Core.Matching.ProjectOwner})"/> with no project filter (intersection
+            semantics: an expression is considered used if any project's feature files reference it).
+            A per-location cache avoids redundant match-set scans for multi-expression methods.
+            Bindings with the same (file, line, expression) in multiple registries are deduplicated.
+            </para>
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.FindUnusedStepDefs.FindUnusedStepDefinitionsService.#ctor(Reqnroll.IdeSupport.LSP.Core.Matching.IBindingMatchService,Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger)">
+            <summary>Initializes a new instance of the <see cref="T:Reqnroll.IdeSupport.LSP.Core.FindUnusedStepDefs.FindUnusedStepDefinitionsService"/> class.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.FindUnusedStepDefs.FindUnusedStepDefinitionsService.FindUnusedStepDefinitions(System.Collections.Generic.IReadOnlyList{System.ValueTuple{System.String,Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry}})">
+             <remarks>
+             A C# method may carry multiple step attributes ([Given("A")][When("B")]). Each attribute is
+             a separate <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding"/> with its own <c>Expression</c>. The
+             method produces one FAR row per UNUSED expression — so a method with one used and one unused
+             expression yields a single row (the unused one). A method all of whose expressions are used
+             produces no rows; a method none of whose expressions are used produces one row per expression.
+            
+             Cross-project deduplication: the same source file linked into multiple project registries
+             would produce duplicate rows for the same expression; these are suppressed by the seen set.
+             </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.FindUnusedStepDefs.FindUnusedStepDefinitionsService.ParseMethod(System.String)">
+            <summary>
+            Parses ClassName and MethodName from the stored Method string.
+            <list type="bullet">
+              <item>Connector path: <c>"ClassName.MethodName(paramType1, paramType2)"</c></item>
+              <item>Roslyn path: <c>"Namespace.ClassName.MethodName"</c></item>
+            </list>
+            In both cases: strip params, split on <c>.</c>, last segment = MethodName,
+            second-to-last = ClassName.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.FindUnusedStepDefs.IFindUnusedStepDefinitionsService">
+            <summary>Finds step definitions that have no matching step anywhere in the workspace's feature files.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.FindUnusedStepDefs.IFindUnusedStepDefinitionsService.FindUnusedStepDefinitions(System.Collections.Generic.IReadOnlyList{System.ValueTuple{System.String,Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry}})">
+            <summary>
+            Scans every supplied project's binding registry and returns one <see cref="T:Reqnroll.IdeSupport.LSP.Core.FindUnusedStepDefs.UnusedStepDefinition"/>
+            per step-definition binding expression with zero matching steps across the workspace.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.FindUnusedStepDefs.UnusedStepDefinition">
+            <summary>One step-definition binding expression that has zero matching steps across the workspace.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.FindUnusedStepDefs.UnusedStepDefinition.#ctor(System.String,System.String,System.String,System.String,System.String,System.Int32,System.Int32)">
+            <summary>One step-definition binding expression that has zero matching steps across the workspace.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Folding.GherkinFoldingRange">
+            <summary>
+            Protocol-agnostic model for a folding range region in a Gherkin document.
+            Lines are 0-based and inclusive (LSP FoldingRange convention).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Folding.GherkinFoldingRange.#ctor(System.Int32,System.Int32,System.Nullable{Reqnroll.IdeSupport.LSP.Core.Folding.GherkinFoldingRangeKind})">
+            <summary>
+            Protocol-agnostic model for a folding range region in a Gherkin document.
+            Lines are 0-based and inclusive (LSP FoldingRange convention).
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Folding.GherkinFoldingRangeKind">
+            <summary>
+            Categorised kinds of folding ranges (maps to LSP FoldingRangeKind).
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Folding.GherkinFoldingRangeKind.Comment">
+            <summary>Gets or sets the comment.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Folding.GherkinFoldingRangeKind.Imports">
+            <summary>Gets or sets the imports.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Folding.GherkinFoldingRangeKind.Region">
+            <summary>Gets or sets the region.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Folding.GherkinFoldingRangeService">
+            <summary>
+            Walks the DeveroomTag tree to produce foldable region ranges (Code Folding).
+            Folding ranges are computed for:
+              - Feature blocks (body only, after the keyword line)
+              - Scenario / Scenario Outline / Background blocks
+              - Rule blocks
+              - Doc strings
+              - Data tables
+              - Examples blocks
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Folding.GherkinFoldingRangeService.BuildFoldingRanges(System.Collections.Generic.IReadOnlyCollection{Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag})">
+            <summary>Gets or sets the build folding ranges.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Folding.GherkinFoldingRangeService.AddInlineContentFolds(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag,System.Collections.Generic.List{Reqnroll.IdeSupport.LSP.Core.Folding.GherkinFoldingRange})">
+            <summary>Walks a StepBlock for DocString and DataTable children.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Folding.IGherkinFoldingRangeService">
+            <summary>
+            Computes foldable regions from the DeveroomTag tree.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Folding.IGherkinFoldingRangeService.BuildFoldingRanges(System.Collections.Generic.IReadOnlyCollection{Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag})">
+            <summary>
+            Returns a list of folding ranges for the given feature-file tag tree.
+            Returns an empty list when no feature is present.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Formatting.DocumentLinesEditBuffer">
+            <summary>
+            A line-indexed mutable view of a document (or a sub-range of one), used by
+            <see cref="T:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinDocumentFormatter"/> to apply in-place indentation and
+            table-alignment edits without re-parsing.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Formatting.DocumentLinesEditBuffer.#ctor(System.String[],System.Int32,System.Nullable{System.Int32})">
+            <param name="allLines">All document lines (will be mutated in-place for lines within range).</param>
+            <param name="startLine">Zero-based first line of the editable range (default: 0).</param>
+            <param name="endLine">Zero-based last line of the editable range (default: last line).</param>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Formatting.DocumentLinesEditBuffer.IsEmpty">
+            <summary>Gets or sets the is empty.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Formatting.DocumentLinesEditBuffer.GetLineOneBased(System.Int32)">
+            <summary>Gets or sets the get line one based.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Formatting.DocumentLinesEditBuffer.GetLine(System.Int32)">
+            <summary>Gets or sets the get line.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Formatting.DocumentLinesEditBuffer.SetLineOneBased(System.Int32,System.String)">
+            <summary>Gets or sets the set line one based.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Formatting.DocumentLinesEditBuffer.SetLine(System.Int32,System.String)">
+            <summary>Gets or sets the set line.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Formatting.DocumentLinesEditBuffer.GetModifiedText(System.String)">
+            <summary>Returns the edited lines within the configured range joined by <paramref name="newLine"/>.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Formatting.DocumentLinesEditBuffer.GetEditedLines">
+            <summary>Returns the lines within the configured edit range.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinDocumentFormatter">
+            <summary>
+            Formats a parsed Gherkin document by applying consistent indentation, normalising
+            tag lines, aligning data-table cells, and replacing repeated step keywords with "And".
+            Works on a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Formatting.DocumentLinesEditBuffer"/> so that callers control which lines
+            are included in the output.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinDocumentFormatter.FormatGherkinDocument(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinDocument,Reqnroll.IdeSupport.LSP.Core.Formatting.DocumentLinesEditBuffer,Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinFormatSettings)">
+            <summary>Gets or sets the format gherkin document.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinDocumentFormatter.FindTableLineRange(System.String[],System.Int32)">
+            <summary>
+            Scans <paramref name="lines"/> to find the zero-based line range of the Gherkin table
+            that contains or is adjacent to <paramref name="cursorLine0Based"/>.
+            Returns <see langword="null"/> when the cursor is not on a table row or on a blank
+            line immediately following one (which occurs with the <c>\n</c> on-type trigger).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinDocumentFormatter.FindTableAtLine(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinDocument,System.Int32)">
+            <summary>
+            Walks the parsed AST to find the <see cref="T:Gherkin.Ast.IHasRows"/> node (DataTable or Examples)
+            whose first row starts at <paramref name="startLine0Based"/> (zero-based).
+            Returns <see langword="null"/> when no table is found at that line.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinDocumentFormatter.FormatTable(Reqnroll.IdeSupport.LSP.Core.Formatting.DocumentLinesEditBuffer,Gherkin.Ast.IHasRows,Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinFormatSettings,System.String,System.Int32[])">
+            <summary>Gets or sets the format table.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinFormatSettings">
+            <summary>
+            Resolved formatting settings for a single document format pass.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinFormatSettings.Configuration">
+            <summary>Gets or sets the configuration.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinFormatSettings.Indent">
+            <summary>Gets or sets the indent.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinFormatSettings.FeatureChildrenIndentLevel">
+            <summary>Gets or sets the feature children indent level.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinFormatSettings.RuleChildrenIndentLevelWithinRule">
+            <summary>Gets or sets the rule children indent level within rule.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinFormatSettings.StepIndentLevelWithinStepContainer">
+            <summary>Gets or sets the step indent level within step container.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinFormatSettings.AndStepIndentLevelWithinSteps">
+            <summary>Gets or sets the and step indent level within steps.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinFormatSettings.DataTableIndentLevelWithinStep">
+            <summary>Gets or sets the data table indent level within step.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinFormatSettings.DocStringIndentLevelWithinStep">
+            <summary>Gets or sets the doc string indent level within step.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinFormatSettings.ExamplesBlockIndentLevelWithinScenarioOutline">
+            <summary>Gets or sets the examples block indent level within scenario outline.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinFormatSettings.ExamplesTableIndentLevelWithinExamplesBlock">
+            <summary>Gets or sets the examples table indent level within examples block.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinFormatSettings.TableCellPadding">
+            <summary>Gets or sets the table cell padding.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinFormatSettings.RightAlignNumericTableCells">
+            <summary>Gets or sets the right align numeric table cells.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Formatting.GherkinFormatSettings.FromLspOptions(System.Int32,System.Boolean,Reqnroll.IdeSupport.Common.Configuration.IEditorConfigOptionsProvider,System.String,Reqnroll.IdeSupport.Common.Configuration.DeveroomConfiguration)">
+            <summary>
+            Builds format settings from LSP <c>FormattingOptions</c>, applying editorconfig overrides
+            and any Reqnroll-specific configuration from <paramref name="configuration"/>.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.InlayHints.GherkinInlayHintKind">
+            <summary>GherkinInlayHintKind</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.InlayHints.GherkinInlayHintKind.Binding">
+            <summary>A single, unambiguous binding matches the step.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.InlayHints.GherkinInlayHintKind.Ambiguous">
+            <summary>The step text itself matches more than one binding (same concrete text).</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.InlayHints.GherkinInlayHintKind.Templated">
+            <summary>
+            A Scenario Outline/Background template step resolves to more than one distinct binding
+            across its example rows, without any single row being ambiguous on its own.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.InlayHints.GherkinInlayHint">
+            <summary>
+            A single inline annotation for a step, projected from the binding match cache (F23).
+            <see cref="P:Reqnroll.IdeSupport.LSP.Core.InlayHints.GherkinInlayHint.AnchorRange"/> is the step's own text span; callers paint the hint at its end.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.InlayHints.GherkinInlayHint.#ctor(Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange,System.String,System.String,Reqnroll.IdeSupport.LSP.Core.InlayHints.GherkinInlayHintKind)">
+            <summary>
+            A single inline annotation for a step, projected from the binding match cache (F23).
+            <see cref="P:Reqnroll.IdeSupport.LSP.Core.InlayHints.GherkinInlayHint.AnchorRange"/> is the step's own text span; callers paint the hint at its end.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.InlayHints.GherkinInlayHintService">
+            <inheritdoc cref="T:Reqnroll.IdeSupport.LSP.Core.InlayHints.IGherkinInlayHintService"/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.InlayHints.GherkinInlayHintService.Build(Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet)">
+            <summary>Gets or sets the build.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.InlayHints.GherkinInlayHintService.ShortName(Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding)">
+            <summary>The type/method name without the namespace prefix, e.g. "CalculatorSteps.AddNumbers".</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.InlayHints.GherkinInlayHintService.Describe(Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding)">
+            <summary>The full signature shown in the tooltip, e.g. "N.CalculatorSteps.AddNumbers(int, int)".</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.InlayHints.IGherkinInlayHintService">
+            <summary>Projects a feature file's binding match cache into inline hint annotations (F23).</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.InlayHints.IGherkinInlayHintService.Build(Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet)">
+            <summary>Gets or sets the build.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Matching.BindingMatchService">
+            <inheritdoc cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.IBindingMatchService"/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.BindingMatchService.Store(Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet)">
+            <summary>Gets or sets the store.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.BindingMatchService.TryGet(Reqnroll.IdeSupport.LSP.Core.Matching.MatchSetKey,Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet@)">
+            <summary>Gets or sets the try get.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.BindingMatchService.InvalidateAllForDocument(System.String)">
+            <summary>Gets or sets the invalidate all for document.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.BindingMatchService.InvalidateAllForProject(Reqnroll.IdeSupport.LSP.Core.Matching.ProjectOwner)">
+            <summary>Gets or sets the invalidate all for project.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.BindingMatchService.InvalidateAll">
+            <summary>Gets or sets the invalidate all.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.BindingMatchService.FindUsages(Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation,System.Collections.Generic.IReadOnlyCollection{Reqnroll.IdeSupport.LSP.Core.Matching.ProjectOwner})">
+            <summary>Gets or sets the find usages.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet">
+            <summary>
+            The immutable set of step binding matches for one feature document, cached against
+            <c>(DocumentId, Owner, DocumentVersion, RegistryVersion)</c>. This is the value stored by
+            <see cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.IBindingMatchService"/> and queried by Go to Step Definition, the diagnostics
+            aggregator (undefined-step/binding diagnostics) and find-usages / code-lens usage counts.
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet.Empty">
+            <summary>Gets or sets the empty.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet.#ctor(System.String,Reqnroll.IdeSupport.LSP.Core.Matching.ProjectOwner,System.Nullable{System.Int32},System.Int32,System.Collections.Generic.IReadOnlyList{Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch})">
+            <summary>Initializes a new instance of the <see cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet"/> class.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet.Key">
+            <summary>The composite cache key: document URI + owning project.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet.DocumentId">
+            <summary>The feature document URI (derived from <see cref="P:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet.Key"/>).</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet.Owner">
+            <summary>The owning project for this match set (derived from <see cref="P:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet.Key"/>).</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet.DocumentVersion">
+            <summary>The feature document version these matches were computed for, when known.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet.RegistryVersion">
+            <summary>The <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry"/> version these matches were computed against.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet.Steps">
+            <summary>Gets or sets the steps.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet.Undefined">
+            <summary>Gets or sets the undefined.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet.Defined">
+            <summary>Gets or sets the defined.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet.Ambiguous">
+            <summary>Gets or sets the ambiguous.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet.FindAt(System.Int32)">
+            <summary>The step whose text span contains <paramref name="offset"/>, or null. Used by Go to Step Definition.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet.FromTags(System.String,System.Nullable{System.Int32},System.Int32,System.Collections.Generic.IEnumerable{Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag},Reqnroll.IdeSupport.LSP.Core.Matching.ProjectOwner)">
+            <summary>
+            Builds a match set from the flattened tag collection produced by <c>DeveroomTagParser</c>.
+            Each <see cref="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.DefinedStep"/> / <see cref="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.UndefinedStep"/> /
+            <see cref="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.AmbiguousStep"/> tag carries the step text span as its range and the
+            computed <see cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResult"/> as its data; this method projects those into
+            <see cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch"/> entries.
+            </summary>
+            <remarks>
+            A single step can emit both a DefinedStep and an UndefinedStep tag (e.g. a scenario outline
+            whose example rows partly match), but both reference the same <see cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResult"/> at the
+            same span; such duplicates are collapsed so the set holds one entry per step.
+            </remarks>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Matching.HookMatchResult">
+            <summary>The set of hook bindings that apply to a given scope (e.g. a feature or scenario).</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.HookMatchResult.Items">
+            <summary>The matched hook bindings.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.HookMatchResult.HasHooks">
+            <summary>True when at least one hook binding matched.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.HookMatchResult.#ctor(Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectHookBinding[])">
+            <summary>Creates a hook match result from the matched hook bindings.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Matching.HookType">
+            <summary>The Reqnroll hook attribute kind, identifying when in the test lifecycle a hook runs.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.HookType.Unknown">
+            <summary>Hook type could not be determined.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.HookType.BeforeTestRun">
+            <summary>Runs once before any tests in the test run.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.HookType.BeforeTestThread">
+            <summary>Runs before each test thread.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.HookType.BeforeFeature">
+            <summary>Runs before each feature.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.HookType.BeforeScenario">
+            <summary>Runs before each scenario.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.HookType.BeforeScenarioBlock">
+            <summary>Runs before each Given/When/Then block.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.HookType.BeforeStep">
+            <summary>Runs before each step.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.HookType.AfterStep">
+            <summary>Runs after each step.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.HookType.AfterScenarioBlock">
+            <summary>Runs after each Given/When/Then block.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.HookType.AfterScenario">
+            <summary>Runs after each scenario.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.HookType.AfterFeature">
+            <summary>Runs after each feature.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.HookType.AfterTestThread">
+            <summary>Runs after each test thread.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.HookType.AfterTestRun">
+            <summary>Runs once after all tests in the test run.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Matching.IBindingMatchService">
+            <summary>
+            Cache of step binding matches keyed by <see cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.MatchSetKey"/> (document URI + owning
+            project), plus a reverse index from binding source locations back to the feature steps that
+            resolve to them.
+            </summary>
+            <remarks>
+            The cache is populated whenever a feature document is (re)parsed (see
+            <c>GherkinDocumentTaggerService</c>) and invalidated when the binding registry changes.
+            A shared/linked feature file may have one entry per owning project; present the primary
+            owner's entry for rendering (semantic tokens, diagnostics).
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.IBindingMatchService.Store(Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet)">
+            <summary>Stores (replacing any prior entry for the same <see cref="P:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet.Key"/>).
+            If the incoming key has a known <see cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.ProjectOwner"/>, evicts any
+            <see cref="F:Reqnroll.IdeSupport.LSP.Core.Matching.ProjectOwner.Unknown"/> placeholder for the same document.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.IBindingMatchService.TryGet(Reqnroll.IdeSupport.LSP.Core.Matching.MatchSetKey,Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet@)">
+            <summary>Returns the cached match set for the given key, or <see cref="F:Reqnroll.IdeSupport.LSP.Core.Matching.FeatureBindingMatchSet.Empty"/>.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.IBindingMatchService.InvalidateAllForDocument(System.String)">
+            <summary>Drops all cached entries for the given document URI regardless of owner (used on DidClose).</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.IBindingMatchService.InvalidateAllForProject(Reqnroll.IdeSupport.LSP.Core.Matching.ProjectOwner)">
+            <summary>Drops all cached entries for the given project (used on project unload).</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.IBindingMatchService.InvalidateAll">
+            <summary>Drops all cached match sets (emergency reset).</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.IBindingMatchService.FindUsages(Reqnroll.IdeSupport.LSP.Core.Documents.SourceLocation,System.Collections.Generic.IReadOnlyCollection{Reqnroll.IdeSupport.LSP.Core.Matching.ProjectOwner})">
+            <summary>
+            Returns every cached feature step that resolves to a binding at <paramref name="bindingLocation"/>.
+            Pass <paramref name="projectFilter"/> to restrict results to specific owning projects;
+            pass <see langword="null"/> to search across all projects.
+            <see cref="F:Reqnroll.IdeSupport.LSP.Core.Matching.ProjectOwner.Unknown"/> entries are always included regardless of the filter
+            (they are pre-baseline placeholders that are visible to all callers).
+            Backs Find Usages and the Code Lens usage counts.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Matching.MatchedStepTextParameter">
+            <summary>The span of a single captured parameter within a step's text (character index and length).</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.MatchedStepTextParameter.Index">
+            <summary>The zero-based character index where the parameter starts within the step text.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.MatchedStepTextParameter.Length">
+            <summary>The length, in characters, of the parameter's text.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.MatchedStepTextParameter.#ctor(System.Int32,System.Int32)">
+            <summary>Creates a parameter span.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResult">
+            <summary>
+            The full result of matching a Gherkin step against the project's step definitions, holding
+            one <see cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem"/> per candidate (normally one, but more than one when ambiguous).
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResult.NoMatch">
+            <summary>Sentinel for a step that has no match items and no errors.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResult.Items">
+            <summary>The individual match outcomes (defined/ambiguous/undefined) for the step.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResult.Errors">
+            <summary>Any error messages produced while matching, including a combined ambiguous-match message.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResult.HasErrors">
+            <summary>True when <see cref="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResult.Errors"/> is non-empty.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResult.HasUndefined">
+            <summary>True when at least one item is <see cref="F:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultType.Undefined"/>.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResult.HasDefined">
+            <summary>True when at least one item is <see cref="F:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultType.Defined"/>.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResult.HasAmbiguous">
+            <summary>True when at least one item is <see cref="F:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultType.Ambiguous"/>.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResult.HasMultipleMatches">
+            <summary>True when more than one item is present (e.g. an ambiguous match).</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResult.HasSingleMatch">
+            <summary>True when exactly one item is present.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResult.ToString">
+            <summary>Joins the string representation of each item, one per line.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResult.GetErrorMessage">
+            <summary>Returns all <see cref="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResult.Errors"/> joined into a single message, or null when there are none.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResult.CreateMultiMatch(Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem[])">
+            <summary>
+            Builds a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResult"/> from multiple candidate items, adding a combined
+            error message when any item is ambiguous.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Matching.UndefinedStepDescriptor">
+            <summary>
+            Describes a step that did not match any step definition, carrying the original AST step
+            plus an optional custom step text override (used e.g. for scenario outline placeholders).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.UndefinedStepDescriptor.#ctor(Gherkin.Ast.Step,System.String)">
+            <summary>Creates a descriptor for a step that had no matching step definition.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.UndefinedStepDescriptor.UndefinedStep">
+            <summary>The original Gherkin AST step that failed to match.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.UndefinedStepDescriptor.CustomStepText">
+            <summary>An optional override for the step text (e.g. with scenario outline placeholders substituted).</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.UndefinedStepDescriptor.StepText">
+            <summary>The effective step text: <see cref="P:Reqnroll.IdeSupport.LSP.Core.Matching.UndefinedStepDescriptor.CustomStepText"/> if set, otherwise the original step's text.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.UndefinedStepDescriptor.ScenarioBlock">
+            <summary>The Given/When/Then block the step belongs to.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.UndefinedStepDescriptor.HasDataTable">
+            <summary>True when the step has a data table argument.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.UndefinedStepDescriptor.HasDocString">
+            <summary>True when the step has a doc string argument.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem">
+            <summary>
+            The outcome of matching a single Gherkin step against the project's step definitions:
+            either a defined match, an ambiguous match, or an undefined step, along with any errors.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem.Type">
+            <summary>Whether this item represents a defined, ambiguous, or undefined step match.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem.MatchedStepDefinition">
+            <summary>The step definition this step matched, when <see cref="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem.Type"/> is Defined or Ambiguous.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem.ParameterMatch">
+            <summary>The parameter/argument match details for <see cref="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem.MatchedStepDefinition"/>.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem.UndefinedStep">
+            <summary>Details of the step when <see cref="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem.Type"/> is Undefined; otherwise null.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem.Errors">
+            <summary>Any error messages produced while matching this step.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem.HasErrors">
+            <summary>True when <see cref="P:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem.Errors"/> is non-empty.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem.ToString">
+            <summary>Returns a short description of the match outcome for diagnostics/logging.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem.CloneToAmbiguousItem">
+            <summary>Creates a copy of this item reclassified as <see cref="F:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultType.Ambiguous"/>.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem.CreateMatch(Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding,Reqnroll.IdeSupport.LSP.Core.Matching.ParameterMatch)">
+            <summary>Creates a <see cref="F:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultType.Defined"/> item for a successfully matched step definition.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultItem.CreateUndefined(Gherkin.Ast.Step,System.String)">
+            <summary>Creates an <see cref="F:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultType.Undefined"/> item for a step with no matching step definition.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultType">
+            <summary>The classification of a step-to-step-definition match outcome.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultType.Unknown">
+            <summary>No match has been computed yet.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultType.Undefined">
+            <summary>No step definition matched the step text.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultType.Defined">
+            <summary>Exactly one step definition matched the step text.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.MatchResultType.Ambiguous">
+            <summary>More than one step definition matched the step text.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Matching.MatchSetKey">
+            <summary>
+            The composite cache key for <see cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.IBindingMatchService"/>: a feature document URI plus
+            the project whose registry was used to compute the match set.
+            A shared/linked feature may have one match set per owning project.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.MatchSetKey.#ctor(System.String,Reqnroll.IdeSupport.LSP.Core.Matching.ProjectOwner)">
+            <summary>
+            The composite cache key for <see cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.IBindingMatchService"/>: a feature document URI plus
+            the project whose registry was used to compute the match set.
+            A shared/linked feature may have one match set per owning project.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.MatchSetKey.ForUnknownProject(System.String)">
+            <summary>Builds a key with <see cref="F:Reqnroll.IdeSupport.LSP.Core.Matching.ProjectOwner.Unknown"/> for the pre-baseline case.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Matching.ParameterMatch">
+            <summary>
+            Describes how a step's text (and optional table/doc-string argument) mapped onto the
+            parameters of a matched step definition.
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.ParameterMatch.NotMatch">
+            <summary>Sentinel used for a step definition match that has no parameters to report.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.ParameterMatch.#ctor(Reqnroll.IdeSupport.LSP.Core.Matching.MatchedStepTextParameter[],Gherkin.Ast.StepArgument,System.String[],System.String)">
+            <summary>Creates a parameter match result.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.ParameterMatch.StepTextParameters">
+            <summary>The spans within the step text that were captured as parameters.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.ParameterMatch.StepArgument">
+            <summary>The step's data table or doc string argument, if any.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.ParameterMatch.ParameterTypes">
+            <summary>The resolved .NET parameter types for the matched step definition, in order.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.ParameterMatch.Error">
+            <summary>An error message describing why the match failed or is incomplete, if any.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.ParameterMatch.HasError">
+            <summary>True when <see cref="P:Reqnroll.IdeSupport.LSP.Core.Matching.ParameterMatch.Error"/> is set.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.ParameterMatch.MatchedDataTable">
+            <summary>True when <see cref="P:Reqnroll.IdeSupport.LSP.Core.Matching.ParameterMatch.StepArgument"/> is a data table.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.ParameterMatch.DataTableParameterType">
+            <summary>The parameter type bound to the data table argument, when <see cref="P:Reqnroll.IdeSupport.LSP.Core.Matching.ParameterMatch.MatchedDataTable"/> is true.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.ParameterMatch.MatchedDocString">
+            <summary>True when <see cref="P:Reqnroll.IdeSupport.LSP.Core.Matching.ParameterMatch.StepArgument"/> is a doc string.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.ParameterMatch.DocStringParameterType">
+            <summary>The parameter type bound to the doc string argument, when <see cref="P:Reqnroll.IdeSupport.LSP.Core.Matching.ParameterMatch.MatchedDocString"/> is true.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Matching.ProjectOwner">
+            <summary>
+            Identifies the project that owns a feature-file binding match set.
+            Used as the project dimension of <see cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.MatchSetKey"/>.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.ProjectOwner.#ctor(System.String,System.String)">
+            <summary>
+            Identifies the project that owns a feature-file binding match set.
+            Used as the project dimension of <see cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.MatchSetKey"/>.
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Matching.ProjectOwner.Unknown">
+            <summary>Sentinel used when the owning project is not yet known (e.g. no baseline received).</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.ProjectOwner.IsKnown">
+            <summary>Gets or sets the is known.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch">
+            <summary>
+            A single feature-file step's resolved binding match, together with the text span the
+            step occupies in the feature document. This is the per-<c>(featureURI, range)</c>
+            coordinate of the binding match cache described in section 3 of the
+            LSP IDE Support design.
+            </summary>
+            <remarks>
+            Match <em>computation</em> still happens in <c>DeveroomTagParser</c> while it walks the
+            document (it has the snapshot for span math and the tag tree for
+            <c>IGherkinDocumentContext</c>. A <see cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch"/> captures the
+            result of that computation so downstream features — Go to Step Definition, diagnostics
+            (undefined-step/binding diagnostics), find usages — can query it without re-parsing.
+            </remarks>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch.#ctor(System.String,Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange,Reqnroll.IdeSupport.LSP.Core.Matching.MatchResult,System.String,System.String,System.String)">
+            <summary>Initializes a new instance of the <see cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch"/> class.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch.FeatureDocumentId">
+            <summary>
+            The document ID (URI string) of the feature file that contains this step.
+            Backs Find Usages and the Code Lens usage counts: callers need the feature file
+            URI to build <c>Location</c> responses without a separate document-ID lookup.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch.Range">
+            <summary>The span of the step text (excluding the keyword) within the feature document.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch.Result">
+            <summary>The full match result for the step (Defined / Undefined / Ambiguous, plus errors).</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch.IsUndefined">
+            <summary>Gets or sets the is undefined.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch.IsDefined">
+            <summary>Gets or sets the is defined.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch.IsAmbiguous">
+            <summary>Gets or sets the is ambiguous.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch.Contains(System.Int32)">
+            <summary>
+            True when <paramref name="offset"/> (absolute char offset) falls anywhere on the step's
+            line(s) — not just within the step text span. Gherkin is line-oriented, so a click on the
+            keyword, leading indentation, trailing whitespace, or just past the last character should
+            still resolve to the step; this is what lets Go to Step Definition match on the whole line.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch.Keyword">
+            <summary>
+            The Gherkin step keyword as it appears in the feature file, trimmed
+            (e.g. <c>"Given"</c>, <c>"When"</c>, <c>"Then"</c>, <c>"And"</c>).
+            <see langword="null"/> when the match was built without AST context.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch.ScenarioName">
+            <summary>
+            The name of the scenario or scenario outline that contains this step
+            (e.g. <c>"Add two numbers"</c>).
+            <see langword="null"/> for Background steps or when AST context was unavailable.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch.ProjectName">
+            <summary>
+            The short project name derived from <c>ProjectOwner.ProjectFile</c> at cache-build time
+            (e.g. <c>"Minimal"</c>, <c>"Minimalnet481"</c>).
+            <see langword="null"/> when the owner was unknown at cache-build time.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch.BindingLocations">
+            <summary>
+            The source locations of every binding this step resolves to — one for a unique match,
+            several for an ambiguous match, none for an undefined step.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp.StepDefinitionFileParser">
+            <summary>
+            Roslyn/C# source-level binding discovery. Scans a single
+            C# syntax tree for Reqnroll step-definition and hook attributes and produces the
+            corresponding <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectStepDefinitionBinding"/> / <see cref="T:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectHookBinding"/>
+            instances. Discovery is syntax-only — no compilation or build is required — so it can run
+            immediately as the user edits a <c>.cs</c> file.
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp.StepDefinitionFileParser.CucumberParamPattern">
+            <summary>
+            Matches a Cucumber <c>{paramType}</c> placeholder where the parameter name is a simple
+            word identifier. Used to convert Cucumber expressions to regex before matching.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp.StepDefinitionFileParser.Parse(Reqnroll.IdeSupport.LSP.Core.Bindings.CSharpStepDefinitionFile)">
+            <summary>
+            Discovers only the step-definition bindings in the file. Retained for backwards
+            compatibility; prefer <see cref="M:Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp.StepDefinitionFileParser.ParseBindings(Reqnroll.IdeSupport.LSP.Core.Bindings.CSharpStepDefinitionFile)"/> to also obtain hooks.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp.StepDefinitionFileParser.ParseBindings(Reqnroll.IdeSupport.LSP.Core.Bindings.CSharpStepDefinitionFile)">
+            <summary>
+            Discovers all bindings (step definitions and hooks) declared in the file.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp.StepDefinitionFileParser.BuildRegex(System.String)">
+            <summary>
+            Converts a Reqnroll step-definition expression to a compiled <see cref="T:System.Text.RegularExpressions.Regex"/>. The
+            expression may be a plain regex or a Cucumber expression that uses <c>{paramType}</c>
+            placeholders. Standard Cucumber parameter types are converted to their canonical regex
+            patterns; unknown/custom types (e.g. project-defined step-argument transformations like
+            <c>{Verb}</c>) fall back to <c>(.*)</c> so the binding can still match its steps even
+            though the precise regex is not statically derivable without a semantic model.
+            For plain-regex expressions the substitution is a no-op (no <c>{...}</c> present).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp.StepDefinitionFileParser.GetAttributeName(Microsoft.CodeAnalysis.CSharp.Syntax.AttributeSyntax)">
+            <summary>
+            Returns the attribute's simple name with any namespace qualification and the
+            conventional <c>Attribute</c> suffix removed (e.g. <c>Reqnroll.GivenAttribute</c> -&gt; <c>Given</c>).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp.StepDefinitionFileParser.GetStepDefinitionExpression(Microsoft.CodeAnalysis.CSharp.Syntax.AttributeSyntax)">
+            <summary>
+            Extracts the step-text expression: the explicit <c>Expression = "..."</c> named argument
+            if present, otherwise the first positional string-literal argument. Returns <c>null</c>
+            when no literal expression can be determined statically.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp.StepDefinitionFileParser.GetStringConstant(Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionSyntax)">
+            <summary>
+            Returns the compile-time string value of a string-literal expression (regular or verbatim),
+            or <c>null</c> for anything that cannot be evaluated by syntax alone (nameof, concatenation, etc.).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp.StepDefinitionFileParser.CombineScopes(Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp.StepDefinitionFileParser.RawScope,Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp.StepDefinitionFileParser.RawScope)">
+            <summary>
+            Combines the type-level and method-level [Scope] attributes. A binding is in scope only
+            when both levels match, so their tags are AND-combined; the more specific method-level
+            feature/scenario title wins.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp.StepDefinitionFileParser.CombineWithHookTags(Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp.StepDefinitionFileParser.RawScope,System.Collections.Generic.IReadOnlyList{System.String})">
+            <summary>
+            A hook applies when the scenario is within the method/type scope and carries one of the
+            tags listed on the hook attribute. The hook's tags are OR-combined and then AND-combined
+            with the surrounding [Scope].
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp.StepDefinitionFileParser.AttributeStringInfo">
+            <summary>
+            Information about a string literal token in a binding attribute argument — its source
+            span, syntax kind (regular string or raw string), and raw source text.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp.StepDefinitionFileParser.AttributeStringInfo.#ctor(Microsoft.CodeAnalysis.Text.TextSpan,Microsoft.CodeAnalysis.CSharp.SyntaxKind,System.String)">
+            <summary>
+            Information about a string literal token in a binding attribute argument — its source
+            span, syntax kind (regular string or raw string), and raw source text.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp.StepDefinitionFileParser.GetAttributeStringInfo(Reqnroll.IdeSupport.LSP.Core.Bindings.CSharpStepDefinitionFile,System.Int32,System.Int32,System.Int32,System.String)">
+            <summary>
+            Locates the string-literal argument of a binding attribute at the given source position
+            and attribute index, and returns information about its token. Returns <c>null</c> when
+            the argument is not a literal string expression (e.g. a constant reference or nameof).
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinDocument">
+            <summary>
+            A parsed Gherkin document extended with the dialect it was parsed under and per-line parser
+            state, letting callers ask what tokens would be valid at a given line (used for error
+            recovery / completion suggestions).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinDocument.#ctor(Gherkin.Ast.Feature,System.Collections.Generic.IEnumerable{Gherkin.Ast.Comment},System.String,Gherkin.GherkinDialect,System.Collections.Generic.List{System.Int32})">
+            <summary>Creates a document from its parsed parts plus per-line parser state.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinDocument.GherkinDialect">
+            <summary>The Gherkin dialect (language/keywords) this document was parsed with.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinDocument.GetExpectedTokens(System.Int32,Reqnroll.IdeSupport.Common.Telemetry.ITelemetryService)">
+            <summary>Returns the token types that would have been valid at the given line, or empty if unknown.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinParser">
+            <summary>
+            Parses feature file content into a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinDocument"/> AST, adding
+            Reqnroll-specific semantic checks (duplicate scenario/example names, missing examples) on
+            top of the underlying Gherkin grammar parser.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinParser.#ctor(Gherkin.IGherkinDialectProvider,Reqnroll.IdeSupport.Common.Telemetry.ITelemetryService)">
+            <summary>Creates a parser using the given Gherkin dialect provider.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinParser.DialectProvider">
+            <summary>Supplies the Gherkin dialect (language/keywords) used while tokenizing.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinParser.ParseAndCollectErrors(System.String,Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger,Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinDocument@,System.Collections.Generic.List{Gherkin.ParserException}@)">
+            <summary>
+            Parses <paramref name="featureFileContent"/>, tolerating parser errors: on failure it still
+            returns a best-effort <paramref name="gherkinDocument"/> (with open AST nodes closed) and
+            reports the individual errors via <paramref name="parserErrors"/>.
+            </summary>
+            <returns>True when parsing succeeded without errors.</returns>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinParser.Parse(System.IO.TextReader,System.String)">
+            <summary>
+            Parses <paramref name="featureFileReader"/>'s content and runs the semantic checks,
+            throwing a <see cref="T:Gherkin.ParserException"/> (or <see cref="T:Gherkin.CompositeParserException"/> if
+            several were found) if any error occurs.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinParser.GetResult">
+            <summary>Returns the AST built so far by the current <see cref="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinParser._astBuilder"/>.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinParser.CheckSemanticErrors(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinDocument)">
+            <summary>Gets or sets the check semantic errors.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinParser.GetExpectedTokens(System.Int32,Reqnroll.IdeSupport.Common.Telemetry.ITelemetryService)">
+            <summary>
+            Runs the parser's state machine from <paramref name="state"/> with a dummy end-of-file
+            token to discover which token types would have been valid next; used to power
+            error-recovery/completion suggestions.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinStep">
+            <summary>
+            A Gherkin AST step extended with Reqnroll-specific metadata: the resolved keyword enum and
+            the Given/When/Then block it belongs to.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinStep.#ctor(Gherkin.Ast.Location,System.String,Gherkin.StepKeywordType,System.String,Gherkin.Ast.StepArgument,Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.StepKeyword,Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ScenarioBlock)">
+            <summary>Creates a step node from its parsed parts plus Reqnroll-specific metadata.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinStep.ScenarioBlock">
+            <summary>The Given/When/Then block this step belongs to.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomGherkinStep.StepKeyword">
+            <summary>The resolved keyword enum for this step's keyword text.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag">
+            <summary>
+            A single flattened node produced while walking a parsed feature document (e.g. a feature
+            block, step, tag, or step match), identified by a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes"/> constant,
+            its text span, and an optional payload. Tags form a tree via <see cref="P:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag.ParentTag"/>/
+            <see cref="P:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag.ChildTags"/> and back the semantic tokens, diagnostics, and binding-match features.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag.#ctor(System.String,Reqnroll.IdeSupport.LSP.Core.Documents.GherkinRange,System.Object)">
+            <summary>
+            A single flattened node produced while walking a parsed feature document (e.g. a feature
+            block, step, tag, or step match), identified by a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes"/> constant,
+            its text span, and an optional payload. Tags form a tree via <see cref="P:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag.ParentTag"/>/
+            <see cref="P:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag.ChildTags"/> and back the semantic tokens, diagnostics, and binding-match features.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag.ParentTag">
+            <summary>The enclosing tag, or a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.VoidDeveroomTag"/> at the root.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag.ChildTags">
+            <summary>The tags nested directly within this one.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag.IsError">
+            <summary>True when <see cref="P:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag.Type"/> denotes an error tag (e.g. ParserError, BindingError).</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag.ToString">
+            <summary>Returns a short "Type:Range" description for diagnostics/logging.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag.GetDescendantsOfType(System.String)">
+            <summary>Recursively returns every descendant tag whose <see cref="P:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag.Type"/> matches <paramref name="type"/>.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagParser">
+            <inheritdoc cref="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IDeveroomTagParser"/>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagParser.#ctor(Reqnroll.IdeSupport.Common.Logging.IIdeSupportLogger,Reqnroll.IdeSupport.Common.Telemetry.ITelemetryService,Reqnroll.IdeSupport.Common.ProjectSystem.Configuration.IDeveroomConfigurationProvider)">
+            <summary>Initializes a new instance of the <see cref="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagParser"/> class.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagParser.Parse(Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshot,Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry)">
+            <inheritdoc/>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes">
+            <summary>
+            String constants identifying the kind of a <c>DeveroomTag</c> node produced while walking a
+            parsed feature document (e.g. by <c>DeveroomTagParser</c>) — used to classify tags for
+            semantic tokens, diagnostics, and binding-match lookup.
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.FeatureBlock">
+            <summary>Gets or sets the feature block.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.RuleBlock">
+            <summary>Gets or sets the rule block.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.ScenarioDefinitionBlock">
+            <summary>Gets or sets the scenario definition block.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.ScenarioHookReference">
+            <summary>Gets or sets the scenario hook reference.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.StepBlock">
+            <summary>Gets or sets the step block.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.ExamplesBlock">
+            <summary>Gets or sets the examples block.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.StepKeyword">
+            <summary>Gets or sets the step keyword.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.DefinitionLineKeyword">
+            <summary>Gets or sets the definition line keyword.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.UndefinedStep">
+            <summary>Gets or sets the undefined step.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.DefinedStep">
+            <summary>Gets or sets the defined step.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.AmbiguousStep">
+            <summary>Gets or sets the ambiguous step.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.StepParameter">
+            <summary>Gets or sets the step parameter.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.ScenarioOutlinePlaceholder">
+            <summary>Gets or sets the scenario outline placeholder.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.BindingError">
+            <summary>Gets or sets the binding error.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.DataTable">
+            <summary>Gets or sets the data table.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.Tag">
+            <summary>Gets or sets the tag.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.Description">
+            <summary>Gets or sets the description.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.Comment">
+            <summary>Gets or sets the comment.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.DocString">
+            <summary>Gets or sets the doc string.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.ParserError">
+            <summary>Gets or sets the parser error.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.Document">
+            <summary>Gets or sets the document.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTagTypes.DataTableHeader">
+            <summary>Gets or sets the data table header.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.GherkinAstExtensions">
+            <summary>Convenience extensions for navigating and classifying Gherkin AST nodes.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.GherkinAstExtensions.StepsContainers(Gherkin.Ast.IHasChildren)">
+            <summary>Returns the direct child nodes that are step containers (Background/Scenario/ScenarioOutline).</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.GherkinAstExtensions.FlattenStepsContainers(Gherkin.Ast.IHasChildren)">
+            <summary>Returns every step container in a feature or rule, descending into nested Rule blocks.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.GherkinAstExtensions.ScenarioDefinitions(Gherkin.Ast.IHasChildren)">
+            <summary>Returns the direct child nodes that are scenarios (including scenario outlines).</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.GherkinAstExtensions.FlattenScenarioDefinitions(Gherkin.Ast.IHasChildren)">
+            <summary>Returns every scenario (including scenario outlines) in a feature or rule, descending into nested Rule blocks.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.GherkinAstExtensions.Rules(Gherkin.Ast.Feature)">
+            <summary>Returns the Rule blocks declared directly in a feature.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.GherkinAstExtensions.Background(Gherkin.Ast.Feature)">
+            <summary>Returns the feature's Background block, or null if it has none.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.GherkinAstExtensions.ToScenarioBlock(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.StepKeyword)">
+            <summary>Maps a step keyword to the Given/When/Then block it starts, or null for And/But (which continue the previous block).</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.GherkinAstExtensions.GetBlockKeywords(Gherkin.GherkinDialect)">
+            <summary>Returns all keywords in the dialect that introduce a top-level block (Feature, Background, Scenario, Scenario Outline, Examples).</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IDeveroomTagParser">
+            <summary>
+            Walks a parsed feature document and produces the flattened <c>DeveroomTag</c> tree consumed
+            for semantic tokens, diagnostics, and step binding matches.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IDeveroomTagParser.Parse(Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshot,Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry)">
+            <summary>
+            Parse <paramref name="fileSnapshot"/> and return Deveroom tags annotated with
+            binding matches from <paramref name="bindingRegistry"/>.
+            Pass <see cref="F:Reqnroll.IdeSupport.LSP.Core.Bindings.ProjectBindingRegistry.Invalid"/> when no registry is available yet;
+            step-matching tags will simply be omitted.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IGherkinDocumentContext">
+            <summary>
+            A node in the ancestor chain of a parsed Gherkin document element (e.g. Feature, Rule,
+            Scenario, Step), letting callers walk up to enclosing nodes and their tags.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IGherkinDocumentContext.Parent">
+            <summary>The enclosing context, or null at the document root.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IGherkinDocumentContext.Node">
+            <summary>The Gherkin AST node this context wraps.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.GherkinDocumentContextExtensions">
+            <summary>Convenience extensions for walking and querying an <see cref="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IGherkinDocumentContext"/> chain.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.GherkinDocumentContextExtensions.GetNodes(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IGherkinDocumentContext)">
+            <summary>Yields this context's node and every ancestor's node, innermost first.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.GherkinDocumentContextExtensions.GetNodes``1(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IGherkinDocumentContext)">
+            <summary>Yields the ancestor-chain nodes that are of type <typeparamref name="T"/>.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.GherkinDocumentContextExtensions.GetTags(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IGherkinDocumentContext)">
+            <summary>Returns all tags declared on any tag-bearing node in the ancestor chain.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.GherkinDocumentContextExtensions.GetTagNames(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IGherkinDocumentContext)">
+            <summary>Returns the names of all tags declared on any tag-bearing node in the ancestor chain.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.GherkinDocumentContextExtensions.IsScenarioOutline(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IGherkinDocumentContext)">
+            <summary>True when this context's node is a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ScenarioOutline"/>.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.GherkinDocumentContextExtensions.IsBackground(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IGherkinDocumentContext)">
+            <summary>True when this context's node is a <see cref="T:Gherkin.Ast.Background"/>.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.GherkinDocumentContextExtensions.GetParentOf``1(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IGherkinDocumentContext)">
+            <summary>Walks up the ancestor chain and returns the nearest context whose node is of type <typeparamref name="T"/>.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.GherkinDocumentContextExtensions.AncestorOrSelfNode``1(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.IGherkinDocumentContext)">
+            <summary>Returns this context's node if it is a <typeparamref name="T"/>, otherwise the nearest ancestor node that is.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.MatchedScenarioOutlinePlaceholder">
+            <summary>
+            A single <c>&lt;placeholder&gt;</c> match found within a Scenario Outline step's text, e.g.
+            the <c>&lt;name&gt;</c> in "I enter &lt;name&gt;".
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.MatchedScenarioOutlinePlaceholder.Index">
+            <summary>The character index where the placeholder (including angle brackets) starts.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.MatchedScenarioOutlinePlaceholder.Length">
+            <summary>The length, in characters, of the placeholder including its angle brackets.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.MatchedScenarioOutlinePlaceholder.Value">
+            <summary>The full matched text, e.g. <c>"&lt;name&gt;"</c>.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.MatchedScenarioOutlinePlaceholder.Name">
+            <summary>The placeholder name without angle brackets, e.g. <c>"name"</c>.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.MatchedScenarioOutlinePlaceholder.#ctor(System.Text.RegularExpressions.Match)">
+            <summary>Wraps a regex match as a scenario outline placeholder.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.MatchedScenarioOutlinePlaceholder.MatchScenarioOutlinePlaceholders(Gherkin.Ast.Step)">
+            <summary>Finds every <c>&lt;placeholder&gt;</c> in a step's text.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.MatchedScenarioOutlinePlaceholder.ReplaceScenarioOutlinePlaceholders(Gherkin.Ast.Step,System.Func{Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.MatchedScenarioOutlinePlaceholder,System.String})">
+            <summary>Replaces every <c>&lt;placeholder&gt;</c> in a step's text using <paramref name="replace"/>.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ReqnrollGherkinDialectProvider">
+            <summary>
+            A Gherkin dialect provider that falls back to a language's base dialect (e.g. "en" for
+            "en-US") when no exact regional dialect is registered.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ReqnrollGherkinDialectProvider.#ctor(System.String)">
+            <summary>Creates a dialect provider with the given default language.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ReqnrollGherkinDialectProvider.TryGetDialect(System.String,System.Nullable{Gherkin.Ast.Location},Gherkin.GherkinDialect@)">
+            <summary>
+            Resolves the dialect for <paramref name="language"/>, retrying with the base language
+            (before the first "-") if the exact regional dialect isn't found.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ReqnrollGherkinDialectProvider.GetDialect(System.String)">
+            <summary>Returns the default dialect for the given language.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ReqnrollGherkinDialectProvider.Get(System.String)">
+            <summary>Creates a new dialect provider for the given default language.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ScenarioBlock">
+            <summary>The Given/When/Then section of a scenario that a step belongs to.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ScenarioBlock.Unknown">
+            <summary>The block could not be determined.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ScenarioBlock.Given">
+            <summary>The step is part of the Given (setup/preconditions) block.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ScenarioBlock.When">
+            <summary>The step is part of the When (action) block.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ScenarioBlock.Then">
+            <summary>The step is part of the Then (assertion) block.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ScenarioOutline">
+            <summary>A Gherkin Scenario Outline node: a templated scenario with one or more Examples tables.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ScenarioOutline.#ctor(System.Collections.Generic.IEnumerable{Gherkin.Ast.Tag},Gherkin.Ast.Location,System.String,System.String,System.String,System.Collections.Generic.IEnumerable{Gherkin.Ast.Step},System.Collections.Generic.IEnumerable{Gherkin.Ast.Examples})">
+            <summary>Creates a scenario outline node from its parsed parts.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.SemanticParserException">
+            <summary>
+            A parser error raised by Reqnroll's own semantic checks (duplicate scenario/example names,
+            missing examples) rather than by the underlying Gherkin grammar parser.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.SemanticParserException.#ctor(System.String)">
+            <summary>Creates a semantic parser exception with no specific source location.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.SemanticParserException.#ctor(System.String,Gherkin.Ast.Location)">
+            <summary>Creates a semantic parser exception pointing at the given source location.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.SingleScenario">
+            <summary>A plain (non-outline) Gherkin Scenario node.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.SingleScenario.#ctor(System.Collections.Generic.IEnumerable{Gherkin.Ast.Tag},Gherkin.Ast.Location,System.String,System.String,System.String,System.Collections.Generic.IEnumerable{Gherkin.Ast.Step},System.Collections.Generic.IEnumerable{Gherkin.Ast.Examples})">
+            <summary>Creates a single scenario node from its parsed parts.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.StepKeyword">
+            <summary>The Gherkin keyword a step was written with (independent of localized text).</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.StepKeyword.Given">
+            <summary>The step was written with a "Given" keyword.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.StepKeyword.When">
+            <summary>The step was written with a "When" keyword.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.StepKeyword.Then">
+            <summary>The step was written with a "Then" keyword.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.StepKeyword.And">
+            <summary>The step was written with an "And" keyword, continuing the previous block.</summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.StepKeyword.But">
+            <summary>The step was written with a "But" keyword, continuing the previous block.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.VoidDeveroomTag">
+            <summary>
+            A null-object <see cref="T:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.DeveroomTag"/> used as a root/placeholder parent when no real tag
+            is available, so callers can walk <c>ParentTag</c> chains without null-checking.
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.VoidDeveroomTag.Instance">
+            <summary>The single shared instance of this null-object tag.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Rename.FeatureStepTextBuilder">
+            <summary>
+            Builds feature-step replacement text that preserves the original parameter content
+            when a binding expression is renamed.
+            <para>
+            Two strategies are applied, in order:
+            </para>
+            <list type="number">
+              <item><description>
+                <b>Regex injection.</b> Match the old binding regex against the original step text to
+                extract captured parameter values, then inject them into the parameter slots of the new
+                expression. This handles concrete values (e.g. <c>50</c>).
+              </description></item>
+              <item><description>
+                <b>Static-segment substitution.</b> When the regex does not match — e.g. the step uses a
+                Scenario Outline placeholder such as <c>&lt;secondNumber&gt;</c> that is not a numeric value —
+                replace the old expression's literal segments with the new expression's literal segments,
+                leaving whatever sits in the parameter position untouched. This keeps placeholders and other
+                non-matching parameter content intact instead of leaking the binding's <c>{int}</c> token
+                into the feature file.
+              </description></item>
+            </list>
+            <para>If neither strategy applies, returns the new expression unchanged.</para>
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Rename.FeatureStepTextBuilder.Build(System.String,System.String,System.Text.RegularExpressions.Regex,System.String)">
+            <summary>Gets or sets the build.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Rename.FeatureStepTextBuilder.TryBuildViaRegex(System.String,System.Text.RegularExpressions.Regex,System.String)">
+            <summary>
+            Extracts captured parameter values by matching <paramref name="regex"/> against
+            <paramref name="stepText"/> and injects them into the parameter slots of
+            <paramref name="newExpression"/>. Returns <c>null</c> when the regex is absent, does not
+            match, or yields no captures, so the caller can try another strategy.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Rename.FeatureStepTextBuilder.TryBuildViaStaticSegments(System.String,System.String,System.String)">
+            <summary>
+            Renames the static text of <paramref name="stepText"/> by replacing the literal segments of
+            <paramref name="oldExpression"/> with those of <paramref name="newExpression"/>, preserving
+            the parameter regions (the text the step actually carries) verbatim. Returns <c>null</c> when
+            the expressions cannot be aligned with the step text.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Rename.FeatureStepTextBuilder.TryBuildViaOutlinePlaceholders(System.String,System.String)">
+            <summary>
+            Detects Scenario Outline placeholders (⟨...⟩ tokens) in <paramref name="stepText"/>
+            and maps them positionally onto the parameter slots of <paramref name="newExpression"/>.
+            This handles cases where both regex matching and static-segment alignment fail because
+            the step text's literal content has been edited independently of the binding expression.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Rename.FeatureStepTextBuilder.DeriveExpressionFromEditedText(System.String,System.String,System.String)">
+            <summary>
+            Derives a new abstract expression from an in-place feature-file edit. <paramref
+            name="oldStepText"/> and <paramref name="newStepText"/> are the step's concrete text
+            (no keyword) before and after the user's edit in the rename dialog; <paramref
+            name="oldExpression"/> is the binding's current abstract expression. The parameter
+            values are located in <paramref name="oldStepText"/> using <paramref
+            name="oldExpression"/>'s static segments, then re-located verbatim in <paramref
+            name="newStepText"/> so the original parameter slots (<c>{int}</c>, a regex group, …)
+            can be preserved around whatever static wording the user typed. Returns <see
+            langword="null"/> when a parameter value can no longer be found verbatim in the edited
+            text — i.e. the user changed a parameter value rather than the step's wording, which
+            this flow does not support.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Rename.FeatureStepTextBuilder.ExtractOutlinePlaceholders(System.String)">
+            <summary>Extracts Scenario Outline placeholder values (e.g. {"&lt;result&gt;", "&lt;secondNumber&gt;"}) from <paramref name="stepText"/> in order.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Rename.RenameSessionManager">
+            <summary>
+            Tracks pending rename sessions (multi-attribute picker flow).
+            A session is established when the client calls reqnroll/selectRenameTarget
+            and consumed (or expired) on the subsequent textDocument/rename.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Rename.RenameSessionManager.SetSession(System.String,System.Int32,System.Int32)">
+            <summary>Stores a pending rename session with a 30-second expiry.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Rename.RenameSessionManager.TryConsume(System.String,System.Int32,System.Int32@)">
+            <summary>
+            Attempts to consume a pending session. Returns true if a valid (non-expired)
+            session exists for the given URI+version, and outputs the attributeIndex.
+            The session is removed on successful consumption.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Rename.RenameSessionManager.Cleanup">
+            <summary>Removes expired sessions on a best-effort basis.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Rename.StepExpressionParameters">
+            <summary>
+            Shared parsing of step-definition expression text into parameter slots and the static
+            (literal) segments around them. A parameter slot is a Cucumber placeholder (<c>{int}</c>,
+            <c>{string}</c>, <c>{}</c>, …) or a regex capturing group (an unescaped <c>(</c> that is not
+            a non-capturing / look-around group).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Rename.StepExpressionParameters.SlotLengthAt(System.String,System.Int32)">
+            <summary>
+            Returns the length of the parameter slot starting at <paramref name="index"/> in
+            <paramref name="s"/>, or 0 when no slot starts there.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Rename.StepExpressionParameters.ExtractSlots(System.String)">
+            <summary>Returns the ordered parameter-slot substrings of <paramref name="expression"/>.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Rename.StepExpressionParameters.StaticSegments(System.String)">
+            <summary>
+            Splits <paramref name="expression"/> into its static (non-parameter) segments. An
+            expression with N parameter slots yields N+1 segments (some possibly empty), in order.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Rename.StepRenameValidator">
+            <summary>
+            Applies validation rules for the Step Rename refactoring feature.
+            All methods return <see langword="null"/> on success (no error) or a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Rename.ValidationError"/>
+            describing the failure. The class is stateless — all inputs are passed explicitly.
+            </summary>
+        </member>
+        <member name="F:Reqnroll.IdeSupport.LSP.Core.Rename.StepRenameValidator.ExpressionOperators">
+            <summary>Characters that are regex/Cucumber expression operators and must not appear in non-parameter text.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Rename.StepRenameValidator.ValidateCursorPosition(System.Uri)">
+            <summary>
+            Validates that the cursor position is on a file type that can be renamed (.feature or .cs).
+            Returns an error if the URI does not correspond to a supported file type.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Rename.StepRenameValidator.ValidateExpressionIsStringLiteral(System.String)">
+            <summary>
+            Validates that the binding expression is a detectable string literal (Rule 2).
+            Returns an error if the expression is null or empty, meaning the attribute
+            argument is not a string literal (e.g., a constant reference, concatenation, or nameof).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Rename.StepRenameValidator.ValidateNewName(System.String,System.String)">
+            <summary>
+            Validates the proposed new name against the original expression (Rules 3-6).
+            Null return = valid.
+            </summary>
+            <param name="originalExpression">The binding's current expression string.</param>
+            <param name="newName">The proposed replacement expression from the rename dialog.</param>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Rename.StepRenameValidator.ValidateProjectState(System.Boolean,System.Boolean)">
+            <summary>
+            Validates that the project is ready for rename operations (Rule 7).
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Rename.StepRenameValidator.CountParameterSlots(System.String)">
+            <summary>
+            Counts parameter slots in an expression. Parameter slots are either
+            regex capture groups like <c>(.*)</c> or Cucumber placeholders like <c>{word}</c>.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Rename.StepRenameValidator.SplitNonParameterSegments(System.String)">
+            <summary>
+            Splits an expression into non-parameter segments by removing parameter slots.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Rename.ValidationError">
+            <summary>
+            Describes a validation failure. <see cref="P:Reqnroll.IdeSupport.LSP.Core.Rename.ValidationError.Message"/> is a human-readable error
+            intended for display in the IDE rename dialog. <see cref="P:Reqnroll.IdeSupport.LSP.Core.Rename.ValidationError.Scope"/> indicates
+            which validation stage produced the error ("position", "expression", "rename", "project").
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Rename.ValidationError.#ctor(System.String,System.String)">
+            <summary>
+            Describes a validation failure. <see cref="P:Reqnroll.IdeSupport.LSP.Core.Rename.ValidationError.Message"/> is a human-readable error
+            intended for display in the IDE rename dialog. <see cref="P:Reqnroll.IdeSupport.LSP.Core.Rename.ValidationError.Scope"/> indicates
+            which validation stage produced the error ("position", "expression", "rename", "project").
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Scaffolding.IStepScaffoldService">
+            <summary>
+            Converts a set of undefined <see cref="T:Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch"/> entries into a deduplicated,
+            ordered list of <see cref="T:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepSkeletonDescriptor"/> ready for rendering.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Scaffolding.IStepScaffoldService.BuildDescriptors(System.Collections.Generic.IEnumerable{Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch},Reqnroll.IdeSupport.Common.Configuration.SnippetExpressionStyle)">
+            <summary>
+            Builds step skeleton descriptors for the given undefined steps.
+            Duplicates (same Block + expression) are collapsed to one descriptor.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepDefinitionFileBuilder">
+            <summary>
+            Assembles a complete C# step-definition source file from one or more rendered step snippets.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepDefinitionFileBuilder.BuildNewFile(System.Collections.Generic.IReadOnlyList{System.String},System.String,System.String,Reqnroll.IdeSupport.Common.Configuration.CSharpCodeGenerationConfiguration,System.String,System.String)">
+            <summary>
+            Builds the full content of a new <c>.cs</c> step-definition file.
+            </summary>
+            <param name="snippets">
+            Pre-rendered method snippets (each already indented at one level).
+            Produced by <see cref="M:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepSkeletonRenderer.Render(Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepSkeletonDescriptor,System.String,System.String)"/>.
+            </param>
+            <param name="className">The step-definition class name (e.g. <c>AdditionStepDefinitions</c>).</param>
+            <param name="namespace">The target namespace.</param>
+            <param name="csharpConfig">Controls block-scoped vs. file-scoped namespace style.</param>
+            <param name="indent">The indentation unit (e.g. four spaces).</param>
+            <param name="newLine">The line-ending string.</param>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepDefinitionFileBuilder.ClassNameFromFeaturePath(System.String)">
+            <summary>
+            Derives a step-definition class name from a feature file path.
+            E.g. <c>addition.feature</c> → <c>AdditionStepDefinitions</c>.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepDefinitionFileBuilder.TargetFilePath(System.String,System.String)">
+            <summary>
+            Derives the target <c>.cs</c> file path from the feature file path.
+            Prefers placing the file in a sibling <c>StepDefinitions/</c> directory if one exists.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepDefinitionFileBuilder.DeriveNamespace(System.String,System.String,System.String)">
+            <summary>
+            Derives a namespace from a project root, default namespace, and a target file path.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepScaffoldService">
+            <summary>
+            Collects undefined steps from the match cache and produces a deduplicated list of
+            <see cref="T:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepSkeletonDescriptor"/> objects using <see cref="T:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepSkeletonRenderer"/>.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepScaffoldService.BuildDescriptors(System.Collections.Generic.IEnumerable{Reqnroll.IdeSupport.LSP.Core.Matching.StepBindingMatch},Reqnroll.IdeSupport.Common.Configuration.SnippetExpressionStyle)">
+            <summary>Gets or sets the build descriptors.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepSkeletonDescriptor">
+            <summary>
+            An immutable description of one generated step-definition stub method.
+            Built by <see cref="T:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepScaffoldService"/> and rendered by <see cref="T:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepSkeletonRenderer"/>.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepSkeletonDescriptor.#ctor(Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin.ScenarioBlock,Reqnroll.IdeSupport.Common.Configuration.SnippetExpressionStyle,System.String,System.Collections.Generic.IReadOnlyList{System.ValueTuple{System.String,System.String}},System.String,System.Boolean)">
+            <summary>
+            An immutable description of one generated step-definition stub method.
+            Built by <see cref="T:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepScaffoldService"/> and rendered by <see cref="T:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepSkeletonRenderer"/>.
+            </summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepSkeletonDescriptor.DeduplicationKey">
+            <summary>
+            The normalised deduplication key: keyword + escaped expression.
+            Two undefined steps that produce the same expression collapse to one skeleton.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepSkeletonRenderer">
+            <summary>
+            Converts a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepSkeletonDescriptor"/> (or a raw undefined step) into a
+            rendered C# snippet string — the method body without the enclosing class.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepSkeletonRenderer.BuildDescriptor(Reqnroll.IdeSupport.LSP.Core.Matching.UndefinedStepDescriptor,Reqnroll.IdeSupport.Common.Configuration.SnippetExpressionStyle)">
+            <summary>
+            Builds a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepSkeletonDescriptor"/> from a raw undefined step and config.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepSkeletonRenderer.Render(Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepSkeletonDescriptor,System.String,System.String)">
+            <summary>
+            Renders a <see cref="T:Reqnroll.IdeSupport.LSP.Core.Scaffolding.StepSkeletonDescriptor"/> into a C# snippet (indented method body).
+            The caller is responsible for supplying consistent indentation.
+            </summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.TagExpressions.InvalidTagExpression">
+            <summary>InvalidTagExpression</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.TagExpressions.InvalidTagExpression.Message">
+            <summary>Gets or sets the message.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.TagExpressions.InvalidTagExpression.#ctor(Cucumber.TagExpressions.ITagExpression,System.String,System.String)">
+            <summary>Initializes a new instance of the <see cref="T:Reqnroll.IdeSupport.LSP.Core.TagExpressions.InvalidTagExpression"/> class.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.TagExpressions.InvalidTagExpression.Evaluate(System.Collections.Generic.IEnumerable{System.String})">
+            <summary>Gets or sets the evaluate.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.TagExpressions.InvalidTagExpression.ToString">
+            <summary>Gets or sets the to string.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.TagExpressions.IReqnrollTagExpressionParser">
+            <summary>
+            Defines a parser for tag expressions.
+            </summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.TagExpressions.IReqnrollTagExpressionParser.Parse(System.String)">
+            <summary>
+            Parses the specified text into an <see cref="T:Cucumber.TagExpressions.ITagExpression"/>.
+            </summary>
+            <param name="text">The tag expression string to parse.</param>
+            <returns>An <see cref="T:Cucumber.TagExpressions.ITagExpression"/> representing the parsed expression.</returns>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.TagExpressions.ReqnrollTagExpression">
+            <summary>ReqnrollTagExpression</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.TagExpressions.ReqnrollTagExpression.#ctor(Cucumber.TagExpressions.ITagExpression,System.String)">
+            <summary>Initializes a new instance of the <see cref="T:Reqnroll.IdeSupport.LSP.Core.TagExpressions.ReqnrollTagExpression"/> class.</summary>
+        </member>
+        <member name="P:Reqnroll.IdeSupport.LSP.Core.TagExpressions.ReqnrollTagExpression.TagExpressionText">
+            <summary>Gets or sets the tag expression text.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.TagExpressions.ReqnrollTagExpression.ToString">
+            <summary>Gets or sets the to string.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.TagExpressions.ReqnrollTagExpression.Evaluate(System.Collections.Generic.IEnumerable{System.String})">
+            <summary>Gets or sets the evaluate.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.TagExpressions.ReqnrollTagExpressionParser">
+            <summary>ReqnrollTagExpressionParser</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.TagExpressions.ReqnrollTagExpressionParser.CreateTagLiteral(System.String)">
+            <summary>Gets or sets the create tag literal.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.TagExpressions.ReqnrollTagExpressionParser.Parse(System.String)">
+            <summary>Gets or sets the parse.</summary>
+        </member>
+        <member name="T:Reqnroll.IdeSupport.LSP.Core.TagExpressions.TagExpressionExtensions">
+            <summary>TagExpressionExtensions</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.TagExpressions.TagExpressionExtensions.EvaluateWithDefault(Cucumber.TagExpressions.ITagExpression,System.Collections.Generic.IEnumerable{System.String},System.Boolean)">
+            <summary>Gets or sets the evaluate with default.</summary>
+        </member>
+        <member name="M:Reqnroll.IdeSupport.LSP.Core.TagExpressions.TagExpressionExtensions.EvaluateWithDefault(Cucumber.TagExpressions.ITagExpression,System.Collections.Generic.IEnumerable{Gherkin.Ast.Tag},System.Boolean)">
+            <summary>Gets or sets the evaluate with default.</summary>
+        </member>
+    </members>
+</doc>

@@ -33,6 +33,7 @@ public sealed class GoToStepDefinitionsHandler
     private readonly ILspTelemetryService?     _telemetryService;
     private readonly IOperationDurationRecorder _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="GoToStepDefinitionsHandler"/> class.</summary>
     public GoToStepDefinitionsHandler(
         IBindingMatchService      matchService,
         IDocumentBufferService    bufferService,
@@ -49,6 +50,7 @@ public sealed class GoToStepDefinitionsHandler
         _recorder      = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Handles a <c>reqnroll/goToStepDefinitions</c> request for step-definition navigation.</summary>
     public Task<GoToStepDefinitionsResponse> HandleAsync(
         TextDocumentPositionParams request,
         CancellationToken          cancellationToken)

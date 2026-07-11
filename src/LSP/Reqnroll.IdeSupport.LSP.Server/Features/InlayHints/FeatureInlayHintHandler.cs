@@ -34,6 +34,7 @@ public sealed class FeatureInlayHintHandler
     private readonly IIdeSupportLogger           _logger;
     private readonly IOperationDurationRecorder _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="FeatureInlayHintHandler"/> class.</summary>
     public FeatureInlayHintHandler(
         IBindingMatchService      matchService,
         ILspWorkspaceScopeManager scopeManager,
@@ -48,6 +49,7 @@ public sealed class FeatureInlayHintHandler
         _recorder     = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Handles a <c>textDocument/inlayHint</c> request for binding-info inlay hints.</summary>
     public Task<InlayHintContainer?> HandleAsync(InlayHintParams request, CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;

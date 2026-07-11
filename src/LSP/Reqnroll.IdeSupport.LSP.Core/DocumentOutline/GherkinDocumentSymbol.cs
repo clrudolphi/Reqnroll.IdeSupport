@@ -5,33 +5,33 @@ namespace Reqnroll.IdeSupport.LSP.Core.DocumentOutline;
 /// <summary>GherkinSymbolKind</summary>
 public enum GherkinSymbolKind
 {
-    /// <summary>Gets or sets the feature.</summary>
+    /// <summary>Feature</summary>
     Feature,
-    /// <summary>Gets or sets the background.</summary>
+    /// <summary>Background</summary>
     Background,
-    /// <summary>Gets or sets the rule.</summary>
+    /// <summary>Rule</summary>
     Rule,
-    /// <summary>Gets or sets the scenario.</summary>
+    /// <summary>Scenario</summary>
     Scenario,
-    /// <summary>Gets or sets the scenario outline.</summary>
+    /// <summary>ScenarioOutline</summary>
     ScenarioOutline,
-    /// <summary>Gets or sets the step.</summary>
+    /// <summary>Step</summary>
     Step,
-    /// <summary>Gets or sets the examples.</summary>
+    /// <summary>Examples</summary>
     Examples,
 }
 
-/// <summary>GherkinDocumentSymbol</summary>
+/// <summary>Represents a symbol in the Gherkin document outline.</summary>
+/// <param name="Name">The symbol name.</param>
+/// <param name="Detail">Optional detail text.</param>
+/// <param name="Kind">The symbol kind.</param>
+/// <param name="Range">The full range of the symbol.</param>
+/// <param name="SelectionRange">The selection range of the symbol.</param>
+/// <param name="Children">Nested child symbols.</param>
 public record GherkinDocumentSymbol(
-    /// <summary>Gets or sets the name.</summary>
     string Name,
-    /// <summary>Gets or sets the detail.</summary>
     string? Detail,
-    /// <summary>Gets or sets the kind.</summary>
     GherkinSymbolKind Kind,
-    /// <summary>Gets or sets the range.</summary>
     GherkinRange Range,
-    /// <summary>Gets or sets the selection range.</summary>
     GherkinRange SelectionRange,
-    /// <summary>Gets or sets the children.</summary>
     IReadOnlyList<GherkinDocumentSymbol> Children);

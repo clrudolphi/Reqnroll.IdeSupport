@@ -21,6 +21,7 @@ public sealed class FileSystemEditorConfigOptionsProvider : IEditorConfigOptions
     private readonly ConcurrentDictionary<string, CachedEditorConfig> _cache =
         new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Initializes a new instance of the <see cref="FileSystemEditorConfigOptionsProvider"/> class.</summary>
     public FileSystemEditorConfigOptionsProvider(IFileSystem fileSystem)
     {
         _fileSystem = fileSystem;
@@ -28,6 +29,7 @@ public sealed class FileSystemEditorConfigOptionsProvider : IEditorConfigOptions
 
     // ── IEditorConfigOptionsProvider ─────────────────────────────────────────
 
+    /// <summary>Gets or sets the get editor config options by path.</summary>
     public IEditorConfigOptions GetEditorConfigOptionsByPath(string filePath)
     {
         var files = CollectEditorConfigFiles(Path.GetFullPath(filePath));
@@ -48,6 +50,7 @@ public sealed class FileSystemEditorConfigOptionsProvider : IEditorConfigOptions
         return new FileSystemEditorConfigOptions(merged);
     }
 
+    /// <summary>Gets or sets the invalidate cache.</summary>
     public void InvalidateCache(string editorConfigFilePath)
     {
         _cache.TryRemove(editorConfigFilePath, out _);

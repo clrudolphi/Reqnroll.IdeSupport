@@ -18,7 +18,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Matching;
 /// <remarks>
 /// Match <em>computation</em> still happens in <c>DeveroomTagParser</c> while it walks the
 /// document (it has the snapshot for span math and the tag tree for
-/// <see cref="IGherkinDocumentContext"/>). A <see cref="StepBindingMatch"/> captures the
+/// <c>IGherkinDocumentContext</c>. A <see cref="StepBindingMatch"/> captures the
 /// result of that computation so downstream features — Go to Step Definition, diagnostics
 /// (undefined-step/binding diagnostics), find usages — can query it without re-parsing.
 /// </remarks>

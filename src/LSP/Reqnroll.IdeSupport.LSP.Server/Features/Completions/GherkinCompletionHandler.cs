@@ -49,6 +49,7 @@ public sealed class GherkinCompletionHandler : ICompletionHandler
     private const string KeywordCompletionOp = LspMethodNames.TextDocumentCompletion + "#keyword";
     private const string StepCompletionOp    = LspMethodNames.TextDocumentCompletion + "#step";
 
+    /// <summary>Initializes a new instance of the <see cref="GherkinCompletionHandler"/> class.</summary>
     public GherkinCompletionHandler(
         ICompletionContextResolver    contextResolver,
         ICompletionService            completionService,
@@ -73,6 +74,7 @@ public sealed class GherkinCompletionHandler : ICompletionHandler
         _recorder          = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Gets or sets the get registration options.</summary>
     public CompletionRegistrationOptions GetRegistrationOptions(
         CompletionCapability capability,
         ClientCapabilities   clientCapabilities)
@@ -83,6 +85,7 @@ public sealed class GherkinCompletionHandler : ICompletionHandler
             ResolveProvider  = false
         };
 
+    /// <summary>Handles a <c>textDocument/completion</c> request for Gherkin completions.</summary>
     public Task<CompletionList> Handle(CompletionParams request, CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;

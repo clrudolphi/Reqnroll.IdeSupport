@@ -35,7 +35,9 @@ public sealed class ReqnrollProjectFilesParams : INotification
 /// <summary>Distinguishes a full snapshot from an incremental update.</summary>
 public enum ProjectFilesKind
 {
+    /// <summary>Gets or sets the baseline.</summary>
     Baseline = 0,
+    /// <summary>Gets or sets the delta.</summary>
     Delta    = 1,
 }
 
@@ -62,6 +64,8 @@ public sealed class ProjectFileEntry
 /// <summary>Classifies a project file's contribution to the Reqnroll model.</summary>
 public enum ProjectFileRole
 {
+    /// <summary>Gets or sets the feature.</summary>
     Feature = 0,
+    /// <summary>Gets or sets the binding.</summary>
     Binding = 1,
 }

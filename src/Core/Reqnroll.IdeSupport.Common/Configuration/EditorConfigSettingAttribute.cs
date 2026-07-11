@@ -2,8 +2,10 @@ using System;
 
 namespace Reqnroll.IdeSupport.Common.Configuration;
 
+/// <summary>
+/// Specifies the <c>.editorconfig</c> setting name that maps to this property.
+/// </summary>
 [AttributeUsage(AttributeTargets.Property)]
-/// <summary>EditorConfigSettingAttribute</summary>
 public class EditorConfigSettingAttribute : Attribute
 {
     /// <summary>Initializes a new instance of the <see cref="EditorConfigSettingAttribute"/> class.</summary>
@@ -12,6 +14,6 @@ public class EditorConfigSettingAttribute : Attribute
         EditorConfigSettingName = editorConfigSettingName;
     }
 
-    /// <summary>Gets or sets the editor config setting name.</summary>
+    /// <summary>Gets the name of the <c>.editorconfig</c> setting.</summary>
     public string EditorConfigSettingName { get; }
 }

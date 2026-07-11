@@ -24,6 +24,7 @@ public class SemanticTokensHandler
     private readonly IIdeSupportLogger _logger;
     private readonly IOperationDurationRecorder _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="SemanticTokensHandler"/> class.</summary>
     public SemanticTokensHandler(
         ISemanticTokenService semanticTokenService,
         IDocumentBufferService documentBufferService,
@@ -38,6 +39,7 @@ public class SemanticTokensHandler
 
     // ── Full ──────────────────────────────────────────────────────────────────
 
+    /// <summary>Handles a semantic-tokens request (<c>textDocument/semanticTokens/full</c>, <c>/full/delta</c>, <c>/range</c>).</summary>
     public async Task<LspSemanticTokens> HandleAsync(
         SemanticTokensParams request,
         CancellationToken cancellationToken)
@@ -61,6 +63,7 @@ public class SemanticTokensHandler
     // ── Delta ─────────────────────────────────────────────────────────────────
     // We don't maintain delta state; return the full token set wrapped in SemanticTokensFullOrDelta.
 
+    /// <summary>Handles a <c>textDocument/semanticTokens/full/delta</c> request.</summary>
     public async Task<LspSemanticTokensFullOrDelta> HandleAsync(
         SemanticTokensDeltaParams request,
         CancellationToken cancellationToken)
@@ -83,6 +86,7 @@ public class SemanticTokensHandler
     // ── Range ─────────────────────────────────────────────────────────────────
     // Return all tokens; the client will filter by range.
 
+    /// <summary>Handles a <c>textDocument/semanticTokens/range</c> request.</summary>
     public async Task<LspSemanticTokens> HandleAsync(
         SemanticTokensRangeParams request,
         CancellationToken cancellationToken)

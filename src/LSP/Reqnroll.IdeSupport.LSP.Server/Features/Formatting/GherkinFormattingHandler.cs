@@ -30,6 +30,7 @@ public sealed class GherkinFormattingHandler
     private static readonly TextDocumentSelector FeatureSelector = new(
         new TextDocumentFilter { Pattern = "**/*.feature" });
 
+    /// <summary>Initializes a new instance of the <see cref="GherkinFormattingHandler"/> class.</summary>
     public GherkinFormattingHandler(
         IDocumentBufferService documentBufferService,
         IEditorConfigOptionsProvider editorConfigOptionsProvider,
@@ -46,10 +47,12 @@ public sealed class GherkinFormattingHandler
 
     // ── IDocumentFormattingHandler ────────────────────────────────────────────
 
+    /// <summary>Gets or sets the get registration options.</summary>
     public DocumentFormattingRegistrationOptions GetRegistrationOptions(
         DocumentFormattingCapability capability, ClientCapabilities clientCapabilities)
         => new() { DocumentSelector = FeatureSelector };
 
+    /// <summary>Handles a <c>textDocument/formatting</c> request for Gherkin document formatting.</summary>
     public Task<TextEditContainer?> Handle(DocumentFormattingParams request, CancellationToken ct)
     {
         using var _perf = _recorder.Measure(LspMethodNames.TextDocumentFormatting, request.TextDocument.Uri);
@@ -61,10 +64,12 @@ public sealed class GherkinFormattingHandler
 
     // ── IDocumentRangeFormattingHandler ──────────────────────────────────────
 
+    /// <summary>Gets or sets the get registration options.</summary>
     public DocumentRangeFormattingRegistrationOptions GetRegistrationOptions(
         DocumentRangeFormattingCapability capability, ClientCapabilities clientCapabilities)
         => new() { DocumentSelector = FeatureSelector };
 
+    /// <summary>Handles a <c>textDocument/range-formatting</c> request for Gherkin document formatting.</summary>
     public async Task<TextEditContainer> Handle(DocumentRangeFormattingParams request, CancellationToken ct)
     {
         using var _perf = _recorder.Measure(LspMethodNames.TextDocumentRangeFormatting, request.TextDocument.Uri);
@@ -79,6 +84,7 @@ public sealed class GherkinFormattingHandler
 
     // ── IDocumentOnTypeFormattingHandler ─────────────────────────────────────
 
+    /// <summary>Gets or sets the get registration options.</summary>
     public DocumentOnTypeFormattingRegistrationOptions GetRegistrationOptions(
         DocumentOnTypeFormattingCapability capability, ClientCapabilities clientCapabilities)
         => new()
@@ -88,6 +94,7 @@ public sealed class GherkinFormattingHandler
             MoreTriggerCharacter  = new Container<string>("\n", "\t")
         };
 
+    /// <summary>Handles a <c>textDocument/on-type-formatting</c> request for Gherkin document formatting.</summary>
     public Task<TextEditContainer?> Handle(DocumentOnTypeFormattingParams request, CancellationToken ct)
     {
         using var _perf = _recorder.Measure(LspMethodNames.TextDocumentOnTypeFormatting, request.TextDocument.Uri);

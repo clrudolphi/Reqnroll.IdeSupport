@@ -115,11 +115,17 @@ public static class ProcessHelper
             WorkingDirectory = workingDirectory;
         }
 
+        /// <summary>Gets or sets the exit code.</summary>
         public int ExitCode { get; }
+        /// <summary>Gets or sets the standard out.</summary>
         public string StandardOut { get; }
+        /// <summary>Gets or sets the standard error.</summary>
         public string StandardError { get; }
+        /// <summary>Gets or sets the executable path.</summary>
         public string ExecutablePath { get; }
+        /// <summary>Gets or sets the arguments.</summary>
         public string Arguments { get; }
+        /// <summary>Gets or sets the working directory.</summary>
         public string WorkingDirectory { get; }
 
         /// <summary>True if the process wrote anything to standard error.</summary>

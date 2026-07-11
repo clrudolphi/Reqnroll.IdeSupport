@@ -23,6 +23,7 @@ public sealed class ConnectorDiscoveryService : IConnectorDiscoveryService
     private readonly IIdeSupportLogger _logger;
     private readonly IOutProcConnectorFactory _connectorFactory;
 
+    /// <summary>Initializes a new instance of the <see cref="ConnectorDiscoveryService"/> class.</summary>
     public ConnectorDiscoveryService(IIdeSupportLogger logger, IOutProcConnectorFactory connectorFactory)
     {
         _logger = logger;

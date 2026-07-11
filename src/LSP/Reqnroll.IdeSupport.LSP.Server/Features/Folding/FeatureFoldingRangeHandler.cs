@@ -28,6 +28,7 @@ public sealed class FeatureFoldingRangeHandler
     private readonly IIdeSupportLogger               _logger;
     private readonly IOperationDurationRecorder     _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="FeatureFoldingRangeHandler"/> class.</summary>
     public FeatureFoldingRangeHandler(
         IDocumentBufferService documentBufferService,
         IGherkinFoldingRangeService foldingService,
@@ -40,6 +41,7 @@ public sealed class FeatureFoldingRangeHandler
         _recorder              = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Handles a <c>textDocument/foldingRange</c> request for feature-file folding regions.</summary>
     public Task<Container<FoldingRange>?> HandleAsync(
         FoldingRangeRequestParam request, CancellationToken ct)
     {

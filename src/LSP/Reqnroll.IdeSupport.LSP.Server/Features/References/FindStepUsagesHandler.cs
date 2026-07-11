@@ -41,6 +41,7 @@ public sealed class FindStepUsagesHandler
     private readonly IIdeSupportLogger               _logger;
     private readonly IOperationDurationRecorder    _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="FindStepUsagesHandler"/> class.</summary>
     public FindStepUsagesHandler(
         IBindingMatchService          matchService,
         ILspWorkspaceScopeManager     scopeManager,

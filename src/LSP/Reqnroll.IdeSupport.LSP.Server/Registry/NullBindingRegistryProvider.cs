@@ -9,6 +9,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Registry;
 /// </summary>
 public sealed class NullBindingRegistryProvider : IBindingRegistryProvider
 {
+    /// <summary>Gets or sets the current.</summary>
     public ProjectBindingRegistry Current => ProjectBindingRegistry.Invalid;
 
     /// <inheritdoc/>

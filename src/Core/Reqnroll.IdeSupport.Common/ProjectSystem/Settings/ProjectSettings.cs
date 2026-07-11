@@ -1,56 +1,55 @@
 namespace Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
 
-/// <summary>Initializes a new instance of the <see cref="ProjectSettings"/> class.</summary>
-/// <summary>ProjectSettings</summary>
+/// <summary>Represents the discovered settings for a single project.</summary>
+/// <param name="Kind">The project kind.</param>
+/// <param name="TargetFrameworkMoniker">The target framework moniker.</param>
+/// <param name="TargetFrameworkMonikers">The full target framework monikers string.</param>
+/// <param name="PlatformTarget">The platform target.</param>
+/// <param name="OutputAssemblyPath">The output assembly path.</param>
+/// <param name="DefaultNamespace">The default namespace.</param>
+/// <param name="ReqnrollVersion">The Reqnroll package version.</param>
+/// <param name="ReqnrollGeneratorFolder">The Reqnroll generator folder path.</param>
+/// <param name="ReqnrollConfigFilePath">The Reqnroll configuration file path.</param>
+/// <param name="ReqnrollProjectTraits">The project traits flags.</param>
+/// <param name="ProgrammingLanguage">The programming language.</param>
 public record ProjectSettings(
-    /// <summary>Gets or sets the kind.</summary>
     DeveroomProjectKind Kind,
-    /// <summary>Gets or sets the target framework moniker.</summary>
     TargetFrameworkMoniker TargetFrameworkMoniker,
-    /// <summary>Gets or sets the target framework monikers.</summary>
     string TargetFrameworkMonikers,
-    /// <summary>Gets or sets the platform target.</summary>
     ProjectPlatformTarget PlatformTarget,
-    /// <summary>Gets or sets the output assembly path.</summary>
     string OutputAssemblyPath,
-    /// <summary>Gets or sets the default namespace.</summary>
     string DefaultNamespace,
-    /// <summary>Gets or sets the reqnroll version.</summary>
     NuGetVersion ReqnrollVersion,
-    /// <summary>Gets or sets the reqnroll generator folder.</summary>
     string ReqnrollGeneratorFolder,
-    /// <summary>Gets or sets the reqnroll config file path.</summary>
     string ReqnrollConfigFilePath,
-    /// <summary>Gets or sets the reqnroll project traits.</summary>
     ReqnrollProjectTraits ReqnrollProjectTraits,
-    /// <summary>Gets or sets the programming language.</summary>
     ProjectProgrammingLanguage ProgrammingLanguage
 )
 {
-    /// <summary>Gets or sets the is uninitialized.</summary>
+    /// <summary>Gets a value indicating whether the project is uninitialized.</summary>
     public bool IsUninitialized => Kind == DeveroomProjectKind.Uninitialized;
-    /// <summary>Gets or sets the is reqnroll test project.</summary>
+    /// <summary>Gets a value indicating whether this is a Reqnroll test project.</summary>
     public bool IsReqnrollTestProject => Kind == DeveroomProjectKind.ReqnrollTestProject;
-    /// <summary>Gets or sets the is reqnroll lib project.</summary>
+    /// <summary>Gets a value indicating whether this is a Reqnroll library project.</summary>
     public bool IsReqnrollLibProject => Kind == DeveroomProjectKind.ReqnrollLibProject;
-    /// <summary>Gets or sets the is reqnroll project.</summary>
+    /// <summary>Gets a value indicating whether this is a Reqnroll project.</summary>
     public bool IsReqnrollProject => IsReqnrollTestProject || IsReqnrollLibProject;
-    /// <summary>Gets or sets the is spec flow project.</summary>
+    /// <summary>Gets a value indicating whether this is a SpecFlow project.</summary>
     public bool IsSpecFlowProject => IsReqnrollProject && ReqnrollProjectTraits.HasFlag(ReqnrollProjectTraits.LegacySpecFlow);
 
-    /// <summary>Gets or sets the design time feature file generation enabled.</summary>
+    /// <summary>Gets a value indicating whether design-time feature file generation is enabled.</summary>
     public bool DesignTimeFeatureFileGenerationEnabled =>
         ReqnrollProjectTraits.HasFlag(ReqnrollProjectTraits.DesignTimeFeatureFileGeneration);
 
-    /// <summary>Gets or sets the has design time generation replacement.</summary>
+    /// <summary>Gets a value indicating whether the project has a design-time generation replacement.</summary>
     public bool HasDesignTimeGenerationReplacement =>
         ReqnrollProjectTraits.HasFlag(ReqnrollProjectTraits.MsBuildGeneration) ||
         ReqnrollProjectTraits.HasFlag(ReqnrollProjectTraits.XUnitAdapter);
 
-    /// <summary>Gets or sets the get reqnroll version label.</summary>
+    /// <summary>Gets the Reqnroll version label.</summary>
     public string GetReqnrollVersionLabel() => ReqnrollVersion?.ToString() ?? "n/a";
 
-    /// <summary>Gets or sets the get short label.</summary>
+    /// <summary>Gets a short display label for the project.</summary>
     public string GetShortLabel()
     {
         var result = $"{TargetFrameworkMoniker}";

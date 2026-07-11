@@ -14,11 +14,13 @@ public sealed class LspTelemetryService : ILspTelemetryService
 {
     private readonly ILanguageServerFacade _languageServer;
 
+    /// <summary>Initializes a new instance of the <see cref="LspTelemetryService"/> class.</summary>
     public LspTelemetryService(ILanguageServerFacade languageServer)
     {
         _languageServer = languageServer;
     }
 
+    /// <summary>Gets or sets the send event.</summary>
     public void SendEvent(string eventName, Dictionary<string, object?> properties)
     {
         _languageServer.SendNotification(LspMethodNames.TelemetryEvent, new

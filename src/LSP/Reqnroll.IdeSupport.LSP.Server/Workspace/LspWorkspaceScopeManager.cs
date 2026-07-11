@@ -34,6 +34,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
     // would normally trigger is deferred here until the project actually loads.
     private readonly ConcurrentDictionary<ProjectKey, bool> _pendingFullRescan = new();
 
+    /// <summary>Initializes a new instance of the <see cref="LspWorkspaceScopeManager"/> class.</summary>
     public LspWorkspaceScopeManager(IIdeScope ideScope, IIdeSupportLogger logger, IMediator mediator)
     {
         _ideScope  = ideScope;
@@ -43,9 +44,12 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
 
     // ── Folder lifecycle ──────────────────────────────────────────────────────
 
+    /// <summary>Gets or sets the scope opened.</summary>
     public event Action<LspProjectScope>? ScopeOpened;
+    /// <summary>Gets or sets the scope closed.</summary>
     public event Action<LspProjectScope>? ScopeClosed;
 
+    /// <summary>Gets or sets the open workspace.</summary>
     public void OpenWorkspace(string rootPath)
     {
         var key = Normalise(rootPath);
@@ -60,6 +64,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
             ScopeOpened?.Invoke(added);
     }
 
+    /// <summary>Gets or sets the close workspace.</summary>
     public void CloseWorkspace(string rootPath)
     {
         var key = Normalise(rootPath);
@@ -80,9 +85,12 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
 
     // ── Project lifecycle ─────────────────────────────────────────────────────
 
+    /// <summary>Gets or sets the project discovered.</summary>
     public event Action<LspReqnrollProject>? ProjectDiscovered;
+    /// <summary>Gets or sets the project removed.</summary>
     public event Action<LspReqnrollProject>? ProjectRemoved;
 
+    /// <summary>Gets or sets the handle project loaded async.</summary>
     public Task HandleProjectLoadedAsync(
         ReqnrollProjectLoadedParams parameters,
         CancellationToken cancellationToken)
@@ -165,6 +173,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         }
     }
 
+    /// <summary>Gets or sets the handle project unloaded async.</summary>
     public Task HandleProjectUnloadedAsync(
         ReqnrollProjectUnloadedParams parameters,
         CancellationToken cancellationToken)
@@ -188,6 +197,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
 
     // ── Lookup ────────────────────────────────────────────────────────────────
 
+    /// <summary>Gets or sets the get scope for uri.</summary>
     public LspProjectScope? GetScopeForUri(DocumentUri uri)
     {
         var filePath = uri.GetFileSystemPath();
@@ -200,6 +210,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
             .FirstOrDefault();
     }
 
+    /// <summary>Gets or sets the get project for uri.</summary>
     public LspReqnrollProject? GetProjectForUri(DocumentUri uri)
     {
         var filePath = uri.GetFileSystemPath();
@@ -213,6 +224,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
             .FirstOrDefault();
     }
 
+    /// <summary>Gets or sets the get project by output path.</summary>
     public LspReqnrollProject? GetProjectByOutputPath(string assemblyPath)
     {
         if (string.IsNullOrEmpty(assemblyPath))
@@ -225,6 +237,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
                 StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>Gets or sets the get configuration provider for uri.</summary>
     public IDeveroomConfigurationProvider GetConfigurationProviderForUri(DocumentUri uri)
     {
         var project = GetProjectForUri(uri);
@@ -237,6 +250,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
 
     // ── Membership index (workspace scope / project membership tracking) ────
 
+    /// <summary>Gets or sets the handle project files async.</summary>
     public async Task HandleProjectFilesAsync(
         ReqnrollProjectFilesParams parameters,
         CancellationToken cancellationToken)
@@ -332,6 +346,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         }
     }
 
+    /// <summary>Gets or sets the get projects for uri.</summary>
     public IReadOnlyCollection<LspReqnrollProject> GetProjectsForUri(DocumentUri uri)
     {
         var filePath = NormaliseFilePath(uri.GetFileSystemPath() ?? string.Empty);
@@ -356,6 +371,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         return result;
     }
 
+    /// <summary>Gets or sets the resolve owners.</summary>
     public IReadOnlyCollection<LspReqnrollProject> ResolveOwners(DocumentUri uri)
     {
         var indexOwners = GetProjectsForUri(uri);
@@ -372,6 +388,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         return [];  // Unowned
     }
 
+    /// <summary>Gets or sets the resolve primary owner.</summary>
     public LspReqnrollProject? ResolvePrimaryOwner(DocumentUri uri)
     {
         var owners = ResolveOwners(uri);
@@ -399,6 +416,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
             .First();
     }
 
+    /// <summary>Gets or sets the get membership state.</summary>
     public MembershipState GetMembershipState(DocumentUri uri)
     {
         var filePath = NormaliseFilePath(uri.GetFileSystemPath() ?? string.Empty);
@@ -443,6 +461,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         return MembershipState.Unowned;
     }
 
+    /// <summary>Gets or sets the get indexed feature files.</summary>
     public IReadOnlyCollection<string> GetIndexedFeatureFiles(LspReqnrollProject project)
     {
         var key = MakeKey(project);
@@ -457,6 +476,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         }
     }
 
+    /// <summary>Gets or sets the get binding file paths for project.</summary>
     public IReadOnlyCollection<string> GetBindingFilePathsForProject(LspReqnrollProject project)
     {
         var key = MakeKey(project);
@@ -471,6 +491,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         }
     }
 
+    /// <summary>Gets or sets the has baseline for project.</summary>
     public bool HasBaselineForProject(LspReqnrollProject project)
         => _baselineReceived.ContainsKey(MakeKey(project));
 
@@ -525,6 +546,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
 
     // ── IDisposable ───────────────────────────────────────────────────────────
 
+    /// <summary>Gets or sets the dispose.</summary>
     public void Dispose()
     {
         foreach (var key in _scopes.Keys.ToArray())

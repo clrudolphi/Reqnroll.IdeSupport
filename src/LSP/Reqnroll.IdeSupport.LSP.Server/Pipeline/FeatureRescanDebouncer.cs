@@ -14,12 +14,14 @@ public sealed class FeatureRescanDebouncer : IFeatureRescanDebouncer, IDisposabl
     private readonly IOperationDurationRecorder _recorder;
     private readonly ConcurrentDictionary<LspReqnrollProject, CancellationTokenSource> _pending = new();
 
+    /// <summary>Initializes a new instance of the <see cref="FeatureRescanDebouncer"/> class.</summary>
     public FeatureRescanDebouncer(IIdeSupportLogger logger, IOperationDurationRecorder? recorder = null)
     {
         _logger = logger;
         _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Gets or sets the schedule rescan.</summary>
     public void ScheduleRescan(LspReqnrollProject project, Func<CancellationToken, Task> rescanAsync)
     {
         var newCts = new CancellationTokenSource();
@@ -64,6 +66,7 @@ public sealed class FeatureRescanDebouncer : IFeatureRescanDebouncer, IDisposabl
         }
     }
 
+    /// <summary>Gets or sets the dispose.</summary>
     public void Dispose()
     {
         foreach (var cts in _pending.Values)

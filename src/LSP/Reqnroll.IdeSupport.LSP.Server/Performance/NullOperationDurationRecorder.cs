@@ -9,6 +9,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Performance;
 /// </summary>
 public sealed class NullOperationDurationRecorder : IOperationDurationRecorder
 {
+    /// <summary>Gets or sets the instance.</summary>
     public static readonly NullOperationDurationRecorder Instance = new();
 
     private NullOperationDurationRecorder() { }

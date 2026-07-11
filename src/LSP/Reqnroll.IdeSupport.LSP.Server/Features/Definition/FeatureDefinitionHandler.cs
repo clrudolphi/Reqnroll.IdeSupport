@@ -31,6 +31,7 @@ public sealed class FeatureDefinitionHandler : IDefinitionHandler
     private readonly IIdeSupportLogger           _logger;
     private readonly IOperationDurationRecorder _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="FeatureDefinitionHandler"/> class.</summary>
     public FeatureDefinitionHandler(
         IBindingMatchService      matchService,
         IDocumentBufferService    bufferService,
@@ -45,6 +46,7 @@ public sealed class FeatureDefinitionHandler : IDefinitionHandler
         _recorder      = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Gets or sets the get registration options.</summary>
     public DefinitionRegistrationOptions GetRegistrationOptions(
         DefinitionCapability    capability,
         ClientCapabilities      clientCapabilities)
@@ -54,6 +56,7 @@ public sealed class FeatureDefinitionHandler : IDefinitionHandler
                 new TextDocumentFilter { Pattern = "**/*.feature" })
         };
 
+    /// <summary>Handles a <c>textDocument/definition</c> request for step-definition navigation.</summary>
     public Task<LocationOrLocationLinks?> Handle(
         DefinitionParams  request,
         CancellationToken cancellationToken)

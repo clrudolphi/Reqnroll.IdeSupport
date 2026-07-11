@@ -51,7 +51,7 @@ public sealed class IdeSupportLoggerAdapter : ILogger
     /// <summary>Gets or sets the is enabled.</summary>
     public bool IsEnabled(LogLevel logLevel) => _logger.IsLogging(IdeSupportLogLevelConverter.ToTraceLevel(logLevel));
 
-    /// <summary>Gets or sets the log<tstate>.</summary>
+    /// <summary>Writes a log entry for the specified category.</summary>
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
         Func<TState, Exception?, string> formatter)
     {
@@ -59,7 +59,7 @@ public sealed class IdeSupportLoggerAdapter : ILogger
             _categoryName, exception));
     }
 
-    /// <summary>Gets or sets the begin scope<tstate>.</summary>
+    /// <summary>Begins a logical operation scope.</summary>
     public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
 
     private sealed class NullScope : IDisposable

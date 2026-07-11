@@ -14,11 +14,13 @@ public sealed class SetTraceNotificationHandler : SetTraceHandlerBase
 {
     private readonly ITraceService _traceService;
 
+    /// <summary>Initializes a new instance of the <see cref="SetTraceNotificationHandler"/> class.</summary>
     public SetTraceNotificationHandler(ITraceService traceService)
     {
         _traceService = traceService;
     }
 
+    /// <summary>Gets or sets the handle.</summary>
     public override Task<Unit> Handle(SetTraceParams request, CancellationToken cancellationToken)
     {
         _traceService.Level = request.Value;

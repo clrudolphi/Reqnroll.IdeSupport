@@ -12,6 +12,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.Definition;
 /// </summary>
 public sealed class GoToStepDefinitionsResponse
 {
+    /// <summary>Gets or sets the step definitions.</summary>
     [JsonProperty("stepDefinitions")]
     public List<GoToStepDefinitionLocation> StepDefinitions { get; set; } = new();
 }

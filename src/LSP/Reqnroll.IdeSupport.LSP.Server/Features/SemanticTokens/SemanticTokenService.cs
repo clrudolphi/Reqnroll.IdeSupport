@@ -37,6 +37,7 @@ public sealed class SemanticTokenService : ISemanticTokenService
     public SemanticTokensLegend Legend => ReqnrollSemanticTokens.Legend;
 
     // ── Construction ──────────────────────────────────────────────────────────
+    /// <summary>Initializes a new instance of the <see cref="SemanticTokenService"/> class.</summary>
     public SemanticTokenService(
         IDocumentBufferService documentBufferService,
         IIdeSupportLogger         logger)
@@ -46,6 +47,7 @@ public sealed class SemanticTokenService : ISemanticTokenService
     }
 
     // ── ISemanticTokenService ─────────────────────────────────────────────────
+    /// <summary>Gets or sets the get semantic tokens async.</summary>
     public Task<global::OmniSharp.Extensions.LanguageServer.Protocol.Models.SemanticTokens?> GetSemanticTokensAsync(
         DocumentUri uri, int version, CancellationToken cancellationToken = default)
     {

@@ -12,6 +12,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.Definition;
 /// </summary>
 public sealed class GoToHooksResponse
 {
+    /// <summary>Gets or sets the hooks.</summary>
     [JsonProperty("hooks")]
     public List<GoToHookLocation> Hooks { get; set; } = new();
 }

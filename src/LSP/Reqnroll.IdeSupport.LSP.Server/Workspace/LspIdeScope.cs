@@ -12,6 +12,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Workspace;
 /// </summary>
 public sealed class LspIdeScope : IIdeScope
 {
+    /// <summary>Initializes a new instance of the <see cref="LspIdeScope"/> class.</summary>
     public LspIdeScope(IIdeSupportLogger logger)
     {
         Logger = logger;
@@ -20,10 +21,15 @@ public sealed class LspIdeScope : IIdeScope
         Actions = new LspIdeActions(logger);
     }
 
+    /// <summary>Gets or sets the is solution loaded.</summary>
     public bool IsSolutionLoaded => true;
+    /// <summary>Gets or sets the logger.</summary>
     public IIdeSupportLogger Logger { get; }
+    /// <summary>Gets or sets the telemetry service.</summary>
     public ITelemetryService TelemetryService { get; }
+    /// <summary>Gets or sets the actions.</summary>
     public IIdeActions Actions { get; }
+    /// <summary>Gets or sets the file system.</summary>
     public IFileSystemForIDE FileSystem { get; }
 
     // ── Inner type ────────────────────────────────────────────────────────────

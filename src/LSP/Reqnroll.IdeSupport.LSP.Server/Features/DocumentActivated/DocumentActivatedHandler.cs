@@ -33,6 +33,7 @@ public sealed class DocumentActivatedHandler
     private readonly IMediator                     _mediator;
     private readonly IIdeSupportLogger                _logger;
 
+    /// <summary>Initializes a new instance of the <see cref="DocumentActivatedHandler"/> class.</summary>
     public DocumentActivatedHandler(
         IGherkinDocumentTaggerService taggerService,
         IDocumentBufferService        documentBufferService,
@@ -45,6 +46,7 @@ public sealed class DocumentActivatedHandler
         _logger                = logger;
     }
 
+    /// <summary>Handles a <c>reqnroll/documentActivated</c> notification to force a match recompute.</summary>
     public async Task HandleAsync(DocumentActivatedParams request, CancellationToken cancellationToken)
     {
         var uri = request.Uri;

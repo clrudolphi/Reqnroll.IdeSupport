@@ -15,13 +15,21 @@ public abstract class OutProcReqnrollConnector
 {
     private const string BindingDiscoveryCommandName = "binding discovery";
 
+    /// <summary>Gets or sets the _configuration.</summary>
     protected readonly DeveroomConfiguration _configuration;
+    /// <summary>Gets or sets the _extension folder.</summary>
     protected readonly string _extensionFolder;
+    /// <summary>Gets or sets the _logger.</summary>
     protected readonly IIdeSupportLogger _logger;
+    /// <summary>Gets or sets the _telemetry service.</summary>
     protected readonly ITelemetryService _telemetryService;
+    /// <summary>Gets or sets the _processor architecture.</summary>
     protected readonly ProcessorArchitectureSetting _processorArchitecture;
+    /// <summary>Gets or sets the _project settings.</summary>
     protected readonly ProjectSettings _projectSettings;
+    /// <summary>Gets or sets the _target framework moniker.</summary>
     protected readonly TargetFrameworkMoniker _targetFrameworkMoniker;
+    /// <summary>Gets or sets the reqnroll version.</summary>
     protected NuGetVersion ReqnrollVersion => _projectSettings.ReqnrollVersion;
 
     /// <summary>Initializes the connector's shared configuration, logging, and project settings.</summary>
@@ -42,6 +50,7 @@ public abstract class OutProcReqnrollConnector
     private bool DebugConnector => _configuration.DebugConnector ||
                                    Environment.GetEnvironmentVariable("DEVEROOM_DEBUGCONNECTOR") == "1";
 
+    /// <summary>Gets or sets the get connector type.</summary>
     protected virtual string GetConnectorType()
     {
         return GetType().Name.Replace(nameof(OutProcReqnrollConnector), "");
@@ -154,6 +163,7 @@ public abstract class OutProcReqnrollConnector
             $"Error during {command}. {Environment.NewLine}Command executed:{Environment.NewLine}  {result.CommandLine}{Environment.NewLine}Exit code: {exitCode}{Environment.NewLine}Message: {Environment.NewLine}{errorMessage}";
     }
 
+    /// <summary>Gets or sets the get connector path.</summary>
     protected abstract string GetConnectorPath(List<string> arguments);
 
     private static string ExtractJsonPayload(string stdout)
@@ -179,6 +189,7 @@ public abstract class OutProcReqnrollConnector
         return Path.Combine(programFiles!, "dotnet");
     }
 
+    /// <summary>Gets or sets the get dot net exec command.</summary>
     protected string GetDotNetExecCommand(List<string> arguments, string executableFolder, string executableFile)
     {
 #if DEBUG
@@ -205,6 +216,7 @@ public abstract class OutProcReqnrollConnector
     internal static string ResolveNonWindowsDotNetCommand(string dotNetRoot) =>
         string.IsNullOrEmpty(dotNetRoot) ? "dotnet" : Path.Combine(dotNetRoot, "dotnet");
 
+    /// <summary>Gets or sets the get connectors folder.</summary>
     protected string GetConnectorsFolder()
     {
         var connectorsFolder = Path.Combine(_extensionFolder, "Connectors");

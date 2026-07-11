@@ -28,7 +28,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Rename;
 ///     into the feature file.
 ///   </description></item>
 /// </list>
-/// <para>If neither strategy applies, returns <paramref name="newExpression"/> unchanged.</para>
+/// <para>If neither strategy applies, returns the new expression unchanged.</para>
 /// </summary>
 public static class FeatureStepTextBuilder
 {

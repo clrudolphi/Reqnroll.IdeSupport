@@ -28,6 +28,7 @@ public class SemanticTokensPushHandler : INotificationHandler<MatchCacheChangedN
     private readonly IIdeSupportLogger _logger;
     private readonly IOperationDurationRecorder _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="SemanticTokensPushHandler"/> class.</summary>
     public SemanticTokensPushHandler(
         ILanguageServerFacade languageServer,
         ISemanticTokenService tokenService,
@@ -42,6 +43,7 @@ public class SemanticTokensPushHandler : INotificationHandler<MatchCacheChangedN
         _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Gets or sets the handle.</summary>
     public async Task Handle(MatchCacheChangedNotification notification, CancellationToken cancellationToken)
     {
         // Only Visual Studio needs the push; all other clients pull semantic tokens themselves.

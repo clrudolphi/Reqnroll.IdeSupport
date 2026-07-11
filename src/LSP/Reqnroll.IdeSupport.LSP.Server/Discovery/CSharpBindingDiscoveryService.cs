@@ -28,6 +28,7 @@ public sealed class CSharpBindingDiscoveryService : ICSharpBindingDiscoveryServi
     private readonly IIdeSupportLogger _logger;
     private readonly ILspTelemetryService? _telemetryService;
 
+    /// <summary>Initializes a new instance of the <see cref="CSharpBindingDiscoveryService"/> class.</summary>
     public CSharpBindingDiscoveryService(
         ILspWorkspaceScopeManager scopeManager,
         IIdeSupportLogger logger,
@@ -38,6 +39,7 @@ public sealed class CSharpBindingDiscoveryService : ICSharpBindingDiscoveryServi
         _telemetryService = telemetryService;
     }
 
+    /// <summary>Gets or sets the update from source async.</summary>
     public async Task UpdateFromSourceAsync(DocumentUri uri, string text, bool isOpen, CancellationToken cancellationToken)
     {
         var owners = _scopeManager.ResolveOwners(uri);
@@ -80,6 +82,7 @@ public sealed class CSharpBindingDiscoveryService : ICSharpBindingDiscoveryServi
         });
     }
 
+    /// <summary>Gets or sets the update from source for project async.</summary>
     public async Task UpdateFromSourceForProjectAsync(
         LspReqnrollProject project, string filePath, string text, CancellationToken cancellationToken)
     {
@@ -90,6 +93,7 @@ public sealed class CSharpBindingDiscoveryService : ICSharpBindingDiscoveryServi
         await ApplyToProjectAsync(project, filePath, text).ConfigureAwait(false);
     }
 
+    /// <summary>Gets or sets the remove file async.</summary>
     public async Task RemoveFileAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
         var owners = _scopeManager.ResolveOwners(uri);
