@@ -14,10 +14,10 @@ public sealed record GherkinFoldingRange(
 /// </summary>
 public enum GherkinFoldingRangeKind
 {
-    /// <summary>Gets or sets the comment.</summary>
+    /// <summary>A comment block region.</summary>
     Comment,
-    /// <summary>Gets or sets the imports.</summary>
+    /// <summary>An imports/using-declarations region.</summary>
     Imports,
-    /// <summary>Gets or sets the region.</summary>
+    /// <summary>A generic named region (e.g. a Gherkin block such as a scenario, rule, or examples table).</summary>
     Region
 }

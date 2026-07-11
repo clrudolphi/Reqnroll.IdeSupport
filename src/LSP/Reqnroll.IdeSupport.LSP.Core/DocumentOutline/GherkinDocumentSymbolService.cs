@@ -10,7 +10,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.DocumentOutline;
 /// <summary>GherkinDocumentSymbolService</summary>
 public class GherkinDocumentSymbolService : IGherkinDocumentSymbolService
 {
-    /// <summary>Gets or sets the build symbols.</summary>
+    /// <summary>Builds the document-outline symbol tree (feature, rules, scenarios, steps, examples) from the parsed Deveroom tags.</summary>
     public IReadOnlyList<GherkinDocumentSymbol> BuildSymbols(IReadOnlyCollection<DeveroomTag> tags)
     {
         var featureTag = tags.FirstOrDefault(t => t.Type == DeveroomTagTypes.FeatureBlock);

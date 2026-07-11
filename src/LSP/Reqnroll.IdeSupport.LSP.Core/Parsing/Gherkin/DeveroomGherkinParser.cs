@@ -144,7 +144,7 @@ public class DeveroomGherkinParser
 
     #region Semantic Errors
 
-    /// <summary>Gets or sets the check semantic errors.</summary>
+    /// <summary>Validates the parsed document for semantic (non-syntax) errors, such as inconsistent step keywords, and records them on the document.</summary>
     protected virtual void CheckSemanticErrors(DeveroomGherkinDocument reqnrollDocument)
     {
         var errors = new List<ParserException>();

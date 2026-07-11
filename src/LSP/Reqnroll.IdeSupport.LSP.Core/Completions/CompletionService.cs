@@ -16,7 +16,7 @@ public sealed class CompletionService : ICompletionService
 {
     // ── Gherkin keyword completion ──────────────────────────────────────────────
 
-    /// <summary>Gets or sets the get keyword completions.</summary>
+    /// <summary>Builds keyword completion entries for the given expected token types, in the given dialect.</summary>
     public CompletionResult GetKeywordCompletions(TokenType[] expectedTokens, GherkinDialect dialect)
     {
         var entries = new List<CompletionEntry>();
@@ -25,7 +25,7 @@ public sealed class CompletionService : ICompletionService
         return new CompletionResult(entries);
     }
 
-    /// <summary>Gets or sets the get default keyword completions.</summary>
+    /// <summary>Builds the permissive fallback keyword completion list (all step and block keywords) used when the document could not be parsed.</summary>
     public CompletionResult GetDefaultKeywordCompletions(GherkinDialect dialect)
     {
         var entries = new List<CompletionEntry>();
@@ -100,7 +100,7 @@ public sealed class CompletionService : ICompletionService
 
     // ── Step-definition-sample completion ───────────────────────────────────────
 
-    /// <summary>Gets or sets the get step completions.</summary>
+    /// <summary>Builds ranked step-definition-sample completion entries matching the step's <c>ScenarioBlock</c> and the text typed so far.</summary>
     public CompletionResult GetStepCompletions(
         DeveroomGherkinStep                     step,
         string                                  typedAfterKeyword,

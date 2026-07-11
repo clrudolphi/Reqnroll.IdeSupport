@@ -6,8 +6,8 @@ namespace Reqnroll.IdeSupport.LSP.Core.Diagnostics;
 /// </summary>
 public enum GherkinDiagnosticSeverity
 {
-    /// <summary>Gets or sets the error.</summary>
+    /// <summary>A binding or parse problem that prevents correct execution, e.g. an undefined or ambiguous step.</summary>
     Error   = 1,
-    /// <summary>Gets or sets the warning.</summary>
+    /// <summary>A non-blocking issue that does not prevent execution, e.g. a style or formatting concern.</summary>
     Warning = 2
 }

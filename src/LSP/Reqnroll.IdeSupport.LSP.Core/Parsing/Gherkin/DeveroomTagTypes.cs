@@ -7,48 +7,48 @@ namespace Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 /// </summary>
 public static class DeveroomTagTypes
 {
-    /// <summary>Gets or sets the feature block.</summary>
+    /// <summary>Tag type for a Feature block.</summary>
     public const string FeatureBlock = nameof(FeatureBlock);
-    /// <summary>Gets or sets the rule block.</summary>
+    /// <summary>Tag type for a Rule block.</summary>
     public const string RuleBlock = nameof(RuleBlock);
-    /// <summary>Gets or sets the scenario definition block.</summary>
+    /// <summary>Tag type for a Scenario, Scenario Outline, or Background block.</summary>
     public const string ScenarioDefinitionBlock = nameof(ScenarioDefinitionBlock);
-    /// <summary>Gets or sets the scenario hook reference.</summary>
+    /// <summary>Tag type for a reference to a hook that applies to a scenario.</summary>
     public const string ScenarioHookReference = nameof(ScenarioHookReference);
-    /// <summary>Gets or sets the step block.</summary>
+    /// <summary>Tag type for a single Gherkin step line.</summary>
     public const string StepBlock = nameof(StepBlock);
-    /// <summary>Gets or sets the examples block.</summary>
+    /// <summary>Tag type for an Examples block within a Scenario Outline.</summary>
     public const string ExamplesBlock = nameof(ExamplesBlock);
-    /// <summary>Gets or sets the step keyword.</summary>
+    /// <summary>Tag type for a step's leading keyword (Given/When/Then/And/But).</summary>
     public const string StepKeyword = nameof(StepKeyword);
-    /// <summary>Gets or sets the definition line keyword.</summary>
+    /// <summary>Tag type for the keyword introducing a Feature/Rule/Scenario/Examples definition line.</summary>
     public const string DefinitionLineKeyword = nameof(DefinitionLineKeyword);
-    /// <summary>Gets or sets the undefined step.</summary>
+    /// <summary>Tag type for a step with no matching binding.</summary>
     public const string UndefinedStep = nameof(UndefinedStep);
-    /// <summary>Gets or sets the defined step.</summary>
+    /// <summary>Tag type for a step that resolves to exactly one binding.</summary>
     public const string DefinedStep = nameof(DefinedStep);
-    /// <summary>Gets or sets the ambiguous step.</summary>
+    /// <summary>Tag type for a step that matches more than one binding.</summary>
     public const string AmbiguousStep = nameof(AmbiguousStep);
-    /// <summary>Gets or sets the step parameter.</summary>
+    /// <summary>Tag type for a parameter placeholder within a step's text.</summary>
     public const string StepParameter = nameof(StepParameter);
-    /// <summary>Gets or sets the scenario outline placeholder.</summary>
+    /// <summary>Tag type for a <c>&lt;placeholder&gt;</c> token in a Scenario Outline step, substituted from the Examples table.</summary>
     public const string ScenarioOutlinePlaceholder = nameof(ScenarioOutlinePlaceholder);
-    /// <summary>Gets or sets the binding error.</summary>
+    /// <summary>Tag type for a step-binding error (e.g. a binding resolution failure) distinct from a parser syntax error.</summary>
     public const string BindingError = nameof(BindingError);
-    /// <summary>Gets or sets the data table.</summary>
+    /// <summary>Tag type for a data table attached to a step.</summary>
     public const string DataTable = nameof(DataTable);
-    /// <summary>Gets or sets the tag.</summary>
+    /// <summary>Tag type for an <c>@tag</c> annotation on a feature, scenario, or examples block.</summary>
     public const string Tag = nameof(Tag);
-    /// <summary>Gets or sets the description.</summary>
+    /// <summary>Tag type for the free-text description under a Feature/Rule/Scenario/Examples header.</summary>
     public const string Description = nameof(Description);
-    /// <summary>Gets or sets the comment.</summary>
+    /// <summary>Tag type for a <c>#</c> comment line.</summary>
     public const string Comment = nameof(Comment);
-    /// <summary>Gets or sets the doc string.</summary>
+    /// <summary>Tag type for a multi-line doc-string (<c>"""</c> or <c>```</c>) attached to a step.</summary>
     public const string DocString = nameof(DocString);
-    /// <summary>Gets or sets the parser error.</summary>
+    /// <summary>Tag type for a Gherkin syntax parser error.</summary>
     public const string ParserError = nameof(ParserError);
-    /// <summary>Gets or sets the document.</summary>
+    /// <summary>Tag type for the root node representing the whole parsed document.</summary>
     public const string Document = nameof(Document);
-    /// <summary>Gets or sets the data table header.</summary>
+    /// <summary>Tag type for the header row of a data table.</summary>
     public const string DataTableHeader = nameof(DataTableHeader);
 }

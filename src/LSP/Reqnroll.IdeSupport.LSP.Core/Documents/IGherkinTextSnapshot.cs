@@ -6,27 +6,27 @@ namespace Reqnroll.IdeSupport.LSP.Core.Documents;
 /// </summary>
 public interface IGherkinTextSnapshot
 {
-    /// <summary>Gets or sets the version.</summary>
+    /// <summary>Gets the version number of this text snapshot.</summary>
     int Version { get; }
-    /// <summary>Gets or sets the line count.</summary>
+    /// <summary>Gets the number of lines in the snapshot.</summary>
     int LineCount { get; }
-    /// <summary>Gets or sets the length.</summary>
+    /// <summary>Gets the total character length of the snapshot.</summary>
     int Length { get; }
-    /// <summary>Gets or sets the get text.</summary>
+    /// <summary>Gets the full text of the snapshot.</summary>
     string GetText();
-    /// <summary>Gets or sets the get line from line number.</summary>
+    /// <summary>Gets the line at the given zero-based line number.</summary>
     IGherkinTextSnapshotLine GetLineFromLineNumber(int lineNumber); // 0-based
 }
 
 /// <summary>IGherkinTextSnapshotLine</summary>
 public interface IGherkinTextSnapshotLine
 {
-    /// <summary>Gets or sets the line number.</summary>
+    /// <summary>Gets the zero-based line number.</summary>
     int LineNumber { get; }           // 0-based
-    /// <summary>Gets or sets the start.</summary>
+    /// <summary>Gets the character offset of the start of the line from the start of the document.</summary>
     int Start { get; }                // char offset from document start
-    /// <summary>Gets or sets the end.</summary>
-    int End { get; }                  // incluise of line break chars   
-    /// <summary>Gets or sets the get text.</summary>
+    /// <summary>Gets the character offset of the end of the line, inclusive of line-break characters.</summary>
+    int End { get; }                  // incluise of line break chars
+    /// <summary>Gets the text of this line.</summary>
     string GetText();
 }

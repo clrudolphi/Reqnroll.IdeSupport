@@ -10,17 +10,17 @@ public class GherkinRange : IEquatable<GherkinRange>
         Start = start;
         Length = length;
     }
-    /// <summary>Gets or sets the snapshot.</summary>
+    /// <summary>Gets the text snapshot this range is defined against.</summary>
     public IGherkinTextSnapshot Snapshot { get; }
-    /// <summary>Gets or sets the start.</summary>
+    /// <summary>Gets the zero-based character offset where the range starts.</summary>
     public int Start { get; }
-    /// <summary>Gets or sets the length.</summary>
+    /// <summary>Gets the length of the range, in characters.</summary>
     public int Length { get; }
-    /// <summary>Gets or sets the end.</summary>
+    /// <summary>Gets the exclusive character offset where the range ends (<c>Start + Length</c>).</summary>
     public int End => Start + Length;
 
     // Mirrors SnapshotSpan(startLine.Start, endLine.End) construction pattern
-    /// <summary>Gets or sets the from lines.</summary>
+    /// <summary>Creates a range spanning from the start of <paramref name="startLine"/> to the end of <paramref name="endLine"/>.</summary>
     public static GherkinRange FromLines(
         IGherkinTextSnapshot snapshot,
         IGherkinTextSnapshotLine startLine,
@@ -30,7 +30,7 @@ public class GherkinRange : IEquatable<GherkinRange>
     }
 
     // Mirrors new SnapshotSpan(startPoint, length) construction pattern
-    /// <summary>Gets or sets the from point.</summary>
+    /// <summary>Creates a range starting at <paramref name="startOffset"/> with the given <paramref name="length"/>, validated against the snapshot's bounds.</summary>
     public static GherkinRange FromPoint(
         IGherkinTextSnapshot snapshot, int startOffset, int length)
     {
@@ -51,7 +51,7 @@ public class GherkinRange : IEquatable<GherkinRange>
     // Mirrors SnapshotSpan.IntersectsWith
     // Two ranges intersect if they have positions in common, or the end of one
     // coincides with the start of the other — provided neither range is empty.
-    /// <summary>Gets or sets the intersects with.</summary>
+    /// <summary>Determines whether this range and <paramref name="other"/> share any positions (touching end-to-start counts only when both ranges are non-empty).</summary>
     public bool IntersectsWith(GherkinRange other)
     {
         if (other is null)
@@ -67,7 +67,7 @@ public class GherkinRange : IEquatable<GherkinRange>
         return End >= other.Start && Start <= other.End;
     }
 
-    /// <summary>Gets or sets the equals.</summary>
+    /// <summary>Determines whether this range refers to the same snapshot, start, and length as <paramref name="other"/>.</summary>
     public bool Equals(GherkinRange other)
     {
         if (other is null)
@@ -79,9 +79,9 @@ public class GherkinRange : IEquatable<GherkinRange>
     }
 
     // Line/character resolution — needed by LSP response mapping
-    /// <summary>Gets or sets the start line position.</summary>
+    /// <summary>Gets the (line, character) position of the start of the range.</summary>
     public (int Line, int Character) StartLinePosition => ResolveOffset(Snapshot, Start);
-    /// <summary>Gets or sets the end line position.</summary>
+    /// <summary>Gets the (line, character) position of the end of the range.</summary>
     public (int Line, int Character) EndLinePosition   => ResolveOffset(Snapshot, End);
 
     /// <summary>
@@ -102,6 +102,6 @@ public class GherkinRange : IEquatable<GherkinRange>
     }
 
     // Used by VoidDeveroomTag
-    /// <summary>Gets or sets the empty.</summary>
+    /// <summary>A zero-length placeholder range backed by a null snapshot, used where no real range applies.</summary>
     public static readonly GherkinRange Empty = new GherkinRange(NullSnapshot.Instance, 0, 0);
 }

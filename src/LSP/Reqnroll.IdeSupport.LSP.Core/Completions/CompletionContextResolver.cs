@@ -27,7 +27,7 @@ public sealed class CompletionContextResolver : ICompletionContextResolver
         _telemetryService = telemetryService;
     }
 
-    /// <summary>Gets or sets the resolve.</summary>
+    /// <summary>Determines whether the cursor calls for keyword or step-definition completion and resolves the matching completion context, or <see langword="null"/> if neither applies.</summary>
     public CompletionContext? Resolve(
         IGherkinTextSnapshot   snapshot,
         int                    cursorLine,

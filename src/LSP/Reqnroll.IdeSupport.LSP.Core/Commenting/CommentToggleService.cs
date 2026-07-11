@@ -9,7 +9,7 @@ public class CommentToggleService : ICommentToggleService
 {
     private const char CommentChar = '#';
 
-    /// <summary>Gets or sets the toggle comment.</summary>
+    /// <summary>Toggles line comments for the given line range: uncomments if every line is already commented, otherwise comments all lines.</summary>
     public GherkinCommentToggleResult ToggleComment(
         string documentText,
         int rangeStartLine,

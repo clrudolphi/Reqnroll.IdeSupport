@@ -14,10 +14,10 @@ public class BindingScope
     /// <summary>Gets or sets the error.</summary>
     public string? Error { get; set; }
 
-    /// <summary>Gets or sets the is valid.</summary>
+    /// <summary>Gets whether the scope has no <see cref="Error"/> set.</summary>
     public bool IsValid => Error == null;
 
-    /// <summary>Gets or sets the to string.</summary>
+    /// <summary>Formats the tag expression together with any feature/scenario title and error, comma-separated.</summary>
     public override string ToString()
     {
         var result = Tag?.ToString() ?? "";

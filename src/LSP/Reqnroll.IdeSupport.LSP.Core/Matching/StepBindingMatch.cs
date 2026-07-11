@@ -54,11 +54,11 @@ public sealed class StepBindingMatch
     /// <summary>The full match result for the step (Defined / Undefined / Ambiguous, plus errors).</summary>
     public MatchResult Result { get; }
 
-    /// <summary>Gets or sets the is undefined.</summary>
+    /// <summary>Gets whether this step has no matching binding.</summary>
     public bool IsUndefined => Result.HasUndefined;
-    /// <summary>Gets or sets the is defined.</summary>
+    /// <summary>Gets whether this step matches exactly one binding.</summary>
     public bool IsDefined => Result.HasDefined;
-    /// <summary>Gets or sets the is ambiguous.</summary>
+    /// <summary>Gets whether this step matches more than one binding.</summary>
     public bool IsAmbiguous => Result.HasAmbiguous;
 
     /// <summary>

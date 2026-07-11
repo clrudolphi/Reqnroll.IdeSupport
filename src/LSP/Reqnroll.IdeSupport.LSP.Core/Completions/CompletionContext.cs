@@ -15,9 +15,9 @@ public abstract class CompletionContext { }
 /// </summary>
 public sealed class KeywordCompletionContext : CompletionContext
 {
-    /// <summary>Gets or sets the dialect.</summary>
+    /// <summary>Gets the Gherkin dialect in effect for the document.</summary>
     public GherkinDialect Dialect        { get; }
-    /// <summary>Gets or sets the expected tokens.</summary>
+    /// <summary>Gets the keyword token types valid at the cursor position, or empty if the document could not be parsed.</summary>
     public TokenType[]    ExpectedTokens { get; }
 
     /// <summary>Initializes a new instance of the <see cref="KeywordCompletionContext"/> class.</summary>

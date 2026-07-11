@@ -6,7 +6,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Completions;
 /// </summary>
 public sealed class CompletionResult
 {
-    /// <summary>Gets or sets the empty.</summary>
+    /// <summary>An empty, complete completion result with no candidates.</summary>
     public static readonly CompletionResult Empty = new(Array.Empty<CompletionEntry>());
 
     /// <summary>Initializes a new instance of the <see cref="CompletionResult"/> class.</summary>
@@ -16,8 +16,8 @@ public sealed class CompletionResult
         IsIncomplete = isIncomplete;
     }
 
-    /// <summary>Gets or sets the entries.</summary>
+    /// <summary>Gets the ordered list of completion candidates.</summary>
     public IReadOnlyList<CompletionEntry> Entries      { get; }
-    /// <summary>Gets or sets the is incomplete.</summary>
+    /// <summary>Gets whether more results exist beyond <see cref="Entries"/>, mapping to LSP <c>CompletionList.isIncomplete</c>.</summary>
     public bool                           IsIncomplete { get; }
 }

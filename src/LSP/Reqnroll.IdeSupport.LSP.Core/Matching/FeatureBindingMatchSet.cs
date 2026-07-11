@@ -19,7 +19,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Matching;
 /// </summary>
 public sealed class FeatureBindingMatchSet
 {
-    /// <summary>Gets or sets the empty.</summary>
+    /// <summary>An empty match set with no steps, keyed to an unknown document and project owner.</summary>
     public static readonly FeatureBindingMatchSet Empty =
         new(string.Empty, ProjectOwner.Unknown, null, 0, Array.Empty<StepBindingMatch>());
 
@@ -54,14 +54,14 @@ public sealed class FeatureBindingMatchSet
     /// <summary>The <see cref="ProjectBindingRegistry"/> version these matches were computed against.</summary>
     public int RegistryVersion { get; }
 
-    /// <summary>Gets or sets the steps.</summary>
+    /// <summary>Gets every step binding match in this feature document.</summary>
     public IReadOnlyList<StepBindingMatch> Steps { get; }
 
-    /// <summary>Gets or sets the undefined.</summary>
+    /// <summary>Gets the steps with no matching binding.</summary>
     public IEnumerable<StepBindingMatch> Undefined => Steps.Where(s => s.IsUndefined);
-    /// <summary>Gets or sets the defined.</summary>
+    /// <summary>Gets the steps with exactly one matching binding.</summary>
     public IEnumerable<StepBindingMatch> Defined   => Steps.Where(s => s.IsDefined);
-    /// <summary>Gets or sets the ambiguous.</summary>
+    /// <summary>Gets the steps that match more than one binding.</summary>
     public IEnumerable<StepBindingMatch> Ambiguous => Steps.Where(s => s.IsAmbiguous);
 
     /// <summary>The step whose text span contains <paramref name="offset"/>, or null. Used by Go to Step Definition.</summary>

@@ -15,18 +15,18 @@ public class SourceLocation
         SourceFileEndColumn = sourceFileEndColumn;
     }
 
-    /// <summary>Gets or sets the source file.</summary>
+    /// <summary>Gets the path of the source file.</summary>
     public string SourceFile { get; }
-    /// <summary>Gets or sets the source file line.</summary>
+    /// <summary>Gets the 1-based line number where the location begins.</summary>
     public int SourceFileLine { get; } // 1-based
-    /// <summary>Gets or sets the source file column.</summary>
+    /// <summary>Gets the 1-based column number where the location begins.</summary>
     public int SourceFileColumn { get; } // 1-based
-    /// <summary>Gets or sets the source file end line.</summary>
+    /// <summary>Gets the 1-based line number where the location ends, if known.</summary>
     public int? SourceFileEndLine { get; } // 1-based
-    /// <summary>Gets or sets the source file end column.</summary>
+    /// <summary>Gets the 1-based column number where the location ends, if known.</summary>
     public int? SourceFileEndColumn { get; } // 1-based
 
-    /// <summary>Gets or sets the has end position.</summary>
+    /// <summary>Gets whether both an end line and end column are set.</summary>
     public bool HasEndPosition => SourceFileEndLine != null && SourceFileEndColumn != null;
 
     /// <summary>Returns <see langword="true"/> when <paramref name="line1Based"/> falls within
@@ -37,6 +37,6 @@ public class SourceLocation
         return line1Based >= SourceFileLine && line1Based <= endLine;
     }
 
-    /// <summary>Gets or sets the to string.</summary>
+    /// <summary>Formats the location as <c>file(line,column)</c>.</summary>
     public override string ToString() => $"{SourceFile}({SourceFileLine},{SourceFileColumn})";
 }

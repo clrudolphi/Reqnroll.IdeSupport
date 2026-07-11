@@ -18,7 +18,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Folding;
 /// </summary>
 public class GherkinFoldingRangeService : IGherkinFoldingRangeService
 {
-    /// <summary>Gets or sets the build folding ranges.</summary>
+    /// <summary>Walks the parsed Deveroom tags to compute foldable regions for features, scenarios, rules, doc strings, data tables, and examples blocks.</summary>
     public IReadOnlyList<GherkinFoldingRange> BuildFoldingRanges(
         IReadOnlyCollection<DeveroomTag> tags)
     {

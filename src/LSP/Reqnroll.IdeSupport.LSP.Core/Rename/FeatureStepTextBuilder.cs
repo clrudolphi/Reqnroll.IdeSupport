@@ -32,7 +32,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Rename;
 /// </summary>
 public static class FeatureStepTextBuilder
 {
-    /// <summary>Gets or sets the build.</summary>
+    /// <summary>Rebuilds the feature-file step text for a renamed binding expression, preferring regex group substitution and falling back to static-segment substitution or the unchanged new expression.</summary>
     public static string Build(
         string  newExpression,
         string? oldExpression,

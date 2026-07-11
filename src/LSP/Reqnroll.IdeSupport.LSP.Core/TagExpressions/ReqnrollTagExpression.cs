@@ -11,18 +11,18 @@ public class ReqnrollTagExpression : ITagExpression
         TagExpressionText = tagExpressionText;
         _inner = inner;
     }
-    /// <summary>Gets or sets the tag expression text.</summary>
+    /// <summary>Gets the original, unparsed tag expression text.</summary>
     public string TagExpressionText { get; }
 
     private ITagExpression _inner;
 
-    /// <summary>Gets or sets the to string.</summary>
+    /// <summary>Delegates to the wrapped tag expression's string representation.</summary>
     public override string ToString()
     {
         return _inner.ToString();
     }
 
-    /// <summary>Gets or sets the evaluate.</summary>
+    /// <summary>Evaluates the wrapped tag expression against the given tags.</summary>
     public virtual bool Evaluate(IEnumerable<string> inputs)
     {
         return _inner.Evaluate(inputs);
