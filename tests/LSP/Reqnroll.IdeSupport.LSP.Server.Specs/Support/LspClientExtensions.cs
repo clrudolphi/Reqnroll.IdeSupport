@@ -66,6 +66,12 @@ public static class LspClientExtensions
                 new SemanticTokensParams { TextDocument = new TextDocumentIdentifier { Uri = uri } })
             .Returning<SemanticTokens?>(ct);
 
+    public static Task<SemanticTokens?> RequestSemanticTokensRangeAsync(
+        this ILanguageClient client, DocumentUri uri, LspRange range, CancellationToken ct = default)
+        => client.SendRequest("textDocument/semanticTokens/range",
+                new SemanticTokensRangeParams { TextDocument = new TextDocumentIdentifier { Uri = uri }, Range = range })
+            .Returning<SemanticTokens?>(ct);
+
     public static void SendProjectLoaded(this ILanguageClient client, object payload)
         => client.SendNotification("reqnroll/projectLoaded", payload);
 

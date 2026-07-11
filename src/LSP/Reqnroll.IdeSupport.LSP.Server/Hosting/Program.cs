@@ -215,7 +215,10 @@ public class Program
             {
                 Legend = tokenService.Legend,
                 Full = true,
-                Range = false
+                // VS Code's and Rider's built-in LSP clients both support range requests (used as a
+                // large-file/viewport optimization); advertise it since SemanticTokensHandler already
+                // implements textDocument/semanticTokens/range (issue #123).
+                Range = true
             };
 
             // inlayHintProvider / foldingRangeProvider: declared statically (rather than left to

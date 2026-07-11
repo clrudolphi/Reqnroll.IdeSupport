@@ -131,6 +131,11 @@ public static class LanguageServerOptionsExtensions
             (request, ct) => MeasuredAsync(resolver!, LspMethodNames.TextDocumentSemanticTokensFullDelta,
                 request.TextDocument.Uri, () => resolver!.Get<SemanticTokensHandler>().HandleAsync(request, ct)));
 
+        options.OnRequest<SemanticTokensRangeParams, SemanticTokens>(
+            LspMethodNames.TextDocumentSemanticTokensRange,
+            (request, ct) => MeasuredAsync(resolver!, LspMethodNames.TextDocumentSemanticTokensRange,
+                request.TextDocument.Uri, () => resolver!.Get<SemanticTokensHandler>().HandleAsync(request, ct)));
+
         options.OnRequest<ReferenceParams, LocationOrLocationLinks>(
             LspMethodNames.TextDocumentReferences,
             (request, ct) => resolver!.Get<StepReferencesHandler>().HandleAsync(request, ct));
