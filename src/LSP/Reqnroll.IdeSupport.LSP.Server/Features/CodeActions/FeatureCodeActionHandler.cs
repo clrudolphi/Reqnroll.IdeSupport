@@ -43,7 +43,7 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
         _recorder        = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
-    /// <summary>Gets or sets the get registration options.</summary>
+    /// <summary>Builds the LSP registration options advertising code-action support (quick-fix kind) for <c>.feature</c> files.</summary>
     public CodeActionRegistrationOptions GetRegistrationOptions(
         CodeActionCapability capability,
         ClientCapabilities   clientCapabilities)

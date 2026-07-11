@@ -32,7 +32,7 @@ public sealed class LspReqnrollProject : IProjectScope, IDisposable
 
     // ── IProjectScope ─────────────────────────────────────────────────────────
 
-    /// <summary>Gets or sets the ide scope.</summary>
+    /// <summary>The server-level <see cref="IIdeScope"/> this project belongs to.</summary>
     public IIdeScope IdeScope => _ideScope;
 
     /// <inheritdoc/>  e.g. "MyApp.Tests"

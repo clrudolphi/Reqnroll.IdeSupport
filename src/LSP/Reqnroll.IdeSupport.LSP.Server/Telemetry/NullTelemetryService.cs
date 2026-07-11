@@ -11,41 +11,41 @@ namespace Reqnroll.IdeSupport.LSP.Server.Telemetry;
 /// </summary>
 public sealed class NullTelemetryService : ITelemetryService
 {
-    /// <summary>Gets or sets the instance.</summary>
+    /// <summary>The shared singleton no-op telemetry service instance.</summary>
     public static readonly NullTelemetryService Instance = new();
 
     private NullTelemetryService() { }
 
-    /// <summary>Gets or sets the monitor load project system.</summary>
+    /// <summary>No-op: the LSP server does not track project-system load telemetry.</summary>
     public void MonitorLoadProjectSystem() { }
-    /// <summary>Gets or sets the monitor open project system.</summary>
+    /// <summary>No-op: the LSP server does not track project-system open telemetry.</summary>
     public void MonitorOpenProjectSystem(IIdeScope ideScope) { }
-    /// <summary>Gets or sets the monitor open project.</summary>
+    /// <summary>No-op: the LSP server does not track project-open telemetry.</summary>
     public void MonitorOpenProject(ProjectSettings settings, int? featureFileCount) { }
-    /// <summary>Gets or sets the monitor open feature file.</summary>
+    /// <summary>No-op: the LSP server does not track feature-file-open telemetry.</summary>
     public void MonitorOpenFeatureFile(ProjectSettings projectSettings) { }
-    /// <summary>Gets or sets the monitor extension installed.</summary>
+    /// <summary>No-op: the LSP server does not track extension-install telemetry.</summary>
     public void MonitorExtensionInstalled() { }
-    /// <summary>Gets or sets the monitor extension upgraded.</summary>
+    /// <summary>No-op: the LSP server does not track extension-upgrade telemetry.</summary>
     public void MonitorExtensionUpgraded(string oldExtensionVersion) { }
-    /// <summary>Gets or sets the monitor extension days of usage.</summary>
+    /// <summary>No-op: the LSP server does not track extension-usage-duration telemetry.</summary>
     public void MonitorExtensionDaysOfUsage(int usageDays) { }
-    /// <summary>Gets or sets the monitor command add feature file.</summary>
+    /// <summary>No-op: the LSP server does not track "add feature file" command telemetry.</summary>
     public void MonitorCommandAddFeatureFile(ProjectSettings projectSettings) { }
-    /// <summary>Gets or sets the monitor command add reqnroll config file.</summary>
+    /// <summary>No-op: the LSP server does not track "add reqnroll.json" command telemetry.</summary>
     public void MonitorCommandAddReqnrollConfigFile(ProjectSettings projectSettings) { }
-    /// <summary>Gets or sets the monitor error.</summary>
+    /// <summary>No-op: the LSP server does not report exceptions through this telemetry channel.</summary>
     public void MonitorError(System.Exception exception, bool? isFatal = null) { }
-    /// <summary>Gets or sets the monitor project template wizard started.</summary>
+    /// <summary>No-op: the LSP server does not track project-template-wizard-started telemetry.</summary>
     public void MonitorProjectTemplateWizardStarted() { }
-    /// <summary>Gets or sets the monitor project template wizard completed.</summary>
+    /// <summary>No-op: the LSP server does not track project-template-wizard-completed telemetry.</summary>
     public void MonitorProjectTemplateWizardCompleted(string dotNetFramework, string unitTestFramework, bool addFluentAssertions) { }
-    /// <summary>Gets or sets the monitor upgrade dialog dismissed.</summary>
+    /// <summary>No-op: the LSP server does not track upgrade-dialog-dismissed telemetry.</summary>
     public void MonitorUpgradeDialogDismissed(Dictionary<string, object> additionalProps) { }
-    /// <summary>Gets or sets the monitor welcome dialog dismissed.</summary>
+    /// <summary>No-op: the LSP server does not track welcome-dialog-dismissed telemetry.</summary>
     public void MonitorWelcomeDialogDismissed(Dictionary<string, object> additionalProps) { }
-    /// <summary>Gets or sets the monitor link clicked.</summary>
+    /// <summary>No-op: the LSP server does not track link-click telemetry.</summary>
     public void MonitorLinkClicked(string source, string url, Dictionary<string, object> additionalProps = null) { }
-    /// <summary>Gets or sets the transmit event.</summary>
+    /// <summary>No-op: the LSP server does not transmit ad-hoc telemetry events through this channel.</summary>
     public void TransmitEvent(ITelemetryEvent runtimeEvent) { }
 }

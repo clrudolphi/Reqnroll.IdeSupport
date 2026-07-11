@@ -74,7 +74,7 @@ public sealed class GherkinCompletionHandler : ICompletionHandler
         _recorder          = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
-    /// <summary>Gets or sets the get registration options.</summary>
+    /// <summary>Builds the LSP registration options advertising completion support (no resolve step) for <c>.feature</c> files.</summary>
     public CompletionRegistrationOptions GetRegistrationOptions(
         CompletionCapability capability,
         ClientCapabilities   clientCapabilities)

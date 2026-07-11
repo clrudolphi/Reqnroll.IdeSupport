@@ -47,7 +47,7 @@ public sealed class GherkinFormattingHandler
 
     // ── IDocumentFormattingHandler ────────────────────────────────────────────
 
-    /// <summary>Gets or sets the get registration options.</summary>
+    /// <summary>Builds the LSP registration options advertising whole-document formatting support for <c>.feature</c> files.</summary>
     public DocumentFormattingRegistrationOptions GetRegistrationOptions(
         DocumentFormattingCapability capability, ClientCapabilities clientCapabilities)
         => new() { DocumentSelector = FeatureSelector };
@@ -64,7 +64,7 @@ public sealed class GherkinFormattingHandler
 
     // ── IDocumentRangeFormattingHandler ──────────────────────────────────────
 
-    /// <summary>Gets or sets the get registration options.</summary>
+    /// <summary>Builds the LSP registration options advertising range formatting support for <c>.feature</c> files.</summary>
     public DocumentRangeFormattingRegistrationOptions GetRegistrationOptions(
         DocumentRangeFormattingCapability capability, ClientCapabilities clientCapabilities)
         => new() { DocumentSelector = FeatureSelector };
@@ -84,7 +84,7 @@ public sealed class GherkinFormattingHandler
 
     // ── IDocumentOnTypeFormattingHandler ─────────────────────────────────────
 
-    /// <summary>Gets or sets the get registration options.</summary>
+    /// <summary>Builds the LSP registration options advertising on-type formatting for <c>.feature</c> files, triggered by <c>|</c> and by newline/tab.</summary>
     public DocumentOnTypeFormattingRegistrationOptions GetRegistrationOptions(
         DocumentOnTypeFormattingCapability capability, ClientCapabilities clientCapabilities)
         => new()

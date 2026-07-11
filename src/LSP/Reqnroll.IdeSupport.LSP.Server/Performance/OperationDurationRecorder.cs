@@ -42,11 +42,11 @@ public sealed class OperationDurationRecorder : IOperationDurationRecorder
         _trace = trace;
     }
 
-    /// <summary>Gets or sets the measure.</summary>
+    /// <summary>Starts timing <paramref name="operation"/>; disposing the returned scope records its elapsed duration.</summary>
     public IDisposable Measure(string operation, DocumentUri? uri = null)
         => new Scope(this, operation, uri);
 
-    /// <summary>Gets or sets the record.</summary>
+    /// <summary>Logs the elapsed duration of an operation and, subject to sampling, emits it as telemetry and a trace notification.</summary>
     public void Record(string operation, double elapsedMs, DocumentUri? uri = null)
     {
         // Primary sink: the existing log file. Verbose so it is off in normal runs and on when

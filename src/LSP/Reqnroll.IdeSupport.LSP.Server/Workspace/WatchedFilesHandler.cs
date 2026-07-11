@@ -59,7 +59,7 @@ public class WatchedFilesHandler : IDidChangeWatchedFilesHandler
         _recorder               = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
-    /// <summary>Gets or sets the get registration options.</summary>
+    /// <summary>Builds the LSP registration options requesting file-watch notifications for <c>reqnroll.json</c>, <c>.editorconfig</c>, and rebuilt output assemblies.</summary>
     public DidChangeWatchedFilesRegistrationOptions GetRegistrationOptions(
         DidChangeWatchedFilesCapability capability,
         ClientCapabilities clientCapabilities)
@@ -90,7 +90,7 @@ public class WatchedFilesHandler : IDidChangeWatchedFilesHandler
             }
         };
 
-    /// <summary>Gets or sets the handle.</summary>
+    /// <summary>Handles <c>workspace/didChangeWatchedFiles</c> for watched <c>reqnroll.json</c>, <c>.editorconfig</c>, and rebuilt-assembly events, invalidating caches and re-running discovery/config reconciliation as appropriate.</summary>
     public async Task<MediatR.Unit> Handle(
         DidChangeWatchedFilesParams request,
         CancellationToken cancellationToken)

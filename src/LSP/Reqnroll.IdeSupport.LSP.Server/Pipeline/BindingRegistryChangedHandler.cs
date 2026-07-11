@@ -77,7 +77,7 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
         _recorder               = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
-    /// <summary>Gets or sets the handle.</summary>
+    /// <summary>Handles an internal <see cref="BindingRegistryChangedNotification"/> by removing stale bindings for deleted files and, on a full connector replacement, re-running Roslyn source-level discovery to refresh bindings from open/edited <c>.cs</c> files.</summary>
     public async Task Handle(
         BindingRegistryChangedNotification notification,
         CancellationToken cancellationToken)

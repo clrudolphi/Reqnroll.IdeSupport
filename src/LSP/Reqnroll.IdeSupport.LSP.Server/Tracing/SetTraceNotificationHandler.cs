@@ -20,7 +20,7 @@ public sealed class SetTraceNotificationHandler : SetTraceHandlerBase
         _traceService = traceService;
     }
 
-    /// <summary>Gets or sets the handle.</summary>
+    /// <summary>Handles a <c>$/setTrace</c> notification by updating the shared <see cref="ITraceService"/>'s trace level at runtime.</summary>
     public override Task<Unit> Handle(SetTraceParams request, CancellationToken cancellationToken)
     {
         _traceService.Level = request.Value;

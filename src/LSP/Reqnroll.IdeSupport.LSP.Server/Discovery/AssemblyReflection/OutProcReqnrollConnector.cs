@@ -15,21 +15,21 @@ public abstract class OutProcReqnrollConnector
 {
     private const string BindingDiscoveryCommandName = "binding discovery";
 
-    /// <summary>Gets or sets the _configuration.</summary>
+    /// <summary>The Deveroom/Reqnroll configuration for the project being discovered.</summary>
     protected readonly DeveroomConfiguration _configuration;
-    /// <summary>Gets or sets the _extension folder.</summary>
+    /// <summary>Root folder of the IDE extension, used to locate bundled connector executables.</summary>
     protected readonly string _extensionFolder;
-    /// <summary>Gets or sets the _logger.</summary>
+    /// <summary>Logger used to record connector invocation and diagnostic output.</summary>
     protected readonly IIdeSupportLogger _logger;
-    /// <summary>Gets or sets the _telemetry service.</summary>
+    /// <summary>Telemetry sink for discovery-run metrics; currently unused by the LSP server (see <see cref="Deserialize"/>).</summary>
     protected readonly ITelemetryService _telemetryService;
-    /// <summary>Gets or sets the _processor architecture.</summary>
+    /// <summary>Processor architecture to use when selecting the .NET Framework install location.</summary>
     protected readonly ProcessorArchitectureSetting _processorArchitecture;
-    /// <summary>Gets or sets the _project settings.</summary>
+    /// <summary>Settings of the project whose bindings are being discovered.</summary>
     protected readonly ProjectSettings _projectSettings;
-    /// <summary>Gets or sets the _target framework moniker.</summary>
+    /// <summary>Target framework moniker of the project whose bindings are being discovered.</summary>
     protected readonly TargetFrameworkMoniker _targetFrameworkMoniker;
-    /// <summary>Gets or sets the reqnroll version.</summary>
+    /// <summary>The Reqnroll NuGet package version referenced by the project.</summary>
     protected NuGetVersion ReqnrollVersion => _projectSettings.ReqnrollVersion;
 
     /// <summary>Initializes the connector's shared configuration, logging, and project settings.</summary>
@@ -50,7 +50,7 @@ public abstract class OutProcReqnrollConnector
     private bool DebugConnector => _configuration.DebugConnector ||
                                    Environment.GetEnvironmentVariable("DEVEROOM_DEBUGCONNECTOR") == "1";
 
-    /// <summary>Gets or sets the get connector type.</summary>
+    /// <summary>Derives a short connector-type name for telemetry/diagnostics by stripping the base class name suffix from the derived type's name.</summary>
     protected virtual string GetConnectorType()
     {
         return GetType().Name.Replace(nameof(OutProcReqnrollConnector), "");
@@ -163,7 +163,7 @@ public abstract class OutProcReqnrollConnector
             $"Error during {command}. {Environment.NewLine}Command executed:{Environment.NewLine}  {result.CommandLine}{Environment.NewLine}Exit code: {exitCode}{Environment.NewLine}Message: {Environment.NewLine}{errorMessage}";
     }
 
-    /// <summary>Gets or sets the get connector path.</summary>
+    /// <summary>Resolves the connector executable path (or a <c>dotnet exec</c> command line) that should be launched for binding discovery.</summary>
     protected abstract string GetConnectorPath(List<string> arguments);
 
     private static string ExtractJsonPayload(string stdout)
@@ -189,7 +189,7 @@ public abstract class OutProcReqnrollConnector
         return Path.Combine(programFiles!, "dotnet");
     }
 
-    /// <summary>Gets or sets the get dot net exec command.</summary>
+    /// <summary>Appends <c>exec &lt;path&gt;</c> to <paramref name="arguments"/> and returns the path of the <c>dotnet</c> executable to invoke it with.</summary>
     protected string GetDotNetExecCommand(List<string> arguments, string executableFolder, string executableFile)
     {
 #if DEBUG
@@ -216,7 +216,7 @@ public abstract class OutProcReqnrollConnector
     internal static string ResolveNonWindowsDotNetCommand(string dotNetRoot) =>
         string.IsNullOrEmpty(dotNetRoot) ? "dotnet" : Path.Combine(dotNetRoot, "dotnet");
 
-    /// <summary>Gets or sets the get connectors folder.</summary>
+    /// <summary>Returns the extension's <c>Connectors</c> subfolder if it exists, otherwise falls back to the extension folder itself.</summary>
     protected string GetConnectorsFolder()
     {
         var connectorsFolder = Path.Combine(_extensionFolder, "Connectors");

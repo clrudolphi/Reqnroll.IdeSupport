@@ -15,7 +15,7 @@ public class CustomOutProcReqnrollConnector : OutProcReqnrollConnector
     {
     }
 
-    /// <summary>Gets or sets the get connector path.</summary>
+    /// <summary>Resolves the connector executable/DLL path from <c>BindingDiscovery.ConnectorPath</c>, expanding environment variables and building a <c>dotnet exec</c> command line if it points at a DLL.</summary>
     protected override string GetConnectorPath(List<string> arguments)
     {
         var connectorPath = Path.Combine(GetConnectorsFolder(), Environment.ExpandEnvironmentVariables(_configuration.BindingDiscovery.ConnectorPath ?? "<not specified>"));

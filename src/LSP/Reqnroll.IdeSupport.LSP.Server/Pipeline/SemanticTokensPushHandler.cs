@@ -43,7 +43,7 @@ public class SemanticTokensPushHandler : INotificationHandler<MatchCacheChangedN
         _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
-    /// <summary>Gets or sets the handle.</summary>
+    /// <summary>Handles an internal <see cref="MatchCacheChangedNotification"/> by computing and pushing updated semantic tokens to Visual Studio clients (VS does not pull tokens itself; all other clients are skipped).</summary>
     public async Task Handle(MatchCacheChangedNotification notification, CancellationToken cancellationToken)
     {
         // Only Visual Studio needs the push; all other clients pull semantic tokens themselves.

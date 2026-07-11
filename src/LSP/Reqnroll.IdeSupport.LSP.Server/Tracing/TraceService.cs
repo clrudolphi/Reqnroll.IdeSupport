@@ -25,7 +25,7 @@ public sealed class TraceService : ITraceService
         set => _level = value;
     }
 
-    /// <summary>Gets or sets the trace.</summary>
+    /// <summary>Sends a <c>$/logTrace</c> notification to the client if tracing is enabled, including the verbose message when the trace level is <see cref="InitializeTrace.Verbose"/>.</summary>
     public void Trace(string message, System.Func<string>? verboseMessage = null)
     {
         var level = _level;

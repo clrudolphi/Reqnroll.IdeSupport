@@ -64,11 +64,11 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
-    /// <summary>Gets or sets the get text document attributes.</summary>
+    /// <summary>Reports the language id (<c>"csharp"</c> or <c>"gherkin"</c>) the server should associate with the given document URI.</summary>
     public override TextDocumentAttributes GetTextDocumentAttributes(DocumentUri uri)
         => new(uri, IsCSharp(uri) ? "csharp" : "gherkin");
 
-    /// <summary>Gets or sets the create registration options.</summary>
+    /// <summary>Builds the LSP registration options for text synchronization: full-document change events and open/close notifications, without save text.</summary>
     protected override TextDocumentSyncRegistrationOptions CreateRegistrationOptions(
         TextSynchronizationCapability capability,
         ClientCapabilities clientCapabilities)
@@ -79,7 +79,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
             Save = new SaveOptions { IncludeText = false }
         };
 
-    /// <summary>Gets or sets the handle.</summary>
+    /// <summary>Handles <c>textDocument/didOpen</c>: for C# files, updates the live-text cache and runs Roslyn binding discovery; for Gherkin files, updates the document buffer and re-parses/republishes diagnostics.</summary>
     public override async Task<Unit> Handle(DidOpenTextDocumentParams request, CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
@@ -104,7 +104,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         return Unit.Value;
     }
 
-    /// <summary>Gets or sets the handle.</summary>
+    /// <summary>Handles <c>textDocument/didChange</c>: for C# files, feeds the full changed text into Roslyn binding discovery; for Gherkin files, updates the document buffer and re-parses/republishes diagnostics.</summary>
     public override async Task<Unit> Handle(DidChangeTextDocumentParams request, CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
@@ -132,7 +132,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         return Unit.Value;
     }
 
-    /// <summary>Gets or sets the handle.</summary>
+    /// <summary>Handles <c>textDocument/didSave</c>. With full-document sync the buffer is already current from the preceding <c>didChange</c>, so this is currently a no-op beyond logging.</summary>
     public override Task<Unit> Handle(DidSaveTextDocumentParams request, CancellationToken cancellationToken)
     {
         _logger.LogInfo($"Document saved: {request.TextDocument.Uri}");
@@ -141,7 +141,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         return Unit.Task;
     }
 
-    /// <summary>Gets or sets the handle.</summary>
+    /// <summary>Handles <c>textDocument/didClose</c>: drops the cached live text for C# files (disk becomes the source of truth again) while leaving their last-discovered bindings intact until a rebuild supersedes them.</summary>
     public override async Task<Unit> Handle(DidCloseTextDocumentParams request, CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;

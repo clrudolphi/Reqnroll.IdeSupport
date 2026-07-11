@@ -38,7 +38,7 @@ public class InlayHintRefreshHandler : INotificationHandler<MatchCacheChangedNot
         _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
-    /// <summary>Gets or sets the handle.</summary>
+    /// <summary>Handles an internal <see cref="MatchCacheChangedNotification"/> by debouncing and, if the client supports it, sending a <c>workspace/inlayHint/refresh</c> request.</summary>
     public Task Handle(MatchCacheChangedNotification notification, CancellationToken cancellationToken)
     {
         var inlayHintWorkspace = _languageServer.ClientSettings.Capabilities?.Workspace?.InlayHint;

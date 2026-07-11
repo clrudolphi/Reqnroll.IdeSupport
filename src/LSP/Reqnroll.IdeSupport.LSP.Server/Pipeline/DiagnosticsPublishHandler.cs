@@ -64,7 +64,7 @@ public sealed class DiagnosticsPublishHandler : INotificationHandler<MatchCacheC
         _recorder              = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
-    /// <summary>Gets or sets the handle.</summary>
+    /// <summary>Handles an internal <see cref="MatchCacheChangedNotification"/> by re-aggregating diagnostics for the affected document and pushing an updated <c>textDocument/publishDiagnostics</c> notification to the client.</summary>
     public Task Handle(MatchCacheChangedNotification notification, CancellationToken cancellationToken)
     {
         var uri = notification.Uri;

@@ -49,7 +49,7 @@ public sealed class CommentToggleHandler : IExecuteCommandHandler
         _recorder              = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
-    /// <summary>Gets or sets the get registration options.</summary>
+    /// <summary>Builds the LSP registration options advertising the comment-toggle command as an executable <c>workspace/executeCommand</c> command.</summary>
     public ExecuteCommandRegistrationOptions GetRegistrationOptions(
         ExecuteCommandCapability capability,
         ClientCapabilities clientCapabilities)

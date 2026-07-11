@@ -39,7 +39,7 @@ public sealed class CSharpBindingDiscoveryService : ICSharpBindingDiscoveryServi
         _telemetryService = telemetryService;
     }
 
-    /// <summary>Gets or sets the update from source async.</summary>
+    /// <summary>Resolves the project(s) that own <paramref name="uri"/> via the membership index, re-parses the given source text into each project's binding registry, and emits a discovery telemetry event.</summary>
     public async Task UpdateFromSourceAsync(DocumentUri uri, string text, bool isOpen, CancellationToken cancellationToken)
     {
         var owners = _scopeManager.ResolveOwners(uri);
@@ -82,7 +82,7 @@ public sealed class CSharpBindingDiscoveryService : ICSharpBindingDiscoveryServi
         });
     }
 
-    /// <summary>Gets or sets the update from source for project async.</summary>
+    /// <summary>Re-parses <paramref name="text"/> directly into <paramref name="project"/>'s binding registry, bypassing membership-index owner resolution.</summary>
     public async Task UpdateFromSourceForProjectAsync(
         LspReqnrollProject project, string filePath, string text, CancellationToken cancellationToken)
     {
@@ -93,7 +93,7 @@ public sealed class CSharpBindingDiscoveryService : ICSharpBindingDiscoveryServi
         await ApplyToProjectAsync(project, filePath, text).ConfigureAwait(false);
     }
 
-    /// <summary>Gets or sets the remove file async.</summary>
+    /// <summary>Clears all step-definition bindings previously discovered for <paramref name="uri"/> from every owning project's registry, e.g. when the file is deleted.</summary>
     public async Task RemoveFileAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
         var owners = _scopeManager.ResolveOwners(uri);

@@ -9,7 +9,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Registry;
 /// </summary>
 public sealed class NullBindingRegistryProvider : IBindingRegistryProvider
 {
-    /// <summary>Gets or sets the current.</summary>
+    /// <summary>Always returns <see cref="ProjectBindingRegistry.Invalid"/>, since no real discovery connector is wired in.</summary>
     public ProjectBindingRegistry Current => ProjectBindingRegistry.Invalid;
 
     /// <inheritdoc/>

@@ -29,7 +29,7 @@ public sealed class FileSystemEditorConfigOptionsProvider : IEditorConfigOptions
 
     // ── IEditorConfigOptionsProvider ─────────────────────────────────────────
 
-    /// <summary>Gets or sets the get editor config options by path.</summary>
+    /// <summary>Resolves the merged EditorConfig settings that apply to <paramref name="filePath"/> by walking up its directory tree.</summary>
     public IEditorConfigOptions GetEditorConfigOptionsByPath(string filePath)
     {
         var files = CollectEditorConfigFiles(Path.GetFullPath(filePath));
@@ -50,7 +50,7 @@ public sealed class FileSystemEditorConfigOptionsProvider : IEditorConfigOptions
         return new FileSystemEditorConfigOptions(merged);
     }
 
-    /// <summary>Gets or sets the invalidate cache.</summary>
+    /// <summary>Evicts the cached parse result for the given <c>.editorconfig</c> file so the next lookup re-reads it from disk.</summary>
     public void InvalidateCache(string editorConfigFilePath)
     {
         _cache.TryRemove(editorConfigFilePath, out _);

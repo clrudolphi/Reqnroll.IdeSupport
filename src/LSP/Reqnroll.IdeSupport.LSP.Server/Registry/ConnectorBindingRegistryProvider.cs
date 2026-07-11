@@ -151,7 +151,7 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
 
     // ── IDisposable ───────────────────────────────────────────────────────────
 
-    /// <summary>Gets or sets the dispose.</summary>
+    /// <summary>Cancels and disposes the provider's background discovery loop.</summary>
     public void Dispose()
     {
         CancellationTokenSource? cts;

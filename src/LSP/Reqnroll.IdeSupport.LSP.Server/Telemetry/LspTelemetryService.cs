@@ -20,7 +20,7 @@ public sealed class LspTelemetryService : ILspTelemetryService
         _languageServer = languageServer;
     }
 
-    /// <summary>Gets or sets the send event.</summary>
+    /// <summary>Sends the event and its properties to the LSP client as a <c>telemetry/event</c> notification.</summary>
     public void SendEvent(string eventName, Dictionary<string, object?> properties)
     {
         _languageServer.SendNotification(LspMethodNames.TelemetryEvent, new

@@ -9,7 +9,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Performance;
 /// </summary>
 public interface IPerfTelemetrySampler
 {
-    /// <summary>Gets or sets the should sample.</summary>
+    /// <summary>Returns whether the current perf sample should be emitted as telemetry (a random decision biased by the configured sample rate).</summary>
     bool ShouldSample();
 }
 
@@ -21,7 +21,7 @@ public interface IPerfTelemetrySampler
 /// </summary>
 public sealed class PerfTelemetrySampler : IPerfTelemetrySampler
 {
-    /// <summary>Gets or sets the sample rate env var.</summary>
+    /// <summary>Name of the environment variable that configures the sampling rate (a fraction in <c>[0,1]</c>).</summary>
     public const string SampleRateEnvVar = "REQNROLL_PERF_TELEMETRY_SAMPLE";
 
     /// <summary>Opt-in by default: no perf telemetry is emitted unless a rate is configured.</summary>
@@ -37,7 +37,7 @@ public sealed class PerfTelemetrySampler : IPerfTelemetrySampler
         _random = random ?? Random.Shared;
     }
 
-    /// <summary>Gets or sets the should sample.</summary>
+    /// <summary>Randomly decides, based on the configured rate, whether the current sample should be emitted.</summary>
     public bool ShouldSample()
     {
         if (_rate <= 0.0) return false;
@@ -45,7 +45,7 @@ public sealed class PerfTelemetrySampler : IPerfTelemetrySampler
         return _random.NextDouble() < _rate;
     }
 
-    /// <summary>Gets or sets the from environment.</summary>
+    /// <summary>Creates a sampler using the rate from <see cref="SampleRateEnvVar"/>, falling back to <see cref="DefaultSampleRate"/> when unset or unparsable.</summary>
     public static PerfTelemetrySampler FromEnvironment()
     {
         var raw = Environment.GetEnvironmentVariable(SampleRateEnvVar);

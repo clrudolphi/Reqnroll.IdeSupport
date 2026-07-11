@@ -21,7 +21,7 @@ public sealed class FeatureRescanDebouncer : IFeatureRescanDebouncer, IDisposabl
         _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
-    /// <summary>Gets or sets the schedule rescan.</summary>
+    /// <summary>Schedules <paramref name="rescanAsync"/> to run for the given project after a debounce delay, cancelling any rescan already pending for that project.</summary>
     public void ScheduleRescan(LspReqnrollProject project, Func<CancellationToken, Task> rescanAsync)
     {
         var newCts = new CancellationTokenSource();
@@ -66,7 +66,7 @@ public sealed class FeatureRescanDebouncer : IFeatureRescanDebouncer, IDisposabl
         }
     }
 
-    /// <summary>Gets or sets the dispose.</summary>
+    /// <summary>Cancels and disposes every still-pending debounce timer.</summary>
     public void Dispose()
     {
         foreach (var cts in _pending.Values)

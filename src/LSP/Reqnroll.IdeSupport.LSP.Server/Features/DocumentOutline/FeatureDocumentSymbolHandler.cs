@@ -60,7 +60,7 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
         _recorder              = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
-    /// <summary>Gets or sets the get registration options.</summary>
+    /// <summary>Builds the LSP registration options for document-symbol support, recording whether the client supports hierarchical symbols.</summary>
     public DocumentSymbolRegistrationOptions GetRegistrationOptions(
         DocumentSymbolCapability capability, ClientCapabilities clientCapabilities)
     {

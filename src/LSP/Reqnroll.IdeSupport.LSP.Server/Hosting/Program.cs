@@ -43,7 +43,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Hosting;
 /// </remarks>
 public class Program
 {
-    /// <summary>Gets or sets the main.</summary>
+    /// <summary>Entry point: parses CLI/IDE-supplied arguments, configures logging and DI services, and starts the LSP server over stdio.</summary>
     public static async Task Main(string[] args)
     {
         // Each IDE's glue component passes --ide <identifier> when spawning the server.

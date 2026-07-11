@@ -47,7 +47,7 @@ public sealed class SemanticTokenService : ISemanticTokenService
     }
 
     // ── ISemanticTokenService ─────────────────────────────────────────────────
-    /// <summary>Gets or sets the get semantic tokens async.</summary>
+    /// <summary>Returns the semantic tokens for the given document/version, computing and caching them on a cache miss.</summary>
     public Task<global::OmniSharp.Extensions.LanguageServer.Protocol.Models.SemanticTokens?> GetSemanticTokensAsync(
         DocumentUri uri, int version, CancellationToken cancellationToken = default)
     {

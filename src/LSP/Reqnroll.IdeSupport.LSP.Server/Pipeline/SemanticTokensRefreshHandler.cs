@@ -43,7 +43,7 @@ public class SemanticTokensRefreshHandler : INotificationHandler<MatchCacheChang
         _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
-    /// <summary>Gets or sets the handle.</summary>
+    /// <summary>Handles an internal <see cref="MatchCacheChangedNotification"/> by debouncing and, if the client advertised refresh support, sending a <c>workspace/semanticTokens/refresh</c> request.</summary>
     public Task Handle(MatchCacheChangedNotification notification, CancellationToken cancellationToken)
     {
         // Guard: only send the refresh if the client advertised support for it.

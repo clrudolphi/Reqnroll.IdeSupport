@@ -46,7 +46,7 @@ public sealed class FeatureDefinitionHandler : IDefinitionHandler
         _recorder      = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
-    /// <summary>Gets or sets the get registration options.</summary>
+    /// <summary>Builds the LSP registration options advertising go-to-definition support for <c>.feature</c> files.</summary>
     public DefinitionRegistrationOptions GetRegistrationOptions(
         DefinitionCapability    capability,
         ClientCapabilities      clientCapabilities)

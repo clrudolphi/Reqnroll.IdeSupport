@@ -21,15 +21,15 @@ public sealed class LspIdeScope : IIdeScope
         Actions = new LspIdeActions(logger);
     }
 
-    /// <summary>Gets or sets the is solution loaded.</summary>
+    /// <summary>Always <see langword="true"/>: the LSP server has no concept of an unloaded solution.</summary>
     public bool IsSolutionLoaded => true;
-    /// <summary>Gets or sets the logger.</summary>
+    /// <summary>Logger shared by all project scopes and configuration providers.</summary>
     public IIdeSupportLogger Logger { get; }
-    /// <summary>Gets or sets the telemetry service.</summary>
+    /// <summary>Telemetry sink; always the no-op <see cref="NullTelemetryService"/> for the LSP server.</summary>
     public ITelemetryService TelemetryService { get; }
-    /// <summary>Gets or sets the actions.</summary>
+    /// <summary>IDE action callbacks (e.g. error/warning display), implemented via logging for the LSP server.</summary>
     public IIdeActions Actions { get; }
-    /// <summary>Gets or sets the file system.</summary>
+    /// <summary>File system abstraction used by project scopes and configuration providers.</summary>
     public IFileSystemForIDE FileSystem { get; }
 
     // ── Inner type ────────────────────────────────────────────────────────────

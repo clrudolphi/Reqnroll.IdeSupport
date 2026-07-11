@@ -38,7 +38,7 @@ public class GenericOutProcReqnrollConnector : OutProcReqnrollConnector
     {
     }
 
-    /// <summary>Gets or sets the get connector path.</summary>
+    /// <summary>Picks the bundled generic connector matching the project's target framework moniker and returns its path (or a <c>dotnet exec</c> command line for .NET Core/.NET targets).</summary>
     protected override string GetConnectorPath(List<string> arguments)
     {
         var connector = ConnectorNet80;

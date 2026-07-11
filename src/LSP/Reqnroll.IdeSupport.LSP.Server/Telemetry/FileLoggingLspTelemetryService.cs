@@ -24,7 +24,7 @@ public sealed class FileLoggingLspTelemetryService : ILspTelemetryService
         _debugLog = debugLog;
     }
 
-    /// <summary>Gets or sets the send event.</summary>
+    /// <summary>Mirrors the event to the local JSONL debug log, then forwards it to the wrapped telemetry service.</summary>
     public void SendEvent(string eventName, Dictionary<string, object?> properties)
     {
         _debugLog.Record("server", eventName, properties);

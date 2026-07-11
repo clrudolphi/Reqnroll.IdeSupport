@@ -136,7 +136,7 @@ public sealed class BindingRegistryProviderRouter : IProjectBindingRegistryLooku
 
     // ── IDisposable ───────────────────────────────────────────────────────────
 
-    /// <summary>Gets or sets the dispose.</summary>
+    /// <summary>Unsubscribes from project-discovery events and disposes every per-project binding registry provider this router owns.</summary>
     public void Dispose()
     {
         _scopeManager.ProjectDiscovered -= OnProjectDiscovered;
