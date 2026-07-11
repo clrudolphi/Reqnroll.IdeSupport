@@ -3,10 +3,10 @@ namespace Reqnroll.IdeSupport.VisualStudio.ProjectSystem;
 /// <summary>IDeveroomOutputPaneServices</summary>
 public interface IDeveroomOutputPaneServices
 {
-    /// <summary>Gets or sets the write line.</summary>
+    /// <summary>Writes a line of text to the output pane.</summary>
     void WriteLine(string text);
-    /// <summary>Gets or sets the send write line.</summary>
+    /// <summary>Queues a line of text to be written to the output pane asynchronously.</summary>
     void SendWriteLine(string text);
-    /// <summary>Gets or sets the activate.</summary>
+    /// <summary>Brings the output pane to the foreground.</summary>
     void Activate();
 }

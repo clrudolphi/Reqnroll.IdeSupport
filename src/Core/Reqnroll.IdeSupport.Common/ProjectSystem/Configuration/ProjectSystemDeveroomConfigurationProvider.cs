@@ -15,9 +15,9 @@ public class ProjectSystemDeveroomConfigurationProvider : IDeveroomConfiguration
         _configuration = new DeveroomConfiguration(); //TODO: Load solution-level config
     }
 
-    /// <summary>Gets or sets the configuration changed.</summary>
+    /// <summary>Raised on any thread when configuration changes. Never raised by this solution-level stub implementation.</summary>
     public event EventHandler ConfigurationChanged;
 
-    /// <summary>Gets or sets the get configuration.</summary>
+    /// <summary>Returns the solution-level configuration (currently a fresh default; solution-level loading is not yet implemented).</summary>
     public DeveroomConfiguration GetConfiguration() => _configuration;
 }

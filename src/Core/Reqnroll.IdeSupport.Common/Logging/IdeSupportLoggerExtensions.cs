@@ -8,11 +8,11 @@ namespace Reqnroll.IdeSupport.Common.Logging;
 /// <summary>IdeSupportLoggerExtensions</summary>
 public static class IdeSupportLoggerExtensions
 {
-    /// <summary>Gets or sets the is logging.</summary>
+    /// <summary>Determines whether a message at <paramref name="messageLevel"/> would be recorded by this logger.</summary>
     public static bool IsLogging(this IIdeSupportLogger logger, TraceLevel messageLevel)
         => messageLevel <= logger.Level;
 
-    /// <summary>Gets or sets the log error.</summary>
+    /// <summary>Logs an error-level message.</summary>
     public static void LogError(this IIdeSupportLogger logger, string message,
         [CallerMemberName] string callerName = "???")
     {
@@ -20,7 +20,7 @@ public static class IdeSupportLoggerExtensions
         logger.Log(msg);
     }
 
-    /// <summary>Gets or sets the log warning.</summary>
+    /// <summary>Logs a warning-level message.</summary>
     public static void LogWarning(this IIdeSupportLogger logger, string message,
         [CallerMemberName] string callerName = "???")
     {
@@ -28,7 +28,7 @@ public static class IdeSupportLoggerExtensions
         logger.Log(msg);
     }
 
-    /// <summary>Gets or sets the log info.</summary>
+    /// <summary>Logs an info-level message.</summary>
     public static void LogInfo(this IIdeSupportLogger logger, string message,
         [CallerMemberName] string callerName = "???")
     {
@@ -36,7 +36,7 @@ public static class IdeSupportLoggerExtensions
         logger.Log(msg);
     }
 
-    /// <summary>Gets or sets the log verbose.</summary>
+    /// <summary>Logs a verbose-level message.</summary>
     public static void LogVerbose(this IIdeSupportLogger logger, string message,
         [CallerMemberName] string callerName = "???")
     {
@@ -44,7 +44,7 @@ public static class IdeSupportLoggerExtensions
         logger.Log(msg);
     }
 
-    /// <summary>Gets or sets the log verbose.</summary>
+    /// <summary>Logs a verbose-level message, evaluating <paramref name="message"/> only if verbose logging is enabled.</summary>
     public static void LogVerbose(this IIdeSupportLogger logger, Func<string> message,
         [CallerMemberName] string callerName = "???")
     {
@@ -54,7 +54,7 @@ public static class IdeSupportLoggerExtensions
         logger.Log(msg);
     }
 
-    /// <summary>Gets or sets the log exception.</summary>
+    /// <summary>Reports the exception to telemetry and logs it as an error-level message.</summary>
     public static void LogException(this IIdeSupportLogger logger, ITelemetryService telemetryService, Exception ex,
         string message = "Exception", [CallerMemberName] string callerName = "???")
     {
@@ -62,7 +62,7 @@ public static class IdeSupportLoggerExtensions
         LogException(logger, ex, message, callerName);
     }
 
-    /// <summary>Gets or sets the log exception.</summary>
+    /// <summary>Logs an exception as an error-level message.</summary>
     public static void LogException(this IIdeSupportLogger logger, Exception ex, string message = "Exception",
         [CallerMemberName] string callerName = "???")
     {
@@ -71,7 +71,7 @@ public static class IdeSupportLoggerExtensions
         logger.Log(msg);
     }
 
-    /// <summary>Gets or sets the log verbose exception.</summary>
+    /// <summary>Reports the exception to telemetry (as non-fatal) and logs it as a verbose-level message.</summary>
     public static void LogVerboseException(this IIdeSupportLogger logger, ITelemetryService telemetryService,
         Exception ex, string message = "Exception", [CallerMemberName] string callerName = "???")
     {
@@ -81,7 +81,7 @@ public static class IdeSupportLoggerExtensions
     }
 
     //TODO: merge IIdeSupportLogger with ITelemetryService
-    /// <summary>Gets or sets the log debug exception.</summary>
+    /// <summary>Logs an exception as a verbose-level message, without reporting it to telemetry.</summary>
     public static void LogDebugException(this IIdeSupportLogger logger, Exception ex, string message = "Exception",
         [CallerMemberName] string callerName = "???")
     {
@@ -90,7 +90,7 @@ public static class IdeSupportLoggerExtensions
     }
 
 
-    /// <summary>Gets or sets the trace.</summary>
+    /// <summary>Logs the elapsed time on <paramref name="sw"/> as a verbose trace message, if it exceeds 10ms.</summary>
     public static void Trace(this IIdeSupportLogger logger, Stopwatch sw, string message = "",
         [CallerFilePath] string callerFilePath = "?", [CallerLineNumber] int callerLineNumber = 0,
         [CallerMemberName] string callerName = "???")
@@ -99,7 +99,7 @@ public static class IdeSupportLoggerExtensions
             Trace(logger, $"{sw.Elapsed} {message}", callerFilePath, callerLineNumber, callerName);
     }
 
-    /// <summary>Gets or sets the trace.</summary>
+    /// <summary>Logs a verbose trace message annotated with the caller's file path and line number.</summary>
     public static void Trace(this IIdeSupportLogger logger, string message = "",
         [CallerFilePath] string callerFilePath = "?", [CallerLineNumber] int callerLineNumber = 0,
         [CallerMemberName] string callerName = "???")

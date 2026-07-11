@@ -8,6 +8,6 @@ public interface IDeveroomConfigurationProvider
 {
     /// <summary>Raised on any thread when configuration changes.</summary>
     event EventHandler ConfigurationChanged;
-    /// <summary>Gets or sets the get configuration.</summary>
+    /// <summary>Returns the currently resolved configuration.</summary>
     DeveroomConfiguration GetConfiguration();
 }

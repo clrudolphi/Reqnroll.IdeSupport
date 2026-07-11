@@ -5,7 +5,7 @@ namespace Reqnroll.IdeSupport.Common;
 /// <summary>FileSystemExtensions</summary>
 public static class FileSystemExtensions
 {
-    /// <summary>Gets or sets the get file path if exists.</summary>
+    /// <summary>Returns <paramref name="filePath"/> if the file exists, otherwise <c>null</c>.</summary>
     public static string GetFilePathIfExists(this IFileSystemForIDE fileSystem, string filePath)
     {
         if (fileSystem.File.Exists(filePath))

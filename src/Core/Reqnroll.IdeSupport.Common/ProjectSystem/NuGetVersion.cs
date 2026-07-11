@@ -23,11 +23,11 @@ public record NuGetVersion
             PreReleaseSuffix = versionParts[1];
     }
 
-    /// <summary>Gets or sets the version.</summary>
+    /// <summary>Gets the parsed numeric version (excluding any pre-release suffix).</summary>
     public Version Version { get; }
-    /// <summary>Gets or sets the pre release suffix.</summary>
+    /// <summary>Gets the pre-release suffix (the part after the first <c>-</c>), or <c>null</c> if this is not a pre-release version.</summary>
     public string PreReleaseSuffix { get; }
-    /// <summary>Gets or sets the is prerelease.</summary>
+    /// <summary>Gets whether this version has a pre-release suffix.</summary>
     public bool IsPrerelease => PreReleaseSuffix != null;
 
     /// <summary>The project's requested package range for the package.</summary>
@@ -39,10 +39,10 @@ public record NuGetVersion
     /// </remarks>
     public string RequestedRange { get; }
 
-    /// <summary>Gets or sets the is floating.</summary>
+    /// <summary>Gets whether <see cref="RequestedRange"/> uses a floating version pattern (contains <c>*</c>).</summary>
     public bool IsFloating => RequestedRange != null && Regex.IsMatch(RequestedRange, @"\*");
 
-    /// <summary>Gets or sets the to string.</summary>
+    /// <summary>Returns the version as a string, including the pre-release suffix and requested range where applicable.</summary>
     public override string ToString()
     {
         var str = IsPrerelease ? $"{Version}-{PreReleaseSuffix}" : Version.ToString();
@@ -50,6 +50,6 @@ public record NuGetVersion
         return str;
     }
 
-    /// <summary>Gets or sets the to short version string.</summary>
+    /// <summary>Returns a compact version string in the form <c>{Major}{Minor:00}{Build}</c>.</summary>
     public string ToShortVersionString() => $"{Version.Major}{Version.Minor:00}{Version.Build}";
 }

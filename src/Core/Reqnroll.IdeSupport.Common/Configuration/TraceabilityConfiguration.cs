@@ -14,7 +14,7 @@ public class TraceabilityConfiguration
         TagLinks = TagLinks ?? new TagLinkConfiguration[0];
     }
 
-    /// <summary>Gets or sets the check configuration.</summary>
+    /// <summary>Validates and normalizes this configuration and each of its tag link entries.</summary>
     public void CheckConfiguration()
     {
         FixEmptyContainers();
@@ -24,10 +24,10 @@ public class TraceabilityConfiguration
 
     #region Equality
 
-    /// <summary>Gets or sets the equals.</summary>
+    /// <summary>Determines whether this instance has the same tag links as <paramref name="other"/>.</summary>
     protected bool Equals(TraceabilityConfiguration other) => Equals(TagLinks, other.TagLinks);
 
-    /// <summary>Gets or sets the equals.</summary>
+    /// <summary>Determines whether <paramref name="obj"/> is a <see cref="TraceabilityConfiguration"/> with the same tag links.</summary>
     public override bool Equals(object obj)
     {
         if (ReferenceEquals(null, obj)) return false;
@@ -36,7 +36,7 @@ public class TraceabilityConfiguration
         return Equals((TraceabilityConfiguration) obj);
     }
 
-    /// <summary>Gets or sets the get hash code.</summary>
+    /// <summary>Returns a hash code derived from the tag links array.</summary>
     public override int GetHashCode() => TagLinks != null ? TagLinks.GetHashCode() : 0;
 
     #endregion

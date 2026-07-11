@@ -34,7 +34,7 @@ public class DeveroomConfiguration
     public string DefaultFeatureLanguage { get; set; } = "en-US";
     /// <summary>Gets or sets the configured binding culture.</summary>
     public string ConfiguredBindingCulture { get; set; } = null;
-    /// <summary>Gets or sets the binding culture.</summary>
+    /// <summary>Gets the effective binding culture: the configured culture if set, otherwise the default feature language.</summary>
     public string BindingCulture => ConfiguredBindingCulture ?? DefaultFeatureLanguage;
     /// <summary>Gets or sets the snippet expression style.</summary>
     public SnippetExpressionStyle SnippetExpressionStyle { get; set; } = SnippetExpressionStyle.CucumberExpression;
@@ -49,7 +49,7 @@ public class DeveroomConfiguration
         BindingDiscovery ??= new BindingDiscoveryConfiguration();
     }
 
-    /// <summary>Gets or sets the check configuration.</summary>
+    /// <summary>Validates and normalizes this configuration and all of its nested configuration sections.</summary>
     public void CheckConfiguration()
     {
         FixEmptyContainers();
@@ -63,7 +63,7 @@ public class DeveroomConfiguration
 
     #region Equality
 
-    /// <summary>Gets or sets the equals.</summary>
+    /// <summary>Determines whether this instance has the same setting values as <paramref name="other"/>.</summary>
     protected bool Equals(DeveroomConfiguration other) =>
         string.Equals(ConfigurationBaseFolder, other.ConfigurationBaseFolder) && 
         Equals(Reqnroll, other.Reqnroll) &&
@@ -75,7 +75,7 @@ public class DeveroomConfiguration
         string.Equals(DefaultFeatureLanguage, other.DefaultFeatureLanguage) &&
         string.Equals(ConfiguredBindingCulture, other.ConfiguredBindingCulture);
 
-    /// <summary>Gets or sets the equals.</summary>
+    /// <summary>Determines whether <paramref name="obj"/> is a <see cref="DeveroomConfiguration"/> with the same setting values.</summary>
     public override bool Equals(object obj)
     {
         if (ReferenceEquals(null, obj)) return false;
@@ -84,7 +84,7 @@ public class DeveroomConfiguration
         return Equals((DeveroomConfiguration) obj);
     }
 
-    /// <summary>Gets or sets the get hash code.</summary>
+    /// <summary>Returns a hash code derived from the configuration's setting values.</summary>
     public override int GetHashCode()
     {
         unchecked

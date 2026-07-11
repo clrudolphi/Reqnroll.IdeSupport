@@ -20,7 +20,7 @@ public class TagLinkConfiguration
         //nop;
     }
 
-    /// <summary>Gets or sets the check configuration.</summary>
+    /// <summary>Validates this configuration and compiles <see cref="TagPattern"/> into <see cref="ResolvedTagPattern"/>.</summary>
     public void CheckConfiguration()
     {
         FixEmptyContainers();
@@ -43,12 +43,12 @@ public class TagLinkConfiguration
 
     #region Equality
 
-    /// <summary>Gets or sets the equals.</summary>
+    /// <summary>Determines whether this instance has the same setting values as <paramref name="other"/>.</summary>
     protected bool Equals(TagLinkConfiguration other) => string.Equals(TagPattern, other.TagPattern) &&
                                                          string.Equals(UrlTemplate, other.UrlTemplate) &&
                                                          Equals(ResolvedTagPattern, other.ResolvedTagPattern);
 
-    /// <summary>Gets or sets the equals.</summary>
+    /// <summary>Determines whether <paramref name="obj"/> is a <see cref="TagLinkConfiguration"/> with the same setting values.</summary>
     public override bool Equals(object obj)
     {
         if (ReferenceEquals(null, obj)) return false;
@@ -57,7 +57,7 @@ public class TagLinkConfiguration
         return Equals((TagLinkConfiguration) obj);
     }
 
-    /// <summary>Gets or sets the get hash code.</summary>
+    /// <summary>Returns a hash code derived from the configuration's setting values.</summary>
     public override int GetHashCode()
     {
         unchecked

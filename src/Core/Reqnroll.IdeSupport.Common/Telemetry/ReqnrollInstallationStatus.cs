@@ -5,11 +5,11 @@ namespace Reqnroll.IdeSupport.Common.Telemetry;
 /// <summary>ReqnrollInstallationStatus</summary>
 public class ReqnrollInstallationStatus
 {
-    /// <summary>Gets or sets the magic date.</summary>
+    /// <summary>The date Reqnroll was born (2024-01-12), used as a reference point for install-date calculations.</summary>
     public static readonly DateTime MagicDate = new(2024, 1, 12); // when Reqnroll has born
-    /// <summary>Gets or sets the unknown version.</summary>
+    /// <summary>Sentinel version indicating no installed version could be detected.</summary>
     public static readonly Version UnknownVersion = new(0, 0);
-    /// <summary>Gets or sets the is installed.</summary>
+    /// <summary>Gets whether Reqnroll is installed (i.e. a version other than <see cref="UnknownVersion"/> was detected).</summary>
     public bool IsInstalled => InstalledVersion != UnknownVersion;
     /// <summary>Gets or sets the installed version.</summary>
     public Version InstalledVersion { get; set; } = UnknownVersion;

@@ -15,13 +15,13 @@ public record NuGetPackageReference
         InstallPath = installPath?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     }
 
-    /// <summary>Gets or sets the package name.</summary>
+    /// <summary>Gets the NuGet package name.</summary>
     public string PackageName { get; }
-    /// <summary>Gets or sets the version.</summary>
+    /// <summary>Gets the resolved package version.</summary>
     public NuGetVersion Version { get; }
-    /// <summary>Gets or sets the install path.</summary>
+    /// <summary>Gets the path the package was installed to, with any trailing directory separator trimmed.</summary>
     public string InstallPath { get; }
 
-    /// <summary>Gets or sets the to string.</summary>
+    /// <summary>Returns the package name and version in the form <c>{PackageName}/{Version}</c>.</summary>
     public override string ToString() => $"{PackageName}/{Version}";
 }

@@ -3,16 +3,16 @@ namespace Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
 /// <summary>DeveroomProjectKind</summary>
 public enum DeveroomProjectKind
 {
-    /// <summary>Gets or sets the unknown.</summary>
+    /// <summary>The project kind could not be determined.</summary>
     Unknown,
-    /// <summary>Gets or sets the uninitialized.</summary>
+    /// <summary>The project kind has not been evaluated yet.</summary>
     Uninitialized,
-    /// <summary>Gets or sets the reqnroll test project.</summary>
+    /// <summary>A project that references Reqnroll and contains test/feature files.</summary>
     ReqnrollTestProject,
-    /// <summary>Gets or sets the reqnroll lib project.</summary>
+    /// <summary>A project that references Reqnroll but is a library (not a test project) providing step definitions/bindings.</summary>
     ReqnrollLibProject,
-    /// <summary>Gets or sets the feature file container project.</summary>
+    /// <summary>A project that contains feature files but does not itself reference Reqnroll.</summary>
     FeatureFileContainerProject,
-    /// <summary>Gets or sets the other project.</summary>
+    /// <summary>A project unrelated to Reqnroll.</summary>
     OtherProject
 }

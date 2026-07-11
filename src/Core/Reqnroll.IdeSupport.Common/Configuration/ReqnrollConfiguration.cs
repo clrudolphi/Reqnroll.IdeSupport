@@ -24,7 +24,7 @@ public class ReqnrollConfiguration
         Traits = Traits ?? new ReqnrollProjectTraits[0];
     }
 
-    /// <summary>Gets or sets the check configuration.</summary>
+    /// <summary>Validates and normalizes this configuration, ensuring the version string (if set) is well-formed.</summary>
     public void CheckConfiguration()
     {
         FixEmptyContainers();
@@ -35,13 +35,13 @@ public class ReqnrollConfiguration
 
     #region Equality
 
-    /// <summary>Gets or sets the equals.</summary>
+    /// <summary>Determines whether this instance has the same setting values as <paramref name="other"/>.</summary>
     protected bool Equals(ReqnrollConfiguration other) => IsReqnrollProject == other.IsReqnrollProject &&
                                                           string.Equals(Version, other.Version) &&
                                                           string.Equals(ConfigFilePath, other.ConfigFilePath) &&
                                                           Equals(Traits, other.Traits);
 
-    /// <summary>Gets or sets the equals.</summary>
+    /// <summary>Determines whether <paramref name="obj"/> is a <see cref="ReqnrollConfiguration"/> with the same setting values.</summary>
     public override bool Equals(object obj)
     {
         if (ReferenceEquals(null, obj)) return false;
@@ -50,7 +50,7 @@ public class ReqnrollConfiguration
         return Equals((ReqnrollConfiguration) obj);
     }
 
-    /// <summary>Gets or sets the get hash code.</summary>
+    /// <summary>Returns a hash code derived from the configuration's setting values.</summary>
     public override int GetHashCode()
     {
         unchecked

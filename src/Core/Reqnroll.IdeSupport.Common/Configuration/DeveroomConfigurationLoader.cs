@@ -20,15 +20,15 @@ public class DeveroomConfigurationLoader
         _fileSystem = fileSystem;
     }
 
-    /// <summary>Gets or sets the create reqnroll json configuration loader.</summary>
+    /// <summary>Creates a loader that reads settings from a <c>reqnroll.json</c> file.</summary>
     public static DeveroomConfigurationLoader CreateReqnrollJsonConfigurationLoader(IFileSystemForIDE fileSystem) =>
         new(new ReqnrollConfigDeserializer(), fileSystem);
 
-    /// <summary>Gets or sets the create deveroom json configuration loader.</summary>
+    /// <summary>Creates a loader that reads settings from a legacy Deveroom-style JSON configuration file.</summary>
     public static DeveroomConfigurationLoader CreateDeveroomJsonConfigurationLoader(IFileSystemForIDE fileSystem) =>
         new(new JsonNetConfigDeserializer<DeveroomConfiguration>(), fileSystem);
 
-    /// <summary>Gets or sets the load.</summary>
+    /// <summary>Loads a new <see cref="DeveroomConfiguration"/> from the given config file.</summary>
     public DeveroomConfiguration Load(string configFilePath)
     {
         var config = new DeveroomConfiguration();
@@ -36,7 +36,7 @@ public class DeveroomConfigurationLoader
         return config;
     }
 
-    /// <summary>Gets or sets the update.</summary>
+    /// <summary>Re-reads the given config file and applies its settings onto the existing <paramref name="config"/> instance.</summary>
     public void Update(DeveroomConfiguration config, string configFilePath)
     {
         if (!_fileSystem.File.Exists(configFilePath))

@@ -3,20 +3,20 @@ namespace Reqnroll.IdeSupport.Common.Configuration;
 /// <summary>SnippetExpressionStyle</summary>
 public enum SnippetExpressionStyle
 {
-    /// <summary>Gets or sets the regular expression.</summary>
+    /// <summary>Step definition snippets use a plain, synchronous regular expression attribute.</summary>
     RegularExpression,
-    /// <summary>Gets or sets the cucumber expression.</summary>
+    /// <summary>Step definition snippets use a synchronous Cucumber Expression attribute.</summary>
     CucumberExpression,
-    /// <summary>Gets or sets the async regular expression.</summary>
+    /// <summary>Step definition snippets use an async regular expression attribute.</summary>
     AsyncRegularExpression,
-    /// <summary>Gets or sets the async cucumber expression.</summary>
+    /// <summary>Step definition snippets use an async Cucumber Expression attribute.</summary>
     AsyncCucumberExpression
 }
 
 /// <summary>SnippetExpressionStyleExtensions</summary>
 public static class SnippetExpressionStyleExtensions
 {
-    /// <summary>Gets or sets the is async.</summary>
+    /// <summary>Determines whether the given snippet style generates an async step definition.</summary>
     public static bool IsAsync(this SnippetExpressionStyle style)
     {
         if (style == SnippetExpressionStyle.AsyncRegularExpression
@@ -25,7 +25,7 @@ public static class SnippetExpressionStyleExtensions
         return false;
     }
 
-    /// <summary>Gets or sets the is cucumber.</summary>
+    /// <summary>Determines whether the given snippet style uses a Cucumber Expression rather than a regular expression.</summary>
     public static bool IsCucumber(this SnippetExpressionStyle style)
     {
         if (style == SnippetExpressionStyle.CucumberExpression

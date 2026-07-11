@@ -13,7 +13,7 @@ public class SynchronousFileLogger : AsynchronousFileLogger
         EnsureLogFolder();
     }
 
-    /// <summary>Gets or sets the log.</summary>
+    /// <summary>Writes the log message to the file synchronously, swallowing any write errors.</summary>
     public override void Log(LogMessage message)
     {
         if (message.Level > Level) return;

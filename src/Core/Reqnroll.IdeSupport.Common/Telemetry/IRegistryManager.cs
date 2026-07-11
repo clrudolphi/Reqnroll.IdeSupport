@@ -3,8 +3,8 @@ namespace Reqnroll.IdeSupport.Common.Telemetry;
 /// <summary>IRegistryManager</summary>
 public interface IRegistryManager
 {
-    /// <summary>Gets or sets the update status.</summary>
+    /// <summary>Persists the given installation status to the registry. Returns whether the write succeeded.</summary>
     bool UpdateStatus(ReqnrollInstallationStatus status);
-    /// <summary>Gets or sets the get install status.</summary>
+    /// <summary>Reads the current installation status from the registry.</summary>
     ReqnrollInstallationStatus GetInstallStatus();
 }

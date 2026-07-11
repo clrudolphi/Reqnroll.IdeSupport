@@ -7,16 +7,16 @@ namespace Reqnroll.IdeSupport.VisualStudio.ProjectSystem;
 /// <summary>IDeveroomErrorListServices</summary>
 public interface IDeveroomErrorListServices
 {
-    /// <summary>Gets or sets the clear errors.</summary>
+    /// <summary>Clears all previously reported errors in the given category.</summary>
     void ClearErrors(DeveroomUserErrorCategory category);
-    /// <summary>Gets or sets the add errors.</summary>
+    /// <summary>Adds the given errors to the error list.</summary>
     void AddErrors(IEnumerable<DeveroomUserError> errors);
 }
 
 /// <summary>DeveroomUserErrorCategory</summary>
 public enum DeveroomUserErrorCategory
 {
-    /// <summary>Gets or sets the discovery.</summary>
+    /// <summary>An error raised during binding/step definition discovery.</summary>
     Discovery
 }
 

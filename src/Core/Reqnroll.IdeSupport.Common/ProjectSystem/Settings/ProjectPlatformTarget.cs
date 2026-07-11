@@ -3,14 +3,14 @@ namespace Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
 /// <summary>ProjectPlatformTarget</summary>
 public enum ProjectPlatformTarget
 {
-    /// <summary>Gets or sets the unknown.</summary>
+    /// <summary>The platform target could not be determined.</summary>
     Unknown,
-    /// <summary>Gets or sets the any cpu.</summary>
+    /// <summary>The project targets Any CPU.</summary>
     AnyCpu,
-    /// <summary>Gets or sets the x86.</summary>
+    /// <summary>The project targets 32-bit (x86).</summary>
     x86,
-    /// <summary>Gets or sets the x64.</summary>
+    /// <summary>The project targets 64-bit (x64).</summary>
     x64,
-    /// <summary>Gets or sets the arm64.</summary>
+    /// <summary>The project targets ARM64.</summary>
     Arm64
 }

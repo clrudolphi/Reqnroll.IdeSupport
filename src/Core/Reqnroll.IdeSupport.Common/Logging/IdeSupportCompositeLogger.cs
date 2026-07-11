@@ -11,21 +11,21 @@ public class IdeSupportCompositeLogger : IIdeSupportLogger, IEnumerable<IIdeSupp
 {
     private IIdeSupportLogger[] _loggers = Array.Empty<IIdeSupportLogger>();
 
-    /// <summary>Gets or sets the level.</summary>
+    /// <summary>Gets the most verbose trace level among the composed loggers.</summary>
     public TraceLevel Level { get; private set; } = TraceLevel.Off;
 
-    /// <summary>Gets or sets the log.</summary>
+    /// <summary>Forwards the log message to every composed logger.</summary>
     public void Log(LogMessage message)
     {
         foreach (var logger in _loggers)
             logger.Log(message);
     }
 
-    /// <summary>Gets or sets the get enumerator.</summary>
+    /// <summary>Returns an enumerator over the composed loggers.</summary>
     public IEnumerator<IIdeSupportLogger> GetEnumerator() => _loggers.AsEnumerable().GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-    /// <summary>Gets or sets the add.</summary>
+    /// <summary>Adds a logger to the composite and updates <see cref="Level"/> to the most verbose of all composed loggers.</summary>
     public IdeSupportCompositeLogger Add(IIdeSupportLogger logger)
     {
         _loggers = _loggers.Concat(new[] {logger}).ToArray();

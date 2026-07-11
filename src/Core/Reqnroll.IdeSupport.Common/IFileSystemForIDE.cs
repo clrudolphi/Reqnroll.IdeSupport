@@ -16,24 +16,24 @@ namespace Reqnroll.IdeSupport.Common
     {
         private readonly FileSystem _fileSystem = new();
 
-        /// <summary>Gets or sets the file.</summary>
+        /// <summary>Gets the underlying <see cref="IFile"/> abstraction.</summary>
         public IFile File => _fileSystem.File;
-        /// <summary>Gets or sets the directory.</summary>
+        /// <summary>Gets the underlying <see cref="IDirectory"/> abstraction.</summary>
         public IDirectory Directory => _fileSystem.Directory;
-        /// <summary>Gets or sets the file info.</summary>
+        /// <summary>Gets the underlying <see cref="IFileInfoFactory"/> abstraction.</summary>
         public IFileInfoFactory FileInfo => _fileSystem.FileInfo;
-        /// <summary>Gets or sets the file stream.</summary>
+        /// <summary>Gets the underlying <see cref="IFileStreamFactory"/> abstraction.</summary>
         public IFileStreamFactory FileStream => _fileSystem.FileStream;
-        /// <summary>Gets or sets the path.</summary>
+        /// <summary>Gets the underlying <see cref="IPath"/> abstraction.</summary>
         public IPath Path => _fileSystem.Path;
-        /// <summary>Gets or sets the directory info.</summary>
+        /// <summary>Gets the underlying <see cref="IDirectoryInfoFactory"/> abstraction.</summary>
         public IDirectoryInfoFactory DirectoryInfo => _fileSystem.DirectoryInfo;
-        /// <summary>Gets or sets the drive info.</summary>
+        /// <summary>Gets the underlying <see cref="IDriveInfoFactory"/> abstraction.</summary>
         public IDriveInfoFactory DriveInfo => _fileSystem.DriveInfo;
-        /// <summary>Gets or sets the file system watcher.</summary>
+        /// <summary>Gets the underlying <see cref="IFileSystemWatcherFactory"/> abstraction.</summary>
         public IFileSystemWatcherFactory FileSystemWatcher => _fileSystem.FileSystemWatcher;
 
-        /// <summary>Gets or sets the file version info.</summary>
+        /// <summary>Not supported by this implementation; always throws <see cref="NotImplementedException"/>.</summary>
         public IFileVersionInfoFactory FileVersionInfo => throw new NotImplementedException();
     }
 }

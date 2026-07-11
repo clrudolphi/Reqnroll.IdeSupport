@@ -16,7 +16,7 @@ public class DebuggableCancellationTokenSource : CancellationTokenSource
     {
     }
 
-    /// <summary>Gets or sets the get debugger timeout.</summary>
+    /// <summary>Returns a one-minute timeout when a debugger is attached, otherwise <paramref name="nonDebuggerTimeout"/>.</summary>
     public static TimeSpan GetDebuggerTimeout(TimeSpan nonDebuggerTimeout)
         => Debugger.IsAttached ? TimeSpan.FromMinutes(1) : nonDebuggerTimeout;
 }

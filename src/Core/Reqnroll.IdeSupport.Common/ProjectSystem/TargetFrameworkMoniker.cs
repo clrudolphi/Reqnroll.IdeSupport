@@ -8,9 +8,9 @@ namespace Reqnroll.IdeSupport.Common.ProjectSystem;
 /// <summary>TargetFrameworkMoniker</summary>
 public class TargetFrameworkMoniker
 {
-    /// <summary>Gets or sets the net core platform.</summary>
+    /// <summary>The platform identifier used in TFMs for .NET Core / modern .NET (e.g. .NET 5+).</summary>
     public const string NetCorePlatform = ".NETCoreApp";
-    /// <summary>Gets or sets the net framework platform.</summary>
+    /// <summary>The platform identifier used in TFMs for the .NET Framework.</summary>
     public const string NetFrameworkPlatform = ".NETFramework";
     private const string NetCoreShortValuePrefix = "netcoreapp";
     private const string NetFrameworkShortValuePrefix = "net";
@@ -47,26 +47,26 @@ public class TargetFrameworkMoniker
     // * .NET 5:    .NETCoreApp,Version=v5.0
     // * .NET Core: .NETCoreApp,Version=v2.1
     // * .NET Fw:   .NETFramework,Version=v4.5.2
-    /// <summary>Gets or sets the value.</summary>
+    /// <summary>Gets the raw target framework moniker string (e.g. <c>.NETCoreApp,Version=v8.0</c>).</summary>
     public string Value { get; }
 
-    /// <summary>Gets or sets the platform.</summary>
+    /// <summary>Gets the platform portion of the moniker (e.g. <c>.NETCoreApp</c> or <c>.NETFramework</c>).</summary>
     public string Platform { get; }
-    /// <summary>Gets or sets the version.</summary>
+    /// <summary>Gets the parsed version portion of the moniker, or <c>null</c> if none was present.</summary>
     public Version Version { get; }
 
-    /// <summary>Gets or sets the has version.</summary>
+    /// <summary>Gets whether a specific framework version was parsed from the moniker.</summary>
     public bool HasVersion => Version != null;
-    /// <summary>Gets or sets the is net core.</summary>
+    /// <summary>Gets whether this moniker targets .NET Core / modern .NET.</summary>
     public bool IsNetCore => NetCorePlatform.Equals(Platform);
-    /// <summary>Gets or sets the is net framework.</summary>
+    /// <summary>Gets whether this moniker targets the .NET Framework.</summary>
     public bool IsNetFramework => NetFrameworkPlatform.Equals(Platform);
 
-    /// <summary>Gets or sets the create.</summary>
+    /// <summary>Creates a <see cref="TargetFrameworkMoniker"/> from its raw string form, or <c>null</c> if <paramref name="value"/> is <c>null</c>.</summary>
     public static TargetFrameworkMoniker Create(string value) =>
         value == null ? null : new TargetFrameworkMoniker(value);
 
-    /// <summary>Gets or sets the create from short name.</summary>
+    /// <summary>Creates a <see cref="TargetFrameworkMoniker"/> from its short form (e.g. <c>net8.0</c>, <c>net472</c>).</summary>
     public static TargetFrameworkMoniker CreateFromShortName(string shortValue)
     {
         var value = shortValue;
@@ -111,11 +111,11 @@ public class TargetFrameworkMoniker
         return Create(value);
     }
 
-    /// <summary>Gets or sets the to string.</summary>
+    /// <summary>Returns the raw target framework moniker string.</summary>
     public override string ToString() => Value;
 
     // e.g netcoreapp2.1 or net452
-    /// <summary>Gets or sets the to short string.</summary>
+    /// <summary>Returns the moniker in its short form (e.g. <c>netcoreapp2.1</c> or <c>net452</c>).</summary>
     public string ToShortString()
     {
         if (IsNetCore && HasVersion)
@@ -127,10 +127,10 @@ public class TargetFrameworkMoniker
 
     #region Equality
 
-    /// <summary>Gets or sets the equals.</summary>
+    /// <summary>Determines whether this instance has the same raw moniker value as <paramref name="other"/>.</summary>
     protected bool Equals(TargetFrameworkMoniker other) => Value == other.Value;
 
-    /// <summary>Gets or sets the equals.</summary>
+    /// <summary>Determines whether <paramref name="obj"/> is a <see cref="TargetFrameworkMoniker"/> with the same raw moniker value.</summary>
     public override bool Equals(object obj)
     {
         if (ReferenceEquals(null, obj)) return false;
@@ -139,13 +139,13 @@ public class TargetFrameworkMoniker
         return Equals((TargetFrameworkMoniker) obj);
     }
 
-    /// <summary>Gets or sets the get hash code.</summary>
+    /// <summary>Returns a hash code derived from the raw moniker value.</summary>
     public override int GetHashCode() => Value.GetHashCode();
 
-    /// <summary>Gets or sets the operator ==.</summary>
+    /// <summary>Determines whether two monikers have the same raw value.</summary>
     public static bool operator ==(TargetFrameworkMoniker left, TargetFrameworkMoniker right) => Equals(left, right);
 
-    /// <summary>Gets or sets the operator !=.</summary>
+    /// <summary>Determines whether two monikers have different raw values.</summary>
     public static bool operator !=(TargetFrameworkMoniker left, TargetFrameworkMoniker right) => !Equals(left, right);
 
     #endregion

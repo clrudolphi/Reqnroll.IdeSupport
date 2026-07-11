@@ -12,7 +12,7 @@ public class CSharpCodeGenerationConfiguration
     [EditorConfigSetting("csharp_style_namespace_declarations")]
     public string? NamespaceDeclarationStyle { get; set; } = "block_scoped";
 
-    /// <summary>Gets or sets the clone.</summary>
+    /// <summary>Creates a copy of this configuration.</summary>
     public CSharpCodeGenerationConfiguration Clone() => new()
     {
         NamespaceDeclarationStyle = NamespaceDeclarationStyle,

@@ -16,15 +16,15 @@ namespace Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 /// <summary>ProjectScopeDeveroomConfigurationProvider</summary>
 public class ProjectScopeDeveroomConfigurationProvider : IDeveroomConfigurationProvider, IDisposable
 {
-    /// <summary>Gets or sets the reqnroll json config file name.</summary>
+    /// <summary>File name of the modern Reqnroll JSON configuration file.</summary>
     public const string ReqnrollJsonConfigFileName = "reqnroll.json";
-    /// <summary>Gets or sets the spec flow json config file name.</summary>
+    /// <summary>File name of the legacy SpecFlow JSON configuration file.</summary>
     public const string SpecFlowJsonConfigFileName = "specflow.json";
-    /// <summary>Gets or sets the spec flow app config file name.</summary>
+    /// <summary>File name of the legacy SpecFlow XML application configuration file.</summary>
     public const string SpecFlowAppConfigFileName = "App.config";
-    /// <summary>Gets or sets the spec sync json config file name.</summary>
+    /// <summary>File name of the SpecSync JSON configuration file.</summary>
     public const string SpecSyncJsonConfigFileName = "specsync.json";
-    /// <summary>Gets or sets the deveroom config file name.</summary>
+    /// <summary>File name of the legacy Deveroom JSON configuration file.</summary>
     public const string DeveroomConfigFileName = "deveroom.json";
 
     private readonly IProjectScope _projectScope;
@@ -51,16 +51,16 @@ public class ProjectScopeDeveroomConfigurationProvider : IDeveroomConfigurationP
     //        nameof(ConfigurationChanged), value);
     //}
 
-    /// <summary>Gets or sets the get configuration.</summary>
+    /// <summary>Returns the currently cached, resolved configuration for the project.</summary>
     public DeveroomConfiguration GetConfiguration() => _configCache.Configuration;
 
-    /// <summary>Gets or sets the dispose.</summary>
+    /// <summary>No-op: reserved for unsubscribing project-build event handlers if that wiring is re-enabled.</summary>
     public void Dispose()
     {
         //_projectScope.IdeScope.WeakProjectsBuilt -= ProjectSystemOnProjectsBuilt;
     }
 
-    /// <summary>Gets or sets the configuration changed.</summary>
+    /// <summary>Raised after the configuration is reloaded and found to have changed.</summary>
     public event EventHandler ConfigurationChanged;
 
     private void InitializeConfiguration()
@@ -76,7 +76,7 @@ public class ProjectScopeDeveroomConfigurationProvider : IDeveroomConfigurationP
         CheckConfiguration(true);
     }
 
-    /// <summary>Gets or sets the reload.</summary>
+    /// <summary>Forces a re-check of configuration sources, raising <see cref="ConfigurationChanged"/> if anything changed.</summary>
     public void Reload() => CheckConfiguration(triggerChanged: true);
 
     private void CheckConfiguration(bool triggerChanged)
@@ -295,7 +295,7 @@ public class ProjectScopeDeveroomConfigurationProvider : IDeveroomConfigurationP
         });
     }
 
-    /// <summary>Gets or sets the to string.</summary>
+    /// <summary>Returns a string identifying this provider and the config sources it loaded from.</summary>
     public override string ToString() =>
         $"{nameof(ProjectScopeDeveroomConfigurationProvider)}({string.Join(",", _configCache.ConfigSources.Select(cs => cs.ToString()))})";
 }

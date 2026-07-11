@@ -6,15 +6,15 @@ namespace Reqnroll.IdeSupport.Common.Configuration;
 /// </summary>
 public sealed class NullEditorConfigOptionsProvider : IEditorConfigOptionsProvider
 {
-    /// <summary>Gets or sets the instance.</summary>
+    /// <summary>The shared singleton instance.</summary>
     public static readonly NullEditorConfigOptionsProvider Instance = new();
 
     private NullEditorConfigOptionsProvider() { }
 
-    /// <summary>Gets or sets the get editor config options by path.</summary>
+    /// <summary>Returns the shared no-op <see cref="NullEditorConfigOptions"/> regardless of the given path.</summary>
     public IEditorConfigOptions GetEditorConfigOptionsByPath(string filePath)
         => NullEditorConfigOptions.Instance;
 
-    /// <summary>Gets or sets the invalidate cache.</summary>
+    /// <summary>No-op: there is no cache to invalidate.</summary>
     public void InvalidateCache(string editorConfigFilePath) { }
 }

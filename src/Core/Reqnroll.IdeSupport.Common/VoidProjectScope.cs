@@ -25,43 +25,43 @@ public class VoidProjectScope : IProjectScope
         DefaultNamespace = string.Empty;
     }
 
-    /// <summary>Gets or sets the dispose.</summary>
+    /// <summary>No-op: this null-object implementation holds no resources to release.</summary>
     public void Dispose()
     {
     }
 
-    /// <summary>Gets or sets the ide scope.</summary>
+    /// <summary>Gets the owning IDE scope.</summary>
     public IIdeScope IdeScope { get; }
-    /// <summary>Gets or sets the project name.</summary>
+    /// <summary>Gets the project name; always empty for this null-object implementation.</summary>
     public string ProjectName { get; }
-    /// <summary>Gets or sets the project full name.</summary>
+    /// <summary>Gets the full project path; always empty for this null-object implementation.</summary>
     public string ProjectFullName { get; }
-    /// <summary>Gets or sets the project folder.</summary>
+    /// <summary>Gets the project folder; always empty for this null-object implementation.</summary>
     public string ProjectFolder { get; }
-    /// <summary>Gets or sets the package references.</summary>
+    /// <summary>Gets the project's NuGet package references; always empty for this null-object implementation.</summary>
     public IEnumerable<NuGetPackageReference> PackageReferences { get; }
-    /// <summary>Gets or sets the output assembly path.</summary>
+    /// <summary>Gets the output assembly path; always empty for this null-object implementation.</summary>
     public string OutputAssemblyPath { get; }
-    /// <summary>Gets or sets the target framework moniker.</summary>
+    /// <summary>Gets the target framework moniker; always empty for this null-object implementation.</summary>
     public string TargetFrameworkMoniker { get; }
-    /// <summary>Gets or sets the target framework monikers.</summary>
+    /// <summary>Gets the target framework monikers; always empty for this null-object implementation.</summary>
     public string TargetFrameworkMonikers { get; }
-    /// <summary>Gets or sets the platform target name.</summary>
+    /// <summary>Gets the platform target name; always empty for this null-object implementation.</summary>
     public string PlatformTargetName { get; }
-    /// <summary>Gets or sets the default namespace.</summary>
+    /// <summary>Gets the project's default namespace; always empty for this null-object implementation.</summary>
     public string DefaultNamespace { get; }
 
-    /// <summary>Gets or sets the properties.</summary>
+    /// <summary>Gets the bag of ambient properties associated with this project scope.</summary>
     public ConcurrentDictionary<Type, object> Properties { get; }
 
-    /// <summary>Gets or sets the add file.</summary>
+    /// <summary>No-op: this null-object implementation does not add files.</summary>
     public void AddFile(string targetFilePath, string template)
     {
     }
 
-    /// <summary>Gets or sets the get feature file count.</summary>
+    /// <summary>Always returns zero for this null-object implementation.</summary>
     public int? GetFeatureFileCount() => 0;
 
-    /// <summary>Gets or sets the get project files.</summary>
+    /// <summary>Always returns an empty array for this null-object implementation.</summary>
     public string[] GetProjectFiles(string extension) => Array.Empty<string>();
 }

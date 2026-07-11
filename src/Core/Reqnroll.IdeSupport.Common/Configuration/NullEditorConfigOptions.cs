@@ -5,7 +5,7 @@ namespace Reqnroll.IdeSupport.Common.Configuration;
 /// </summary>
 public sealed class NullEditorConfigOptions : IEditorConfigOptions
 {
-    /// <summary>Gets or sets the instance.</summary>
+    /// <summary>The shared singleton instance.</summary>
     public static readonly NullEditorConfigOptions Instance = new();
 
     private NullEditorConfigOptions() { }

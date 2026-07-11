@@ -3,14 +3,14 @@ namespace Reqnroll.IdeSupport.Common.Configuration;
 /// <summary>ProcessorArchitectureSetting</summary>
 public enum ProcessorArchitectureSetting
 {
-    /// <summary>Gets or sets the auto detect.</summary>
+    /// <summary>Automatically detect the processor architecture from the target platform.</summary>
     AutoDetect,
-    /// <summary>Gets or sets the use system.</summary>
+    /// <summary>Use the processor architecture of the current system.</summary>
     UseSystem,
-    /// <summary>Gets or sets the x86.</summary>
+    /// <summary>Force 32-bit (x86) processor architecture.</summary>
     X86,
-    /// <summary>Gets or sets the x64.</summary>
+    /// <summary>Force 64-bit (x64) processor architecture.</summary>
     X64,
-    /// <summary>Gets or sets the arm64.</summary>
+    /// <summary>Force ARM64 processor architecture.</summary>
     Arm64
 }

@@ -17,8 +17,8 @@ public record GenericEvent : ITelemetryEvent
     {
     }
 
-    /// <summary>Gets or sets the event name.</summary>
+    /// <summary>Gets the telemetry event name.</summary>
     public string EventName { get; }
-    /// <summary>Gets or sets the properties.</summary>
+    /// <summary>Gets the event's properties.</summary>
     public ImmutableDictionary<string, object> Properties { get; }
 }

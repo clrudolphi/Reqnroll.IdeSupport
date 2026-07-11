@@ -5,12 +5,12 @@ namespace Reqnroll.IdeSupport.Common.Telemetry;
 /// <summary>IGuidanceConfiguration</summary>
 public interface IGuidanceConfiguration
 {
-    /// <summary>Gets or sets the installation.</summary>
+    /// <summary>Gets the guidance step shown right after installation.</summary>
     GuidanceStep Installation { get; }
 
-    /// <summary>Gets or sets the upgrade.</summary>
+    /// <summary>Gets the guidance step shown after an upgrade.</summary>
     GuidanceStep Upgrade { get; }
 
-    /// <summary>Gets or sets the usage sequence.</summary>
+    /// <summary>Gets the ordered sequence of usage-based guidance steps.</summary>
     IEnumerable<GuidanceStep> UsageSequence { get; }
 }

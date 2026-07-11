@@ -11,15 +11,15 @@ namespace Reqnroll.IdeSupport.Common;
 /// </summary>
 public interface IIdeScope
 {
-    /// <summary>Gets or sets the is solution loaded.</summary>
+    /// <summary>Gets whether a solution is currently loaded in the IDE.</summary>
     bool IsSolutionLoaded { get; }
-    /// <summary>Gets or sets the logger.</summary>
+    /// <summary>Gets the logger for this IDE scope.</summary>
     IIdeSupportLogger Logger { get; }
-    /// <summary>Gets or sets the telemetry service.</summary>
+    /// <summary>Gets the telemetry service for this IDE scope.</summary>
     ITelemetryService TelemetryService { get; }
-    /// <summary>Gets or sets the actions.</summary>
+    /// <summary>Gets the IDE actions (error/problem reporting) available to this scope.</summary>
     IIdeActions Actions { get; }
-    /// <summary>Gets or sets the file system.</summary>
+    /// <summary>Gets the file system abstraction for this IDE scope.</summary>
     IFileSystemForIDE FileSystem { get; }
 }
 
@@ -28,8 +28,8 @@ public interface IIdeScope
 /// </summary>
 public interface IIdeActions
 {
-    /// <summary>Gets or sets the show error.</summary>
+    /// <summary>Reports an error, described by <paramref name="description"/>, caused by <paramref name="exception"/>.</summary>
     void ShowError(string description, Exception exception);
-    /// <summary>Gets or sets the show problem.</summary>
+    /// <summary>Reports a non-exception problem message to the user.</summary>
     void ShowProblem(string message);
 }

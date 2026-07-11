@@ -9,33 +9,33 @@ namespace Reqnroll.IdeSupport.Common.ProjectSystem;
 /// <summary>IProjectScope</summary>
 public interface IProjectScope :  IDisposable 
 {
-    /// <summary>Gets or sets the ide scope.</summary>
+    /// <summary>Gets the owning IDE scope.</summary>
     IIdeScope IdeScope { get; }
-    /// <summary>Gets or sets the project name.</summary>
+    /// <summary>Gets the project name.</summary>
     string ProjectName { get; }
-    /// <summary>Gets or sets the project full name.</summary>
+    /// <summary>Gets the full path of the project file.</summary>
     string ProjectFullName { get; }
-    /// <summary>Gets or sets the project folder.</summary>
+    /// <summary>Gets the folder containing the project.</summary>
     string ProjectFolder { get; }
 
-    /// <summary>Gets or sets the properties.</summary>
+    /// <summary>Gets the bag of ambient properties associated with this project scope.</summary>
     ConcurrentDictionary<Type, object> Properties { get; }
-    /// <summary>Gets or sets the package references.</summary>
+    /// <summary>Gets the project's NuGet package references.</summary>
     IEnumerable<NuGetPackageReference> PackageReferences { get; }
-    /// <summary>Gets or sets the output assembly path.</summary>
+    /// <summary>Gets the path of the project's output assembly.</summary>
     string OutputAssemblyPath { get; }
-    /// <summary>Gets or sets the target framework moniker.</summary>
+    /// <summary>Gets the project's target framework moniker.</summary>
     string TargetFrameworkMoniker { get; }
-    /// <summary>Gets or sets the target framework monikers.</summary>
+    /// <summary>Gets the project's target framework monikers (for multi-targeting projects).</summary>
     string TargetFrameworkMonikers { get; }
-    /// <summary>Gets or sets the platform target name.</summary>
+    /// <summary>Gets the project's platform target name (e.g. AnyCPU, x86, x64).</summary>
     string PlatformTargetName { get; }
-    /// <summary>Gets or sets the default namespace.</summary>
+    /// <summary>Gets the project's default namespace.</summary>
     string DefaultNamespace { get; }
 
     //void AddFile(string targetFilePath, string template);
-    /// <summary>Gets or sets the get feature file count.</summary>
+    /// <summary>Returns the number of feature files in the project, or <c>null</c> if unknown.</summary>
     int? GetFeatureFileCount();
-    /// <summary>Gets or sets the get project files.</summary>
+    /// <summary>Returns the full paths of all project files with the given extension.</summary>
     string[] GetProjectFiles(string extension);
 }

@@ -10,7 +10,7 @@ public class BindingDiscoveryConfiguration
     {
     }
 
-    /// <summary>Gets or sets the check configuration.</summary>
+    /// <summary>Validates and normalizes this configuration, filling in any empty collections.</summary>
     public void CheckConfiguration()
     {
         FixEmptyContainers();
@@ -18,13 +18,13 @@ public class BindingDiscoveryConfiguration
 
     #region Equality
 
-    /// <summary>Gets or sets the equals.</summary>
+    /// <summary>Determines whether this instance has the same connector path as <paramref name="other"/>.</summary>
     protected bool Equals(BindingDiscoveryConfiguration other)
     {
         return ConnectorPath == other.ConnectorPath;
     }
 
-    /// <summary>Gets or sets the equals.</summary>
+    /// <summary>Determines whether <paramref name="obj"/> is a <see cref="BindingDiscoveryConfiguration"/> with the same connector path.</summary>
     public override bool Equals(object? obj)
     {
         if (obj is null) return false;
@@ -34,7 +34,7 @@ public class BindingDiscoveryConfiguration
     }
 
     // ReSharper disable NonReadonlyMemberInGetHashCode
-    /// <summary>Gets or sets the get hash code.</summary>
+    /// <summary>Returns a hash code derived from the connector path.</summary>
     public override int GetHashCode()
     {
         return (ConnectorPath != null ? ConnectorPath.GetHashCode() : 0);

@@ -21,7 +21,7 @@ public class ReqnrollProjectSettingsProvider
         _projectScope = projectScope ?? throw new ArgumentNullException(nameof(projectScope));
     }
 
-    /// <summary>Gets or sets the get reqnroll settings.</summary>
+    /// <summary>Resolves Reqnroll settings for the project from its NuGet package references (or output folder as a fallback), merged with any explicit configuration.</summary>
     public ReqnrollSettings GetReqnrollSettings(IEnumerable<NuGetPackageReference> packageReferences)
     {
         var reqnrollSettings =

@@ -26,12 +26,12 @@ public class GuidanceConfiguration : IGuidanceConfiguration
         };
     }
 
-    /// <summary>Gets or sets the installation.</summary>
+    /// <summary>Gets the guidance step shown right after installation.</summary>
     public GuidanceStep Installation { get; }
 
-    /// <summary>Gets or sets the upgrade.</summary>
+    /// <summary>Gets the guidance step shown after an upgrade.</summary>
     public GuidanceStep Upgrade { get; }
 
-    /// <summary>Gets or sets the usage sequence.</summary>
+    /// <summary>Gets the ordered sequence of usage-based guidance steps.</summary>
     public IEnumerable<GuidanceStep> UsageSequence { get; }
 }

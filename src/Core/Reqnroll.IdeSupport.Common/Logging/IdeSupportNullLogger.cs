@@ -5,10 +5,10 @@ namespace Reqnroll.IdeSupport.Common.Logging;
 /// <summary>IdeSupportNullLogger</summary>
 public class IdeSupportNullLogger : IIdeSupportLogger
 {
-    /// <summary>Gets or sets the level.</summary>
+    /// <summary>Gets the trace level, always <see cref="TraceLevel.Off"/> for this no-op logger.</summary>
     public TraceLevel Level { get; } = TraceLevel.Off;
 
-    /// <summary>Gets or sets the log.</summary>
+    /// <summary>No-op: discards the log message.</summary>
     public void Log(LogMessage message)
     {
         //nop;

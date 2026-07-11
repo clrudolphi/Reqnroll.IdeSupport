@@ -3,20 +3,20 @@ namespace Reqnroll.IdeSupport.Common.Telemetry;
 /// <summary>GuidanceNotification</summary>
 public enum GuidanceNotification
 {
-    /// <summary>Gets or sets the after install.</summary>
+    /// <summary>Notification shown right after the extension is installed.</summary>
     AfterInstall = 1,
-    /// <summary>Gets or sets the upgrade.</summary>
+    /// <summary>Notification shown after the extension is upgraded to a new version.</summary>
     Upgrade = 2,
-    /// <summary>Gets or sets the two day usage.</summary>
+    /// <summary>Notification shown after two days of usage.</summary>
     TwoDayUsage = 10,
-    /// <summary>Gets or sets the five day usage.</summary>
+    /// <summary>Notification shown after five days of usage.</summary>
     FiveDayUsage = 50,
-    /// <summary>Gets or sets the ten day usage.</summary>
+    /// <summary>Notification shown after ten days of usage.</summary>
     TenDayUsage = 75,
-    /// <summary>Gets or sets the twenty day usage.</summary>
+    /// <summary>Notification shown after twenty days of usage.</summary>
     TwentyDayUsage = 100,
-    /// <summary>Gets or sets the hundred day usage.</summary>
+    /// <summary>Notification shown after a hundred days of usage.</summary>
     HundredDayUsage = 200,
-    /// <summary>Gets or sets the two hundred day usage.</summary>
+    /// <summary>Notification shown after two hundred days of usage.</summary>
     TwoHundredDayUsage = 300
 }

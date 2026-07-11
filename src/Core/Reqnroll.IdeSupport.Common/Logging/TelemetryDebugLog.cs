@@ -15,7 +15,7 @@ namespace Reqnroll.IdeSupport.Common.Logging;
 /// </summary>
 public static class TelemetryDebugLog
 {
-    /// <summary>Gets or sets the environment variable.</summary>
+    /// <summary>Name of the environment variable that configures the telemetry debug log sink.</summary>
     public const string EnvironmentVariable = "REQNROLL_TELEMETRY_DEBUG_LOG";
 
     /// <summary>
@@ -72,10 +72,10 @@ public sealed class FileTelemetryDebugLog : ITelemetryDebugLog
         _path = path;
     }
 
-    /// <summary>Gets or sets the is enabled.</summary>
+    /// <summary>Gets whether a sink is configured; always <c>true</c> since this instance is only created when a target path is set.</summary>
     public bool IsEnabled => true;
 
-    /// <summary>Gets or sets the record.</summary>
+    /// <summary>Appends one JSON-line record describing the telemetry event to the log file.</summary>
     public void Record(string source, string eventName, object? properties,
         bool? enabled = null, bool? transmitted = null, string? error = null)
     {

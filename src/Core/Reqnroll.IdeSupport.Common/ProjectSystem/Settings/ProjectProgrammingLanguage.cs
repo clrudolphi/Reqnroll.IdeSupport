@@ -3,12 +3,12 @@ namespace Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
 /// <summary>ProjectProgrammingLanguage</summary>
 public enum ProjectProgrammingLanguage
 {
-    /// <summary>Gets or sets the other.</summary>
+    /// <summary>An unrecognized or unsupported project programming language.</summary>
     Other,
-    /// <summary>Gets or sets the csharp.</summary>
+    /// <summary>The project uses C# (.csproj).</summary>
     CSharp,
-    /// <summary>Gets or sets the vb.</summary>
+    /// <summary>The project uses Visual Basic .NET (.vbproj).</summary>
     VB,
-    /// <summary>Gets or sets the fsharp.</summary>
+    /// <summary>The project uses F# (.fsproj).</summary>
     FSharp
 }

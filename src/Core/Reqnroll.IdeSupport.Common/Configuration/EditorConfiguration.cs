@@ -15,7 +15,7 @@ public class EditorConfiguration
         GherkinFormat ??= new GherkinFormatConfiguration();
     }
 
-    /// <summary>Gets or sets the check configuration.</summary>
+    /// <summary>Validates and normalizes this configuration and its nested Gherkin format configuration.</summary>
     public void CheckConfiguration()
     {
         FixEmptyContainers();
@@ -25,12 +25,12 @@ public class EditorConfiguration
 
     #region Equality
 
-    /// <summary>Gets or sets the equals.</summary>
+    /// <summary>Determines whether this instance has the same setting values as <paramref name="other"/>.</summary>
     protected bool Equals(EditorConfiguration other) =>
         ShowStepCompletionAfterStepKeywords == other.ShowStepCompletionAfterStepKeywords &&
         Equals(GherkinFormat, other.GherkinFormat);
 
-    /// <summary>Gets or sets the equals.</summary>
+    /// <summary>Determines whether <paramref name="obj"/> is an <see cref="EditorConfiguration"/> with the same setting values.</summary>
     public override bool Equals(object obj)
     {
         if (ReferenceEquals(null, obj)) return false;
@@ -40,7 +40,7 @@ public class EditorConfiguration
     }
 
     // ReSharper disable NonReadonlyMemberInGetHashCode
-    /// <summary>Gets or sets the get hash code.</summary>
+    /// <summary>Returns a hash code derived from the configuration's setting values.</summary>
     public override int GetHashCode()
     {
         unchecked

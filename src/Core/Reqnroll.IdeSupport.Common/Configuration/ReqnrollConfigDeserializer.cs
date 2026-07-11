@@ -10,7 +10,7 @@ public class ReqnrollConfigDeserializer : IConfigDeserializer<DeveroomConfigurat
 {
     private readonly JsonNetConfigDeserializer<ReqnrollJsonConfiguration> _reqnrollConfigDeserializer = new();
 
-    /// <summary>Gets or sets the populate.</summary>
+    /// <summary>Parses the given <c>reqnroll.json</c> content and applies its settings onto <paramref name="config"/>.</summary>
     public void Populate(string jsonString, DeveroomConfiguration config)
     {
         var reqnrollJsonConfiguration = new ReqnrollJsonConfiguration {Ide = config};

@@ -31,23 +31,23 @@ namespace Reqnroll.IdeSupport.Common.Classification;
 /// </remarks>
 public static class ReqnrollClassificationTypeNames
 {
-    /// <summary>Gets or sets the keyword.</summary>
+    /// <summary>Classification name for Gherkin keywords (e.g. Given/When/Then/Feature/Scenario).</summary>
     public const string Keyword = "reqnroll.keyword";
-    /// <summary>Gets or sets the tag.</summary>
+    /// <summary>Classification name for Gherkin tags (e.g. <c>@mytag</c>).</summary>
     public const string Tag = "reqnroll.tag";
-    /// <summary>Gets or sets the description.</summary>
+    /// <summary>Classification name for free-text description lines under a Feature/Scenario/Rule.</summary>
     public const string Description = "reqnroll.description";
-    /// <summary>Gets or sets the comment.</summary>
+    /// <summary>Classification name for Gherkin comment lines.</summary>
     public const string Comment = "reqnroll.comment";
-    /// <summary>Gets or sets the doc string.</summary>
+    /// <summary>Classification name for doc string (<c>"""</c>) block content.</summary>
     public const string DocString = "reqnroll.doc_string";
-    /// <summary>Gets or sets the data table.</summary>
+    /// <summary>Classification name for data table cell content.</summary>
     public const string DataTable = "reqnroll.data_table";
-    /// <summary>Gets or sets the data table header.</summary>
+    /// <summary>Classification name for data table header row content.</summary>
     public const string DataTableHeader = "reqnroll.data_table_header";
-    /// <summary>Gets or sets the step parameter.</summary>
+    /// <summary>Classification name for a matched parameter segment within step text.</summary>
     public const string StepParameter = "reqnroll.step_parameter";
-    /// <summary>Gets or sets the scenario outline placeholder.</summary>
+    /// <summary>Classification name for a scenario outline placeholder (e.g. <c>&lt;param&gt;</c>) within step text.</summary>
     public const string ScenarioOutlinePlaceholder = "reqnroll.scenario_outline_placeholder";
 
     /// <summary>
