@@ -3,17 +3,24 @@ using System;
 
 namespace Reqnroll.IdeSupport.Common.ProjectSystem.Configuration;
 
-/// <summary>Initializes a new instance of the <see cref="ConfigSource"/> class.</summary>
-/// <summary>Gets or sets the last change time.</summary>
-/// <summary>Gets or sets the file path.</summary>
-/// <summary>Gets or sets the error message.</summary>
-/// <summary>ConfigSource</summary>
+/// <summary>
+/// Represents the resolved location and last-known-good state of a project's config source file
+/// (e.g. the test assembly used to detect Reqnroll configuration), or an invalid/error state when
+/// the file could not be found or read.
+/// </summary>
+/// <param name="FilePath">The resolved path to the config source file, or empty when invalid.</param>
+/// <param name="LastChangeTime">The last write time of the file, used to detect staleness.</param>
+/// <param name="ErrorMessage">A user-facing explanation when the source is invalid; <see langword="null"/> when valid.</param>
 public record ConfigSource(string FilePath, DateTimeOffset LastChangeTime, string? ErrorMessage)
 {
-    /// <summary>Gets or sets the is valid.</summary>
+    /// <summary>Gets whether the source resolved to a usable file path.</summary>
     public bool IsValid => !string.IsNullOrEmpty(FilePath);
 
-    /// <summary>Gets or sets the try get config source.</summary>
+    /// <summary>
+    /// Attempts to resolve a <see cref="ConfigSource"/> for <paramref name="filePath"/>, returning an
+    /// invalid instance with a descriptive <see cref="ErrorMessage"/> if the path is empty, the file
+    /// doesn't exist, or it can't be accessed.
+    /// </summary>
     public static ConfigSource TryGetConfigSource(string filePath, IFileSystemForIDE fileSystem, IIdeSupportLogger logger)
     {
         if (string.IsNullOrEmpty(filePath))
@@ -30,13 +37,13 @@ public record ConfigSource(string FilePath, DateTimeOffset LastChangeTime, strin
             return CreateInvalid($"Test assembly could not be accessed: {ex.Message}. Please rebuild the project to enable the Reqnroll Visual Studio Extension features.");
         }
     }
-    /// <summary>Gets or sets the create invalid.</summary>
+    /// <summary>Creates an invalid <see cref="ConfigSource"/> carrying the given error message.</summary>
     public static ConfigSource CreateInvalid(string errorMessage)
     {
         return new(string.Empty, DateTimeOffset.MinValue, errorMessage);
     }
 
-    /// <summary>Gets or sets the create valid.</summary>
+    /// <summary>Creates a valid <see cref="ConfigSource"/> for a successfully resolved file.</summary>
     public static ConfigSource CreateValid(string filePath, DateTimeOffset lastChangeTime)
     {
         return new(filePath, lastChangeTime, null);
