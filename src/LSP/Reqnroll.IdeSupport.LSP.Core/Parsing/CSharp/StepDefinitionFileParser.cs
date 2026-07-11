@@ -131,8 +131,13 @@ public class StepDefinitionFileParser
         // it simply will not match any step until the expression is known.
         var regex = expression == null ? null : BuildRegex(expression);
 
+        // Capture the exact attribute line so FindBindingAtLocation can resolve clicks
+        // on the attribute itself using AST information rather than a heuristic window.
+        var attrLine = attribute.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+
         foreach (var block in blocks)
-            target.Add(new ProjectStepDefinitionBinding(block, regex, BuildScope(scope), implementation, expression));
+            target.Add(new ProjectStepDefinitionBinding(block, regex, BuildScope(scope), implementation, expression,
+                attributeSourceLine: attrLine));
     }
 
     /// <summary>
