@@ -1,8 +1,11 @@
 # ---------------------------------------------------------------------------
 # build-vscode-extension.yml — CI pipeline for the Reqnroll VS Code extension.
 #
-# The LSP server publish and VS Code extension packaging are intentionally
-# kept as separate jobs so each can be verified independently.
+# The LSP layer is built, tested, and published for every supported RID by
+# the shared test-lsp.yml reusable workflow (see that file) — this workflow
+# calls it once via `lsp:` and reuses its `server-<rid>` artifacts rather than
+# re-publishing the server itself, so a change here waits on the same LSP
+# gate build-vs-extension.yml uses instead of duplicating the LSP build.
 # ---------------------------------------------------------------------------
 name: Build VS Code Extension
 
@@ -14,65 +17,35 @@ on:
       - 'src/LSP/**'
       - 'src/VSCode/**'
       - '.github/workflows/build-vscode-extension.yml'
+      - '.github/workflows/test-lsp.yml'
   pull_request:
     paths:
       - 'src/LSP/**'
       - 'src/VSCode/**'
       - '.github/workflows/build-vscode-extension.yml'
+      - '.github/workflows/test-lsp.yml'
   workflow_dispatch:
 
 env:
-  DOTNET_VERSION: '10.0.x'
   NODE_VERSION: '22.x'
-  SERVER_PROJECT: src/LSP/Reqnroll.IdeSupport.LSP.Server/Reqnroll.IdeSupport.LSP.Server.csproj
-  CONNECTOR_PROJECT: src/LSP/Reqnroll.IdeSupport.LSP.Connector/Connector/Connector.csproj
   VSCODE_DIR: src/VSCode
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Job 1: Standalone server publish — produces self-contained binaries for
-  # all target platforms.  The extension job consumes these as artifacts.
+  # Job 1: Build + test the LSP layer, and publish self-contained server
+  # binaries for every supported RID. See test-lsp.yml.
   # ---------------------------------------------------------------------------
-  publish-server:
-    name: Publish LSP Server
-    strategy:
-      matrix:
-        rid: [win-x64, linux-x64, osx-x64, osx-arm64]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET ${{ env.DOTNET_VERSION }}
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-
-      - name: Restore Connector (${{ matrix.rid }})
-        run: dotnet restore ${{ env.CONNECTOR_PROJECT }} --runtime ${{ matrix.rid }} --nologo
-
-      - name: Publish server (${{ matrix.rid }})
-        run: |
-          dotnet publish ${{ env.SERVER_PROJECT }} \
-            --configuration Release \
-            --runtime ${{ matrix.rid }} \
-            --self-contained true \
-            --output "publish/${{ matrix.rid }}"
-
-      - name: Upload server artifact (${{ matrix.rid }})
-        uses: actions/upload-artifact@v4
-        with:
-          name: server-${{ matrix.rid }}
-          path: publish/${{ matrix.rid }}/
-          if-no-files-found: error
+  lsp:
+    name: LSP
+    uses: ./.github/workflows/test-lsp.yml
 
   # ---------------------------------------------------------------------------
-  # Job 2: Extension build — compiles TypeScript, bundles server binaries,
-  # and produces the .vsix package.
+  # Job 2: Extension build — compiles TypeScript, bundles the server binaries
+  # published by the lsp job, and produces the .vsix package.
   # ---------------------------------------------------------------------------
   build-extension:
     name: Build VSIX
-    needs: [publish-server]
+    needs: [lsp]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
