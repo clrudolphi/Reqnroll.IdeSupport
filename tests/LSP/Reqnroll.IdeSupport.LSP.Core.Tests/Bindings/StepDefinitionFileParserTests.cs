@@ -244,6 +244,46 @@ namespace TestProject
     }
 
     [Fact]
+    public async Task Captures_attribute_source_line_for_ast_based_matching()
+    {
+        // Attribute on body-line 1 (template line 8), method identifier on body-line 2 (template
+        // line 9) — see Source_location_points_to_method_name_not_attribute_or_body for the
+        // template-offset accounting. AttributeSourceLine must point at the attribute itself
+        // (line 8), distinct from Implementation.SourceLocation which points at the method (line 9).
+        var stepDefinitions = await ParseStepDefinitions(
+            "[Given(\"x\")]\npublic void TargetMethod() { }");
+
+        var binding = stepDefinitions.Should().ContainSingle().Subject;
+        binding.AttributeSourceLine.Should().Be(8);
+        binding.Implementation.SourceLocation.SourceFileLine.Should().Be(9);
+    }
+
+    [Fact]
+    public async Task Captures_attribute_source_line_when_attribute_and_method_share_a_line()
+    {
+        var stepDefinitions = await ParseStepDefinitions(
+            @"[Given(""x"")] public void Method() { }");
+
+        var binding = stepDefinitions.Should().ContainSingle().Subject;
+        binding.AttributeSourceLine.Should().Be(binding.Implementation.SourceLocation.SourceFileLine);
+    }
+
+    [Fact]
+    public async Task Captures_distinct_attribute_source_line_per_attribute_on_the_same_method()
+    {
+        // Stacked attributes each occupy their own line — each resulting binding must record
+        // its own attribute's line, not the method's or another attribute's.
+        var stepDefinitions = await ParseStepDefinitions(
+            "[Given(\"a\")]\n[When(\"a\")]\npublic void Method() { }");
+
+        var given = stepDefinitions.Should().ContainSingle(b => b.StepDefinitionType == ScenarioBlock.Given).Subject;
+        var when = stepDefinitions.Should().ContainSingle(b => b.StepDefinitionType == ScenarioBlock.When).Subject;
+
+        given.AttributeSourceLine.Should().Be(8);
+        when.AttributeSourceLine.Should().Be(9);
+    }
+
+    [Fact]
     public async Task Discovers_scope_on_method()
     {
         var stepDefinitions = await ParseStepDefinitions(

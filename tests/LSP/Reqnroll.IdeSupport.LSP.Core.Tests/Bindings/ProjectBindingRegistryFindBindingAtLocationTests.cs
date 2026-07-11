@@ -183,4 +183,17 @@ public class ProjectBindingRegistryFindBindingAtLocationTests
         registry.FindBindingAtLocation(new SourceLocation("Steps.cs", 9, 1))
             .Should().BeNull();
     }
+
+    [Fact]
+    public void Binding_with_attribute_and_method_on_the_same_line_matches()
+    {
+        // Single-line style: [Given("x")] public void MyStep() { } — attribute and method
+        // identifier share the same source line.
+        var binding = CreateBinding(new SourceLocation("Steps.cs", 10, 5),
+            attributeSourceLine: 10);
+        var registry = RegistryWith(binding);
+
+        registry.FindBindingAtLocation(new SourceLocation("Steps.cs", 10, 1))
+            .Should().BeSameAs(binding);
+    }
 }
