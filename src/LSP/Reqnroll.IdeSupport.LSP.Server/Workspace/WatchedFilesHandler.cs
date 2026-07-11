@@ -42,6 +42,7 @@ public class WatchedFilesHandler : IDidChangeWatchedFilesHandler
     private readonly ICSharpBindingDiscoveryService _csharpDiscoveryService;
     private readonly IOperationDurationRecorder _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="WatchedFilesHandler"/> class.</summary>
     public WatchedFilesHandler(
         ILspWorkspaceScopeManager scopeManager,
         IMediator mediator,
@@ -58,6 +59,7 @@ public class WatchedFilesHandler : IDidChangeWatchedFilesHandler
         _recorder               = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Builds the LSP registration options requesting file-watch notifications for <c>reqnroll.json</c>, <c>.editorconfig</c>, and rebuilt output assemblies.</summary>
     public DidChangeWatchedFilesRegistrationOptions GetRegistrationOptions(
         DidChangeWatchedFilesCapability capability,
         ClientCapabilities clientCapabilities)
@@ -88,6 +90,7 @@ public class WatchedFilesHandler : IDidChangeWatchedFilesHandler
             }
         };
 
+    /// <summary>Handles <c>workspace/didChangeWatchedFiles</c> for watched <c>reqnroll.json</c>, <c>.editorconfig</c>, and rebuilt-assembly events, invalidating caches and re-running discovery/config reconciliation as appropriate.</summary>
     public async Task<MediatR.Unit> Handle(
         DidChangeWatchedFilesParams request,
         CancellationToken cancellationToken)

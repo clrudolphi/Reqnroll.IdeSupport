@@ -5,7 +5,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Matching;
 /// <summary>
 /// The composite cache key for <see cref="IBindingMatchService"/>: a feature document URI plus
 /// the project whose registry was used to compute the match set.
-/// A shared/linked feature may have one match set per owning project (Q18 phase 2B).
+/// A shared/linked feature may have one match set per owning project.
 /// </summary>
 public readonly record struct MatchSetKey(string DocumentId, ProjectOwner Owner)
 {

@@ -31,7 +31,8 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 /// <para>
 /// <b>Known limitation:</b> <see cref="GetConnectionAsync"/> hands out the same cached pipe on
 /// every call. If VS activates the provider more than once in a session — the still-open
-/// multi-tab-restore duplicate-server race (see project memory "vs-package-duplicate-server-q23")
+/// multi-tab-restore duplicate-server race (VS restoring several .feature tabs at once can spawn
+/// a second LSP server process that ends up unmatched to any editor)
 /// — a second caller gets the same (already-consumed) pipe rather than a fresh process, which is
 /// different from (not necessarily better or worse than) the pre-existing behaviour of spinning up
 /// a second server. This is a deliberate scope boundary: solving the duplicate-activation race is
@@ -62,13 +63,17 @@ internal sealed class LspServerConnectionService : IDisposable
     private const int GracefulExitTimeoutMs = 3000;
 
     // How long to wait for a response to a `shutdown` request we send ourselves, when VS's own
-    // client hasn't sent one by the time Dispose() runs. Confirmed empirically (see git history
-    // for issue #81) that VS's async LSP-client-stop sequence does not reliably send `shutdown`
+    // client hasn't sent one by the time Dispose() runs. Confirmed empirically that VS's async
+    // LSP-client-stop sequence does not reliably send `shutdown`
     // during VsShellUtilities.ShutdownToken-triggered teardown — a full 1000ms passive wait for it
     // never once observed one — so rather than wait on a request that may never arrive, we send it
     // ourselves on the still-live pipe via LspInterceptingPipe.SendRequestToServerAsync.
     private const int ShutdownRequestTimeoutMs = 2000;
 
+    /// <summary>
+    /// Creates the service and immediately kicks off server-process startup on a background
+    /// JoinableTask; see the type-level remarks for why this happens eagerly in the constructor.
+    /// </summary>
     public LspServerConnectionService(
         ILogger<LspServerConnectionService> logger, ILoggerFactory loggerFactory, StepCodeLensState stepCodeLensState)
     {
@@ -254,7 +259,7 @@ internal sealed class LspServerConnectionService : IDisposable
             var sendInterceptors = new ILspMessageInterceptor[]
                 { _inspectorLogger, semanticTokensInterceptor, scaffoldInterceptor, codeLensRefreshInterceptor, documentActivationInterceptor, _shutdownHandshakeInterceptor };
 
-            // Telemetry interceptor: lazy reference because AnalyticsTransmitter is resolved
+            // Telemetry interceptor: lazy reference because TelemetryTransmitter is resolved
             // from MEF on the main thread during OnServerInitializationResultAsync.
             var telemetryInterceptor = new TelemetryEventInterceptor(
                 () => TelemetryTransmitter, _loggerFactory.CreateLogger<TelemetryEventInterceptor>());
@@ -277,6 +282,10 @@ internal sealed class LspServerConnectionService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Begins asynchronous, best-effort teardown of the server process and intercepting pipe.
+    /// Returns immediately; the actual shutdown work runs on the thread pool (see remarks).
+    /// </summary>
     public void Dispose()
     {
         if (_disposed) return;

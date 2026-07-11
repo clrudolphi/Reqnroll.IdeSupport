@@ -15,7 +15,7 @@ namespace Reqnroll.IdeSupport.VisualStudio;
 /// <summary>
 /// Intercepts the built-in Comment Selection / Uncomment Selection / Toggle Line Comment
 /// commands for <c>reqnroll-gherkin</c> text views and redirects them to the Reqnroll
-/// LSP server via <see cref="CommentToggleRedirect"/> (F13 — Comment/Uncomment).
+/// LSP server via <see cref="CommentToggleRedirect"/> (Comment/Uncomment toggle).
 /// </summary>
 /// <remarks>
 /// This is a MEF component registered via <c>[Export(typeof(IVsTextViewCreationListener))]</c>
@@ -41,6 +41,9 @@ public sealed class CommentToggleCommandFilter : IOleCommandTarget
         private readonly IVsEditorAdaptersFactoryService _editorAdapter;
         private readonly IIdeSupportLogger _logger;
 
+        /// <summary>
+        /// MEF importing constructor.
+        /// </summary>
         [ImportingConstructor]
         public TextViewCreationListener(IVsEditorAdaptersFactoryService editorAdapter, IIdeSupportLogger logger)
         {
@@ -48,6 +51,10 @@ public sealed class CommentToggleCommandFilter : IOleCommandTarget
             _logger = logger;
         }
 
+        /// <summary>
+        /// Installs a <see cref="CommentToggleCommandFilter"/> in the command chain for the newly
+        /// created <paramref name="textViewAdapter"/>.
+        /// </summary>
         public void VsTextViewCreated(IVsTextView textViewAdapter)
         {
             // Do NOT gate on GetWpfTextView here.  In the VS.Extensibility hybrid model
@@ -92,6 +99,10 @@ public sealed class CommentToggleCommandFilter : IOleCommandTarget
 
     // ── IOleCommandTarget ─────────────────────────────────────────────────
 
+    /// <summary>
+    /// Intercepts Comment/Uncomment/Toggle Line Comment commands and redirects them to the
+    /// LSP server; unrecognized commands are forwarded to the next target in the chain.
+    /// </summary>
     public int Exec(ref Guid commandGroup, uint commandId, uint executeOptions, IntPtr variantIn, IntPtr variantOut)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -147,6 +158,10 @@ public sealed class CommentToggleCommandFilter : IOleCommandTarget
                ?? VSConstants.E_FAIL;
     }
 
+    /// <summary>
+    /// Reports the Comment/Uncomment/Toggle Line Comment commands as always enabled and
+    /// supported; other commands are delegated to the next target in the chain.
+    /// </summary>
     public int QueryStatus(ref Guid commandGroup, uint commandCount, OLECMD[] commands, IntPtr text)
     {
         ThreadHelper.ThrowIfNotOnUIThread();

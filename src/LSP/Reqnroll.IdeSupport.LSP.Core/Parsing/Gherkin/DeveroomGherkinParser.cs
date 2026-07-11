@@ -6,20 +6,33 @@ using Reqnroll.IdeSupport.Common.Telemetry;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
+/// <summary>
+/// Parses feature file content into a <see cref="DeveroomGherkinDocument"/> AST, adding
+/// Reqnroll-specific semantic checks (duplicate scenario/example names, missing examples) on
+/// top of the underlying Gherkin grammar parser.
+/// </summary>
 public class DeveroomGherkinParser
 {
     private readonly ITelemetryService _telemetryService;
     private IAstBuilder<DeveroomGherkinDocument> _astBuilder;
 
+    /// <summary>Creates a parser using the given Gherkin dialect provider.</summary>
     public DeveroomGherkinParser(IGherkinDialectProvider dialectProvider, ITelemetryService telemetryService)
     {
         _telemetryService = telemetryService;
         DialectProvider = dialectProvider;
     }
 
+    /// <summary>Supplies the Gherkin dialect (language/keywords) used while tokenizing.</summary>
     public IGherkinDialectProvider DialectProvider { get; }
     internal DeveroomGherkinAstBuilder AstBuilder => _astBuilder as DeveroomGherkinAstBuilder;
 
+    /// <summary>
+    /// Parses <paramref name="featureFileContent"/>, tolerating parser errors: on failure it still
+    /// returns a best-effort <paramref name="gherkinDocument"/> (with open AST nodes closed) and
+    /// reports the individual errors via <paramref name="parserErrors"/>.
+    /// </summary>
+    /// <returns>True when parsing succeeded without errors.</returns>
     public bool ParseAndCollectErrors(string featureFileContent, IIdeSupportLogger logger,
         out DeveroomGherkinDocument gherkinDocument, out List<ParserException> parserErrors)
     {
@@ -70,6 +83,11 @@ public class DeveroomGherkinParser
         return null;
     }
 
+    /// <summary>
+    /// Parses <paramref name="featureFileReader"/>'s content and runs the semantic checks,
+    /// throwing a <see cref="ParserException"/> (or <see cref="CompositeParserException"/> if
+    /// several were found) if any error occurs.
+    /// </summary>
     public DeveroomGherkinDocument Parse(TextReader featureFileReader, string sourceFilePath)
     {
         var tokenScanner = (ITokenScanner) new TokenScanner(featureFileReader);
@@ -84,6 +102,7 @@ public class DeveroomGherkinParser
         return gherkinDocument;
     }
 
+    /// <summary>Returns the AST built so far by the current <see cref="_astBuilder"/>.</summary>
     public DeveroomGherkinDocument GetResult() => _astBuilder.GetResult();
 
     private class InternalParser : Parser<DeveroomGherkinDocument>
@@ -125,6 +144,7 @@ public class DeveroomGherkinParser
 
     #region Semantic Errors
 
+    /// <summary>Validates the parsed document for semantic (non-syntax) errors, such as inconsistent step keywords, and records them on the document.</summary>
     protected virtual void CheckSemanticErrors(DeveroomGherkinDocument reqnrollDocument)
     {
         var errors = new List<ParserException>();
@@ -268,6 +288,11 @@ public class DeveroomGherkinParser
         public Token Read() => new Token(new Location());
     }
 
+    /// <summary>
+    /// Runs the parser's state machine from <paramref name="state"/> with a dummy end-of-file
+    /// token to discover which token types would have been valid next; used to power
+    /// error-recovery/completion suggestions.
+    /// </summary>
     public static TokenType[] GetExpectedTokens(int state, ITelemetryService telemetryService)
     {
         var parser = new InternalParser(new NullAstBuilder(), null, telemetryService)

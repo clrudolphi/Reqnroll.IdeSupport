@@ -13,6 +13,7 @@ using Reqnroll.IdeSupport.LSP.Core.Matching;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
+/// <inheritdoc cref="IDeveroomTagParser"/>
 public class DeveroomTagParser : IDeveroomTagParser
 {
     internal static readonly Regex NewLineRe = new(@"\r\n|\n|\r");
@@ -20,6 +21,7 @@ public class DeveroomTagParser : IDeveroomTagParser
     private readonly IIdeSupportLogger _logger;
     private readonly ITelemetryService _telemetryService;
 
+    /// <summary>Initializes a new instance of the <see cref="DeveroomTagParser"/> class.</summary>
     public DeveroomTagParser(
         IIdeSupportLogger logger,
         ITelemetryService telemetryService,

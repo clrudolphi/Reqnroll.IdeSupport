@@ -12,7 +12,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 
 /// <summary>
 /// Opens the VS Find All References tool window and populates it with
-/// <see cref="StepUsagesResult"/> locations (F14 P3b).
+/// <see cref="StepUsagesResult"/> locations (Find Step Definition Usages, design doc section P3b).
 /// Must be constructed on any thread but <see cref="RenderAsync"/> switches to the
 /// UI thread internally before calling VS services.
 /// </summary>
@@ -21,6 +21,7 @@ internal sealed class FindStepUsagesRenderer
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<FindStepUsagesRenderer> _logger;
 
+    /// <summary>Creates the renderer with the VS service provider for opening the Find All References window.</summary>
     public FindStepUsagesRenderer(IServiceProvider serviceProvider, ILogger<FindStepUsagesRenderer> logger)
     {
         _serviceProvider = serviceProvider;

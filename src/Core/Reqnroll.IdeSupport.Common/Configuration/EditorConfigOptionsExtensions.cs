@@ -2,6 +2,7 @@ using System.Reflection;
 
 namespace Reqnroll.IdeSupport.Common.Configuration;
 
+/// <summary>EditorConfigOptionsExtensions</summary>
 public static class EditorConfigOptionsExtensions
 {
     /// <summary>

@@ -5,6 +5,7 @@ using Gherkin.Ast;
 
 
 using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
+using Reqnroll.IdeSupport.LSP.Core.Bindings;
 
 
 
@@ -13,14 +14,16 @@ namespace Reqnroll.IdeSupport.LSP.Core.Matching;
 /// <summary>
 /// The immutable set of step binding matches for one feature document, cached against
 /// <c>(DocumentId, Owner, DocumentVersion, RegistryVersion)</c>. This is the value stored by
-/// <see cref="IBindingMatchService"/> and queried by Go to Definition (F5), the diagnostics
-/// aggregator (F3) and find-usages (F14/F18).
+/// <see cref="IBindingMatchService"/> and queried by Go to Step Definition, the diagnostics
+/// aggregator (undefined-step/binding diagnostics) and find-usages / code-lens usage counts.
 /// </summary>
 public sealed class FeatureBindingMatchSet
 {
+    /// <summary>An empty match set with no steps, keyed to an unknown document and project owner.</summary>
     public static readonly FeatureBindingMatchSet Empty =
         new(string.Empty, ProjectOwner.Unknown, null, 0, Array.Empty<StepBindingMatch>());
 
+    /// <summary>Initializes a new instance of the <see cref="FeatureBindingMatchSet"/> class.</summary>
     public FeatureBindingMatchSet(
         string documentId,
         ProjectOwner owner,
@@ -48,16 +51,20 @@ public sealed class FeatureBindingMatchSet
     /// <summary>The feature document version these matches were computed for, when known.</summary>
     public int? DocumentVersion { get; }
 
-    /// <summary>The <see cref="ProjectBindingRegistry.Version"/> these matches were computed against.</summary>
+    /// <summary>The <see cref="ProjectBindingRegistry"/> version these matches were computed against.</summary>
     public int RegistryVersion { get; }
 
+    /// <summary>Gets every step binding match in this feature document.</summary>
     public IReadOnlyList<StepBindingMatch> Steps { get; }
 
+    /// <summary>Gets the steps with no matching binding.</summary>
     public IEnumerable<StepBindingMatch> Undefined => Steps.Where(s => s.IsUndefined);
+    /// <summary>Gets the steps with exactly one matching binding.</summary>
     public IEnumerable<StepBindingMatch> Defined   => Steps.Where(s => s.IsDefined);
+    /// <summary>Gets the steps that match more than one binding.</summary>
     public IEnumerable<StepBindingMatch> Ambiguous => Steps.Where(s => s.IsAmbiguous);
 
-    /// <summary>The step whose text span contains <paramref name="offset"/>, or null. Used by F5.</summary>
+    /// <summary>The step whose text span contains <paramref name="offset"/>, or null. Used by Go to Step Definition.</summary>
     public StepBindingMatch? FindAt(int offset) => Steps.FirstOrDefault(s => s.Contains(offset));
 
     /// <summary>

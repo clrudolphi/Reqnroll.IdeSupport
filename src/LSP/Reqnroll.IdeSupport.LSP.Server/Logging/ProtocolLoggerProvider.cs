@@ -24,6 +24,7 @@ public sealed class ProtocolLoggerProvider : ILoggerProvider
 {
     private readonly IIdeSupportLogger _logger;
 
+    /// <summary>Creates the provider, building the default protocol-log file/debug sink for the given client IDE and log level.</summary>
     public ProtocolLoggerProvider(string? clientIde, TraceLevel protocolLogLevel)
         : this(BuildDefaultLogger(clientIde, protocolLogLevel))
     {
@@ -48,8 +49,10 @@ public sealed class ProtocolLoggerProvider : ILoggerProvider
             .Add(new SynchronousFileLogger(idePrefix, "protocol", protocolLogLevel));
     }
 
+    /// <inheritdoc/>
     public ILogger CreateLogger(string categoryName) => new IdeSupportLoggerAdapter(categoryName, _logger);
 
+    /// <inheritdoc/>
     public void Dispose()
     {
     }

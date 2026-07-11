@@ -15,14 +15,15 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.References;
 
 /// <summary>
 /// Handles <c>textDocument/references</c> requests originating from a cursor position in a
-/// <c>.cs</c> binding file (design doc F14 — Find Step Definition Usages).
+/// <c>.cs</c> binding file (Find Step Definition Usages / Find All References).
 /// <para>
 /// Implements MediatR IRequestHandler to allow automatic routing via AddMediatR,
 /// avoiding the need for manual OnRequest delegate registration and IServiceProvider capture.
 /// </para>
 /// </summary>
 /// <remarks>
-/// Q18 2B: the scope is restricted to the projects that own the queried <c>.cs</c> file.
+/// Primary-owner resolution / shared-feature scoping 2B: the scope is restricted to the
+/// projects that own the queried <c>.cs</c> file.
 /// This prevents cross-project bleed when two projects have step definitions at the same
 /// source location (same file name + line in a shared binding class).
 /// </remarks>
@@ -34,6 +35,7 @@ public sealed class StepReferencesHandler
     private readonly IIdeSupportLogger               _logger;
     private readonly IOperationDurationRecorder    _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="StepReferencesHandler"/> class.</summary>
     public StepReferencesHandler(
         IBindingMatchService          matchService,
         ILspWorkspaceScopeManager     scopeManager,
@@ -48,6 +50,7 @@ public sealed class StepReferencesHandler
         _recorder       = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Handles a <c>textDocument/references</c> request for step-usage references.</summary>
     public Task<LocationOrLocationLinks> HandleAsync(
         ReferenceParams request,
         CancellationToken cancellationToken)
@@ -72,7 +75,8 @@ public sealed class StepReferencesHandler
         var column = request.Position.Character + 1;
         var bindingLocation = new SourceLocation(filePath, line, column);
 
-        // Q18 2B: restrict search to the projects that own this .cs file.
+        // Primary-owner resolution / shared-feature scoping 2B: restrict search to the projects
+        // that own this .cs file.
         // ResolveOwners returns an empty list only when no project claims the file; in that
         // case pass null to FindUsages so it searches all cached match sets (backward compat).
         var owners = _scopeManager.ResolveOwners(uri);

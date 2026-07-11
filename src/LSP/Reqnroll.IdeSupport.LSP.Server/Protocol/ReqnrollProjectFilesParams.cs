@@ -35,7 +35,9 @@ public sealed class ReqnrollProjectFilesParams : INotification
 /// <summary>Distinguishes a full snapshot from an incremental update.</summary>
 public enum ProjectFilesKind
 {
+    /// <summary>A full, complete snapshot of a project's owned files.</summary>
     Baseline = 0,
+    /// <summary>An incremental update of added/removed files relative to the last baseline.</summary>
     Delta    = 1,
 }
 
@@ -62,6 +64,8 @@ public sealed class ProjectFileEntry
 /// <summary>Classifies a project file's contribution to the Reqnroll model.</summary>
 public enum ProjectFileRole
 {
+    /// <summary>The file contributes Gherkin feature scenarios.</summary>
     Feature = 0,
+    /// <summary>The file contributes step-definition (or hook/binding) code.</summary>
     Binding = 1,
 }

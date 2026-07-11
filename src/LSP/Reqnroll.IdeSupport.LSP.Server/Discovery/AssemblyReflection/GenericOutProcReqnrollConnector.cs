@@ -6,6 +6,7 @@ using Reqnroll.IdeSupport.Common.Telemetry;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
 
+/// <summary>Connector that selects and runs the bundled generic Reqnroll discovery connector matching the project's target framework.</summary>
 public class GenericOutProcReqnrollConnector : OutProcReqnrollConnector
 {
     private const string ConnectorNet462 = @"Reqnroll-Generic-net462\reqnroll-ide-connector.exe";
@@ -17,6 +18,7 @@ public class GenericOutProcReqnrollConnector : OutProcReqnrollConnector
     private const string ConnectorNet90 = @"Reqnroll-Generic-net9.0\reqnroll-ide-connector.dll";
     private const string ConnectorNet100 = @"Reqnroll-Generic-net10.0\reqnroll-ide-connector.dll";
 
+    /// <summary>Creates a connector that discovers bindings for a project targeting <paramref name="targetFrameworkMoniker"/>.</summary>
     public GenericOutProcReqnrollConnector(
         DeveroomConfiguration configuration,
         IIdeSupportLogger logger,
@@ -36,6 +38,7 @@ public class GenericOutProcReqnrollConnector : OutProcReqnrollConnector
     {
     }
 
+    /// <summary>Picks the bundled generic connector matching the project's target framework moniker and returns its path (or a <c>dotnet exec</c> command line for .NET Core/.NET targets).</summary>
     protected override string GetConnectorPath(List<string> arguments)
     {
         var connector = ConnectorNet80;

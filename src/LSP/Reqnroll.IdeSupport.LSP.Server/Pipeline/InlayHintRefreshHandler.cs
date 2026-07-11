@@ -27,6 +27,7 @@ public class InlayHintRefreshHandler : INotificationHandler<MatchCacheChangedNot
     private CancellationTokenSource? _debounceCts;
     private readonly object _debounceLock = new object();
 
+    /// <summary>Initializes a new instance of the <see cref="InlayHintRefreshHandler"/> class.</summary>
     public InlayHintRefreshHandler(
         ILanguageServerFacade languageServer,
         IIdeSupportLogger logger,
@@ -37,6 +38,7 @@ public class InlayHintRefreshHandler : INotificationHandler<MatchCacheChangedNot
         _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Handles an internal <see cref="MatchCacheChangedNotification"/> by debouncing and, if the client supports it, sending a <c>workspace/inlayHint/refresh</c> request.</summary>
     public Task Handle(MatchCacheChangedNotification notification, CancellationToken cancellationToken)
     {
         var inlayHintWorkspace = _languageServer.ClientSettings.Capabilities?.Workspace?.InlayHint;

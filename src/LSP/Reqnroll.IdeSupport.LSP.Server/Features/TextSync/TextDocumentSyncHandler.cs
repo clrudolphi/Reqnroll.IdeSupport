@@ -18,7 +18,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 /// <summary>
 /// Single OmniSharp text-document sync handler covering both document types the server cares
 /// about: <c>.feature</c> files (parsed into the Gherkin document buffer) and <c>.cs</c> files
-/// (fed to Roslyn source-level binding discovery, design doc feature F2). Both are registered
+/// (fed to Roslyn/C# source-level binding discovery). Both are registered
 /// here so that a single sync handler owns text synchronization; the per-document branching is
 /// done by file extension.
 /// </summary>
@@ -41,6 +41,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         new TextDocumentFilter { Pattern = "**/*.cs" }
     );
 
+    /// <summary>Initializes a new instance of the <see cref="TextDocumentSyncHandler"/> class.</summary>
     public TextDocumentSyncHandler(
         IDocumentBufferService documentBufferService,
         IGherkinDocumentTaggerService taggerService,
@@ -63,9 +64,11 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Reports the language id (<c>"csharp"</c> or <c>"gherkin"</c>) the server should associate with the given document URI.</summary>
     public override TextDocumentAttributes GetTextDocumentAttributes(DocumentUri uri)
         => new(uri, IsCSharp(uri) ? "csharp" : "gherkin");
 
+    /// <summary>Builds the LSP registration options for text synchronization: full-document change events and open/close notifications, without save text.</summary>
     protected override TextDocumentSyncRegistrationOptions CreateRegistrationOptions(
         TextSynchronizationCapability capability,
         ClientCapabilities clientCapabilities)
@@ -76,6 +79,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
             Save = new SaveOptions { IncludeText = false }
         };
 
+    /// <summary>Handles <c>textDocument/didOpen</c>: for C# files, updates the live-text cache and runs Roslyn binding discovery; for Gherkin files, updates the document buffer and re-parses/republishes diagnostics.</summary>
     public override async Task<Unit> Handle(DidOpenTextDocumentParams request, CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
@@ -100,6 +104,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         return Unit.Value;
     }
 
+    /// <summary>Handles <c>textDocument/didChange</c>: for C# files, feeds the full changed text into Roslyn binding discovery; for Gherkin files, updates the document buffer and re-parses/republishes diagnostics.</summary>
     public override async Task<Unit> Handle(DidChangeTextDocumentParams request, CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;
@@ -127,6 +132,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         return Unit.Value;
     }
 
+    /// <summary>Handles <c>textDocument/didSave</c>. With full-document sync the buffer is already current from the preceding <c>didChange</c>, so this is currently a no-op beyond logging.</summary>
     public override Task<Unit> Handle(DidSaveTextDocumentParams request, CancellationToken cancellationToken)
     {
         _logger.LogInfo($"Document saved: {request.TextDocument.Uri}");
@@ -135,6 +141,7 @@ public class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         return Unit.Task;
     }
 
+    /// <summary>Handles <c>textDocument/didClose</c>: drops the cached live text for C# files (disk becomes the source of truth again) while leaving their last-discovered bindings intact until a rebuild supersedes them.</summary>
     public override async Task<Unit> Handle(DidCloseTextDocumentParams request, CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri;

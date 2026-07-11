@@ -15,7 +15,7 @@ using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 namespace Reqnroll.IdeSupport.LSP.Server.Features.CodeActions;
 
 /// <summary>
-/// Handles <c>textDocument/codeAction</c> requests for <c>*.feature</c> files (F6 — Define Steps).
+/// Handles <c>textDocument/codeAction</c> requests for <c>*.feature</c> files (Define Steps).
 /// Returns code actions that generate C# step-definition stubs for undefined steps.
 /// Registered via OmniSharp dynamic registration (<see cref="ICodeActionHandler"/>), scoped to
 /// <c>**/*.feature</c> documents so it does not conflict with the C# language server.
@@ -28,6 +28,7 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
     private readonly IIdeSupportLogger               _logger;
     private readonly IOperationDurationRecorder    _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="FeatureCodeActionHandler"/> class.</summary>
     public FeatureCodeActionHandler(
         IBindingMatchService      matchService,
         IStepScaffoldService      scaffoldService,
@@ -42,6 +43,7 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
         _recorder        = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Builds the LSP registration options advertising code-action support (quick-fix kind) for <c>.feature</c> files.</summary>
     public CodeActionRegistrationOptions GetRegistrationOptions(
         CodeActionCapability capability,
         ClientCapabilities   clientCapabilities)
@@ -53,6 +55,7 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
             ResolveProvider = false
         };
 
+    /// <summary>Handles a <c>textDocument/codeAction</c> request (lightbulb actions).</summary>
     public Task<CommandOrCodeActionContainer?> Handle(
         CodeActionParams    request,
         CancellationToken   cancellationToken)

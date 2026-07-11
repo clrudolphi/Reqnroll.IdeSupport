@@ -28,6 +28,10 @@ public class VsWizardContext : IWizardContext
     private readonly OriginalProjectScope? _projectScope;
     private readonly OriginalIdeScope _ideScope;
 
+    /// <summary>
+    /// Builds the context, mapping the original project's settings into
+    /// <see cref="WizardProjectSettings"/> when a project scope is available.
+    /// </summary>
     public VsWizardContext(
         bool isAddNewItem,
         OriginalProjectScope? projectScope,
@@ -54,15 +58,24 @@ public class VsWizardContext : IWizardContext
             : WizardProjectSettings.Uninitialized;
     }
 
+    /// <summary>Whether the wizard is adding a single item vs. creating a new project.</summary>
     public bool IsAddNewItem { get; }
+    /// <summary>Folder containing the source template files.</summary>
     public string TemplateFolder { get; }
+    /// <summary>Folder the generated item/project should be placed in.</summary>
     public string TargetFolder { get; }
+    /// <summary>File name (without extension resolution) of the generated item.</summary>
     public string TargetFileName { get; set; }
+    /// <summary>Template token replacements supplied by VS for this wizard run.</summary>
     public Dictionary<string, string> ReplacementsDictionary { get; }
+    /// <summary>Reqnroll/SpecFlow-related settings of the target project.</summary>
     public WizardProjectSettings ProjectSettings { get; }
+    /// <summary>Service used to show wizard dialogs.</summary>
     public IWizardDialogService DialogService { get; }
+    /// <summary>Telemetry sink for wizard events.</summary>
     public IWizardTelemetry Telemetry { get; }
 
+    /// <summary>Reports a problem message to the IDE's action surface (e.g. an error bar).</summary>
     public void ShowProblem(string message) =>
         _ideScope.Actions.ShowProblem(message);
 

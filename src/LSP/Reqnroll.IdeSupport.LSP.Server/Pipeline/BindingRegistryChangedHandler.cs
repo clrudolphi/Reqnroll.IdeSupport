@@ -24,7 +24,8 @@ namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 /// When <see cref="BindingRegistryChangedNotification.IsFullReplacement"/> is
 /// <see langword="true"/> (startup, post-build connector run, or membership-baseline arrival),
 /// all feature files owned by the project are scanned — including files not currently open
-/// in the editor — so that the binding match cache is workspace-complete for F14 Find Usages.
+/// in the editor — so that the binding match cache is workspace-complete for Find Step
+/// Definition Usages / Find All References.
 /// The file list is obtained from the membership index (I1) when a baseline has been received;
 /// otherwise it falls back to a folder glob for backwards compatibility with clients that do
 /// not send <c>reqnroll/projectFiles</c>.
@@ -49,6 +50,7 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
     private readonly IIdeSupportLogger                  _logger;
     private readonly IOperationDurationRecorder         _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="BindingRegistryChangedHandler"/> class.</summary>
     public BindingRegistryChangedHandler(
         IDocumentBufferService documentBufferService,
         ICSharpFileTextCache csharpFileTextCache,
@@ -75,6 +77,7 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
         _recorder               = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Handles an internal <see cref="BindingRegistryChangedNotification"/> by removing stale bindings for deleted files and, on a full connector replacement, re-running Roslyn source-level discovery to refresh bindings from open/edited <c>.cs</c> files.</summary>
     public async Task Handle(
         BindingRegistryChangedNotification notification,
         CancellationToken cancellationToken)
@@ -121,8 +124,9 @@ public class BindingRegistryChangedHandler : INotificationHandler<BindingRegistr
 
         await ReparseOpenFilesAsync(notification.Project, cancellationToken).ConfigureAwait(false);
 
-        // Q23 Piece 2b: after the binding registry is populated (Connector run complete),
-        // ask the client to refresh its code lens. Without this, a .cs file that was the
+        // VS package auto-load / startup race avoidance, piece 2b: after the binding registry
+        // is populated (Connector run complete), ask the client to refresh its code lens.
+        // Without this, a .cs file that was the
         // foreground editor at startup keeps the (count-less) code lenses it rendered before the
         // server was ready, until the user navigates away and back to re-realize the view.
         if (notification.IsFullReplacement)

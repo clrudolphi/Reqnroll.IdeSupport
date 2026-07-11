@@ -27,6 +27,7 @@ public sealed class OperationDurationRecorder : IOperationDurationRecorder
     private readonly IPerfTelemetrySampler _sampler;
     private readonly ITraceService? _trace;
 
+    /// <summary>Initializes a new instance of the <see cref="OperationDurationRecorder"/> class.</summary>
     public OperationDurationRecorder(
         IIdeSupportLogger logger,
         ClientIdeContext ide,
@@ -41,9 +42,11 @@ public sealed class OperationDurationRecorder : IOperationDurationRecorder
         _trace = trace;
     }
 
+    /// <summary>Starts timing <paramref name="operation"/>; disposing the returned scope records its elapsed duration.</summary>
     public IDisposable Measure(string operation, DocumentUri? uri = null)
         => new Scope(this, operation, uri);
 
+    /// <summary>Logs the elapsed duration of an operation and, subject to sampling, emits it as telemetry and a trace notification.</summary>
     public void Record(string operation, double elapsedMs, DocumentUri? uri = null)
     {
         // Primary sink: the existing log file. Verbose so it is off in normal runs and on when

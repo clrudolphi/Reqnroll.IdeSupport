@@ -12,6 +12,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Workspace;
 /// </summary>
 public sealed class LspIdeScope : IIdeScope
 {
+    /// <summary>Initializes a new instance of the <see cref="LspIdeScope"/> class.</summary>
     public LspIdeScope(IIdeSupportLogger logger)
     {
         Logger = logger;
@@ -20,10 +21,15 @@ public sealed class LspIdeScope : IIdeScope
         Actions = new LspIdeActions(logger);
     }
 
+    /// <summary>Always <see langword="true"/>: the LSP server has no concept of an unloaded solution.</summary>
     public bool IsSolutionLoaded => true;
+    /// <summary>Logger shared by all project scopes and configuration providers.</summary>
     public IIdeSupportLogger Logger { get; }
+    /// <summary>Telemetry sink; always the no-op <see cref="NullTelemetryService"/> for the LSP server.</summary>
     public ITelemetryService TelemetryService { get; }
+    /// <summary>IDE action callbacks (e.g. error/warning display), implemented via logging for the LSP server.</summary>
     public IIdeActions Actions { get; }
+    /// <summary>File system abstraction used by project scopes and configuration providers.</summary>
     public IFileSystemForIDE FileSystem { get; }
 
     // ── Inner type ────────────────────────────────────────────────────────────

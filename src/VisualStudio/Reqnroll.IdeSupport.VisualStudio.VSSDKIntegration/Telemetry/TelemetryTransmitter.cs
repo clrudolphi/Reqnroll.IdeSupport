@@ -32,6 +32,7 @@ public class TelemetryTransmitter : ITelemetryTransmitter, IAsyncDisposable
     private readonly IIdeSupportLogger? _logger;
     private readonly ITelemetryDebugLog _debugLog;
 
+    /// <summary>MEF importing constructor; builds a real <see cref="TelemetryClient"/> backed by Application Insights.</summary>
     [ImportingConstructor]
     public TelemetryTransmitter(
         IEnableTelemetryChecker enableTelemetryChecker,
@@ -78,6 +79,10 @@ public class TelemetryTransmitter : ITelemetryTransmitter, IAsyncDisposable
         return client;
     }
 
+    /// <summary>
+    /// Transmits <paramref name="telemetryEvent"/> to Application Insights unless telemetry is
+    /// disabled; always mirrors the event (sent or not) to the debug log.
+    /// </summary>
     public void TransmitEvent(ITelemetryEvent telemetryEvent)
     {
         var enabled = _enableTelemetryChecker.IsEnabled();
@@ -111,6 +116,11 @@ public class TelemetryTransmitter : ITelemetryTransmitter, IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Transmits <paramref name="exception"/> as a normal (non-fatal) exception event, unless it is
+    /// not classified as a "normal" error type (see <see cref="IsNormalError"/>), in which case it
+    /// is transmitted as a fatal exception event instead.
+    /// </summary>
     public void TransmitExceptionEvent(Exception exception, IEnumerable<KeyValuePair<string, object>> additionalProps)
     {
         var isNormalError = IsNormalError(exception);
@@ -120,6 +130,7 @@ public class TelemetryTransmitter : ITelemetryTransmitter, IAsyncDisposable
             TransmitFatalExceptionEvent(exception, true);
     }
 
+    /// <summary>Transmits <paramref name="exception"/> as an exception event, tagging it as fatal when <paramref name="isFatal"/> is <see langword="true"/>.</summary>
     public void TransmitFatalExceptionEvent(Exception exception, bool isFatal)
     {
         var additionalProps = ImmutableDictionary.CreateBuilder<string, object>();
@@ -198,6 +209,7 @@ public class TelemetryTransmitter : ITelemetryTransmitter, IAsyncDisposable
             exception is HttpRequestException;
     }
 
+    /// <summary>Flushes any queued telemetry to Application Insights before this transmitter is disposed.</summary>
     public async ValueTask DisposeAsync()
     {
         _telemetryClient.Flush();

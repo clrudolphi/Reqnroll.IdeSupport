@@ -2,10 +2,13 @@ using Cucumber.TagExpressions;
 
 namespace Reqnroll.IdeSupport.LSP.Core.TagExpressions;
 
+/// <summary>ReqnrollTagExpressionParser</summary>
 public class ReqnrollTagExpressionParser : IReqnrollTagExpressionParser
 {
+    /// <summary>Creates a literal tag-expression node matching the given tag name verbatim.</summary>
     public static ITagExpression CreateTagLiteral(string tag) => new LiteralNode(tag);
 
+    /// <summary>Parses a Cucumber tag expression, requiring every literal tag name to have an <c>@</c> prefix, and returns an <see cref="InvalidTagExpression"/> on failure instead of throwing.</summary>
     public ITagExpression Parse(string tagExpression)
     {
         var tagExpressionParser = new TagExpressionParser();

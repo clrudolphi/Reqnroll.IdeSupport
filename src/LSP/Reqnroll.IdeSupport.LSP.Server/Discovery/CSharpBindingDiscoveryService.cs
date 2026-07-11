@@ -9,7 +9,7 @@ using Reqnroll.IdeSupport.LSP.Server.Workspace;
 namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
 
 /// <summary>
-/// Drives Roslyn-based (source-level) binding discovery (design doc feature F2) when a
+/// Drives Roslyn/C# source-level binding discovery when a
 /// <c>.cs</c> step-definition file is opened or edited.  Resolves all projects that own the
 /// document via the membership index (<see cref="ILspWorkspaceScopeManager.ResolveOwners"/>),
 /// parses the supplied source text with <see cref="StepDefinitionFileParser"/> (via
@@ -28,6 +28,7 @@ public sealed class CSharpBindingDiscoveryService : ICSharpBindingDiscoveryServi
     private readonly IIdeSupportLogger _logger;
     private readonly ILspTelemetryService? _telemetryService;
 
+    /// <summary>Initializes a new instance of the <see cref="CSharpBindingDiscoveryService"/> class.</summary>
     public CSharpBindingDiscoveryService(
         ILspWorkspaceScopeManager scopeManager,
         IIdeSupportLogger logger,
@@ -38,6 +39,7 @@ public sealed class CSharpBindingDiscoveryService : ICSharpBindingDiscoveryServi
         _telemetryService = telemetryService;
     }
 
+    /// <summary>Resolves the project(s) that own <paramref name="uri"/> via the membership index, re-parses the given source text into each project's binding registry, and emits a discovery telemetry event.</summary>
     public async Task UpdateFromSourceAsync(DocumentUri uri, string text, bool isOpen, CancellationToken cancellationToken)
     {
         var owners = _scopeManager.ResolveOwners(uri);
@@ -66,7 +68,7 @@ public sealed class CSharpBindingDiscoveryService : ICSharpBindingDiscoveryServi
             await ApplyToProjectAsync(project, filePath, text).ConfigureAwait(false);
         }
 
-        // Telemetry: Roslyn discovery event (design doc Q17 §2.3).
+        // Telemetry: Roslyn discovery event (membership index / telemetry design §2.3).
         var fileName = Path.GetFileName(filePath);
         var triggerContext = isOpen ? "csOpen" : "csEdit";
         _telemetryService?.SendEvent("Reqnroll Discovery executed", new()
@@ -80,6 +82,7 @@ public sealed class CSharpBindingDiscoveryService : ICSharpBindingDiscoveryServi
         });
     }
 
+    /// <summary>Re-parses <paramref name="text"/> directly into <paramref name="project"/>'s binding registry, bypassing membership-index owner resolution.</summary>
     public async Task UpdateFromSourceForProjectAsync(
         LspReqnrollProject project, string filePath, string text, CancellationToken cancellationToken)
     {
@@ -90,6 +93,7 @@ public sealed class CSharpBindingDiscoveryService : ICSharpBindingDiscoveryServi
         await ApplyToProjectAsync(project, filePath, text).ConfigureAwait(false);
     }
 
+    /// <summary>Clears all step-definition bindings previously discovered for <paramref name="uri"/> from every owning project's registry, e.g. when the file is deleted.</summary>
     public async Task RemoveFileAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
         var owners = _scopeManager.ResolveOwners(uri);

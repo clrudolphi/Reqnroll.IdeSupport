@@ -252,14 +252,6 @@ function parseLspTraceMessage(text: string): LspEntry | undefined {
 }
 
 /**
- * Creates a trace output channel whose verbosity is controlled by the
- * `reqnroll.trace.server` VS Code setting (`off` | `messages` | `verbose`).
- *
- * When the setting is not `off`, a log file is opened in the Reqnroll log
- * directory so that every JSON-RPC message captured by vscode-languageclient
- * is persisted in lsp-viewer format alongside the VS Code Output panel entry.
- */
-/**
  * Maps the `reqnroll.trace.server` setting onto the LSP server's `--log-level` argument, so the
  * one lever VS Code users already have also controls the server's own file/protocol log
  * verbosity instead of only the client-side wire trace.
@@ -276,6 +268,14 @@ export function traceServerToLogLevel(): 'Warning' | 'Info' | 'Verbose' {
   }
 }
 
+/**
+ * Creates a trace output channel whose verbosity is controlled by the
+ * `reqnroll.trace.server` VS Code setting (`off` | `messages` | `verbose`).
+ *
+ * When the setting is not `off`, a log file is opened in the Reqnroll log
+ * directory so that every JSON-RPC message captured by vscode-languageclient
+ * is persisted in lsp-viewer format alongside the VS Code Output panel entry.
+ */
 export function createTraceChannel(): vscode.LogOutputChannel {
   const level = vscode.workspace.getConfiguration('reqnroll').get<string>('trace.server', 'off');
 

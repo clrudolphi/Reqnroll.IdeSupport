@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 namespace Reqnroll.IdeSupport.LSP.Core.Rename;
 
 /// <summary>
-/// Applies validation rules for the F16 Step Rename feature.
+/// Applies validation rules for the Step Rename refactoring feature.
 /// All methods return <see langword="null"/> on success (no error) or a <see cref="ValidationError"/>
 /// describing the failure. The class is stateless — all inputs are passed explicitly.
 /// </summary>

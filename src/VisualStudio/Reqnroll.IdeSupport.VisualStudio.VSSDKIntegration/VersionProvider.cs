@@ -6,6 +6,10 @@ using System.Reflection;
 
 namespace Reqnroll.IdeSupport.VisualStudio;
 
+/// <summary>
+/// Visual Studio's MEF-exported <see cref="IVersionProvider"/> implementation; lazily resolves
+/// the VS product display version and this extension's own assembly version.
+/// </summary>
 [Export(typeof(IVersionProvider))]
 public class VersionProvider : IVersionProvider
 {
@@ -14,6 +18,7 @@ public class VersionProvider : IVersionProvider
     private readonly Lazy<string> _lazyVsVersion;
     private readonly IServiceProvider _serviceProvider;
 
+    /// <summary>MEF importing constructor.</summary>
     [ImportingConstructor]
     public VersionProvider([Import(typeof(SVsServiceProvider))] IServiceProvider serviceProvider)
     {
@@ -22,8 +27,10 @@ public class VersionProvider : IVersionProvider
         _lazyExtensionVersion = new Lazy<string>(ReadExtensionVersion);
     }
 
+    /// <inheritdoc/>
     public string GetVsVersion() => _lazyVsVersion.Value;
 
+    /// <inheritdoc/>
     public string GetExtensionVersion() => _lazyExtensionVersion.Value;
 
     private string GetVsProductDisplayVersion()

@@ -3,8 +3,10 @@ using System.Reflection;
 
 namespace ReqnrollConnector.Utils;
 
+/// <summary>ReflectionExtensions</summary>
 public static class ReflectionExtensions
 {
+    /// <summary>Gets or sets the reflection call static method.</summary>
     public static T ReflectionCallStaticMethod<T>(this Type type, string methodName, Type[] parameterTypes,
         params object?[] args) where T : class
     {

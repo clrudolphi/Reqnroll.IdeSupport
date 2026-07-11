@@ -15,9 +15,12 @@ public abstract class CompletionContext { }
 /// </summary>
 public sealed class KeywordCompletionContext : CompletionContext
 {
+    /// <summary>Gets the Gherkin dialect in effect for the document.</summary>
     public GherkinDialect Dialect        { get; }
+    /// <summary>Gets the keyword token types valid at the cursor position, or empty if the document could not be parsed.</summary>
     public TokenType[]    ExpectedTokens { get; }
 
+    /// <summary>Initializes a new instance of the <see cref="KeywordCompletionContext"/> class.</summary>
     public KeywordCompletionContext(GherkinDialect dialect, TokenType[] expectedTokens)
     {
         Dialect        = dialect;
@@ -26,7 +29,7 @@ public sealed class KeywordCompletionContext : CompletionContext
 }
 
 /// <summary>
-/// Cursor is on a step line, past the step keyword — trigger F8 step-definition sample completion.
+/// Cursor is on a step line, past the step keyword — trigger step-definition sample completion.
 /// </summary>
 public sealed class StepCompletionContext : CompletionContext
 {
@@ -39,6 +42,7 @@ public sealed class StepCompletionContext : CompletionContext
     /// <summary>Zero-based column index of the first character after the keyword (the start of the step text).</summary>
     public int                 StepTextStartColumn { get; }
 
+    /// <summary>Initializes a new instance of the <see cref="StepCompletionContext"/> class.</summary>
     public StepCompletionContext(
         DeveroomGherkinStep step,
         string              typedAfterKeyword,

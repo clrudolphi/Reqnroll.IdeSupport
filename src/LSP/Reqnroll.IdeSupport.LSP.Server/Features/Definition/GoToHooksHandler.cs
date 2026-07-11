@@ -16,7 +16,7 @@ using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 namespace Reqnroll.IdeSupport.LSP.Server.Features.Definition;
 
 /// <summary>
-/// Handles the custom <c>reqnroll/goToHooks</c> request (F17 — Hook Navigation).
+/// Handles the custom <c>reqnroll/goToHooks</c> request (Hook Navigation — "Go to Hooks").
 /// <para>
 /// Given a cursor position in a <c>.feature</c> file, returns all hook bindings that are
 /// applicable at that position, filtered by context level (Feature / Scenario / Step) and
@@ -24,14 +24,14 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.Definition;
 /// </para>
 /// <para>
 /// A separate custom message is used rather than reusing <c>textDocument/definition</c>
-/// because that message is already used by F5 (Go to Step Definition) on step lines;
+/// because that message is already used by Go to Step Definition on step lines;
 /// the server cannot distinguish the two intents from position alone, and step-level hooks
 /// (<c>[BeforeStep]</c> / <c>[AfterStep]</c>) would be unreachable.
 /// </para>
 /// </summary>
 public sealed class GoToHooksHandler
 {
-    // Hook types visible at each context level, per design doc F17.
+    // Hook types visible at each context level, per the Hook Navigation design doc.
     private static readonly IReadOnlySet<HookType> FeatureLevelHooks = new HashSet<HookType>
     {
         HookType.BeforeTestRun,  HookType.AfterTestRun,
@@ -55,6 +55,7 @@ public sealed class GoToHooksHandler
     private readonly ILspTelemetryService?          _telemetryService;
     private readonly IOperationDurationRecorder     _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="GoToHooksHandler"/> class.</summary>
     public GoToHooksHandler(
         IDocumentBufferService        bufferService,
         IProjectBindingRegistryLookup registryLookup,
@@ -69,6 +70,7 @@ public sealed class GoToHooksHandler
         _recorder       = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Handles a <c>reqnroll/goToHooks</c> request for hook navigation.</summary>
     public Task<GoToHooksResponse> HandleAsync(
         TextDocumentPositionParams request,
         CancellationToken          cancellationToken)

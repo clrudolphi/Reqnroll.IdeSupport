@@ -13,6 +13,7 @@ namespace Reqnroll.IdeSupport.Common.Logging;
 /// </summary>
 public static class IdeSupportLogLevelConverter
 {
+    /// <summary>Converts a <see cref="Microsoft.Extensions.Logging"/> <see cref="LogLevel"/> to the equivalent <see cref="TraceLevel"/>.</summary>
     public static TraceLevel ToTraceLevel(LogLevel level) => level switch
     {
         LogLevel.Trace or LogLevel.Debug    => TraceLevel.Verbose,
@@ -22,6 +23,7 @@ public static class IdeSupportLogLevelConverter
         _                                   => TraceLevel.Off,
     };
 
+    /// <summary>Converts a <see cref="TraceLevel"/> to the equivalent <see cref="Microsoft.Extensions.Logging"/> <see cref="LogLevel"/>.</summary>
     public static LogLevel ToLogLevel(TraceLevel level) => level switch
     {
         TraceLevel.Off     => LogLevel.None,
@@ -39,14 +41,17 @@ public sealed class IdeSupportLoggerAdapter : ILogger
     private readonly string _categoryName;
     private readonly IIdeSupportLogger _logger;
 
+    /// <summary>Initializes a new instance of the <see cref="IdeSupportLoggerAdapter"/> class.</summary>
     public IdeSupportLoggerAdapter(string categoryName, IIdeSupportLogger logger)
     {
         _categoryName = categoryName;
         _logger = logger;
     }
 
+    /// <summary>Determines whether messages at <paramref name="logLevel"/> would be recorded by the underlying logger.</summary>
     public bool IsEnabled(LogLevel logLevel) => _logger.IsLogging(IdeSupportLogLevelConverter.ToTraceLevel(logLevel));
 
+    /// <summary>Writes a log entry for the specified category.</summary>
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
         Func<TState, Exception?, string> formatter)
     {
@@ -54,6 +59,7 @@ public sealed class IdeSupportLoggerAdapter : ILogger
             _categoryName, exception));
     }
 
+    /// <summary>Begins a logical operation scope.</summary>
     public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
 
     private sealed class NullScope : IDisposable
@@ -73,12 +79,16 @@ public sealed class IdeSupportLoggerFactory : ILoggerFactory
 {
     private readonly IIdeSupportLogger _logger;
 
+    /// <summary>Initializes a new instance of the <see cref="IdeSupportLoggerFactory"/> class.</summary>
     public IdeSupportLoggerFactory(IIdeSupportLogger logger) => _logger = logger;
 
+    /// <summary>Creates an <see cref="ILogger"/> for the given category, backed by the shared <see cref="IIdeSupportLogger"/> sink.</summary>
     public ILogger CreateLogger(string categoryName) => new IdeSupportLoggerAdapter(categoryName, _logger);
 
     // Single sink by design - IIdeSupportLogger already fans out via IdeSupportCompositeLogger when needed.
+    /// <summary>No-op: additional providers are not supported since there is a single fixed sink.</summary>
     public void AddProvider(ILoggerProvider provider) { }
 
+    /// <summary>No-op: this factory holds no disposable resources of its own.</summary>
     public void Dispose() { }
 }

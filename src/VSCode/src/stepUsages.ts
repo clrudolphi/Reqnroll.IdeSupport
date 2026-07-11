@@ -34,6 +34,11 @@ interface UnusedStepDefinitionItem {
   sourceChar: number;
 }
 
+/**
+ * Implements Find Step Definition Usages: queries the server for feature-file usages of the
+ * step definition binding at `line`/`char`, then either shows a `QuickPick` to navigate among
+ * them or reports there are none.
+ */
 export async function doFindStepUsages(
   client: LanguageClient,
   uriStr: string,
@@ -89,6 +94,11 @@ export async function doFindStepUsages(
   await openAndReveal(vscode.Uri.parse(picked.loc.uri), picked.loc.startLine, picked.loc.startChar);
 }
 
+/**
+ * Implements Find Unused Step Definitions: asks the server to scan the workspace (with a
+ * progress notification while it runs) and shows a `QuickPick` of step definitions with no
+ * usages in any feature file, navigating to the chosen one's source.
+ */
 export async function doFindUnusedStepDefinitions(client: LanguageClient): Promise<void> {
   let response: FindUnusedStepDefinitionsResponse;
   try {

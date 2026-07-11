@@ -23,6 +23,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.LspNotifications;
 /// </remarks>
 internal static class VsProjectPayloadBuilder
 {
+    /// <summary>Builds the <c>reqnroll/projectLoaded</c> params JSON for a project (paths, TFM, NuGet package references). Must run on the UI thread.</summary>
     public static string BuildProjectLoadedParamsJson(
         Project project,
         string workspaceFolder,
@@ -52,6 +53,7 @@ internal static class VsProjectPayloadBuilder
         return JsonConvert.SerializeObject(paramsObj, Formatting.None);
     }
 
+    /// <summary>Builds the <c>reqnroll/projectFiles</c> baseline params JSON, listing every feature/binding file in the project. Must run on the UI thread.</summary>
     public static string BuildProjectFilesParamsJson(Project project, ILogger logger)
     {
         ThreadHelper.ThrowIfNotOnUIThread();

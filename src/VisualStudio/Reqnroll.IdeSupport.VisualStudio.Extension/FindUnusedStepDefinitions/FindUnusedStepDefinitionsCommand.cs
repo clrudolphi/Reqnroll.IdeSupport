@@ -12,7 +12,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindUnusedStepDefinitions;
 
 /// <summary>
 /// "Find Unused Step Definitions" command placed in the Reqnroll submenu under Extensions.
-/// Unlike F14, this command is not scoped to a C# editor — it is a workspace-wide operation
+/// Unlike Find Step Definition Usages, this command is not scoped to a C# editor — it is a workspace-wide operation
 /// available whenever the server is running.
 /// </summary>
 [VisualStudioContribution]
@@ -21,6 +21,7 @@ internal sealed class FindUnusedStepDefinitionsCommand : Command
     private readonly FindUnusedStepDefinitionsState _state;
     private readonly ILogger<FindUnusedStepDefinitionsCommand> _logger;
 
+    /// <summary>Creates the command over the shared runtime state holder.</summary>
     public FindUnusedStepDefinitionsCommand(
         FindUnusedStepDefinitionsState state,
         ILogger<FindUnusedStepDefinitionsCommand> logger)
@@ -29,6 +30,7 @@ internal sealed class FindUnusedStepDefinitionsCommand : Command
         _logger = logger;
     }
 
+    /// <inheritdoc />
     public override CommandConfiguration CommandConfiguration => new("Find Unused Step Definitions")
     {
         Icon = new CommandIconConfiguration(ImageMoniker.Custom("ReqnrollIcon"), IconSettings.IconAndText),
@@ -36,6 +38,7 @@ internal sealed class FindUnusedStepDefinitionsCommand : Command
         Placements = [],  // Placed via ReqnrollMenu only; no context-menu placement for this command.
     };
 
+    /// <inheritdoc />
     public override async Task ExecuteCommandAsync(IClientContext context, CancellationToken cancellationToken)
     {
         try

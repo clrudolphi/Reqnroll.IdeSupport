@@ -9,7 +9,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.GoToHooks;
 
 /// <summary>
 /// "Go to Hooks" command — placed in the code-editor context menu navigation group,
-/// visible only when a <c>.feature</c> file editor is active (design doc F17).
+/// visible only when a <c>.feature</c> file editor is active (design doc: Hook Navigation).
 /// </summary>
 /// <remarks>
 /// When invoked, queries the LSP server for hook bindings applicable at the caret position.
@@ -33,6 +33,7 @@ internal sealed class GoToHooksCommand : Command
     // context menu (IDM_VS_CTXT_CODEWIN) that hosts "Go To Definition" / "Find All References".
     private const int IDG_VS_CODEWIN_NAVIGATETOLOCATION = 0x02B1;
 
+    /// <summary>Creates the command over the shared runtime state holder.</summary>
     public GoToHooksCommand(GoToHooksState state, ILogger<GoToHooksCommand> logger, IIdeSupportLogger fileLogger)
     {
         _state      = state;
@@ -40,6 +41,7 @@ internal sealed class GoToHooksCommand : Command
         _fileLogger = fileLogger;
     }
 
+    /// <inheritdoc />
     public override CommandConfiguration CommandConfiguration => new("Go to Hooks")
     {
         Icon        = new CommandIconConfiguration(ImageMoniker.Custom("ReqnrollIcon"), IconSettings.IconAndText),
@@ -55,6 +57,7 @@ internal sealed class GoToHooksCommand : Command
         ],
     };
 
+    /// <inheritdoc />
     public override async Task ExecuteCommandAsync(IClientContext context, CancellationToken cancellationToken)
     {
         try

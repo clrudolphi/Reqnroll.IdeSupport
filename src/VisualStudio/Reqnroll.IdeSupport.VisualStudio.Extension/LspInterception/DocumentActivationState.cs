@@ -54,6 +54,7 @@ internal enum DocumentActivationAction
     SendNow,
 }
 
+/// <summary>Thread-safe per-file state machine tracking whether a document-activation notification is still owed.</summary>
 internal sealed class DocumentActivationState
 {
     private readonly object _lock = new();

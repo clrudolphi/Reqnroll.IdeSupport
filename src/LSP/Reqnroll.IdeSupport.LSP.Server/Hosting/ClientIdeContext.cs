@@ -9,6 +9,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Hosting;
 /// </summary>
 public sealed class ClientIdeContext
 {
+    /// <summary>Initializes a new instance of the <see cref="ClientIdeContext"/> class.</summary>
     public ClientIdeContext(string? ide, TraceLevel logLevel = TraceLevel.Warning)
     {
         Ide = ide;

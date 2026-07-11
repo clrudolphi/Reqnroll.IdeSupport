@@ -15,6 +15,7 @@ internal sealed class FileSystemEditorConfigOptions : IEditorConfigOptions
         _values = values;
     }
 
+    /// <summary>Returns the value for <paramref name="key"/> converted to <typeparamref name="TResult"/> (bool, int, or string), or <paramref name="defaultValue"/> if absent or unsupported/unparsable.</summary>
     public TResult GetOption<TResult>(string key, TResult defaultValue)
     {
         if (!_values.TryGetValue(key, out var raw))
@@ -30,5 +31,6 @@ internal sealed class FileSystemEditorConfigOptions : IEditorConfigOptions
         return defaultValue;
     }
 
+    /// <summary>Returns the boolean value for <paramref name="key"/>, or <paramref name="defaultValue"/> if absent.</summary>
     public bool GetBoolOption(string key, bool defaultValue) => GetOption(key, defaultValue);
 }

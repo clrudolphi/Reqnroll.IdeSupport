@@ -23,6 +23,7 @@ internal sealed class ShutdownHandshakeInterceptor : ILspMessageInterceptor
     private string? _shutdownRequestId;
     private volatile bool _shutdownObserved;
 
+    /// <summary>Creates the interceptor over the given logger.</summary>
     public ShutdownHandshakeInterceptor(ILogger<ShutdownHandshakeInterceptor> logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -34,6 +35,7 @@ internal sealed class ShutdownHandshakeInterceptor : ILspMessageInterceptor
     /// </summary>
     public bool ShutdownObserved => _shutdownObserved;
 
+    /// <inheritdoc />
     public Task<LspInterceptorResult> InterceptAsync(LspMessage message, CancellationToken cancellationToken)
     {
         if (message.Direction == LspMessageDirection.Send && message.IsRequest &&

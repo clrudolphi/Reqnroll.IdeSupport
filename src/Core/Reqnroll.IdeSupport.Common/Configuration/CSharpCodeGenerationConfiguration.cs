@@ -2,6 +2,7 @@ using System;
 
 namespace Reqnroll.IdeSupport.Common.Configuration;
 
+/// <summary>CSharpCodeGenerationConfiguration</summary>
 public class CSharpCodeGenerationConfiguration
 {
     /// <summary>
@@ -11,6 +12,7 @@ public class CSharpCodeGenerationConfiguration
     [EditorConfigSetting("csharp_style_namespace_declarations")]
     public string? NamespaceDeclarationStyle { get; set; } = "block_scoped";
 
+    /// <summary>Creates a copy of this configuration.</summary>
     public CSharpCodeGenerationConfiguration Clone() => new()
     {
         NamespaceDeclarationStyle = NamespaceDeclarationStyle,

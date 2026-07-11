@@ -9,6 +9,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Completions;
 /// </summary>
 public sealed class RegexStepDefinitionExpressionAnalyzer
 {
+    /// <summary>Splits the given step-definition regex expression into alternating text and capturing-group parts.</summary>
     public AnalyzedStepDefinitionExpression Parse(string expression)
     {
         var parts = SplitByGroups(expression);

@@ -49,7 +49,9 @@ public sealed class ReqnrollProjectLoadedParams : INotification
 /// <summary>One resolved NuGet package reference.</summary>
 public sealed class PackageReferenceInfo
 {
+    /// <summary>Gets or sets the package id.</summary>
     public string PackageId    { get; set; } = string.Empty;
+    /// <summary>Gets or sets the version.</summary>
     public string Version      { get; set; } = string.Empty;
     /// <summary>
     /// Absolute path to the package's install directory in the NuGet cache,

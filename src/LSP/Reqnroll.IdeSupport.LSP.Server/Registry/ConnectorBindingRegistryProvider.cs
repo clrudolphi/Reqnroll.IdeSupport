@@ -120,7 +120,8 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
 
     /// <summary>
     /// Applies an immediate, source-level (Roslyn) binding update for a single C# file on top of
-    /// the current registry, replacing only that file's step definitions and hooks (design doc F2).
+    /// the current registry, replacing only that file's step definitions and hooks (Roslyn/C#
+    /// source-level binding discovery).
     /// </summary>
     /// <remarks>
     /// This is the in-process counterpart to the out-of-process reflection connector: it gives
@@ -150,6 +151,7 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
 
     // ── IDisposable ───────────────────────────────────────────────────────────
 
+    /// <summary>Cancels and disposes the provider's background discovery loop.</summary>
     public void Dispose()
     {
         CancellationTokenSource? cts;
@@ -182,7 +184,8 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
             // Skip the swap if nothing changed (hash matches means RunDiscovery returned lastGood).
             if (newHash == _lastHash)
             {
-                // Lightweight telemetry: connector hash-noop rate (design doc Q17 §4.2).
+                // Lightweight telemetry: connector hash-noop rate (membership index / telemetry
+                // design §4.2).
                 _telemetryService?.SendEvent("Reqnroll Discovery executed", new()
                 {
                     ["DiscoverySource"] = "Connector",
@@ -196,7 +199,7 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
             _lastHash = newHash;
             _current  = newRegistry;
 
-            // Telemetry: connector discovery event (design doc Q17 §2.2).
+            // Telemetry: connector discovery event (membership index / telemetry design §2.2).
             var triggerContext = _isFirstRun ? "projectLoad" : "build";
             _isFirstRun = false;
             // StepArgumentTransformations are not reported: the connector surfaces them, but
@@ -222,7 +225,8 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
             _logger.LogWarning(
                 $"[{_project.ProjectName}] Unexpected error during binding discovery: {ex.Message}");
 
-            // Telemetry: connector discovery failure (design doc Q17 §2.2 IsFailed / §4.3 error recovery).
+            // Telemetry: connector discovery failure (membership index / telemetry design §2.2
+            // IsFailed / §4.3 error recovery).
             // _isFirstRun is intentionally NOT cleared here: a failed initial load is still a load,
             // so a subsequent (hopefully successful) run continues to report "projectLoad".
             _telemetryService?.SendEvent("Reqnroll Discovery executed", new()

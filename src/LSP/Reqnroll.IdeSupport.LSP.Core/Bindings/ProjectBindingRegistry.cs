@@ -11,11 +11,18 @@ using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Bindings;
 
+/// <summary>
+/// The immutable set of step definitions and hooks discovered for a project, plus the matching
+/// logic (regex/scope/overload resolution) that resolves a Gherkin step or scenario against
+/// them. Each mutation (connector refresh, Roslyn per-file patch) produces a new instance with
+/// a bumped <see cref="Version"/>.
+/// </summary>
 [DebuggerDisplay("{Version}_{ProjectHash}")]
 public record ProjectBindingRegistry
 {
     private const string DataTableDefaultTypeName = TypeShortcuts.ReqnrollTableType;
     private const string DocStringDefaultTypeName = TypeShortcuts.StringType;
+    /// <summary>Sentinel registry used before any bindings have been discovered for a project.</summary>
     public static ProjectBindingRegistry Invalid = new(ImmutableArray<ProjectStepDefinitionBinding>.Empty, ImmutableArray<ProjectHookBinding>.Empty);
 
     private static ProjectBindingImplementationEqualityComparer _equalityComparerForProjectBindingImplementations = new();
@@ -27,21 +34,29 @@ public record ProjectBindingRegistry
         Hooks = hooks.ToImmutableArray();
     }
 
+    /// <summary>Creates a registry from a full set of step definitions and hooks, tagged with the project's content hash.</summary>
     public ProjectBindingRegistry(IEnumerable<ProjectStepDefinitionBinding> stepDefinitions, IEnumerable<ProjectHookBinding> hooks, int projectHash)
         : this(stepDefinitions, hooks)
     {
         ProjectHash = projectHash;
     }
 
+    /// <summary>A process-wide, monotonically increasing version, bumped on every new registry instance.</summary>
     public int Version { get; } = Interlocked.Increment(ref _versionCounter);
+    /// <summary>The hash of the project's binding sources at the time of a full (connector/reflection) discovery, or null for a Roslyn patch.</summary>
     public int? ProjectHash { get; }
+    /// <summary>True when this registry was produced by an incremental Roslyn per-file patch rather than a full discovery.</summary>
     public bool IsPatched => !ProjectHash.HasValue && this != Invalid;
 
+    /// <summary>The step definitions in this registry.</summary>
     public ImmutableArray<ProjectStepDefinitionBinding> StepDefinitions { get; }
+    /// <summary>The hooks in this registry.</summary>
     public ImmutableArray<ProjectHookBinding> Hooks { get; }
 
+    /// <summary>Returns a short "ProjectBindingRegistry_V{Version}_H{ProjectHash}" identifier for diagnostics/logging.</summary>
     public override string ToString() => $"ProjectBindingRegistry_V{Version}_H{ProjectHash}";
 
+    /// <summary>Returns the hooks (ordered by <see cref="HookType"/> then hook order) that apply to the given scenario.</summary>
     public HookMatchResult MatchScenarioToHooks(Scenario scenario, IGherkinDocumentContext context)
     {
         var hookMatches = Hooks
@@ -53,6 +68,10 @@ public record ProjectBindingRegistry
         return new HookMatchResult(hookMatches);
     }
 
+    /// <summary>
+    /// Matches a Gherkin step against this registry's step definitions, handling scenario
+    /// outline placeholder substitution and background multi-scope matching as needed.
+    /// </summary>
     public MatchResult MatchStep(Step step, IGherkinDocumentContext context)
     {
         var stepText = step.Text;
@@ -211,9 +230,11 @@ public record ProjectBindingRegistry
         return sdMatches;
     }
 
+    /// <summary>Creates a registry from step definitions and hooks with no known project hash (e.g. an incremental patch).</summary>
     public static ProjectBindingRegistry FromBindings(
         IEnumerable<ProjectStepDefinitionBinding> projectStepDefinitionBindings, IEnumerable<ProjectHookBinding>? hooks = null) => new(projectStepDefinitionBindings, hooks ?? Array.Empty<ProjectHookBinding>());
 
+    /// <summary>Returns a new registry with the given step definitions appended to this one's, keeping the same hooks.</summary>
     public ProjectBindingRegistry WithStepDefinitions(
         IEnumerable<ProjectStepDefinitionBinding> projectStepDefinitionBindings)
     {
@@ -222,15 +243,18 @@ public record ProjectBindingRegistry
         return new ProjectBindingRegistry(stepDefinitions, Hooks);
     }
 
+    /// <summary>Returns a new registry with <paramref name="original"/> swapped for <paramref name="replacement"/>.</summary>
     public ProjectBindingRegistry ReplaceStepDefinition(ProjectStepDefinitionBinding original,
         ProjectStepDefinitionBinding replacement)
     {
         return new ProjectBindingRegistry(StepDefinitions.Select(sd => sd == original ? replacement : sd), Hooks);
     }
 
+    /// <summary>Returns a new registry containing only the step definitions matching <paramref name="predicate"/>, keeping the same hooks.</summary>
     public ProjectBindingRegistry Where(Func<ProjectStepDefinitionBinding, bool> predicate) =>
         new(StepDefinitions.Where(predicate), Hooks);
 
+    /// <summary>Re-parses <paramref name="stepDefinitionFile"/> and replaces its step definitions, leaving bindings from other files untouched.</summary>
     public async Task<ProjectBindingRegistry> ReplaceStepDefinitions(CSharpStepDefinitionFile stepDefinitionFile)
     {
         var stepDefinitionParser = new StepDefinitionFileParser();
@@ -242,7 +266,7 @@ public record ProjectBindingRegistry
     /// <summary>
     /// Replaces all step definitions and hooks originating from the given C# source file with
     /// freshly discovered ones, leaving bindings from other files untouched. This is the
-    /// per-file replacement used by Roslyn-based (source-level) discovery (design doc F2).
+    /// per-file replacement used by Roslyn/C# source-level binding discovery.
     /// </summary>
     public async Task<ProjectBindingRegistry> ReplaceBindings(CSharpStepDefinitionFile stepDefinitionFile)
     {
@@ -334,7 +358,7 @@ public record ProjectBindingRegistry
     // Roslyn-path bindings point at the method identifier, connector-path bindings only store
     // the method-body start (no end) — neither is the attribute line itself, which is typically
     // 1-2 lines above. Column is intentionally ignored: Gherkin/C# line-oriented lookups like
-    // this should match anywhere on the relevant line(s), not an exact column (see #101, #106).
+    // this should match anywhere on the relevant line(s), not an exact column.
     private static bool CoversQuery(SourceLocation binding, SourceLocation query)
     {
         if (!string.Equals(binding.SourceFile, query.SourceFile, StringComparison.OrdinalIgnoreCase))

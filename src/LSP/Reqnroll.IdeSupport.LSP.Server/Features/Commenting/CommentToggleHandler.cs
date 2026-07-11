@@ -16,7 +16,7 @@ using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 namespace Reqnroll.IdeSupport.LSP.Server.Features.Commenting;
 
 /// <summary>
-/// Handles <c>workspace/executeCommand</c> for <c>reqnroll.toggleComment</c> (F13 — Comment/Uncomment).
+/// Handles <c>workspace/executeCommand</c> for <c>reqnroll.toggleComment</c> (Comment/Uncomment toggle).
 /// Toggles <c>#</c> comments on the selected line(s) of a <c>.feature</c> file.
 /// Arguments: <c>[uri, startLine, endLine]</c> (0-based, inclusive).
 /// Applies the resulting <see cref="WorkspaceEdit"/> via <c>workspace/applyEdit</c> request.
@@ -32,6 +32,7 @@ public sealed class CommentToggleHandler : IExecuteCommandHandler
     private readonly ILspTelemetryService?     _telemetryService;
     private readonly IOperationDurationRecorder _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="CommentToggleHandler"/> class.</summary>
     public CommentToggleHandler(
         IDocumentBufferService documentBufferService,
         ICommentToggleService toggleService,
@@ -48,6 +49,7 @@ public sealed class CommentToggleHandler : IExecuteCommandHandler
         _recorder              = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Builds the LSP registration options advertising the comment-toggle command as an executable <c>workspace/executeCommand</c> command.</summary>
     public ExecuteCommandRegistrationOptions GetRegistrationOptions(
         ExecuteCommandCapability capability,
         ClientCapabilities clientCapabilities)
@@ -56,6 +58,7 @@ public sealed class CommentToggleHandler : IExecuteCommandHandler
             Commands = new Container<string>(ToggleCommentCommand)
         };
 
+    /// <summary>Handles a <c>workspace/executeCommand</c> request for the comment-toggle command.</summary>
     public async Task<Unit> Handle(
         ExecuteCommandParams request,
         CancellationToken cancellationToken)
@@ -98,7 +101,7 @@ public sealed class CommentToggleHandler : IExecuteCommandHandler
         var result = _toggleService.ToggleComment(text, startLine, endLine);
 
         var edit = BuildWorkspaceEdit(uri, result, lines);
-        _logger.LogInfo($"F13 reqnroll.toggleComment: {uri} lines [{startLine}..{endLine}] → {result.Edits.Count} change(s)");
+        _logger.LogInfo($"Comment/Uncomment toggle reqnroll.toggleComment: {uri} lines [{startLine}..{endLine}] → {result.Edits.Count} change(s)");
 
         // Telemetry
         _telemetryService?.SendEvent("CommentUncomment command executed", new());

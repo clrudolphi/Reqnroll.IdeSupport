@@ -11,8 +11,8 @@ namespace Reqnroll.IdeSupport.LSP.Core.Diagnostics;
 /// <param name="Range">The text span to underline in the feature file.</param>
 /// <param name="Severity">Error (parse failure) or Warning (unmatched step).</param>
 /// <param name="Source">
-/// <c>"reqnroll.parser"</c> for parse errors (F4);
-/// <c>"reqnroll.binding"</c> for binding mismatches (F3).
+/// <c>"reqnroll.parser"</c> for parser-error diagnostics;
+/// <c>"reqnroll.binding"</c> for undefined-step/binding diagnostics.
 /// </param>
 public record GherkinDiagnostic(
     string Message,

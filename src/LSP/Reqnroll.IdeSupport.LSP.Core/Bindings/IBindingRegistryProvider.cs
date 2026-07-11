@@ -8,6 +8,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Bindings;
 /// </summary>
 public interface IBindingRegistryProvider
 {
+    /// <summary>The most recently discovered binding registry for the project.</summary>
     ProjectBindingRegistry Current { get; }
 
     /// <summary>

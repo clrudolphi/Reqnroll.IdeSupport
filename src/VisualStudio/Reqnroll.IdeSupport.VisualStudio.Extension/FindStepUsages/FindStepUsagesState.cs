@@ -3,7 +3,7 @@
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 
 /// <summary>
-/// Shared, container-registered holder for the runtime-created F14 components.
+/// Shared, container-registered holder for the runtime-created Find Step Definition Usages components.
 /// </summary>
 /// <remarks>
 /// <see cref="FindStepUsagesService"/> depends on the <c>LspInterceptingPipe</c>, which only

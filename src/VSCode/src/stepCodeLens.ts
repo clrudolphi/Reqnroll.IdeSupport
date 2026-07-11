@@ -5,6 +5,11 @@ import {
   LanguageClient,
 } from 'vscode-languageclient/node';
 
+/**
+ * Registers the step-usage-count CodeLens provider for C# files, querying the server via
+ * `textDocument/codeLens` and refreshing lenses when the server pushes
+ * `workspace/codeLens/refresh` after a binding registry change.
+ */
 export function registerStepCodeLens(
   client: LanguageClient,
   context: vscode.ExtensionContext,

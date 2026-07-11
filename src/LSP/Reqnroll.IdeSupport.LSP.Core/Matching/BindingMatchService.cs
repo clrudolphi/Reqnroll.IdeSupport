@@ -10,6 +10,7 @@ public sealed class BindingMatchService : IBindingMatchService
 {
     private readonly ConcurrentDictionary<MatchSetKey, FeatureBindingMatchSet> _cache = new();
 
+    /// <summary>Caches the given match set under its key, evicting any pre-baseline "Unknown" placeholder for the same document once a project-keyed entry arrives.</summary>
     public void Store(FeatureBindingMatchSet matchSet)
     {
         if (matchSet == null) throw new ArgumentNullException(nameof(matchSet));
@@ -20,6 +21,7 @@ public sealed class BindingMatchService : IBindingMatchService
             _cache.TryRemove(MatchSetKey.ForUnknownProject(matchSet.Key.DocumentId), out _);
     }
 
+    /// <summary>Looks up the cached match set for the given key, returning <see cref="FeatureBindingMatchSet.Empty"/> and <see langword="false"/> on a miss.</summary>
     public bool TryGet(MatchSetKey key, out FeatureBindingMatchSet matchSet)
     {
         if (_cache.TryGetValue(key, out var found))
@@ -32,6 +34,7 @@ public sealed class BindingMatchService : IBindingMatchService
         return false;
     }
 
+    /// <summary>Removes all cached match sets for the given document, across every project owner.</summary>
     public void InvalidateAllForDocument(string documentId)
     {
         if (string.IsNullOrEmpty(documentId))
@@ -44,6 +47,7 @@ public sealed class BindingMatchService : IBindingMatchService
         }
     }
 
+    /// <summary>Removes all cached match sets owned by the given project (matched by project file and target framework).</summary>
     public void InvalidateAllForProject(ProjectOwner owner)
     {
         if (!owner.IsKnown)
@@ -57,8 +61,10 @@ public sealed class BindingMatchService : IBindingMatchService
         }
     }
 
+    /// <summary>Removes every cached match set, for every document and project owner.</summary>
     public void InvalidateAll() => _cache.Clear();
 
+    /// <summary>Finds all cached step matches that resolve to the given binding source location, optionally restricted to the given projects.</summary>
     public IReadOnlyList<StepBindingMatch> FindUsages(
         SourceLocation bindingLocation,
         IReadOnlyCollection<ProjectOwner>? projectFilter = null)
@@ -74,7 +80,7 @@ public sealed class BindingMatchService : IBindingMatchService
             var key = pair.Key;
             var set = pair.Value;
             // Unknown entries are pre-baseline placeholders — always include them so
-            // F14 works during the transition before the first baseline arrives.
+            // Find Usages works during the transition before the first baseline arrives.
             if (projectFilter != null && key.Owner.IsKnown && !MatchesFilter(key.Owner, projectFilter))
                 continue;
 

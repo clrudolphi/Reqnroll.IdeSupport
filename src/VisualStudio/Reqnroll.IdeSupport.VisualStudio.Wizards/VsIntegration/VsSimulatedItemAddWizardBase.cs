@@ -39,12 +39,20 @@ public abstract class VsSimulatedItemAddWizardBase<TWizard> : VsTemplateWizardBa
         return string.Equals(propValue, "true", StringComparison.InvariantCultureIgnoreCase);
     }
 
+    /// <summary>
+    /// Records the template file name and suppresses VS's normal item-add
+    /// mechanism when simulated item add is in effect (the file is copied manually instead).
+    /// </summary>
     public override bool ShouldAddProjectItem(string filePath)
     {
         _templateFileName = filePath;
         return base.ShouldAddProjectItem(filePath) && !_enableSimulatedItemAdd;
     }
 
+    /// <summary>
+    /// When simulated item add was used, copies the template file (resolving
+    /// template parameters) into the target folder and schedules it to be opened.
+    /// </summary>
     public override void RunFinished()
     {
         if (_isValidRun && _enableSimulatedItemAdd && _templateFileName != null)

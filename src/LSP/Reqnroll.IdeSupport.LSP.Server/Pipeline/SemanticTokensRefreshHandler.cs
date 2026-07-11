@@ -32,6 +32,7 @@ public class SemanticTokensRefreshHandler : INotificationHandler<MatchCacheChang
     private CancellationTokenSource? _debounceCts;
     private readonly object _debounceLock = new object();
 
+    /// <summary>Initializes a new instance of the <see cref="SemanticTokensRefreshHandler"/> class.</summary>
     public SemanticTokensRefreshHandler(
         ILanguageServerFacade languageServer,
         IIdeSupportLogger logger,
@@ -42,6 +43,7 @@ public class SemanticTokensRefreshHandler : INotificationHandler<MatchCacheChang
         _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Handles an internal <see cref="MatchCacheChangedNotification"/> by debouncing and, if the client advertised refresh support, sending a <c>workspace/semanticTokens/refresh</c> request.</summary>
     public Task Handle(MatchCacheChangedNotification notification, CancellationToken cancellationToken)
     {
         // Guard: only send the refresh if the client advertised support for it.

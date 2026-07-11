@@ -28,6 +28,7 @@ public class NetFxAssemblyProxy : MarshalByRefObject, INetFxAssemblyProxy
         "netstandard2.0", "netstandard1.6", "netstandard1.0"
     };
 
+    /// <summary>Initializes a new instance of the <see cref="NetFxAssemblyProxy"/> class.</summary>
     public NetFxAssemblyProxy()
     {
         // Subscribe before any loads — covers the window between CreateInstanceAndUnwrap
@@ -35,6 +36,7 @@ public class NetFxAssemblyProxy : MarshalByRefObject, INetFxAssemblyProxy
         AppDomain.CurrentDomain.AssemblyResolve += OnAssemblyResolve;
     }
 
+    /// <summary>Gets or sets the initialize.</summary>
     public void Initialize(string assemblyPath)
     {
         _testAssembly = Assembly.LoadFrom(assemblyPath);
@@ -171,8 +173,10 @@ public class NetFxAssemblyProxy : MarshalByRefObject, INetFxAssemblyProxy
 
     // Return strings so callers never hold a cross-domain Assembly proxy
     // just for metadata — they can re-resolve if they need the object.
+    /// <summary>Gets or sets the image runtime version.</summary>
     public string ImageRuntimeVersion => _testAssembly.ImageRuntimeVersion;
 
+    /// <summary>Gets or sets the target framework name.</summary>
     public string TargetFrameworkName
     {
         get
@@ -183,7 +187,9 @@ public class NetFxAssemblyProxy : MarshalByRefObject, INetFxAssemblyProxy
         }
     }
 
+    /// <summary>Gets or sets the test assembly location.</summary>
     public string TestAssemblyLocation => _testAssembly.Location;
+    /// <summary>Gets or sets the test assembly full name.</summary>
     public string TestAssemblyFullName => _testAssembly.FullName;
 
     private Assembly LoadAssemblyByName(string fullAssemblyName) =>
@@ -195,6 +201,7 @@ public class NetFxAssemblyProxy : MarshalByRefObject, INetFxAssemblyProxy
         return asm.GetType(typeName, throwOnError: true);
     }
 
+    /// <summary>Gets or sets the invoke reqnroll binding discovery method.</summary>
     public string InvokeReqnrollBindingDiscoveryMethod(string? configFileContent)
     {
         var bindingProviderServiceType = GetType("Reqnroll", "Reqnroll.Bindings.Provider.BindingProviderService");
@@ -202,6 +209,7 @@ public class NetFxAssemblyProxy : MarshalByRefObject, INetFxAssemblyProxy
         return bindingJson;
     }
 
+    /// <summary>Gets or sets the assembly location from assembly name.</summary>
     public string AssemblyLocationFromAssemblyName(string assemblyName)
     {
         var asm = Assembly.Load(assemblyName);
@@ -209,5 +217,6 @@ public class NetFxAssemblyProxy : MarshalByRefObject, INetFxAssemblyProxy
     }
 
     // Ensure the lease never expires while the AppDomain is alive.
+    /// <summary>Gets or sets the initialize lifetime service.</summary>
     public override object InitializeLifetimeService() => null;
 }

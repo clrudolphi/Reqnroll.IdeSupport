@@ -7,8 +7,8 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.Navigation;
 
 /// <summary>
 /// Shared helper: show a picker when a navigation query returns multiple results, then open
-/// the chosen file in the editor. Works for Go to Hooks (F17) and future ambiguous-step-
-/// definition navigation (F5 — multiple matching bindings).
+/// the chosen file in the editor. Works for Go to Hooks and future ambiguous-step-
+/// definition navigation (Go to Step Definition — multiple matching bindings).
 /// </summary>
 /// <remarks>
 /// 0 targets → no-op (caller logs this case).
@@ -17,6 +17,10 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.Navigation;
 /// </remarks>
 internal static class NavigationPickerHelper
 {
+    /// <summary>
+    /// Navigates directly for a single target; shows a picker dialog and navigates to the
+    /// selection for multiple targets; no-ops for zero targets.
+    /// </summary>
     public static async Task PickAndNavigateAsync(
         IReadOnlyList<NavigationTarget> targets,
         IIdeSupportLogger                 logger,

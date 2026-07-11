@@ -6,12 +6,13 @@ using Newtonsoft.Json;
 namespace Reqnroll.IdeSupport.LSP.Server.Features.Definition;
 
 /// <summary>
-/// Response DTO for the custom <c>reqnroll/goToHooks</c> request (F17 — Hook Navigation).
+/// Response DTO for the custom <c>reqnroll/goToHooks</c> request (Hook Navigation — "Go to Hooks").
 /// Contains every hook binding applicable at the queried <c>.feature</c> file position,
 /// filtered by hook-type level (Feature / Scenario / Step) and tag/scope expressions.
 /// </summary>
 public sealed class GoToHooksResponse
 {
+    /// <summary>Gets or sets the hooks.</summary>
     [JsonProperty("hooks")]
     public List<GoToHookLocation> Hooks { get; set; } = new();
 }

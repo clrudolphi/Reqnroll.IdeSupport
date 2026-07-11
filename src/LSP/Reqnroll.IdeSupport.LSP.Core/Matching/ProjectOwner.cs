@@ -11,5 +11,6 @@ public readonly record struct ProjectOwner(string ProjectFile, string Tfm)
     /// <summary>Sentinel used when the owning project is not yet known (e.g. no baseline received).</summary>
     public static readonly ProjectOwner Unknown = new(string.Empty, string.Empty);
 
+    /// <summary>Gets whether the owning project has been identified (a non-empty <see cref="ProjectFile"/>).</summary>
     public bool IsKnown => !string.IsNullOrEmpty(ProjectFile);
 }

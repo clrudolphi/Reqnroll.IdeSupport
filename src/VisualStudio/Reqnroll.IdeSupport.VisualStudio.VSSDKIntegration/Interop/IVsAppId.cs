@@ -7,39 +7,56 @@ using IOleServiceProvider = Microsoft.VisualStudio.OLE.Interop.IServiceProvider;
 //based on: https://github.com/dotnet/project-system/blob/master/src/Microsoft.VisualStudio.ProjectSystem.Managed.VS/ProjectSystem/VS/Interop/IVsAppId.cs
 namespace Reqnroll.IdeSupport.VisualStudio.Interop;
 
+/// <summary>
+/// Service GUID marker interface used to query for <see cref="IVsAppId"/> via the OLE service provider.
+/// </summary>
 [Guid("1EAA526A-0898-11d3-B868-00C04F79F802")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 public interface SVsAppId
 {
 }
 
+/// <summary>
+/// COM interop interface for the Visual Studio shell's application-identity service, exposing
+/// generic and GUID-typed properties keyed by <see cref="VSAPropID"/>.
+/// </summary>
 [Guid("1EAA526A-0898-11d3-B868-00C04F79F802")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 public interface IVsAppId
 {
+    /// <summary>Sets the OLE service provider site for this app-id service.</summary>
     [PreserveSig]
     int SetSite(IOleServiceProvider pSP);
 
+    /// <summary>Gets a property value identified by a <see cref="VSAPropID"/>.</summary>
     [PreserveSig]
     int GetProperty(int propid, // VSAPROPID
         [MarshalAs(UnmanagedType.Struct)] out object pvar);
 
+    /// <summary>Sets a property value identified by a <see cref="VSAPropID"/>.</summary>
     [PreserveSig]
     int SetProperty(int propid, //[in] VSAPROPID
         [MarshalAs(UnmanagedType.Struct)] object var);
 
+    /// <summary>Gets a GUID-typed property value identified by a <see cref="VSAPropID"/>.</summary>
     [PreserveSig]
     int GetGuidProperty(int propid, // VSAPROPID
         out Guid guid);
 
+    /// <summary>Sets a GUID-typed property value identified by a <see cref="VSAPropID"/>.</summary>
     [PreserveSig]
     int SetGuidProperty(int propid, // [in] VSAPROPID
         ref Guid rguid);
 
+    /// <summary>Called after main shell initialization and before command execution / the main loop starts.</summary>
     [PreserveSig]
     int Initialize(); // called after main initialization and before command executing and entering main loop
 }
 
+/// <summary>
+/// Property identifiers for <see cref="IVsAppId"/>'s Get/SetProperty methods; each member's inline
+/// comment documents its expected VARIANT type and meaning.
+/// </summary>
 public enum VSAPropID
 {
     NIL = -1,

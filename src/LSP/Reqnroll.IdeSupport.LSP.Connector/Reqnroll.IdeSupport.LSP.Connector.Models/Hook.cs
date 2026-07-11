@@ -2,25 +2,34 @@
 
 namespace Reqnroll.IdeSupport.LSP.Connector.Models;
 
+/// <summary>Hook</summary>
 public class Hook
 {
+    /// <summary>Gets or sets the type.</summary>
     public string Type { get; set; }
+    /// <summary>Gets or sets the hook order.</summary>
     public int? HookOrder { get; set; }
+    /// <summary>Gets or sets the method.</summary>
     public string Method { get; set; }
     //public string ParamTypes { get; set; }
+    /// <summary>Gets or sets the scope.</summary>
     public StepScope Scope { get; set; }
 
+    /// <summary>Gets or sets the error.</summary>
     public string Error { get; set; }
 
+    /// <summary>Gets or sets the source location.</summary>
     public string SourceLocation { get; set; }
 
     #region Equality
 
+    /// <summary>Gets or sets the equals.</summary>
     protected bool Equals(Hook other)
     {
         return Type == other.Type && HookOrder == other.HookOrder && Method == other.Method && Equals(Scope, other.Scope) && Error == other.Error && SourceLocation == other.SourceLocation;
     }
 
+    /// <summary>Gets or sets the equals.</summary>
     public override bool Equals(object obj)
     {
         if (ReferenceEquals(null, obj)) return false;
@@ -29,6 +38,7 @@ public class Hook
         return Equals((Hook)obj);
     }
 
+    /// <summary>Gets or sets the get hash code.</summary>
     public override int GetHashCode()
     {
         unchecked

@@ -3,7 +3,7 @@
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.CommentToggle;
 
 /// <summary>
-/// Container-registered singleton holder for the runtime-created F13 Comment/Uncomment service.
+/// Container-registered singleton holder for the runtime-created Comment/Uncomment toggle service.
 /// </summary>
 /// <remarks>
 /// <see cref="CommentToggleService"/> depends on <c>LspInterceptingPipe</c>, which only exists after

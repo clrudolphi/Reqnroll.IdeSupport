@@ -1,5 +1,6 @@
 namespace Reqnroll.IdeSupport.Common.Configuration;
 
+/// <summary>GherkinFormatConfiguration</summary>
 public class GherkinFormatConfiguration
 {
     /// <summary>
@@ -62,6 +63,7 @@ public class GherkinFormatConfiguration
     [EditorConfigSetting("gherkin_table_cell_right_align_numeric_content")]
     public bool TableCellRightAlignNumericContent { get; set; } = true;
 
+    /// <summary>Creates a copy of this configuration.</summary>
     public GherkinFormatConfiguration Clone() => new()
     {
         IndentFeatureChildren           = IndentFeatureChildren,
@@ -76,6 +78,7 @@ public class GherkinFormatConfiguration
         TableCellRightAlignNumericContent = TableCellRightAlignNumericContent,
     };
 
+    /// <summary>Validates this configuration. Currently a no-op; retained for symmetry with other configuration sections.</summary>
     public void CheckConfiguration()
     {
         // nop
@@ -83,6 +86,7 @@ public class GherkinFormatConfiguration
 
     #region Equality
 
+    /// <summary>Determines whether this instance has the same setting values as <paramref name="other"/>.</summary>
     protected bool Equals(GherkinFormatConfiguration other) => IndentFeatureChildren == other.IndentFeatureChildren &&
                                                                IndentRuleChildren == other.IndentRuleChildren &&
                                                                IndentSteps == other.IndentSteps &&
@@ -94,6 +98,7 @@ public class GherkinFormatConfiguration
                                                                TableCellPaddingSize == other.TableCellPaddingSize &&
                                                                TableCellRightAlignNumericContent == other.TableCellRightAlignNumericContent;
 
+    /// <summary>Determines whether <paramref name="obj"/> is a <see cref="GherkinFormatConfiguration"/> with the same setting values.</summary>
     public override bool Equals(object obj)
     {
         if (ReferenceEquals(null, obj)) return false;
@@ -103,6 +108,7 @@ public class GherkinFormatConfiguration
     }
 
     // ReSharper disable NonReadonlyMemberInGetHashCode
+    /// <summary>Returns a hash code derived from the configuration's setting values.</summary>
     public override int GetHashCode()
     {
         unchecked

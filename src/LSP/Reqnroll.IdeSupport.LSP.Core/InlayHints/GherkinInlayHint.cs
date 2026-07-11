@@ -2,6 +2,7 @@ using Reqnroll.IdeSupport.LSP.Core.Documents;
 
 namespace Reqnroll.IdeSupport.LSP.Core.InlayHints;
 
+/// <summary>GherkinInlayHintKind</summary>
 public enum GherkinInlayHintKind
 {
     /// <summary>A single, unambiguous binding matches the step.</summary>

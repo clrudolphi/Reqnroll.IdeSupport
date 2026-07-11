@@ -15,7 +15,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.Formatting;
 
 /// <summary>
 /// Handles <c>textDocument/formatting</c> and <c>textDocument/rangeFormatting</c>
-/// LSP requests for <c>.feature</c> files (F11 — Document Auto-formatting).
+/// LSP requests for <c>.feature</c> files (Document auto-formatting).
 /// </summary>
 public sealed class GherkinFormattingHandler
     : IDocumentFormattingHandler, IDocumentRangeFormattingHandler, IDocumentOnTypeFormattingHandler
@@ -30,6 +30,7 @@ public sealed class GherkinFormattingHandler
     private static readonly TextDocumentSelector FeatureSelector = new(
         new TextDocumentFilter { Pattern = "**/*.feature" });
 
+    /// <summary>Initializes a new instance of the <see cref="GherkinFormattingHandler"/> class.</summary>
     public GherkinFormattingHandler(
         IDocumentBufferService documentBufferService,
         IEditorConfigOptionsProvider editorConfigOptionsProvider,
@@ -46,30 +47,34 @@ public sealed class GherkinFormattingHandler
 
     // ── IDocumentFormattingHandler ────────────────────────────────────────────
 
+    /// <summary>Builds the LSP registration options advertising whole-document formatting support for <c>.feature</c> files.</summary>
     public DocumentFormattingRegistrationOptions GetRegistrationOptions(
         DocumentFormattingCapability capability, ClientCapabilities clientCapabilities)
         => new() { DocumentSelector = FeatureSelector };
 
+    /// <summary>Handles a <c>textDocument/formatting</c> request for Gherkin document formatting.</summary>
     public Task<TextEditContainer?> Handle(DocumentFormattingParams request, CancellationToken ct)
     {
         using var _perf = _recorder.Measure(LspMethodNames.TextDocumentFormatting, request.TextDocument.Uri);
         var filePath = request.TextDocument.Uri.GetFileSystemPath();
-        _logger.LogInfo($"F11 textDocument/formatting: {request.TextDocument.Uri}");
+        _logger.LogInfo($"Document auto-formatting textDocument/formatting: {request.TextDocument.Uri}");
         return FormatDocumentAsync(request.TextDocument.Uri, filePath, request.Options,
             startLine: null, endLine: null);
     }
 
     // ── IDocumentRangeFormattingHandler ──────────────────────────────────────
 
+    /// <summary>Builds the LSP registration options advertising range formatting support for <c>.feature</c> files.</summary>
     public DocumentRangeFormattingRegistrationOptions GetRegistrationOptions(
         DocumentRangeFormattingCapability capability, ClientCapabilities clientCapabilities)
         => new() { DocumentSelector = FeatureSelector };
 
+    /// <summary>Handles a <c>textDocument/range-formatting</c> request for Gherkin document formatting.</summary>
     public async Task<TextEditContainer> Handle(DocumentRangeFormattingParams request, CancellationToken ct)
     {
         using var _perf = _recorder.Measure(LspMethodNames.TextDocumentRangeFormatting, request.TextDocument.Uri);
         var filePath = request.TextDocument.Uri.GetFileSystemPath();
-        _logger.LogInfo($"F11 textDocument/rangeFormatting: {request.TextDocument.Uri}");
+        _logger.LogInfo($"Document auto-formatting textDocument/rangeFormatting: {request.TextDocument.Uri}");
         return await FormatDocumentAsync(
             request.TextDocument.Uri, filePath, request.Options,
             startLine: (int)request.Range.Start.Line,
@@ -79,6 +84,7 @@ public sealed class GherkinFormattingHandler
 
     // ── IDocumentOnTypeFormattingHandler ─────────────────────────────────────
 
+    /// <summary>Builds the LSP registration options advertising on-type formatting for <c>.feature</c> files, triggered by <c>|</c> and by newline/tab.</summary>
     public DocumentOnTypeFormattingRegistrationOptions GetRegistrationOptions(
         DocumentOnTypeFormattingCapability capability, ClientCapabilities clientCapabilities)
         => new()
@@ -88,11 +94,12 @@ public sealed class GherkinFormattingHandler
             MoreTriggerCharacter  = new Container<string>("\n", "\t")
         };
 
+    /// <summary>Handles a <c>textDocument/on-type-formatting</c> request for Gherkin document formatting.</summary>
     public Task<TextEditContainer?> Handle(DocumentOnTypeFormattingParams request, CancellationToken ct)
     {
         using var _perf = _recorder.Measure(LspMethodNames.TextDocumentOnTypeFormatting, request.TextDocument.Uri);
         var filePath = request.TextDocument.Uri.GetFileSystemPath();
-        _logger.LogInfo($"F12 textDocument/onTypeFormatting: trigger='{request.Character}' {request.TextDocument.Uri}");
+        _logger.LogInfo($"textDocument/onTypeFormatting: trigger='{request.Character}' {request.TextDocument.Uri}");
 
         if (!_documentBufferService.TryGet(request.TextDocument.Uri, out var buffer) || buffer is null)
             return Task.FromResult<TextEditContainer?>(new TextEditContainer());

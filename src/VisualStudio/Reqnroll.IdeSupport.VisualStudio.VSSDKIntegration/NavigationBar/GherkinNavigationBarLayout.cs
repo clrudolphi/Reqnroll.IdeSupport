@@ -6,7 +6,7 @@ using System.Linq;
 namespace Reqnroll.IdeSupport.VisualStudio.NavigationBar;
 
 /// <summary>
-/// Pure combo-population logic for the Navigation Bar (Issue #5 / Q22 Option B), kept separate
+/// Pure combo-population logic for the Navigation Bar, kept separate
 /// from <c>GherkinDropdownBarClient</c>'s COM surface so it's unit-testable without a live VS host.
 /// </summary>
 internal static class GherkinNavigationBarLayout

@@ -17,12 +17,14 @@ public sealed class FileLoggingLspTelemetryService : ILspTelemetryService
     private readonly ILspTelemetryService _inner;
     private readonly ITelemetryDebugLog _debugLog;
 
+    /// <summary>Initializes a new instance of the <see cref="FileLoggingLspTelemetryService"/> class.</summary>
     public FileLoggingLspTelemetryService(ILspTelemetryService inner, ITelemetryDebugLog debugLog)
     {
         _inner = inner;
         _debugLog = debugLog;
     }
 
+    /// <summary>Mirrors the event to the local JSONL debug log, then forwards it to the wrapped telemetry service.</summary>
     public void SendEvent(string eventName, Dictionary<string, object?> properties)
     {
         _debugLog.Record("server", eventName, properties);

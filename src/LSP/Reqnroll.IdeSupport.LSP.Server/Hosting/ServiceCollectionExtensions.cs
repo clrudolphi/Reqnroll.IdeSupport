@@ -114,7 +114,7 @@ public static class ServiceCollectionExtensions
             // each feature file is resolved against only its own project's bindings.
             .AddSingleton<BindingRegistryProviderRouter>()
             .AddSingleton<IProjectBindingRegistryLookup>(sp => sp.GetRequiredService<BindingRegistryProviderRouter>())
-            // Roslyn (source-level) binding discovery for .cs edits (design doc F2).
+            // Roslyn/C# source-level binding discovery for .cs edits.
             .AddSingleton<ICSharpBindingDiscoveryService, CSharpBindingDiscoveryService>()
             .AddSingleton<IDeveroomTagParser, DeveroomTagParser>()
             // Debounces the closed-feature-file rescan triggered by an incremental Roslyn patch

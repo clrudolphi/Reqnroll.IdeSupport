@@ -22,7 +22,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
     private readonly ConcurrentDictionary<string, LspProjectScope> _scopes
         = new(StringComparer.OrdinalIgnoreCase);
 
-    // ── Membership index (Q17) ────────────────────────────────────────────────
+    // ── Membership index (workspace scope / project membership tracking) ────
     // path (normalised, OrdinalIgnoreCase) → { ProjectKey → ProjectFileRole }
     private readonly Dictionary<string, Dictionary<ProjectKey, ProjectFileRole>> _membership
         = new(StringComparer.OrdinalIgnoreCase);
@@ -34,6 +34,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
     // would normally trigger is deferred here until the project actually loads.
     private readonly ConcurrentDictionary<ProjectKey, bool> _pendingFullRescan = new();
 
+    /// <summary>Initializes a new instance of the <see cref="LspWorkspaceScopeManager"/> class.</summary>
     public LspWorkspaceScopeManager(IIdeScope ideScope, IIdeSupportLogger logger, IMediator mediator)
     {
         _ideScope  = ideScope;
@@ -43,9 +44,12 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
 
     // ── Folder lifecycle ──────────────────────────────────────────────────────
 
+    /// <summary>Raised when a new workspace folder scope is opened.</summary>
     public event Action<LspProjectScope>? ScopeOpened;
+    /// <summary>Raised when a workspace folder scope is closed.</summary>
     public event Action<LspProjectScope>? ScopeClosed;
 
+    /// <summary>Creates the workspace scope for <paramref name="rootPath"/> if it does not already exist, raising <see cref="ScopeOpened"/>.</summary>
     public void OpenWorkspace(string rootPath)
     {
         var key = Normalise(rootPath);
@@ -60,6 +64,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
             ScopeOpened?.Invoke(added);
     }
 
+    /// <summary>Removes the workspace scope for <paramref name="rootPath"/>, raising <see cref="ProjectRemoved"/> for each of its projects and then <see cref="ScopeClosed"/>, and disposes the scope.</summary>
     public void CloseWorkspace(string rootPath)
     {
         var key = Normalise(rootPath);
@@ -80,9 +85,12 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
 
     // ── Project lifecycle ─────────────────────────────────────────────────────
 
+    /// <summary>Raised when a Reqnroll project is discovered (loaded) in the workspace.</summary>
     public event Action<LspReqnrollProject>? ProjectDiscovered;
+    /// <summary>Raised when a Reqnroll project is removed (unloaded) from the workspace.</summary>
     public event Action<LspReqnrollProject>? ProjectRemoved;
 
+    /// <summary>Handles a <c>reqnroll/projectLoaded</c> notification: ensures the workspace folder and project scope exist, updates or creates the project, and raises <see cref="ProjectDiscovered"/>.</summary>
     public Task HandleProjectLoadedAsync(
         ReqnrollProjectLoadedParams parameters,
         CancellationToken cancellationToken)
@@ -165,6 +173,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         }
     }
 
+    /// <summary>Handles a <c>reqnroll/projectUnloaded</c> notification: removes the matching project from its scope, raises <see cref="ProjectRemoved"/>, and disposes it.</summary>
     public Task HandleProjectUnloadedAsync(
         ReqnrollProjectUnloadedParams parameters,
         CancellationToken cancellationToken)
@@ -188,6 +197,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
 
     // ── Lookup ────────────────────────────────────────────────────────────────
 
+    /// <summary>Finds the workspace scope whose root folder most closely contains <paramref name="uri"/>'s file path, if any.</summary>
     public LspProjectScope? GetScopeForUri(DocumentUri uri)
     {
         var filePath = uri.GetFileSystemPath();
@@ -200,6 +210,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
             .FirstOrDefault();
     }
 
+    /// <summary>Finds the single project whose folder most closely contains <paramref name="uri"/>'s file path, without consulting the membership index (see <see cref="ResolveOwners"/> for index-aware ownership).</summary>
     public LspReqnrollProject? GetProjectForUri(DocumentUri uri)
     {
         var filePath = uri.GetFileSystemPath();
@@ -213,6 +224,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
             .FirstOrDefault();
     }
 
+    /// <summary>Finds the project whose compiled output assembly path matches <paramref name="assemblyPath"/>, if any.</summary>
     public LspReqnrollProject? GetProjectByOutputPath(string assemblyPath)
     {
         if (string.IsNullOrEmpty(assemblyPath))
@@ -225,6 +237,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
                 StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>Returns the owning project's configuration provider for <paramref name="uri"/>, or a default configuration provider when no project covers it.</summary>
     public IDeveroomConfigurationProvider GetConfigurationProviderForUri(DocumentUri uri)
     {
         var project = GetProjectForUri(uri);
@@ -235,8 +248,9 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         return new ProjectSystemDeveroomConfigurationProvider(_ideScope);
     }
 
-    // ── Membership index (Q17) ────────────────────────────────────────────────
+    // ── Membership index (workspace scope / project membership tracking) ────
 
+    /// <summary>Handles a <c>reqnroll/projectFiles</c> notification, applying it as a full baseline replacement or an incremental delta to the membership index.</summary>
     public async Task HandleProjectFilesAsync(
         ReqnrollProjectFilesParams parameters,
         CancellationToken cancellationToken)
@@ -332,6 +346,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         }
     }
 
+    /// <summary>Looks up every project that claims <paramref name="uri"/> via the membership index (does not fall back to folder-prefix matching).</summary>
     public IReadOnlyCollection<LspReqnrollProject> GetProjectsForUri(DocumentUri uri)
     {
         var filePath = NormaliseFilePath(uri.GetFileSystemPath() ?? string.Empty);
@@ -356,6 +371,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         return result;
     }
 
+    /// <summary>Resolves the projects that own <paramref name="uri"/>, preferring the membership index and falling back to folder-prefix matching only while the covering project's baseline is still pending.</summary>
     public IReadOnlyCollection<LspReqnrollProject> ResolveOwners(DocumentUri uri)
     {
         var indexOwners = GetProjectsForUri(uri);
@@ -372,6 +388,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         return [];  // Unowned
     }
 
+    /// <summary>Picks a single "primary" owning project for <paramref name="uri"/> when multiple projects claim it, preferring the project whose folder contains the file (longest match), else falling back to an ordinal tiebreak for stability.</summary>
     public LspReqnrollProject? ResolvePrimaryOwner(DocumentUri uri)
     {
         var owners = ResolveOwners(uri);
@@ -399,6 +416,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
             .First();
     }
 
+    /// <summary>Classifies whether <paramref name="uri"/> is <see cref="MembershipState.Owned"/> in the index, still <see cref="MembershipState.Pending"/> a covering project's baseline, or <see cref="MembershipState.Unowned"/>.</summary>
     public MembershipState GetMembershipState(DocumentUri uri)
     {
         var filePath = NormaliseFilePath(uri.GetFileSystemPath() ?? string.Empty);
@@ -443,6 +461,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         return MembershipState.Unowned;
     }
 
+    /// <summary>Returns every file path in the membership index that <paramref name="project"/> owns with the <see cref="ProjectFileRole.Feature"/> role.</summary>
     public IReadOnlyCollection<string> GetIndexedFeatureFiles(LspReqnrollProject project)
     {
         var key = MakeKey(project);
@@ -457,6 +476,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         }
     }
 
+    /// <summary>Returns every file path in the membership index that <paramref name="project"/> owns with the <see cref="ProjectFileRole.Binding"/> role.</summary>
     public IReadOnlyCollection<string> GetBindingFilePathsForProject(LspReqnrollProject project)
     {
         var key = MakeKey(project);
@@ -471,6 +491,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
         }
     }
 
+    /// <summary>Returns whether <paramref name="project"/> has received its initial full membership baseline yet.</summary>
     public bool HasBaselineForProject(LspReqnrollProject project)
         => _baselineReceived.ContainsKey(MakeKey(project));
 
@@ -525,6 +546,7 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
 
     // ── IDisposable ───────────────────────────────────────────────────────────
 
+    /// <summary>Closes every open workspace scope, disposing each one and raising <see cref="ProjectRemoved"/>/<see cref="ScopeClosed"/> as needed.</summary>
     public void Dispose()
     {
         foreach (var key in _scopes.Keys.ToArray())

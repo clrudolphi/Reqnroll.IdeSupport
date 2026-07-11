@@ -24,6 +24,7 @@ internal sealed class GherkinSemanticClassifierProvider : IClassifierProvider
 
     [Import] internal ITextDocumentFactoryService TextDocumentFactory { get; set; } = null!;
 
+    /// <summary>Gets or creates a <see cref="GherkinSemanticClassifier"/> for the given text buffer.</summary>
     public IClassifier GetClassifier(ITextBuffer textBuffer) =>
         textBuffer.Properties.GetOrCreateSingletonProperty(() =>
             new GherkinSemanticClassifier(
@@ -46,8 +47,10 @@ internal sealed class GherkinSemanticClassifier : IClassifier
     private readonly ConcurrentDictionary<string, IClassificationType?> _typeCache =
         new ConcurrentDictionary<string, IClassificationType?>(StringComparer.Ordinal);
 
+    /// <summary>Raised when the classification of the buffer's text changes.</summary>
     public event EventHandler<ClassificationChangedEventArgs>? ClassificationChanged;
 
+    /// <summary>Initialises the classifier with the buffer, classification registry, document factory, and token store.</summary>
     public GherkinSemanticClassifier(
         ITextBuffer buffer,
         IClassificationTypeRegistryService registry,
@@ -65,6 +68,7 @@ internal sealed class GherkinSemanticClassifier : IClassifier
         _store.TokensChanged += OnTokensChanged;
     }
 
+    /// <summary>Returns classification spans for the given snapshot span by looking up the cached semantic tokens.</summary>
     public IList<ClassificationSpan> GetClassificationSpans(SnapshotSpan span)
     {
         var result = new List<ClassificationSpan>();

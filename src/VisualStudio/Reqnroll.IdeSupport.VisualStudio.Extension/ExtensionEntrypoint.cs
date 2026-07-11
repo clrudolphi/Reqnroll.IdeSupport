@@ -45,7 +45,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension
                 new IdeSupportLoggerFactory(sp.GetRequiredService<IIdeSupportLogger>()));
             serviceCollection.AddSingleton(typeof(ILogger<>), typeof(Logger<>));
 
-            // Shared holder for the runtime-created F14 "Find Step Usages" components.  Registering
+            // Shared holder for the runtime-created "Find Step Usages" components.  Registering
             // it here makes it resolvable by constructor injection in both ReqnrollLanguageClient
             // (which populates it) and FindStepUsagesCommand / future command filters (which read it),
             // rather than relying on the undocumented ability to inject one contribution class into
@@ -110,7 +110,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension
             // rather than any per-object Dispose() chain, and documented as firing *earlier* than
             // package-level disposal tokens (see AsyncPackage.DisposalToken remarks). Registering
             // on both costs nothing — LspServerConnectionService.Dispose() is idempotent — but this
-            // one is the signal actually expected to fire; see git history for issue #81.
+            // one is the signal actually expected to fire.
             VsShellUtilities.ShutdownToken.Register(() =>
             {
                 logger.LogInformation("ExtensionEntrypoint: VsShellUtilities.ShutdownToken fired — disposing LspServerConnectionService.");

@@ -19,6 +19,7 @@ public class WorkspaceFoldersHandler : IDidChangeWorkspaceFoldersHandler
     private readonly IIdeSupportLogger _logger;
     private readonly IOperationDurationRecorder _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="WorkspaceFoldersHandler"/> class.</summary>
     public WorkspaceFoldersHandler(
         ILspWorkspaceScopeManager scopeManager,
         IIdeSupportLogger logger,
@@ -29,6 +30,7 @@ public class WorkspaceFoldersHandler : IDidChangeWorkspaceFoldersHandler
         _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Handles <c>workspace/didChangeWorkspaceFolders</c> by opening a scope for each added folder and closing the scope for each removed folder.</summary>
     public Task<Unit> Handle(DidChangeWorkspaceFoldersParams request, CancellationToken cancellationToken)
     {
         using var _perf = _recorder.Measure(LspMethodNames.WorkspaceDidChangeWorkspaceFolders);
@@ -62,6 +64,7 @@ public class WorkspaceFoldersHandler : IDidChangeWorkspaceFoldersHandler
         return Unit.Task;
     }
 
+    /// <summary>Builds the LSP registration options requesting workspace-folder change notifications from the client.</summary>
     public DidChangeWorkspaceFolderRegistrationOptions GetRegistrationOptions(ClientCapabilities clientCapabilities)
         => new() { ChangeNotifications = true };
 }

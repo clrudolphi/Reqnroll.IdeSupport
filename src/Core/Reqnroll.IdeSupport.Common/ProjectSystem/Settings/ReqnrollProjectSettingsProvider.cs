@@ -10,15 +10,18 @@ using System.Linq;
 
 namespace Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
 
+/// <summary>ReqnrollProjectSettingsProvider</summary>
 public class ReqnrollProjectSettingsProvider
 {
     private readonly IProjectScope _projectScope;
 
+    /// <summary>Initializes a new instance of the <see cref="ReqnrollProjectSettingsProvider"/> class.</summary>
     public ReqnrollProjectSettingsProvider(IProjectScope projectScope)
     {
         _projectScope = projectScope ?? throw new ArgumentNullException(nameof(projectScope));
     }
 
+    /// <summary>Resolves Reqnroll settings for the project from its NuGet package references (or output folder as a fallback), merged with any explicit configuration.</summary>
     public ReqnrollSettings GetReqnrollSettings(IEnumerable<NuGetPackageReference> packageReferences)
     {
         var reqnrollSettings =

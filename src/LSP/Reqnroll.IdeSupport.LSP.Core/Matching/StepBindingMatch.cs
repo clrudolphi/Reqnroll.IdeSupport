@@ -18,12 +18,13 @@ namespace Reqnroll.IdeSupport.LSP.Core.Matching;
 /// <remarks>
 /// Match <em>computation</em> still happens in <c>DeveroomTagParser</c> while it walks the
 /// document (it has the snapshot for span math and the tag tree for
-/// <see cref="IGherkinDocumentContext"/>). A <see cref="StepBindingMatch"/> captures the
-/// result of that computation so downstream features — Go to Definition (F5), diagnostics
-/// (F3), find usages (F14) — can query it without re-parsing.
+/// <c>IGherkinDocumentContext</c>. A <see cref="StepBindingMatch"/> captures the
+/// result of that computation so downstream features — Go to Step Definition, diagnostics
+/// (undefined-step/binding diagnostics), find usages — can query it without re-parsing.
 /// </remarks>
 public sealed class StepBindingMatch
 {
+    /// <summary>Initializes a new instance of the <see cref="StepBindingMatch"/> class.</summary>
     public StepBindingMatch(
         string       featureDocumentId,
         GherkinRange range,
@@ -42,7 +43,7 @@ public sealed class StepBindingMatch
 
     /// <summary>
     /// The document ID (URI string) of the feature file that contains this step.
-    /// Backs Find Usages (F14) and Code Lens usage counts (F18): callers need the feature file
+    /// Backs Find Usages and the Code Lens usage counts: callers need the feature file
     /// URI to build <c>Location</c> responses without a separate document-ID lookup.
     /// </summary>
     public string FeatureDocumentId { get; }
@@ -53,15 +54,18 @@ public sealed class StepBindingMatch
     /// <summary>The full match result for the step (Defined / Undefined / Ambiguous, plus errors).</summary>
     public MatchResult Result { get; }
 
+    /// <summary>Gets whether this step has no matching binding.</summary>
     public bool IsUndefined => Result.HasUndefined;
+    /// <summary>Gets whether this step matches exactly one binding.</summary>
     public bool IsDefined => Result.HasDefined;
+    /// <summary>Gets whether this step matches more than one binding.</summary>
     public bool IsAmbiguous => Result.HasAmbiguous;
 
     /// <summary>
     /// True when <paramref name="offset"/> (absolute char offset) falls anywhere on the step's
     /// line(s) — not just within the step text span. Gherkin is line-oriented, so a click on the
     /// keyword, leading indentation, trailing whitespace, or just past the last character should
-    /// still resolve to the step; this is what lets Go to Definition (F5) match on the whole line.
+    /// still resolve to the step; this is what lets Go to Step Definition match on the whole line.
     /// </summary>
     public bool Contains(int offset)
     {

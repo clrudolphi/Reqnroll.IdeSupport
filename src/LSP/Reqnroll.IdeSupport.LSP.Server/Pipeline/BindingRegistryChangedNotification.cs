@@ -12,7 +12,8 @@ namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 /// When <see cref="IsFullReplacement"/> is <see langword="true"/> (e.g. startup or a post-build
 /// reflection discovery run), consumers should re-parse <em>all</em> workspace feature files that
 /// belong to <see cref="Project"/> — not only the currently open ones — so that the binding match
-/// cache covers the complete workspace for features such as Find Usages (F14).
+/// cache covers the complete workspace for features such as Find Step Definition Usages / Find
+/// All References.
 /// When <see cref="IsFullReplacement"/> is <see langword="false"/> (incremental Roslyn re-discovery
 /// on a <c>.cs</c> edit), re-parsing only the open feature files is sufficient immediately, and
 /// closed feature files are additionally rescanned after a debounce so their cached usage counts

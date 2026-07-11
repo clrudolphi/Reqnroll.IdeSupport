@@ -10,19 +10,29 @@ using Reqnroll.IdeSupport.LSP.Server.Hosting;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
 
+/// <summary>Base class for connectors that run Reqnroll binding discovery in a separate out-of-process worker and deserialize its result.</summary>
 public abstract class OutProcReqnrollConnector
 {
     private const string BindingDiscoveryCommandName = "binding discovery";
 
+    /// <summary>The Deveroom/Reqnroll configuration for the project being discovered.</summary>
     protected readonly DeveroomConfiguration _configuration;
+    /// <summary>Root folder of the IDE extension, used to locate bundled connector executables.</summary>
     protected readonly string _extensionFolder;
+    /// <summary>Logger used to record connector invocation and diagnostic output.</summary>
     protected readonly IIdeSupportLogger _logger;
+    /// <summary>Telemetry sink for discovery-run metrics; currently unused by the LSP server (see <see cref="Deserialize"/>).</summary>
     protected readonly ITelemetryService _telemetryService;
+    /// <summary>Processor architecture to use when selecting the .NET Framework install location.</summary>
     protected readonly ProcessorArchitectureSetting _processorArchitecture;
+    /// <summary>Settings of the project whose bindings are being discovered.</summary>
     protected readonly ProjectSettings _projectSettings;
+    /// <summary>Target framework moniker of the project whose bindings are being discovered.</summary>
     protected readonly TargetFrameworkMoniker _targetFrameworkMoniker;
+    /// <summary>The Reqnroll NuGet package version referenced by the project.</summary>
     protected NuGetVersion ReqnrollVersion => _projectSettings.ReqnrollVersion;
 
+    /// <summary>Initializes the connector's shared configuration, logging, and project settings.</summary>
     protected OutProcReqnrollConnector(DeveroomConfiguration configuration, IIdeSupportLogger logger,
         TargetFrameworkMoniker targetFrameworkMoniker, string extensionFolder,
         ProcessorArchitectureSetting processorArchitecture, ProjectSettings projectSettings,
@@ -40,11 +50,13 @@ public abstract class OutProcReqnrollConnector
     private bool DebugConnector => _configuration.DebugConnector ||
                                    Environment.GetEnvironmentVariable("DEVEROOM_DEBUGCONNECTOR") == "1";
 
+    /// <summary>Derives a short connector-type name for telemetry/diagnostics by stripping the base class name suffix from the derived type's name.</summary>
     protected virtual string GetConnectorType()
     {
         return GetType().Name.Replace(nameof(OutProcReqnrollConnector), "");
     }
 
+    /// <summary>Launches the out-of-process connector to run binding discovery against the given test assembly and returns the deserialized result.</summary>
     public virtual DiscoveryResult RunDiscovery(string testAssemblyPath, string configFilePath)
     {
         var workingDirectory = Path.GetDirectoryName(testAssemblyPath);
@@ -139,8 +151,7 @@ public abstract class OutProcReqnrollConnector
         if (!string.IsNullOrEmpty(discoveryResult.ErrorMessage))
             discoveryResult.TelemetryProperties["Error"] = discoveryResult.ErrorMessage;
 
-        // DiscoveryResultEvent telemetry is not implemented in the LSP server; NullTelemetryService no-ops this.
-        // _telemetryService.TransmitEvent(new DiscoveryResultEvent(discoveryResult));
+        // Discovery-result telemetry is not implemented in the LSP server yet; NullTelemetryService no-ops it.
 
         return discoveryResult;
     }
@@ -152,6 +163,7 @@ public abstract class OutProcReqnrollConnector
             $"Error during {command}. {Environment.NewLine}Command executed:{Environment.NewLine}  {result.CommandLine}{Environment.NewLine}Exit code: {exitCode}{Environment.NewLine}Message: {Environment.NewLine}{errorMessage}";
     }
 
+    /// <summary>Resolves the connector executable path (or a <c>dotnet exec</c> command line) that should be launched for binding discovery.</summary>
     protected abstract string GetConnectorPath(List<string> arguments);
 
     private static string ExtractJsonPayload(string stdout)
@@ -177,6 +189,7 @@ public abstract class OutProcReqnrollConnector
         return Path.Combine(programFiles!, "dotnet");
     }
 
+    /// <summary>Appends <c>exec &lt;path&gt;</c> to <paramref name="arguments"/> and returns the path of the <c>dotnet</c> executable to invoke it with.</summary>
     protected string GetDotNetExecCommand(List<string> arguments, string executableFolder, string executableFile)
     {
 #if DEBUG
@@ -203,6 +216,7 @@ public abstract class OutProcReqnrollConnector
     internal static string ResolveNonWindowsDotNetCommand(string dotNetRoot) =>
         string.IsNullOrEmpty(dotNetRoot) ? "dotnet" : Path.Combine(dotNetRoot, "dotnet");
 
+    /// <summary>Returns the extension's <c>Connectors</c> subfolder if it exists, otherwise falls back to the extension folder itself.</summary>
     protected string GetConnectorsFolder()
     {
         var connectorsFolder = Path.Combine(_extensionFolder, "Connectors");

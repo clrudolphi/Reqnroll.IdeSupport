@@ -4,6 +4,7 @@ using Reqnroll.IdeSupport.LSP.Core.Bindings;
 
 namespace Reqnroll.IdeSupport.LSP.Core.FindUnusedStepDefs;
 
+/// <summary>Finds step definitions that have no matching step anywhere in the workspace's feature files.</summary>
 public interface IFindUnusedStepDefinitionsService
 {
     /// <summary>

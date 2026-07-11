@@ -14,8 +14,9 @@ namespace Reqnroll.IdeSupport.LSP.Core.Completions;
 /// </summary>
 public sealed class CompletionService : ICompletionService
 {
-    // ── F7: keyword completion ─────────────────────────────────────────────────
+    // ── Gherkin keyword completion ──────────────────────────────────────────────
 
+    /// <summary>Builds keyword completion entries for the given expected token types, in the given dialect.</summary>
     public CompletionResult GetKeywordCompletions(TokenType[] expectedTokens, GherkinDialect dialect)
     {
         var entries = new List<CompletionEntry>();
@@ -24,6 +25,7 @@ public sealed class CompletionService : ICompletionService
         return new CompletionResult(entries);
     }
 
+    /// <summary>Builds the permissive fallback keyword completion list (all step and block keywords) used when the document could not be parsed.</summary>
     public CompletionResult GetDefaultKeywordCompletions(GherkinDialect dialect)
     {
         var entries = new List<CompletionEntry>();
@@ -96,8 +98,9 @@ public sealed class CompletionService : ICompletionService
         }
     }
 
-    // ── F8: step completion ────────────────────────────────────────────────────
+    // ── Step-definition-sample completion ───────────────────────────────────────
 
+    /// <summary>Builds ranked step-definition-sample completion entries matching the step's <c>ScenarioBlock</c> and the text typed so far.</summary>
     public CompletionResult GetStepCompletions(
         DeveroomGherkinStep                     step,
         string                                  typedAfterKeyword,

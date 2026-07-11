@@ -10,7 +10,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Completions;
 /// <summary>
 /// Determines what kind of completion to offer at a cursor position in a .feature file,
 /// encapsulating all Gherkin structural knowledge (tag walking, step offset arithmetic,
-/// dialect resolution, and F7/F8 dispatch).
+/// dialect resolution, and keyword-vs-step-completion dispatch).
 /// </summary>
 public interface ICompletionContextResolver
 {

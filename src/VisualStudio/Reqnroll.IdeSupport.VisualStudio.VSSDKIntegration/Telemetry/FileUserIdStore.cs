@@ -5,14 +5,20 @@ using Reqnroll.IdeSupport.Common.Telemetry;
 namespace Reqnroll.IdeSupport.VisualStudio.SDKIntegration.Telemetry;
 
 
+/// <summary>
+/// Persists a stable, anonymous per-user GUID under <c>%APPDATA%\Reqnroll\userid</c> for telemetry
+/// correlation, generating one on first use.
+/// </summary>
 [Export(typeof(IUserUniqueIdStore))]
 public class FileUserIdStore : IUserUniqueIdStore
 {
+    /// <summary>Full path of the file that stores the persisted user id.</summary>
     public static readonly string UserIdFilePath = Environment.ExpandEnvironmentVariables(@"%APPDATA%\Reqnroll\userid");
     private readonly IFileSystemForIDE _fileSystem;
 
     private readonly Lazy<string> _lazyUniqueUserId;
 
+    /// <summary>MEF importing constructor.</summary>
     [ImportingConstructor]
     public FileUserIdStore(IFileSystemForIDE fileSystem)
     {
@@ -20,6 +26,7 @@ public class FileUserIdStore : IUserUniqueIdStore
         _lazyUniqueUserId = new Lazy<string>(FetchAndPersistUserId);
     }
 
+    /// <summary>Returns the persisted user id, generating and persisting a new one if none exists yet.</summary>
     public string GetUserId() => _lazyUniqueUserId.Value;
 
     private string FetchAndPersistUserId()

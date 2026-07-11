@@ -16,7 +16,7 @@ namespace Reqnroll.IdeSupport.LSP.Server.Features.Definition;
 
 /// <summary>
 /// Handles <c>textDocument/definition</c> requests originating from a cursor position in a
-/// <c>.feature</c> file (design doc F5 — Go to Step Definition).
+/// <c>.feature</c> file (Go to Step Definition).
 /// <para>
 /// Implements <see cref="IDefinitionHandler"/> so OmniSharp registers the capability via
 /// <c>client/registerCapability</c> (dynamic registration) after the handshake, scoped to
@@ -31,6 +31,7 @@ public sealed class FeatureDefinitionHandler : IDefinitionHandler
     private readonly IIdeSupportLogger           _logger;
     private readonly IOperationDurationRecorder _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="FeatureDefinitionHandler"/> class.</summary>
     public FeatureDefinitionHandler(
         IBindingMatchService      matchService,
         IDocumentBufferService    bufferService,
@@ -45,6 +46,7 @@ public sealed class FeatureDefinitionHandler : IDefinitionHandler
         _recorder      = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Builds the LSP registration options advertising go-to-definition support for <c>.feature</c> files.</summary>
     public DefinitionRegistrationOptions GetRegistrationOptions(
         DefinitionCapability    capability,
         ClientCapabilities      clientCapabilities)
@@ -54,6 +56,7 @@ public sealed class FeatureDefinitionHandler : IDefinitionHandler
                 new TextDocumentFilter { Pattern = "**/*.feature" })
         };
 
+    /// <summary>Handles a <c>textDocument/definition</c> request for step-definition navigation.</summary>
     public Task<LocationOrLocationLinks?> Handle(
         DefinitionParams  request,
         CancellationToken cancellationToken)

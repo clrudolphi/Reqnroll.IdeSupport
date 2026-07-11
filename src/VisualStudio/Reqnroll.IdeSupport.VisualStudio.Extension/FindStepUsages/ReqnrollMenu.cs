@@ -12,6 +12,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 [VisualStudioContribution]
 internal static class ReqnrollMenu
 {
+    /// <summary>Menu configuration for the "Reqnroll" submenu under the Extensions menu.</summary>
     [VisualStudioContribution]
     public static MenuConfiguration ReqnrollExtensionsMenu => new("Reqnroll")
     {

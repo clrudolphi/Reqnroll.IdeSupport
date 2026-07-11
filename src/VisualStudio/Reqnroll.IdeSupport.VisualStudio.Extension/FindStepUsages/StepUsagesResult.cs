@@ -26,8 +26,10 @@ internal sealed class StepUsagesResult
         _locations = locations;
     }
 
+    /// <summary><see langword="true"/> when the queried position resolved to a step-definition binding.</summary>
     public bool IsBinding => _locations is not null;
 
+    /// <summary>The matching step-usage locations; empty when not a binding or when there are no usages.</summary>
     public IReadOnlyList<StepUsageLocation> Locations =>
         _locations ?? System.Array.Empty<StepUsageLocation>();
 }

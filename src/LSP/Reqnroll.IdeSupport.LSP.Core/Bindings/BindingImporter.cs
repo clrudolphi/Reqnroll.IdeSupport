@@ -11,6 +11,12 @@ using System.Text.RegularExpressions;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Bindings;
 
+/// <summary>
+/// Converts the wire-format <see cref="StepDefinition"/>/<see cref="Hook"/> DTOs received from
+/// the connector into <see cref="ProjectStepDefinitionBinding"/>/<see cref="ProjectHookBinding"/>
+/// instances, resolving indexed source-file/type-name references and de-duplicating shared
+/// <see cref="ProjectBindingImplementation"/> instances by method name.
+/// </summary>
 public class BindingImporter
 {
     private static readonly string[] EmptyParameterTypes = new string[0];
@@ -25,6 +31,7 @@ public class BindingImporter
     private readonly ReqnrollTagExpressionParser _tagExpressionParser = new();
     private readonly Dictionary<string, string> _typeNames;
 
+    /// <summary>Initializes a new instance of the <see cref="BindingImporter"/> class.</summary>
     public BindingImporter(Dictionary<string, string> sourceFiles, Dictionary<string, string> typeNames,
         IIdeSupportLogger logger)
     {
@@ -33,6 +40,7 @@ public class BindingImporter
         _logger = logger;
     }
 
+    /// <summary>Converts a wire-format step definition DTO into a <see cref="ProjectStepDefinitionBinding"/>, or null if it's invalid.</summary>
     public ProjectStepDefinitionBinding ImportStepDefinition(StepDefinition stepDefinition)
     {
         try
@@ -62,6 +70,7 @@ public class BindingImporter
         }
     }
 
+    /// <summary>Converts a wire-format hook DTO into a <see cref="ProjectHookBinding"/>, or null if it's invalid.</summary>
     public ProjectHookBinding ImportHook(Hook hook)
     {
         try

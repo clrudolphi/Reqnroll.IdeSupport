@@ -2,26 +2,37 @@
 
 namespace Reqnroll.IdeSupport.LSP.Connector.Models;
 
+/// <summary>StepDefinition</summary>
 public class StepDefinition
 {
+    /// <summary>Gets or sets the type.</summary>
     public string Type { get; set; }
+    /// <summary>Gets or sets the regex.</summary>
     public string Regex { get; set; }
+    /// <summary>Gets or sets the method.</summary>
     public string Method { get; set; }
+    /// <summary>Gets or sets the param types.</summary>
     public string ParamTypes { get; set; }
+    /// <summary>Gets or sets the scope.</summary>
     public StepScope Scope { get; set; }
 
+    /// <summary>Gets or sets the expression.</summary>
     public string Expression { get; set; }
+    /// <summary>Gets or sets the error.</summary>
     public string Error { get; set; }
 
+    /// <summary>Gets or sets the source location.</summary>
     public string SourceLocation { get; set; }
 
     #region Equality
 
+    /// <summary>Gets or sets the equals.</summary>
     protected bool Equals(StepDefinition other) => Type == other.Type && Regex == other.Regex &&
                                                    Method == other.Method && ParamTypes == other.ParamTypes &&
                                                    Equals(Scope, other.Scope) && Expression == other.Expression &&
                                                    Error == other.Error && SourceLocation == other.SourceLocation;
 
+    /// <summary>Gets or sets the equals.</summary>
     public override bool Equals(object obj)
     {
         if (ReferenceEquals(null, obj)) return false;
@@ -30,6 +41,7 @@ public class StepDefinition
         return Equals((StepDefinition) obj);
     }
 
+    /// <summary>Gets or sets the get hash code.</summary>
     public override int GetHashCode()
     {
         unchecked

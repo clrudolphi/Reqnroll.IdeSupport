@@ -31,19 +31,28 @@ namespace Reqnroll.IdeSupport.Common.Classification;
 /// </remarks>
 public static class ReqnrollClassificationTypeNames
 {
+    /// <summary>Classification name for Gherkin keywords (e.g. Given/When/Then/Feature/Scenario).</summary>
     public const string Keyword = "reqnroll.keyword";
+    /// <summary>Classification name for Gherkin tags (e.g. <c>@mytag</c>).</summary>
     public const string Tag = "reqnroll.tag";
+    /// <summary>Classification name for free-text description lines under a Feature/Scenario/Rule.</summary>
     public const string Description = "reqnroll.description";
+    /// <summary>Classification name for Gherkin comment lines.</summary>
     public const string Comment = "reqnroll.comment";
+    /// <summary>Classification name for doc string (<c>"""</c>) block content.</summary>
     public const string DocString = "reqnroll.doc_string";
+    /// <summary>Classification name for data table cell content.</summary>
     public const string DataTable = "reqnroll.data_table";
+    /// <summary>Classification name for data table header row content.</summary>
     public const string DataTableHeader = "reqnroll.data_table_header";
+    /// <summary>Classification name for a matched parameter segment within step text.</summary>
     public const string StepParameter = "reqnroll.step_parameter";
+    /// <summary>Classification name for a scenario outline placeholder (e.g. <c>&lt;param&gt;</c>) within step text.</summary>
     public const string ScenarioOutlinePlaceholder = "reqnroll.scenario_outline_placeholder";
 
     /// <summary>
-    /// Step text of a step with no matching binding.  Only carries meaning once binding
-    /// discovery (F2) is available; reserved in the legend from Phase 1 so the legend never
+    /// Step text of a step with no matching binding.  Only carries meaning once Roslyn/C#
+    /// source-level binding discovery is available; reserved in the legend from Phase 1 so the legend never
     /// changes across phases.
     /// </summary>
     public const string UndefinedStep = "reqnroll.undefined_step";

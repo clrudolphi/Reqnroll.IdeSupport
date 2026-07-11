@@ -20,6 +20,12 @@ using Reqnroll.IdeSupport.VisualStudio.NavigationBar;
 
 namespace Reqnroll.IdeSupport.VisualStudio.Extension;
 
+/// <summary>
+/// The VS.Extensibility <see cref="LanguageServerProvider"/> for <c>.feature</c> files: hands VS
+/// the LSP connection, and on successful initialization wires up all the runtime-created command
+/// services/renderers (Find Step Usages, Go to Hooks, Rename Step, Step Code Lens, Comment Toggle,
+/// Navigation Bar) and the DTE-based <see cref="VsProjectEventMonitor"/>.
+/// </summary>
 [VisualStudioContribution]
 internal class ReqnrollLanguageClient : LanguageServerProvider
 {
@@ -34,6 +40,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
     private readonly LspServerConnectionService _connectionService;
     private GherkinNavigationBarSymbolService? _navigationBarSymbolService;
 
+    /// <summary>Creates the language client, resolving the shared state holders and the already-launching connection service.</summary>
     public ReqnrollLanguageClient(
         ExtensionCore container,
         VisualStudioExtensibility extensibilityObject,
@@ -138,7 +145,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
             // for Edit.CommentSelection/UncommentSelection/ToggleLineComment calls our service.
             CommentToggleRedirect.ToggleCommentAsync = _commentToggleState.Service.ToggleCommentAsync;
 
-            // Set the VSSDK drop-down bar client redirect (Issue #5 / Q22 Option B) so the
+            // Set the VSSDK drop-down bar client redirect so the
             // Navigation Bar can fetch the Feature/Scenario/Step symbol tree.
             NavigationBarRedirect.FetchDocumentSymbolsAsync = _navigationBarSymbolService.FetchSymbolsAsync;
 
@@ -158,7 +165,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
                 _findStepUsagesState.Renderer            = new FindStepUsagesRenderer(serviceProvider, _loggerFactory.CreateLogger<FindStepUsagesRenderer>());
                 _findUnusedStepDefinitionsState.Renderer = new FindUnusedStepDefinitionsRenderer(serviceProvider, _loggerFactory.CreateLogger<FindUnusedStepDefinitionsRenderer>());
 
-                // F18 — reuse F14 find-usages components for the code-lens click action.
+                // Reuse the Find Step Definition Usages / Find All References components for the code-lens click action.
                 _stepCodeLensState.FindUsagesService  = _findStepUsagesState.Service;
                 _stepCodeLensState.FindUsagesRenderer = _findStepUsagesState.Renderer;
 
@@ -223,8 +230,7 @@ internal class ReqnrollLanguageClient : LanguageServerProvider
             // is instead wired in ExtensionEntrypoint.OnInitializedAsync to
             // Microsoft.VisualStudio.Shell.VsShellUtilities.ShutdownToken — the classic, static,
             // shell-level signal confirmed by logging to actually fire on window close (unlike
-            // ExtensionCore.ShutdownToken, registered there too but empirically dead). See git
-            // history for issue #81.
+            // ExtensionCore.ShutdownToken, registered there too but empirically dead).
         }
 
         base.Dispose(isDisposing);

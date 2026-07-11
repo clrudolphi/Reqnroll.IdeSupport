@@ -7,7 +7,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.Navigation;
 /// Carries both the display string for the picker UI and the coordinates needed to open the file.
 /// </summary>
 /// <remarks>
-/// Shared by Go to Hooks (F17) and future Go to Step Definition multi-binding picker (F5 ambiguous).
+/// Shared by Go to Hooks and future Go to Step Definition multi-binding picker (ambiguous bindings).
 /// </remarks>
 internal sealed record NavigationTarget(
     /// <summary>Label shown in the picker dialog (e.g. "[BeforeScenario] SetUpDatabase (Hooks.cs:10)").</summary>

@@ -7,7 +7,7 @@ using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 namespace Reqnroll.IdeSupport.LSP.Core.Folding;
 
 /// <summary>
-/// Walks the DeveroomTag tree to produce foldable region ranges (F10 — Code Folding).
+/// Walks the DeveroomTag tree to produce foldable region ranges (Code Folding).
 /// Folding ranges are computed for:
 ///   - Feature blocks (body only, after the keyword line)
 ///   - Scenario / Scenario Outline / Background blocks
@@ -18,6 +18,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Folding;
 /// </summary>
 public class GherkinFoldingRangeService : IGherkinFoldingRangeService
 {
+    /// <summary>Walks the parsed Deveroom tags to compute foldable regions for features, scenarios, rules, doc strings, data tables, and examples blocks.</summary>
     public IReadOnlyList<GherkinFoldingRange> BuildFoldingRanges(
         IReadOnlyCollection<DeveroomTag> tags)
     {

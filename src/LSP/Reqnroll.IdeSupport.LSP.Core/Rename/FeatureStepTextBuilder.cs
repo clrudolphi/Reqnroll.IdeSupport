@@ -28,10 +28,11 @@ namespace Reqnroll.IdeSupport.LSP.Core.Rename;
 ///     into the feature file.
 ///   </description></item>
 /// </list>
-/// <para>If neither strategy applies, returns <paramref name="newExpression"/> unchanged.</para>
+/// <para>If neither strategy applies, returns the new expression unchanged.</para>
 /// </summary>
 public static class FeatureStepTextBuilder
 {
+    /// <summary>Rebuilds the feature-file step text for a renamed binding expression, preferring regex group substitution and falling back to static-segment substitution or the unchanged new expression.</summary>
     public static string Build(
         string  newExpression,
         string? oldExpression,

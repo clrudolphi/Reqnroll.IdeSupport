@@ -12,7 +12,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.CommentToggle;
 
 /// <summary>
 /// "Comment/Uncomment" command — placed in the editor context menu,
-/// visible only when a <c>.feature</c> file editor is active (design doc F13).
+/// visible only when a <c>.feature</c> file editor is active (design doc: Comment/Uncomment toggle).
 /// </summary>
 /// <remarks>
 /// When invoked on selected lines, sends <c>workspace/executeCommand</c> for
@@ -35,12 +35,14 @@ internal sealed class CommentToggleCommand : Command
     private readonly CommentToggleState _state;
     private readonly ILogger<CommentToggleCommand> _logger;
 
+    /// <summary>Creates the command over the shared runtime state holder.</summary>
     public CommentToggleCommand(CommentToggleState state, ILogger<CommentToggleCommand> logger)
     {
         _state  = state;
         _logger = logger;
     }
 
+    /// <inheritdoc />
     public override CommandConfiguration CommandConfiguration => new("Comment/Uncomment")
     {
         Icon        = new CommandIconConfiguration(ImageMoniker.Custom("ReqnrollIcon"), IconSettings.IconAndText),
@@ -55,6 +57,7 @@ internal sealed class CommentToggleCommand : Command
         ],
     };
 
+    /// <inheritdoc />
     public override async Task ExecuteCommandAsync(IClientContext context, CancellationToken cancellationToken)
     {
         try

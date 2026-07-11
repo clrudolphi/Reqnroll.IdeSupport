@@ -12,6 +12,7 @@ namespace Reqnroll.IdeSupport.LSP.Core.Scaffolding;
 /// </summary>
 public sealed class StepScaffoldService : IStepScaffoldService
 {
+    /// <summary>Collects undefined steps and produces a deduplicated list of step skeleton descriptors, one per distinct step expression.</summary>
     public IReadOnlyList<StepSkeletonDescriptor> BuildDescriptors(
         IEnumerable<StepBindingMatch> undefinedSteps,
         SnippetExpressionStyle        style)

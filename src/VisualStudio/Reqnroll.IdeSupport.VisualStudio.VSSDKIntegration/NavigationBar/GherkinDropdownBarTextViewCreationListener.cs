@@ -11,7 +11,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.NavigationBar;
 
 /// <summary>
 /// Creates a <see cref="GherkinDropdownBarClient"/> Navigation Bar drop-down for each
-/// <c>reqnroll-gherkin</c> text view (Issue #5 / Q22 Option B), without owning a legacy
+/// <c>reqnroll-gherkin</c> text view, without owning a legacy
 /// <see cref="IVsLanguageInfo"/> language service — the client itself reaches
 /// <see cref="IVsDropdownBarManager"/> via the view's <see cref="IVsWindowFrame"/> and attaches
 /// directly. All resolution/attach logic (and its retries) lives on the client, not here — this

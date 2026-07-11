@@ -111,6 +111,7 @@ export class TableHighlightService implements vscode.Disposable {
   }
 }
 
+/** True when `text` is a Gherkin data-table row: starts with `|` and contains at least two pipes. */
 export function isTableRow(text: string): boolean {
   const trimmedStart = text.trimStart();
   if (!trimmedStart.startsWith('|')) {
@@ -130,6 +131,7 @@ export function isTableRow(text: string): boolean {
   return false;
 }
 
+/** Returns the character indexes of every `|` in `text`. */
 export function getPipeIndexes(text: string): number[] {
   const result: number[] = [];
   for (let index = 0; index < text.length; index++) {
@@ -141,6 +143,10 @@ export function getPipeIndexes(text: string): number[] {
   return result;
 }
 
+/**
+ * Returns the range of a table cell's content between two pipe characters, with leading and
+ * trailing whitespace trimmed off, or `undefined` if the cell is empty/whitespace-only.
+ */
 export function getTrimmedCellRange(
   lineNumber: number,
   text: string,

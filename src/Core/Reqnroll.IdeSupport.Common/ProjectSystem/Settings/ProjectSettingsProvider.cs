@@ -7,8 +7,10 @@ using System.Threading;
 
 namespace Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
 
+/// <summary>ProjectSettingsProvider</summary>
 public class ProjectSettingsProvider : IDisposable, IProjectSettingsProvider
 {
+    /// <summary>Maximum number of times to retry initializing project settings before giving up.</summary>
     public const int MAX_RETRY_COUNT = 5;
     private readonly IProjectScope _projectScope;
     private readonly ReqnrollProjectSettingsProvider _reqnrollProjectSettingsProvider;
@@ -16,6 +18,7 @@ public class ProjectSettingsProvider : IDisposable, IProjectSettingsProvider
     private int _retryInitializeCounter;
     private Timer _retryInitializeTimer;
 
+    /// <summary>Initializes a new instance of the <see cref="ProjectSettingsProvider"/> class.</summary>
     public ProjectSettingsProvider( IProjectScope projectScope,
         ReqnrollProjectSettingsProvider reqnrollProjectSettingsProvider)
     {
@@ -31,6 +34,7 @@ public class ProjectSettingsProvider : IDisposable, IProjectSettingsProvider
     private IIdeSupportLogger Logger => _projectScope.IdeScope.Logger;
     private ITelemetryService TelemetryService => _projectScope.IdeScope.TelemetryService;
 
+    /// <summary>Stops the retry timer and releases resources held by this provider.</summary>
     public void Dispose()
     {
         StopRetryInitializeTimer();
@@ -48,8 +52,10 @@ public class ProjectSettingsProvider : IDisposable, IProjectSettingsProvider
     //        value);
     //}
 
+    /// <summary>Returns the currently cached project settings.</summary>
     public ProjectSettings GetProjectSettings() => _projectSettings;
 
+    /// <summary>Re-loads project settings from the project system and updates the cache if they changed.</summary>
     public ProjectSettings CheckProjectSettings()
     {
         var projectSettings = LoadProjectSettings(out var featureFileCount);

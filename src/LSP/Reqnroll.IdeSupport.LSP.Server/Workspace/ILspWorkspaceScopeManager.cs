@@ -89,7 +89,7 @@ public interface ILspWorkspaceScopeManager
     /// </summary>
     IDeveroomConfigurationProvider GetConfigurationProviderForUri(DocumentUri uri);
 
-    // ── Primary-owner resolution (Q18 phase 2A) ──────────────────────────────
+    // ── Primary-owner resolution / shared-feature scoping (phase 2A) ─────────
 
     /// <summary>
     /// Returns the single deterministic owner for <paramref name="uri"/>:
@@ -100,7 +100,7 @@ public interface ILspWorkspaceScopeManager
     /// </summary>
     LspReqnrollProject? ResolvePrimaryOwner(DocumentUri uri);
 
-    // ── Membership index (Q17) ────────────────────────────────────────────────
+    // ── Membership index (workspace scope / project membership tracking) ────
 
     /// <summary>
     /// Handles a <c>reqnroll/projectFiles</c> notification.

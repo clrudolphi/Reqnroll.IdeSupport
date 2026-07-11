@@ -6,6 +6,7 @@ namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 /// </summary>
 internal sealed class StepUsageLocation
 {
+    /// <summary>Creates a step-usage location from server-supplied coordinates and optional display metadata.</summary>
     public StepUsageLocation(
         string  fileUri,
         int     startLine,
@@ -28,10 +29,15 @@ internal sealed class StepUsageLocation
         ProjectName  = projectName;
     }
 
+    /// <summary>The document URI of the feature file containing the step.</summary>
     public string  FileUri   { get; }
+    /// <summary>0-based start line of the step usage.</summary>
     public int     StartLine { get; }
+    /// <summary>0-based start character of the step usage.</summary>
     public int     StartChar { get; }
+    /// <summary>0-based end line of the step usage.</summary>
     public int     EndLine   { get; }
+    /// <summary>0-based end character of the step usage.</summary>
     public int     EndChar   { get; }
 
     /// <summary>

@@ -10,12 +10,12 @@ using Reqnroll.IdeSupport.VisualStudio.Extension.LspInterception;
 namespace Reqnroll.IdeSupport.VisualStudio.Extension.FindStepUsages;
 
 /// <summary>
-/// Shared core for all three "Find Step Usages" surfaces (design doc F14 P3).
+/// Shared core for all three "Find Step Usages" surfaces (Find Step Definition Usages / Find All References, design doc section P3).
 /// Sends a custom <c>reqnroll/findStepUsages</c> request over the owned
 /// <see cref="LspInterceptingPipe"/> and maps the result to a <see cref="StepUsagesResult"/>.
 /// </summary>
 /// <remarks>
-/// Uses the custom <c>reqnroll/findStepUsages</c> request (F14 P2b) rather than
+/// Uses the custom <c>reqnroll/findStepUsages</c> request (design doc section P2b) rather than
 /// <c>textDocument/references</c> to obtain the full three-state contract:
 /// <list type="bullet">
 ///   <item>Server returns JSON <c>null</c> → <see cref="StepUsagesResult.NotABinding"/> (Surface 3 falls through).</item>
@@ -34,6 +34,7 @@ internal sealed class FindStepUsagesService
     private readonly LspInterceptingPipe _pipe;
     private readonly ILogger<FindStepUsagesService> _logger;
 
+    /// <summary>Creates the service over the given LSP transport pipe.</summary>
     public FindStepUsagesService(LspInterceptingPipe pipe, ILogger<FindStepUsagesService> logger)
     {
         _pipe   = pipe;

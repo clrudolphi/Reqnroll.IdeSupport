@@ -2,6 +2,7 @@ using System;
 
 namespace Reqnroll.IdeSupport.Common.ProjectSystem;
 
+/// <summary>PathUtils</summary>
 public static class PathUtils
 {
     /// <summary>

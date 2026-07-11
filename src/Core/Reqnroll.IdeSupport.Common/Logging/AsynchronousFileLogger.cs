@@ -8,12 +8,14 @@ using System.Threading.Tasks;
 
 namespace Reqnroll.IdeSupport.Common.Logging;
 
+/// <summary>AsynchronousFileLogger</summary>
 public class AsynchronousFileLogger : IIdeSupportLogger, IDisposable
 {
     private readonly Channel<LogMessage> _channel;
     private readonly IFileSystemForIDE _fileSystem;
     private readonly CancellationTokenSource _stopTokenSource;
 
+    /// <summary>Initializes a new instance of the <see cref="AsynchronousFileLogger"/> class.</summary>
     protected AsynchronousFileLogger(IFileSystemForIDE fileSystem, TraceLevel level, string ide, string role)
     {
         _fileSystem = fileSystem;
@@ -24,7 +26,9 @@ public class AsynchronousFileLogger : IIdeSupportLogger, IDisposable
         LogFilePath = GetLogFile(ide, role);
     }
 
+    /// <summary>Gets or sets the log file path.</summary>
     public string LogFilePath { get; private set; }
+    /// <summary>Gets the minimum trace level that will be written to the log.</summary>
     public TraceLevel Level { get; }
 
     // Matches the legacy Reqnroll.VisualStudio DeveroomDebugLogger behavior: REQNROLLVS_DEBUG=1/true
@@ -40,12 +44,14 @@ public class AsynchronousFileLogger : IIdeSupportLogger, IDisposable
         return Enum.TryParse<TraceLevel>(env, true, out var envLevel) ? envLevel : level;
     }
 
+    /// <summary>Queues a log message for asynchronous writing, if its level is within the configured threshold.</summary>
     public virtual void Log(LogMessage message)
     {
         if (message.Level > Level) return;
         _channel.Writer.TryWrite(message);
     }
 
+    /// <summary>Stops the background writer and releases resources held by this logger.</summary>
     public void Dispose()
     {
         Dispose(true);
@@ -66,6 +72,7 @@ public class AsynchronousFileLogger : IIdeSupportLogger, IDisposable
 #endif
     }
 
+    /// <summary>Creates a new logger and starts its background log-writing task.</summary>
     public static AsynchronousFileLogger CreateInstance(IFileSystemForIDE fileSystem, string ide, string role)
     {
         var fileLogger = new AsynchronousFileLogger(fileSystem, TraceLevel.Verbose, ide, role);
@@ -102,6 +109,7 @@ public class AsynchronousFileLogger : IIdeSupportLogger, IDisposable
             }
     }
 
+    /// <summary>Formats a log message and appends it to the log file.</summary>
     protected void WriteLogMessage(LogMessage message)
     {
         // Indent continuation lines so multi-line messages (e.g. connector JSON, stack traces)
@@ -115,6 +123,7 @@ public class AsynchronousFileLogger : IIdeSupportLogger, IDisposable
         _fileSystem.File.AppendAllText(LogFilePath, content, Encoding.UTF8);
     }
 
+    /// <summary>Resolves <see cref="LogFilePath"/> to a full path and creates its containing folder if missing.</summary>
     protected void EnsureLogFolder()
     {
         LogFilePath = Path.GetFullPath(LogFilePath);
@@ -146,6 +155,7 @@ public class AsynchronousFileLogger : IIdeSupportLogger, IDisposable
         }
     }
 
+    /// <summary>Stops the background writer and releases the channel and cancellation token when <paramref name="disposing"/> is true.</summary>
     protected virtual void Dispose(bool disposing)
     {
         if (!disposing) return;

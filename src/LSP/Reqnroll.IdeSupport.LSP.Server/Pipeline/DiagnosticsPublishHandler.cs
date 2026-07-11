@@ -28,8 +28,9 @@ namespace Reqnroll.IdeSupport.LSP.Server.Pipeline;
 /// included.  The <see cref="IDiagnosticsAggregator"/> combines both sources (parse errors and
 /// binding mismatches) into one list before this handler sends the single push.
 ///
-/// For shared/linked features the primary owner's match set is used (Q18 2A/2B: LSP provides
-/// one result per URI with no project context, so one owner must be chosen).
+/// For shared/linked features the primary owner's match set is used (primary-owner resolution /
+/// shared-feature scoping 2A/2B: LSP provides one result per URI with no project context, so one
+/// owner must be chosen).
 /// </remarks>
 public sealed class DiagnosticsPublishHandler : INotificationHandler<MatchCacheChangedNotification>
 {
@@ -42,6 +43,7 @@ public sealed class DiagnosticsPublishHandler : INotificationHandler<MatchCacheC
     private readonly IIdeSupportLogger           _logger;
     private readonly IOperationDurationRecorder _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="DiagnosticsPublishHandler"/> class.</summary>
     public DiagnosticsPublishHandler(
         IDocumentBufferService    documentBufferService,
         IBindingMatchService      bindingMatchService,
@@ -62,6 +64,7 @@ public sealed class DiagnosticsPublishHandler : INotificationHandler<MatchCacheC
         _recorder              = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Handles an internal <see cref="MatchCacheChangedNotification"/> by re-aggregating diagnostics for the affected document and pushing an updated <c>textDocument/publishDiagnostics</c> notification to the client.</summary>
     public Task Handle(MatchCacheChangedNotification notification, CancellationToken cancellationToken)
     {
         var uri = notification.Uri;
@@ -87,8 +90,9 @@ public sealed class DiagnosticsPublishHandler : INotificationHandler<MatchCacheC
         _bindingMatchService.TryGet(matchKey, out var matchSet);
         // TryGet returns Empty when not found, so matchSet is never null here.
 
-        // Q24: when the binding registry is not yet ready (Invalid), the Connector has not
-        // completed its first run yet. Suppress binding-mismatch diagnostics so the user
+        // Binding registry not-yet-ready handling: when the binding registry is not yet ready
+        // (Invalid), the Connector has not completed its first run yet. Suppress
+        // binding-mismatch diagnostics so the user
         // doesn't see spurious "undefined step" warnings before bindings are loaded.
         // Parse errors (syntax errors) from the tagger are always published regardless.
         var registry = _registryLookup.GetRegistryForUri(uri);

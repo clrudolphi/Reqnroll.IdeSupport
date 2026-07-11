@@ -13,6 +13,7 @@ export interface ProjectProperties {
   readonly files: readonly ProjectFileItem[];
 }
 
+/** A NuGet package reference resolved from `project.assets.json`. */
 export interface PackageRef {
   readonly packageId: string;
   readonly version: string;

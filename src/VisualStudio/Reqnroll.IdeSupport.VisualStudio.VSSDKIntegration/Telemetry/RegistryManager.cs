@@ -4,6 +4,10 @@ using System.ComponentModel.Composition;
 
 namespace Reqnroll.IdeSupport.VisualStudio.SDKIntegration.Telemetry;
 
+/// <summary>
+/// Reads and writes the Reqnroll installation-status registry key (<c>HKCU\Software\Reqnroll\VSLSP</c>)
+/// used to track install date, last-used date, usage days, and user level.
+/// </summary>
 [Export(typeof(IRegistryManager))]
 public class RegistryManager : IRegistryManager
 {
@@ -19,6 +23,7 @@ public class RegistryManager : IRegistryManager
     private const string UsageDays = "usageDays";
     private const string UserLevel = "userLevel";
 
+    /// <summary>Reads the persisted installation status from the registry, or a blank status if the key is missing/unreadable.</summary>
     public ReqnrollInstallationStatus GetInstallStatus()
     {
         var status = new ReqnrollInstallationStatus();
@@ -41,6 +46,7 @@ public class RegistryManager : IRegistryManager
         return status;
     }
 
+    /// <summary>Writes <paramref name="status"/> to the registry; returns <see langword="false"/> if the key could not be opened/created.</summary>
     public bool UpdateStatus(ReqnrollInstallationStatus status)
     {
         using var key = Registry.CurrentUser.CreateSubKey(RegPath, RegistryKeyPermissionCheck.ReadWriteSubTree);

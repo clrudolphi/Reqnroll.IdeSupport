@@ -6,10 +6,10 @@ namespace Reqnroll.IdeSupport.LSP.Core.Diagnostics;
 /// <inheritdoc cref="IDiagnosticsAggregator"/>
 public sealed class DiagnosticsAggregator : IDiagnosticsAggregator
 {
-    /// <summary>LSP <c>source</c> field value for Gherkin parse errors (F4).</summary>
+    /// <summary>LSP <c>source</c> field value for Gherkin parse-error diagnostics.</summary>
     public const string ParserSource  = "reqnroll.parser";
 
-    /// <summary>LSP <c>source</c> field value for step binding mismatches (F3).</summary>
+    /// <summary>LSP <c>source</c> field value for undefined-step/binding diagnostics.</summary>
     public const string BindingSource = "reqnroll.binding";
 
     /// <summary>Hover message shown for every unmatched step.</summary>
@@ -23,7 +23,7 @@ public sealed class DiagnosticsAggregator : IDiagnosticsAggregator
     {
         var diagnostics = new List<GherkinDiagnostic>();
 
-        // F4 — parse errors: each is stored as a DeveroomTag of type ParserError whose
+        // Parser-error diagnostics: each is stored as a DeveroomTag of type ParserError whose
         // Data holds the parser exception message string.
         foreach (var tag in tags)
         {
@@ -38,7 +38,7 @@ public sealed class DiagnosticsAggregator : IDiagnosticsAggregator
                 ParserSource));
         }
 
-        // F3 — binding mismatches: undefined steps from the binding match set.
+        // Undefined-step/binding diagnostics: undefined steps from the binding match set.
         foreach (var step in matchSet.Undefined)
         {
             diagnostics.Add(new GherkinDiagnostic(

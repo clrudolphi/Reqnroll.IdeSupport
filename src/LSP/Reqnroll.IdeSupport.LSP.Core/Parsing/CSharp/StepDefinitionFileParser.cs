@@ -18,7 +18,7 @@ using System.Threading.Tasks;
 namespace Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp;
 
 /// <summary>
-/// Roslyn-based (source-level) binding discovery (design doc feature F2). Scans a single
+/// Roslyn/C# source-level binding discovery. Scans a single
 /// C# syntax tree for Reqnroll step-definition and hook attributes and produces the
 /// corresponding <see cref="ProjectStepDefinitionBinding"/> / <see cref="ProjectHookBinding"/>
 /// instances. Discovery is syntax-only — no compilation or build is required — so it can run

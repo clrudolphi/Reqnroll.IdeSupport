@@ -3,7 +3,9 @@ namespace Reqnroll.IdeSupport.LSP.Core.Completions;
 /// <summary>LSP-agnostic completion item kind, mapping to CompletionItemKind values.</summary>
 public enum CompletionEntryKind
 {
+    /// <summary>A plain text completion candidate.</summary>
     Text    = 1,
+    /// <summary>A language keyword completion candidate.</summary>
     Keyword = 14
 }
 

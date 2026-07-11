@@ -22,6 +22,7 @@ public class ReqnrollConfigChangedHandler : INotificationHandler<ReqnrollConfigC
     private readonly IIdeSupportLogger _logger;
     private readonly IOperationDurationRecorder _recorder;
 
+    /// <summary>Initializes a new instance of the <see cref="ReqnrollConfigChangedHandler"/> class.</summary>
     public ReqnrollConfigChangedHandler(
         IDocumentBufferService documentBufferService,
         IGherkinDocumentTaggerService taggerService,
@@ -36,6 +37,7 @@ public class ReqnrollConfigChangedHandler : INotificationHandler<ReqnrollConfigC
         _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Handles an internal <see cref="ReqnrollConfigChangedNotification"/> (a <c>reqnroll.json</c> edit) by re-parsing every open feature-file buffer under the affected workspace root.</summary>
     public async Task Handle(ReqnrollConfigChangedNotification notification, CancellationToken cancellationToken)
     {
         // Performance Verification (Layer 4): time the reqnroll.json-change reconciliation.

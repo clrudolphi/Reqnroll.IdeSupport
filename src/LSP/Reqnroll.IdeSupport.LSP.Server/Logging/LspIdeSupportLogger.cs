@@ -18,6 +18,7 @@ public sealed class LspIdeSupportLogger : IIdeSupportLogger
 {
     private readonly IdeSupportCompositeLogger _inner;
 
+    /// <summary>Creates the composite logger for the current client IDE and logs a session-start banner.</summary>
     public LspIdeSupportLogger(ClientIdeContext clientIdeContext)
     {
         var idePrefix = clientIdeContext.Ide switch
@@ -36,7 +37,9 @@ public sealed class LspIdeSupportLogger : IIdeSupportLogger
         this.LogInfo($"=== Reqnroll LSP Server started — v{version}, PID {pid}, {location} ===");
     }
 
+    /// <inheritdoc/>
     public TraceLevel Level => _inner.Level;
 
+    /// <inheritdoc/>
     public void Log(LogMessage message) => _inner.Log(message);
 }

@@ -9,12 +9,15 @@ namespace Reqnroll.IdeSupport.LSP.Server.Performance;
 /// </summary>
 public sealed class NullOperationDurationRecorder : IOperationDurationRecorder
 {
+    /// <summary>The shared singleton no-op recorder instance.</summary>
     public static readonly NullOperationDurationRecorder Instance = new();
 
     private NullOperationDurationRecorder() { }
 
+    /// <inheritdoc/>
     public IDisposable Measure(string operation, DocumentUri? uri = null) => NullScope.Instance;
 
+    /// <inheritdoc/>
     public void Record(string operation, double elapsedMs, DocumentUri? uri = null) { }
 
     private sealed class NullScope : IDisposable

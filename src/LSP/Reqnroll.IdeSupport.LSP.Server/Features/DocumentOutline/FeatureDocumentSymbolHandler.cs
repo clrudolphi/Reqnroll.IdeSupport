@@ -12,7 +12,7 @@ using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 namespace Reqnroll.IdeSupport.LSP.Server.Features.DocumentOutline;
 
 /// <summary>
-/// Handles <c>textDocument/documentSymbol</c> for <c>.feature</c> files (F9 — Document Outline).
+/// Handles <c>textDocument/documentSymbol</c> for <c>.feature</c> files (Document Outline).
 /// Returns a nested <see cref="DocumentSymbol"/> hierarchy (Feature → Background / Rule →
 /// Scenario / Scenario Outline → Step / Examples) when the client declared
 /// <c>hierarchicalDocumentSymbolSupport</c>, or a flattened <see cref="SymbolInformation"/> list
@@ -47,6 +47,7 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
     // test constructing the handler directly) still gets the hierarchical shape by default.
     private bool _hierarchicalSupport = true;
 
+    /// <summary>Initializes a new instance of the <see cref="FeatureDocumentSymbolHandler"/> class.</summary>
     public FeatureDocumentSymbolHandler(
         IDocumentBufferService documentBufferService,
         IGherkinDocumentSymbolService symbolService,
@@ -59,6 +60,7 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
         _recorder              = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
+    /// <summary>Builds the LSP registration options for document-symbol support, recording whether the client supports hierarchical symbols.</summary>
     public DocumentSymbolRegistrationOptions GetRegistrationOptions(
         DocumentSymbolCapability capability, ClientCapabilities clientCapabilities)
     {
@@ -66,6 +68,7 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
         return new() { DocumentSelector = FeatureSelector };
     }
 
+    /// <summary>Handles a <c>textDocument/documentSymbol</c> request for the feature-outline tree.</summary>
     public Task<SymbolInformationOrDocumentSymbolContainer?> Handle(
         DocumentSymbolParams request, CancellationToken ct)
     {
@@ -74,7 +77,7 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
         using var _perf = _recorder.Measure(LspMethodNames.TextDocumentDocumentSymbol, request.TextDocument.Uri);
 
         _logger.LogInfo(
-            $"F9 textDocument/documentSymbol: {request.TextDocument.Uri} " +
+            $"Document Outline textDocument/documentSymbol: {request.TextDocument.Uri} " +
             $"(hierarchicalSupport={_hierarchicalSupport})");
 
         var symbols = GetSymbols(request.TextDocument.Uri);
@@ -96,7 +99,8 @@ public sealed class FeatureDocumentSymbolHandler : IDocumentSymbolHandler
     /// declared support for via <c>GetRegistrationOptions</c>.
     /// </summary>
     /// <remarks>
-    /// The VS extension's own Navigation Bar (Issue #5 / Q22 Option B) fetches symbols through this
+    /// The VS extension's own Navigation Bar (Issue #5 / Navigation Bar symbol source design,
+    /// Option B) fetches symbols through this
     /// method rather than <c>textDocument/documentSymbol</c>. It parses the response itself
     /// (<c>GherkinNavigationBarSymbolService</c>), so it isn't affected by VS's declared client
     /// capability the way <see cref="Handle"/> is — but <see cref="Handle"/>'s capability-driven
