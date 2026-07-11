@@ -1,0 +1,220 @@
+# ---------------------------------------------------------------------------
+# test-lsp.yml — reusable workflow that builds and tests the LSP layer
+# (LSP.Core, LSP.Server, Connector) once, then publishes self-contained
+# server binaries for every supported RID as artifacts named `server-<rid>`.
+#
+# Both build-vs-extension.yml and build-vscode-extension.yml call this via
+# `uses: ./.github/workflows/test-lsp.yml` so the LSP is only compiled and
+# tested once per run, and both consumers gate their own work on it instead
+# of re-validating (or, for the VS Code extension, re-publishing) the same
+# code independently.
+#
+# build-lsp/unit-test-lsp/spec-test-lsp run on windows-latest because
+# Reqnroll.VisualStudio.VsxStubs (referenced by LSP.Core.Tests) is a net481
+# WPF project, and LSP.Server.Specs pins RuntimeIdentifier=win-x64 to drive
+# the real out-of-process server. publish-lsp-server has no such constraint
+# — self-contained publish for any RID is just a NuGet runtime-pack download,
+# not a host-OS requirement — so it runs on cheaper ubuntu-latest runners,
+# same as build-vscode-extension.yml's old publish-server job.
+# ---------------------------------------------------------------------------
+name: Test LSP
+
+on:
+  workflow_call:
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  CONFIGURATION: Release
+  CONNECTOR_PROJECT: src/LSP/Reqnroll.IdeSupport.LSP.Connector/Connector/Connector.csproj
+  LSP_CORE_PROJECT: src/LSP/Reqnroll.IdeSupport.LSP.Core/Reqnroll.IdeSupport.LSP.Core.csproj
+  LSP_SERVER_PROJECT: src/LSP/Reqnroll.IdeSupport.LSP.Server/Reqnroll.IdeSupport.LSP.Server.csproj
+  LSP_CORE_TESTS_PROJECT: tests/LSP/Reqnroll.IdeSupport.LSP.Core.Tests/Reqnroll.IdeSupport.LSP.Core.Tests.csproj
+  LSP_SERVER_TESTS_PROJECT: tests/LSP/Reqnroll.IdeSupport.LSP.Server.Tests/Reqnroll.IdeSupport.LSP.Server.Tests.csproj
+  LSP_SERVER_SPECS_PROJECT: tests/LSP/Reqnroll.IdeSupport.LSP.Server.Specs/Reqnroll.IdeSupport.LSP.Server.Specs.csproj
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Build LSP — compiles LSP.Core and LSP.Server (which pulls in the
+  # Connector via its BuildConnector target). Fails fast before any of the
+  # slower unit/spec/publish jobs spin up.
+  # ---------------------------------------------------------------------------
+  build-lsp:
+    name: Build LSP
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore Connector
+        # Reqnroll.IdeSupport.LSP.Server.csproj's BuildConnector target invokes Connector.csproj
+        # via a direct <MSBuild Targets="Build"> task call (not a ProjectReference — multi-targeted
+        # projects don't expose GetTargetPath at the outer build level), so `dotnet restore` on the
+        # server project never reaches it. Restore it explicitly first.
+        run: dotnet restore ${{ env.CONNECTOR_PROJECT }}
+
+      - name: Restore LSP.Core
+        run: dotnet restore ${{ env.LSP_CORE_PROJECT }}
+
+      - name: Restore LSP.Server
+        run: dotnet restore ${{ env.LSP_SERVER_PROJECT }}
+
+      - name: Build LSP.Core
+        run: dotnet build ${{ env.LSP_CORE_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }}
+
+      - name: Build LSP.Server
+        run: dotnet build ${{ env.LSP_SERVER_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }}
+
+  # ---------------------------------------------------------------------------
+  # Job 2: Unit test LSP — Reqnroll.IdeSupport.LSP.Core.Tests and
+  # Reqnroll.IdeSupport.LSP.Server.Tests. Runs in parallel with spec-test-lsp.
+  # ---------------------------------------------------------------------------
+  unit-test-lsp:
+    name: Unit Tests (LSP)
+    needs: [build-lsp]
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore Connector
+        # Reqnroll.IdeSupport.LSP.Server.Tests references LSP.Server, which pulls in the
+        # BuildConnector target — see build-lsp's identical step for why this needs an
+        # explicit restore.
+        run: dotnet restore ${{ env.CONNECTOR_PROJECT }}
+
+      - name: Restore LSP.Core.Tests
+        run: dotnet restore ${{ env.LSP_CORE_TESTS_PROJECT }}
+
+      - name: Test LSP.Core
+        run: dotnet test ${{ env.LSP_CORE_TESTS_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} --logger trx --results-directory TestResults
+
+      - name: Restore LSP.Server.Tests
+        run: dotnet restore ${{ env.LSP_SERVER_TESTS_PROJECT }}
+
+      - name: Test LSP.Server
+        run: dotnet test ${{ env.LSP_SERVER_TESTS_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} --logger trx --results-directory TestResults
+
+      - name: Upload Test Result TRX Files
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lsp-unit-tests-trx
+          if-no-files-found: error
+          path: "TestResults/*.trx"
+
+  # ---------------------------------------------------------------------------
+  # Job 3: Spec test LSP — Reqnroll.IdeSupport.LSP.Server.Specs drives the
+  # real out-of-process win-x64 server. Runs in parallel with unit-test-lsp.
+  # ---------------------------------------------------------------------------
+  spec-test-lsp:
+    name: Spec Tests (LSP)
+    needs: [build-lsp]
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore Connector
+        run: dotnet restore ${{ env.CONNECTOR_PROJECT }}
+
+      - name: Restore LSP.Server.Specs
+        run: dotnet restore ${{ env.LSP_SERVER_SPECS_PROJECT }}
+
+      - name: Test LSP.Server.Specs
+        run: dotnet test ${{ env.LSP_SERVER_SPECS_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} --logger trx --results-directory TestResults
+
+      - name: Upload Test Result TRX Files
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lsp-spec-tests-trx
+          if-no-files-found: error
+          path: "TestResults/*.trx"
+
+  # ---------------------------------------------------------------------------
+  # Job 4: Publish LSP server — self-contained publish for every supported
+  # RID, uploaded as `server-<rid>` artifacts. Only runs once both LSP test
+  # jobs pass, so consumers never build against an untested server. Runs on
+  # ubuntu-latest: self-contained publish for any RID is a NuGet runtime-pack
+  # download, not a host-OS requirement.
+  # ---------------------------------------------------------------------------
+  publish-lsp-server:
+    name: Publish LSP Server
+    needs: [unit-test-lsp, spec-test-lsp]
+    strategy:
+      matrix:
+        rid: [win-x64, linux-x64, osx-x64, osx-arm64]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore Connector (${{ matrix.rid }})
+        run: dotnet restore ${{ env.CONNECTOR_PROJECT }} --runtime ${{ matrix.rid }} --nologo
+
+      - name: Publish server (${{ matrix.rid }})
+        run: |
+          dotnet publish ${{ env.LSP_SERVER_PROJECT }} \
+            --configuration ${{ env.CONFIGURATION }} \
+            --runtime ${{ matrix.rid }} \
+            --self-contained true \
+            --output "publish/${{ matrix.rid }}"
+
+      - name: Upload server artifact (${{ matrix.rid }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-${{ matrix.rid }}
+          path: publish/${{ matrix.rid }}/
+          if-no-files-found: error

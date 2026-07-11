@@ -77,6 +77,26 @@
         <Name>Reqnroll.IdeSupport.VisualStudio.VSSDKIntegration</Name>
         <IncludeOutputGroupsInVSIX>BuiltProjectOutputGroup%3bReferenceCopyLocalPathsOutputGroup%3b</IncludeOutputGroupsInVSIX>
     </ProjectReference>
+  </ItemGroup>
+
+  <!-- ================================================================
+       Publish the LSP server self-contained (win-x64) before packaging
+       the VSIX, then inject every published file as a VSIXSourceItem
+       under the LSPServer\ sub-path inside the VSIX.
+
+       By default this is done via a ProjectReference to LSP.Server, which
+       MSBuild builds as a side effect of building this project (regardless
+       of ReferenceOutputAssembly) — this is what makes plain `dotnet build`
+       "just work" for local development.
+
+       CI (build-vs-extension.yml) already builds and tests the LSP layer
+       once in its own job (see test-lsp.yml) and publishes a win-x64
+       self-contained server as an artifact. Rather than rebuild LSP.Server
+       again here, CI passes -p:UseExternalLspServerBuild=true and
+       -p:LspServerBuildDir=<downloaded artifact path> to reuse that
+       artifact instead. Local builds should leave both unset.
+       ================================================================ -->
+  <ItemGroup Condition="'$(UseExternalLspServerBuild)' != 'true'">
     <ProjectReference Include="..\..\LSP\Reqnroll.IdeSupport.LSP.Server\Reqnroll.IdeSupport.LSP.Server.csproj">
         <Name>Reqnroll.IdeSupport.LSP.Server</Name>
         <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
@@ -86,12 +106,7 @@
     </ProjectReference>
   </ItemGroup>
 
-  <!-- ================================================================
-       Publish the LSP server self-contained (win-x64) before packaging
-       the VSIX, then inject every published file as a VSIXSourceItem
-       under the LSPServer\ sub-path inside the VSIX.
-       ================================================================ -->
-  <PropertyGroup>
+  <PropertyGroup Condition="'$(LspServerBuildDir)' == ''">
     <LspServerBuildDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\LSP\Reqnroll.IdeSupport.LSP.Server\bin\$(Configuration)\net10.0\win-x64\'))</LspServerBuildDir>
   </PropertyGroup>
 

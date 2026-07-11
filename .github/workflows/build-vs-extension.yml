@@ -24,6 +24,37 @@
 # job for the CodingWithCalvin/GHA-VSMarketplacePublisher pattern to adopt
 # once publishing is desired). This mirrors build-vscode-extension.yml, which
 # similarly stops at packaging the .vsix without publishing to the Marketplace.
+#
+# Job graph:
+#   lsp (test-lsp.yml) ─> build-vs-extension ─┬─> test-vs-extension ──┐
+#                                              └─> test-vs-wizards ────┴─> publish-vsix
+#
+# The LSP layer is built and tested first — by the shared test-lsp.yml
+# reusable workflow (also used by build-vscode-extension.yml, so the LSP is
+# only compiled and tested once per relevant change, not once per consumer)
+# — so a regression there fails fast without spending Windows minutes on the
+# VSIX build. The VS extension is then built once and its two independent
+# test suites (Reqnroll.VisualStudio.Tests and the Wizards tests) run in
+# parallel against that same build. Only if every stage is green does
+# publish-vsix promote the artifact under its final name.
+#
+# build-vs-extension and test-vs-extension both build the Extension project,
+# which by default builds LSP.Server itself via ProjectReference (that's what
+# makes plain local `dotnet build` "just work" — see the header note above).
+# In CI that would mean rebuilding LSP.Server a second time even though the
+# lsp job already built, tested, and published it. Both jobs instead pass
+# -p:UseExternalLspServerBuild=true plus -p:LspServerBuildDir=<downloaded
+# artifact path>, which (per the Condition on that ProjectReference in
+# Reqnroll.IdeSupport.VisualStudio.Extension.csproj) drops the ProjectReference
+# and points IncludeLspServerInVsix at the win-x64 artifact the lsp job
+# published instead of rebuilding it.
+#
+# Every job here still needs windows-latest: Reqnroll.VisualStudio.VsxStubs
+# (which LSP.Core.Tests references) is a net481 WPF project, and
+# LSP.Server.Specs pins RuntimeIdentifier=win-x64 to exercise the real
+# self-contained server exe out-of-process — neither builds on Linux/macOS
+# runners. So this restructuring buys fail-fast ordering, parallel independent
+# test suites, and NuGet restore caching, not cross-OS job placement.
 # ---------------------------------------------------------------------------
 name: Build VS Extension
 
@@ -35,13 +66,16 @@ on:
       - 'src/VisualStudio/**'
       - 'src/LSP/**'
       - 'tests/VisualStudio/**'
+      - 'tests/LSP/**'
       - '.github/workflows/build-vs-extension.yml'
   pull_request:
     paths:
       - 'src/VisualStudio/**'
       - 'src/LSP/**'
       - 'tests/VisualStudio/**'
+      - 'tests/LSP/**'
       - '.github/workflows/build-vs-extension.yml'
+      - '.github/workflows/test-lsp.yml'
   workflow_dispatch:
 
 env:
@@ -50,16 +84,24 @@ env:
   EXTENSION_PROJECT: src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Extension/Reqnroll.IdeSupport.VisualStudio.Extension.csproj
   TESTS_PROJECT: tests/VisualStudio/Reqnroll.VisualStudio.Tests/Reqnroll.VisualStudio.Tests.csproj
   WIZARDS_TESTS_PROJECT: tests/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Wizards.Tests/Reqnroll.IdeSupport.VisualStudio.Wizards.Tests.csproj
-  CONNECTOR_PROJECT: src/LSP/Reqnroll.IdeSupport.LSP.Connector/Connector/Connector.csproj
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Job 1: Build + package — restores, builds the extension (which also
-  # republishes the LSP server into the VSIX via IncludeLspServerInVsix), and
-  # uploads the resulting .vsix.
+  # Job 1: Build + test the LSP layer. See test-lsp.yml — shared with
+  # build-vscode-extension.yml so the LSP is only compiled and tested once.
   # ---------------------------------------------------------------------------
-  build-extension:
-    name: Build VSIX
+  lsp:
+    name: LSP
+    uses: ./.github/workflows/test-lsp.yml
+
+  # ---------------------------------------------------------------------------
+  # Job 2: Build VS extension — builds the extension (which also republishes
+  # the LSP server into the VSIX via IncludeLspServerInVsix) and uploads the
+  # resulting .vsix as a candidate artifact for the test/publish jobs below.
+  # ---------------------------------------------------------------------------
+  build-vs-extension:
+    name: Build VS Extension
+    needs: [lsp]
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -73,35 +115,42 @@ jobs:
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
 
-      - name: Restore Connector
-        # Reqnroll.IdeSupport.LSP.Server.csproj's BuildConnector target invokes Connector.csproj
-        # via a direct <MSBuild Targets="Build"> task call (not a ProjectReference — multi-targeted
-        # projects don't expose GetTargetPath at the outer build level), so `dotnet restore` on the
-        # extension project never reaches it. Restore it explicitly first, same as
-        # build-vscode-extension.yml's "Restore Connector" step.
-        run: dotnet restore ${{ env.CONNECTOR_PROJECT }}
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
 
-      - name: Restore
-        run: dotnet restore ${{ env.EXTENSION_PROJECT }}
+      - name: Download published LSP server (win-x64)
+        uses: actions/download-artifact@v4
+        with:
+          name: server-win-x64
+          path: lsp-server-win-x64
+
+      - name: Restore Extension
+        run: dotnet restore ${{ env.EXTENSION_PROJECT }} -p:UseExternalLspServerBuild=true "-p:LspServerBuildDir=${{ github.workspace }}\lsp-server-win-x64\"
 
       - name: Build VSIX (${{ env.CONFIGURATION }})
-        run: dotnet build ${{ env.EXTENSION_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }}
+        run: dotnet build ${{ env.EXTENSION_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} -p:UseExternalLspServerBuild=true "-p:LspServerBuildDir=${{ github.workspace }}\lsp-server-win-x64\"
 
-      - name: Upload VSIX artifact
+      - name: Upload VSIX candidate artifact
         uses: actions/upload-artifact@v4
         with:
-          name: reqnroll-vs-extension-vsix
+          name: reqnroll-vs-extension-vsix-candidate
           path: src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Extension/bin/${{ env.CONFIGURATION }}/net481/*.vsix
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
-  # Job 2: Unit tests — Reqnroll.VisualStudio.Tests (client parse/transform
-  # logic; see src/VisualStudio/CONTRIBUTING.md for what belongs here vs. the
-  # LSP server specs) plus Reqnroll.IdeSupport.VisualStudio.Wizards.Tests (New
-  # Project/New Item wizard + welcome-dialog unit tests).
+  # Job 3: Test VS extension — Reqnroll.VisualStudio.Tests (client
+  # parse/transform logic; see src/VisualStudio/CONTRIBUTING.md for what
+  # belongs here vs. the LSP server specs). Runs in parallel with
+  # test-vs-wizards.
   # ---------------------------------------------------------------------------
-  unit-tests:
-    name: Unit Tests
+  test-vs-extension:
+    name: Unit Tests (VS Extension)
+    needs: [build-vs-extension]
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -115,17 +164,64 @@ jobs:
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
 
-      - name: Restore Connector
-        # Reqnroll.VisualStudio.Tests references the Extension project, which pulls in the
-        # LSP Server's BuildConnector target — see the Build VSIX job's identical step for why
-        # this needs an explicit restore.
-        run: dotnet restore ${{ env.CONNECTOR_PROJECT }}
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Download published LSP server (win-x64)
+        # Reqnroll.VisualStudio.Tests references the Extension project, which by default
+        # builds LSP.Server itself via ProjectReference — see build-vs-extension's identical
+        # step for why this instead reuses the artifact the lsp job already published.
+        uses: actions/download-artifact@v4
+        with:
+          name: server-win-x64
+          path: lsp-server-win-x64
 
       - name: Restore
-        run: dotnet restore ${{ env.TESTS_PROJECT }}
+        run: dotnet restore ${{ env.TESTS_PROJECT }} -p:UseExternalLspServerBuild=true "-p:LspServerBuildDir=${{ github.workspace }}\lsp-server-win-x64\"
 
       - name: Test
-        run: dotnet test ${{ env.TESTS_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} --logger trx --results-directory TestResults
+        run: dotnet test ${{ env.TESTS_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} --logger trx --results-directory TestResults -p:UseExternalLspServerBuild=true "-p:LspServerBuildDir=${{ github.workspace }}\lsp-server-win-x64\"
+
+      - name: Upload Test Result TRX Files
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vs-extension-tests-trx
+          if-no-files-found: error
+          path: "TestResults/*.trx"
+
+  # ---------------------------------------------------------------------------
+  # Job 4: Test VS wizards — New Project/New Item wizard + welcome-dialog unit
+  # tests. Runs in parallel with test-vs-extension.
+  # ---------------------------------------------------------------------------
+  test-vs-wizards:
+    name: Unit Tests (VS Wizards)
+    needs: [build-vs-extension]
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
 
       - name: Restore Wizards Tests
         run: dotnet restore ${{ env.WIZARDS_TESTS_PROJECT }}
@@ -137,6 +233,30 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: vs-extension-tests-trx
+          name: vs-wizards-tests-trx
           if-no-files-found: error
           path: "TestResults/*.trx"
+
+  # ---------------------------------------------------------------------------
+  # Job 5: Publish VSIX — promotes the candidate .vsix built in
+  # build-vs-extension to its final artifact name, but only once every LSP and
+  # VS-extension test suite above has passed. This does not push to the
+  # Visual Studio Marketplace (see the file header for why).
+  # ---------------------------------------------------------------------------
+  publish-vsix:
+    name: Publish VSIX
+    needs: [test-vs-extension, test-vs-wizards]
+    runs-on: windows-latest
+    steps:
+      - name: Download VSIX candidate artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: reqnroll-vs-extension-vsix-candidate
+          path: vsix
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reqnroll-vs-extension-vsix
+          path: vsix/*.vsix
+          if-no-files-found: error
