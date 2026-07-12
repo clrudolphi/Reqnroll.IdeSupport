@@ -1,6 +1,8 @@
 # Inlay Hints for Feature Files — Implementation Plan
 
-> **Status:** Draft for review
+> **Status:** Implemented (shipped: #43 "F23", follow-up fixes #57, #77). Canonical-doc
+> reconciliation (Feature-Designs/Architecture/Open-Questions) not yet done — tracked in
+> [#135](https://github.com/reqnroll/Reqnroll.IdeSupport/issues/135).
 > **Audience:** Core team contributors
 > **Based on:** LSP 3.17 `textDocument/inlayHint`; reuses the binding-match cache ([[binding-match-service-plan]])
 > **Library support:** Already modelled in OmniSharp.Extensions.LanguageServer 0.19.9
