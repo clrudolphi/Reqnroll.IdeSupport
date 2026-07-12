@@ -57,7 +57,7 @@ public sealed class LspServerHarness : IAsyncDisposable
         get { lock (_applyEditLock) return _lastApplyEdit; }
     }
 
-    public async Task StartAsync(string workspaceFolder, string? ideId = null)
+    public async Task StartAsync(string workspaceFolder, string? ideId = null, bool supportsChangeAnnotations = false)
     {
         var (serverStream, clientStream) = FullDuplexStream.CreatePair();
 
@@ -79,6 +79,18 @@ public sealed class LspServerHarness : IAsyncDisposable
             // Advertise refresh support — the server's SemanticTokensRefreshHandler skips the
             // request unless workspace.semanticTokens.refreshSupport is true.
             options.WithCapability(new SemanticTokensWorkspaceCapability { RefreshSupport = true });
+
+            // Issue #70: opt-in only (defaults to false) so every other spec keeps negotiating
+            // the legacy WorkspaceEdit.Changes shape unchanged — only scenarios that explicitly
+            // start the harness this way exercise StepRenameHandler's annotated DocumentChanges path.
+            if (supportsChangeAnnotations)
+            {
+                options.WithCapability(new WorkspaceEditCapability
+                {
+                    DocumentChanges = true,
+                    ChangeAnnotationSupport = new WorkspaceEditSupportCapabilitiesChangeAnnotationSupport()
+                });
+            }
 
             // Sink for the server-initiated refresh request.
             options.OnRequest(WorkspaceNames.SemanticTokensRefresh, (CancellationToken _) =>

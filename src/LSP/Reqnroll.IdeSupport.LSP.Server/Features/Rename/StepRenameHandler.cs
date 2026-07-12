@@ -436,17 +436,37 @@ public sealed class StepRenameHandler
             return null;
         }
 
-        var changes = new Dictionary<DocumentUri, List<TextEdit>>();
+        // Change-annotation negotiation (issue #70): a client that advertises both
+        // `documentChanges` and `changeAnnotationSupport` gets a grouped, labelled rename
+        // preview; everyone else (VS, per Phase 0's capability survey — see
+        // docs/Rename-ChangeAnnotations-Implementation-Plan.md) gets the legacy `Changes`
+        // shape, byte-identical to before this feature existed.
+        var workspaceEditCapability = _languageServer.ClientSettings?.Capabilities?.Workspace?.WorkspaceEdit;
+        var supportsChangeAnnotations = workspaceEditCapability is not null &&
+            workspaceEditCapability.Value.IsSupported &&
+            workspaceEditCapability.Value.Value?.DocumentChanges == true &&
+            workspaceEditCapability.Value.Value?.ChangeAnnotationSupport is not null;
+
+        // A rename that touches more than one .feature file crosses file boundaries the user may
+        // not have anticipated from a single step's rename prompt — ask the client to confirm
+        // before applying, if it renders that confirmation (see WorkspaceEditBuilder's shape
+        // negotiation; unsupported clients never see this flag).
+        var featureFileCount = usages.Select(u => u.FeatureDocumentId).Distinct().Count();
+
+        var builder = new WorkspaceEditBuilder(supportsChangeAnnotations);
+        builder.DeclareAnnotation(RenameChangeAnnotations.Feature,
+            new ChangeAnnotation
+            {
+                Label = $"Rename step usages → \"{effectiveNewName}\"",
+                NeedsConfirmation = featureFileCount > 1
+            });
+        builder.DeclareAnnotation(RenameChangeAnnotations.Binding,
+            new ChangeAnnotation { Label = "Update step-definition attribute" });
 
         // ── 4. Build .feature file edits ───────────────────────────────────────
         foreach (var usage in usages)
         {
             var featureUri = DocumentUri.Parse(usage.FeatureDocumentId);
-            if (!changes.TryGetValue(featureUri, out var list))
-            {
-                list = new List<TextEdit>();
-                changes[featureUri] = list;
-            }
 
             // Read the feature step text to preserve parameter values / placeholders
             string? stepText = null;
@@ -457,11 +477,7 @@ public sealed class StepRenameHandler
             }
 
             var featureNewText = FeatureStepTextBuilder.Build(effectiveNewName, sourceExpression, binding.Regex, stepText);
-            list.Add(new TextEdit
-            {
-                Range = usage.Range!.ToLspRange(),
-                NewText = featureNewText
-            });
+            builder.Add(featureUri, usage.Range!.ToLspRange(), featureNewText, RenameChangeAnnotations.Feature);
         }
 
         // ── 5. Build .cs file edit ────────────────────────────────────────────
@@ -475,12 +491,7 @@ public sealed class StepRenameHandler
                 csFileUri = path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
                     ? uri
                     : DocumentUri.FromFileSystemPath(binding.Implementation!.SourceLocation!.SourceFile);
-                if (!changes.TryGetValue(csFileUri, out var list))
-                {
-                    list = new List<TextEdit>();
-                    changes[csFileUri] = list;
-                }
-                list.Add(csEdit);
+                builder.Add(csFileUri, csEdit.Range, csEdit.NewText, RenameChangeAnnotations.Binding);
 
                 // Computed directly from the same Roslyn span BuildCSharpEdit used, so this is
                 // exact regardless of whether the .cs file is open or closed in the editor.
@@ -491,13 +502,10 @@ public sealed class StepRenameHandler
             }
         }
 
-        if (changes.Count == 0)
+        if (builder.IsEmpty)
             return null;
 
-        var workspaceEdit = new WorkspaceEdit
-        {
-            Changes = changes.ToDictionary(kvp => kvp.Key, kvp => (IEnumerable<TextEdit>)kvp.Value)
-        };
+        var workspaceEdit = builder.Build();
 
         // VS's Rename Step command sends textDocument/rename over a custom interception pipe
         // that swallows this method's return value before VS's built-in LSP client ever sees it,
@@ -514,12 +522,14 @@ public sealed class StepRenameHandler
         // rename succeeded while the source still has the old text.
         if (_clientIdeContext.IsVisualStudio)
         {
+            // VS never advertises changeAnnotationSupport (Phase 0), so builder's edits are
+            // already plain TextEdit here — this push is unannotated DocumentChanges regardless.
             var pushParams = new ApplyWorkspaceEditParams
             {
                 Edit = new WorkspaceEdit
                 {
                     DocumentChanges = new Container<WorkspaceEditDocumentChange>(
-                        changes.Select(kvp => new WorkspaceEditDocumentChange(new TextDocumentEdit
+                        builder.GetEditsByUri().Select(kvp => new WorkspaceEditDocumentChange(new TextDocumentEdit
                         {
                             TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = kvp.Key, Version = null },
                             Edits = new TextEditContainer(kvp.Value)
@@ -549,7 +559,7 @@ public sealed class StepRenameHandler
         // reliably, since this runs after awaiting the VS applyEdit round-trip) leaves the cache
         // empty with nothing left to repopulate it, since the file's content isn't changing
         // again: confirmed live as inlay hints silently disappearing for the whole file post-rename.
-        foreach (var changedUri in changes.Keys)
+        foreach (var changedUri in builder.TouchedUris)
         {
             var changedPath = changedUri.GetFileSystemPath();
             if (!string.IsNullOrEmpty(changedPath) && changedPath.EndsWith(".feature", StringComparison.OrdinalIgnoreCase) &&
@@ -578,6 +588,8 @@ public sealed class StepRenameHandler
         _telemetryService?.SendEvent("Rename step command executed", new()
         {
             ["Erroneous"] = false,
+            ["ChangeAnnotationsUsed"] = supportsChangeAnnotations,
+            ["EditedFileCount"] = builder.TouchedUris.Count,
         });
 
         return workspaceEdit;
