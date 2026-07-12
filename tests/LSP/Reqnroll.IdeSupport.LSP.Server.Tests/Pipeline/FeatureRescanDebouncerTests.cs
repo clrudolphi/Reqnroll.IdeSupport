@@ -125,6 +125,13 @@ public class FeatureRescanDebouncerTests : IDisposable
         using var sut = CreateSut();
         var attempted = new TaskCompletionSource();
 
+        // LogWarning is an extension method over IIdeSupportLogger.Log(LogMessage); hook the
+        // underlying substitutable call itself as the completion signal, rather than a fixed
+        // delay guessing how long the exception takes to propagate out of the fire-and-forget
+        // continuation.
+        var logged = new TaskCompletionSource();
+        _logger.When(l => l.Log(Arg.Any<LogMessage>())).Do(_ => logged.TrySetResult());
+
         sut.ScheduleRescan(_project, _ =>
         {
             attempted.TrySetResult();
@@ -132,11 +139,8 @@ public class FeatureRescanDebouncerTests : IDisposable
         });
 
         await Task.WhenAny(attempted.Task, Task.Delay(2000));
-        // Give the exception a moment to propagate out of the fire-and-forget continuation.
-        await Task.Delay(100);
+        await Task.WhenAny(logged.Task, Task.Delay(2000));
 
-        // LogWarning is an extension method over IIdeSupportLogger.Log(LogMessage); assert on the
-        // underlying substitutable call.
         _logger.Received(1).Log(Arg.Is<LogMessage>(m =>
             m.Level == TraceLevel.Warning && m.Message.Contains("boom")));
     }
