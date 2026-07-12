@@ -213,7 +213,7 @@ public static class LanguageServerOptionsExtensions
         options.OnRequest<TextDocumentPositionParams, RenameTargetsResponse>(
             LspMethodNames.ReqnrollRenameTargets,
             async (request, ct) =>
-                await resolver!.Get<StepRenameHandler>().HandleRenameTargetsAsync(request, ct)
+                await resolver!.Get<RenameTargetsHandler>().HandleRenameTargetsAsync(request, ct)
                 ?? new RenameTargetsResponse());
 
         options.OnNotification<SelectRenameTargetParams>(

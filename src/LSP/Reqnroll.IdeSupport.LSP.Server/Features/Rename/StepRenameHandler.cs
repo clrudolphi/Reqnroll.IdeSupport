@@ -27,9 +27,9 @@ using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 namespace Reqnroll.IdeSupport.LSP.Server.Features.Rename;
 
 /// <summary>
-/// Handles <c>textDocument/prepareRename</c>, <c>textDocument/rename</c>,
-/// <c>reqnroll/renameTargets</c>, and <c>reqnroll/selectRenameTarget</c> for the
-/// Step Rename refactoring feature.
+/// Handles <c>textDocument/prepareRename</c>, <c>textDocument/rename</c>, and
+/// <c>reqnroll/selectRenameTarget</c> for the Step Rename refactoring feature.
+/// <c>reqnroll/renameTargets</c> is handled separately by <see cref="RenameTargetsHandler"/>.
 /// </summary>
 public sealed class StepRenameHandler
 {
@@ -430,111 +430,6 @@ public sealed class StepRenameHandler
     // ── Custom request handlers ─────────────────────────────────────────────────
 
     /// <summary>
-    /// Handles <c>reqnroll/renameTargets</c> — enumerates all binding attributes
-    /// at the cursor position for the multi-attribute picker flow.
-    /// </summary>
-    public async Task<RenameTargetsResponse?> HandleRenameTargetsAsync(
-        TextDocumentPositionParams request,
-        CancellationToken          cancellationToken)
-    {
-        var uri  = request.TextDocument.Uri;
-        var path = uri.GetFileSystemPath();
-
-        // Performance Verification (Layer 4): time the rename-targets picker resolution.
-        using var _perf = _recorder.Measure(LspMethodNames.ReqnrollRenameTargets, uri);
-
-        if (string.IsNullOrEmpty(path))
-            return null;
-
-        if (path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
-        {
-            return await HandleRenameTargetsFromCSharpAsync(uri, path, request.Position, cancellationToken);
-        }
-
-        if (path.EndsWith(".feature", StringComparison.OrdinalIgnoreCase))
-        {
-            return await HandleRenameTargetsFromFeatureAsync(uri, path, request.Position, cancellationToken);
-        }
-
-        return null;
-    }
-
-    private async Task<RenameTargetsResponse?> HandleRenameTargetsFromCSharpAsync(
-        DocumentUri uri, string path, Position position, CancellationToken cancellationToken)
-    {
-        var line = position.Line + 1;
-
-        var registry = _registryLookup.GetRegistryForUri(uri);
-        if (registry == ProjectBindingRegistry.Invalid)
-            return new RenameTargetsResponse();
-
-        // Collect all bindings at this method location (heuristic: within 5 lines)
-        var allBindings = RenameBindingResolver.FindBindingsAtCSharpMethod(registry, path, line);
-
-        if (allBindings.Count == 0)
-            return new RenameTargetsResponse();
-
-        var response = new RenameTargetsResponse();
-        int idx = 0;
-        foreach (var b in allBindings)
-        {
-            // Prefer the live source expression (preserves Cucumber parameter types)
-            var sourceLiteral = await _attributeLiteralResolver.FindAttributeLiteralAsync(uri, b);
-            var expression = sourceLiteral?.Token.ValueText ?? b.Expression ?? "(unknown)";
-
-            var scopeTag = b.Scope?.Tag?.ToString();
-            var scopeSuffix = !string.IsNullOrEmpty(scopeTag) ? $" [@{scopeTag}]" : "";
-            response.Targets.Add(new RenameTargetItem
-            {
-                Label = $"{b.StepDefinitionType} {expression}{scopeSuffix}",
-                Expression = expression,
-                AttributeIndex = idx,
-                StartLine = (b.Implementation.SourceLocation?.SourceFileLine ?? line) - 1,
-                StartChar = 1,
-                EndLine   = (b.Implementation.SourceLocation?.SourceFileLine ?? line) - 1,
-                EndChar   = 200
-            });
-            idx++;
-        }
-
-        return response;
-    }
-
-    private async Task<RenameTargetsResponse?> HandleRenameTargetsFromFeatureAsync(
-        DocumentUri uri, string path, Position position, CancellationToken cancellationToken)
-    {
-        var matchedBindings = _bindingResolver.FindBindingsAtFeatureStep(uri, path, position: position);
-        if (matchedBindings.Count == 0)
-            return new RenameTargetsResponse();
-
-        var response = new RenameTargetsResponse();
-        int idx = 0;
-        foreach (var b in matchedBindings)
-        {
-            // Ambiguous bindings from the .feature side are frequently identical steps bound
-            // to different methods (that's the whole reason they're ambiguous) — the expression
-            // text alone doesn't distinguish them in the picker, so append the implementing
-            // method to give the user something to choose by. Implementation.Method is fully
-            // qualified (e.g. "MyProj.StepDefinitions.CalculatorSteps.GivenX(Int32)"); the shared
-            // namespace prefix across bindings in the same project pushes the actually-different
-            // part (class + method name) past the picker's visible width before two entries'
-            // labels diverge, so only the last two dot-segments are kept.
-            var method = ShortenMethodQualifier(b.Implementation?.Method);
-            var methodSuffix = !string.IsNullOrEmpty(method) ? $" — {method}" : "";
-            response.Targets.Add(new RenameTargetItem
-            {
-                Label = $"{b.StepDefinitionType} {b.Expression ?? "(unknown)"}{methodSuffix}",
-                Expression = b.Expression ?? "",
-                AttributeIndex = idx,
-                StartLine = 0, StartChar = 0, EndLine = 0, EndChar = 200
-            });
-            idx++;
-        }
-
-        return response;
-    }
-
-    /// <summary>
     /// Handles <c>reqnroll/selectRenameTarget</c> — stores the selected attribute
     /// for the next <c>textDocument/rename</c> call.
     /// </summary>
@@ -548,21 +443,6 @@ public sealed class StepRenameHandler
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Keeps only the last two dot-segments of a fully qualified method name (class + method),
-    /// dropping the namespace. Two ambiguous bindings from the same project usually share the
-    /// same namespace prefix, so keeping it just wastes the picker's limited width without
-    /// helping the user distinguish the entries.
-    /// </summary>
-    private static string? ShortenMethodQualifier(string? fullyQualifiedMethod)
-    {
-        if (string.IsNullOrEmpty(fullyQualifiedMethod))
-            return fullyQualifiedMethod;
-
-        var parts = fullyQualifiedMethod.Split('.');
-        return parts.Length <= 2 ? fullyQualifiedMethod : string.Join(".", parts[^2..]);
-    }
 
     // ── Feature step text parameter preservation ─────────────────────────────
 

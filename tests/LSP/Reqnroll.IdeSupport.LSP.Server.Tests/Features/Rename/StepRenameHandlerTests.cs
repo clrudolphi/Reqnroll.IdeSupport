@@ -13,6 +13,7 @@ using Reqnroll.IdeSupport.LSP.Core.Matching;
 
 
 using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
+using Reqnroll.IdeSupport.LSP.Core.Rename;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Features.Rename;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
@@ -69,6 +70,14 @@ public class StepRenameHandlerTests
     private StepRenameHandler CreateSutWithTelemetry(ILspTelemetryService telemetry) =>
         new(_matchService, _scopeManager, _registryLookup, _logger, _documentBuffer,
             _csharpFileTextCache, _csharpDiscoveryService, _languageServer, _clientIdeContext, telemetry);
+
+    // reqnroll/renameTargets (issue #139) is handled by the separate RenameTargetsHandler class;
+    // it shares no session state with StepRenameHandler, so a freshly-composed instance over the
+    // same substitute fields is equivalent to whatever DI would wire up.
+    private RenameTargetsHandler CreateTargetsSut() =>
+        new(_registryLookup,
+            new RenameBindingResolver(_matchService, _scopeManager, new RenameSessionManager(), _logger),
+            new CSharpAttributeLiteralResolver(_csharpFileTextCache, _documentBuffer, _logger));
 
     private void SetupBuffer(string csText)
     {
@@ -509,7 +518,7 @@ public class StepRenameHandlerTests
         _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
                        .Returns(ProjectBindingRegistry.FromBindings(new[] { binding }));
 
-        var response = await CreateSut().HandleRenameTargetsAsync(
+        var response = await CreateTargetsSut().HandleRenameTargetsAsync(
             new TextDocumentPositionParams
             {
                 TextDocument = new TextDocumentIdentifier { Uri = CsUri },
@@ -910,7 +919,7 @@ public class StepRenameHandlerTests
                 return true;
             });
 
-        var response = await CreateSut().HandleRenameTargetsAsync(
+        var response = await CreateTargetsSut().HandleRenameTargetsAsync(
             new TextDocumentPositionParams
             {
                 TextDocument = new TextDocumentIdentifier { Uri = featureUri },
@@ -930,7 +939,7 @@ public class StepRenameHandlerTests
         var featureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
         _scopeManager.ResolveOwners(featureUri).Returns(Array.Empty<LspReqnrollProject>());
 
-        var response = await CreateSut().HandleRenameTargetsAsync(
+        var response = await CreateTargetsSut().HandleRenameTargetsAsync(
             new TextDocumentPositionParams
             {
                 TextDocument = new TextDocumentIdentifier { Uri = featureUri },
@@ -980,7 +989,7 @@ public class StepRenameHandlerTests
                 return true;
             });
 
-        var response = await CreateSut().HandleRenameTargetsAsync(
+        var response = await CreateTargetsSut().HandleRenameTargetsAsync(
             new TextDocumentPositionParams
             {
                 TextDocument = new TextDocumentIdentifier { Uri = featureUri },
@@ -1099,7 +1108,10 @@ public class StepRenameHandlerTests
 
         // Discover the target index for the "(.*)" binding rather than assuming ordering —
         // FindBindingsAtFeatureStep collects candidates via a HashSet, so index isn't contractual.
-        var targets = await sut.HandleRenameTargetsAsync(
+        // RenameTargetsHandler is a separate instance from `sut`, but both share the same
+        // underlying _matchService/_scopeManager substitutes, so FindBindingsAtFeatureStep
+        // resolves the identical candidate set/order for both.
+        var targets = await CreateTargetsSut().HandleRenameTargetsAsync(
             new TextDocumentPositionParams
             {
                 TextDocument = new TextDocumentIdentifier { Uri = featureUri },
@@ -1170,7 +1182,7 @@ public class StepRenameHandlerTests
                 return true;
             });
 
-        var response = await CreateSut().HandleRenameTargetsAsync(
+        var response = await CreateTargetsSut().HandleRenameTargetsAsync(
             new TextDocumentPositionParams
             {
                 TextDocument = new TextDocumentIdentifier { Uri = featureUri },
