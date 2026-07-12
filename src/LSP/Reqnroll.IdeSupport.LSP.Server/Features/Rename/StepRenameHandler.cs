@@ -46,6 +46,7 @@ public sealed class StepRenameHandler
     private readonly ILspTelemetryService?         _telemetryService;
     private readonly IOperationDurationRecorder    _recorder;
     private readonly CSharpAttributeLiteralResolver _attributeLiteralResolver;
+    private readonly RenameBindingResolver         _bindingResolver;
 
     /// <summary>Initializes a new instance of the <see cref="StepRenameHandler"/> class.</summary>
     public StepRenameHandler(
@@ -74,6 +75,7 @@ public sealed class StepRenameHandler
         _telemetryService = telemetryService;
         _recorder        = recorder ?? NullOperationDurationRecorder.Instance;
         _attributeLiteralResolver = new CSharpAttributeLiteralResolver(csharpFileTextCache, documentBuffer, logger);
+        _bindingResolver = new RenameBindingResolver(matchService, scopeManager, _sessionManager, logger);
     }
 
     // ── textDocument/prepareRename ──────────────────────────────────────────────
@@ -181,7 +183,7 @@ public sealed class StepRenameHandler
         // subsequent textDocument/rename would fail with "Internal Error".
         if (path.EndsWith(".feature", StringComparison.OrdinalIgnoreCase))
         {
-            var featureBindings = FindBindingsAtFeatureStep(uri, path, request.Position, out var stepRange);
+            var featureBindings = _bindingResolver.FindBindingsAtFeatureStep(uri, path, request.Position, out var stepRange);
             if (featureBindings.Count == 0)
             {
                 _logger.LogVerbose("StepRenameHandler: prepareRename — no defined binding at feature step position");
@@ -264,59 +266,12 @@ public sealed class StepRenameHandler
             return null;
         }
 
-        // Check for a pending rename session (set by reqnroll/selectRenameTarget).
-        // This handles the multi-attribute case where the cursor is not on a specific
-        // attribute string — the picker pre-selected which binding to rename.
-        ProjectStepDefinitionBinding? binding = null;
-        int? pendingAttributeIndex = null;
-        List<ProjectStepDefinitionBinding> bindingsAtLocation = new();
-
-        // Use version from request or fallback to 0
-        var documentVersion = 0;
-        if (_sessionManager.TryConsume(uri.ToString(), documentVersion, out var sessionAttrIndex))
-        {
-            pendingAttributeIndex = sessionAttrIndex;
-            _logger.LogVerbose($"StepRenameHandler: consumed pending session, attributeIndex={sessionAttrIndex}");
-        }
-
-        if (pendingAttributeIndex.HasValue)
-        {
-            if (path.EndsWith(".feature", StringComparison.OrdinalIgnoreCase))
-            {
-                // For feature files, resolve bindings from the match cache
-                bindingsAtLocation = FindBindingsAtFeatureStep(uri, path, position: request.Position);
-            }
-            else
-            {
-                // For C# files, find bindings at the method location in the registry
-                bindingsAtLocation = registry.StepDefinitions
-                    .Where(b => b.Implementation.SourceLocation != null &&
-                                string.Equals(b.Implementation.SourceLocation.SourceFile, path, StringComparison.OrdinalIgnoreCase) &&
-                                Math.Abs(b.Implementation.SourceLocation.SourceFileLine - line) <= 5)
-                    .ToList();
-            }
-
-            if (pendingAttributeIndex.Value >= 0 && pendingAttributeIndex.Value < bindingsAtLocation.Count)
-            {
-                binding = bindingsAtLocation[pendingAttributeIndex.Value];
-                _logger.LogVerbose($"StepRenameHandler: resolved binding via session: '{binding?.Expression}'");
-            }
-        }
-
-        // Fall back to position-based resolution (single-binding case)
-        if (binding == null && path.EndsWith(".feature", StringComparison.OrdinalIgnoreCase))
-        {
-            var featureBindings = FindBindingsAtFeatureStep(uri, path, position: request.Position);
-            binding = featureBindings.FirstOrDefault();
-            if (binding != null)
-                _logger.LogVerbose($"StepRenameHandler: resolved binding via feature match cache: '{binding.Expression}'");
-        }
-        binding ??= registry.FindBindingAtLocation(new SourceLocation(path, line, column));
+        // Resolves a pending reqnroll/selectRenameTarget session first (multi-attribute picker
+        // flow), then falls back to feature-match-cache or registry position lookup — see
+        // RenameBindingResolver.ResolveBindingForRename for the full precedence order.
+        var binding = _bindingResolver.ResolveBindingForRename(uri, path, request.Position, registry);
         if (binding == null)
-        {
-            _logger.LogVerbose("StepRenameHandler: no binding at cursor position");
             return null;
-        }
 
         SourceLocation bindingLocation;
 
@@ -612,11 +567,7 @@ public sealed class StepRenameHandler
             return new RenameTargetsResponse();
 
         // Collect all bindings at this method location (heuristic: within 5 lines)
-        var allBindings = registry.StepDefinitions
-            .Where(b => b.Implementation.SourceLocation != null &&
-                        string.Equals(b.Implementation.SourceLocation.SourceFile, path, StringComparison.OrdinalIgnoreCase) &&
-                        Math.Abs(b.Implementation.SourceLocation.SourceFileLine - line) <= 5)
-            .ToList();
+        var allBindings = RenameBindingResolver.FindBindingsAtCSharpMethod(registry, path, line);
 
         if (allBindings.Count == 0)
             return new RenameTargetsResponse();
@@ -650,7 +601,7 @@ public sealed class StepRenameHandler
     private async Task<RenameTargetsResponse?> HandleRenameTargetsFromFeatureAsync(
         DocumentUri uri, string path, Position position, CancellationToken cancellationToken)
     {
-        var matchedBindings = FindBindingsAtFeatureStep(uri, path, position: position);
+        var matchedBindings = _bindingResolver.FindBindingsAtFeatureStep(uri, path, position: position);
         if (matchedBindings.Count == 0)
             return new RenameTargetsResponse();
 
@@ -679,73 +630,6 @@ public sealed class StepRenameHandler
         }
 
         return response;
-    }
-
-    /// <summary>
-    /// Finds all bindings that match the feature step at the given cursor position
-    /// by querying the binding match cache for the owning projects.
-    /// </summary>
-    private List<ProjectStepDefinitionBinding> FindBindingsAtFeatureStep(
-        DocumentUri uri, string path, Position position) =>
-        FindBindingsAtFeatureStep(uri, path, position, out _);
-
-    /// <summary>
-    /// Finds all bindings that match the feature step at the given cursor position, and the
-    /// matched step's own text span (excluding the keyword/indentation) via <paramref
-    /// name="matchedRange"/>. Callers that only need the range for editing (prepareRename must
-    /// offer exactly the text that HandleRenameAsync will later replace at <c>usage.Range</c> —
-    /// otherwise the keyword/indentation the client seeds the dialog with gets duplicated when
-    /// the edit is applied) should use this overload.
-    /// </summary>
-    private List<ProjectStepDefinitionBinding> FindBindingsAtFeatureStep(
-        DocumentUri uri, string path, Position position, out LspRange? matchedRange)
-    {
-        matchedRange = null;
-
-        var uriStr = uri.ToString();
-        var owners = _scopeManager.ResolveOwners(uri);
-        if (owners.Count == 0)
-            return new List<ProjectStepDefinitionBinding>();
-
-        var matchedBindings = new HashSet<ProjectStepDefinitionBinding>();
-
-        foreach (var owner in owners)
-        {
-            var key = new MatchSetKey(uriStr, new ProjectOwner(owner.ProjectFullName, owner.TargetFrameworkMoniker));
-            if (!_matchService.TryGet(key, out var matchSet))
-                continue;
-
-            foreach (var step in matchSet.Steps)
-            {
-                // Ambiguous steps (2+ matching bindings) are exactly what the rename-targets
-                // picker exists to disambiguate — MatchResult.HasDefined is false for them
-                // (their items are typed Ambiguous, not Defined), so it must not gate them out
-                // here alongside genuinely undefined steps.
-                if (step.Result is null || !(step.Result.HasDefined || step.Result.HasAmbiguous))
-                    continue;
-
-                // Tolerate a cursor anywhere on the step's line(s), not just within the exact
-                // step-text span (e.g. on the keyword or leading indentation) — this used to
-                // compare position.Character directly against step.Range's own start/end
-                // character, the same narrow exact-text-span bug fixed for Go to Definition,
-                // just re-derived independently here rather than shared.
-                var snapshot  = step.Range.Snapshot;
-                var startLine = snapshot.GetLineFromLineNumber(step.Range.StartLinePosition.Line);
-                var endLine   = snapshot.GetLineFromLineNumber(step.Range.EndLinePosition.Line);
-                var offset    = snapshot.ToOffset(position.Line, position.Character);
-                if (offset >= startLine.Start && offset <= endLine.End)
-                {
-                    matchedRange ??= step.Range.ToLspRange();
-                    foreach (var item in step.Result.Items)
-                    {
-                        if (item.MatchedStepDefinition != null)
-                            matchedBindings.Add(item.MatchedStepDefinition);
-                    }
-                }
-            }
-        }
-
-        return matchedBindings.ToList();
     }
 
     /// <summary>
