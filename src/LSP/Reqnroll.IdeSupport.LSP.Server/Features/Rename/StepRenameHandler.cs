@@ -48,6 +48,7 @@ public sealed class StepRenameHandler
     private readonly CSharpAttributeLiteralResolver _attributeLiteralResolver;
     private readonly RenameBindingResolver         _bindingResolver;
     private readonly NewNameReconciler             _nameReconciler;
+    private readonly RenamePostApplyCoordinator    _postApplyCoordinator;
 
     /// <summary>Initializes a new instance of the <see cref="StepRenameHandler"/> class.</summary>
     public StepRenameHandler(
@@ -78,6 +79,9 @@ public sealed class StepRenameHandler
         _attributeLiteralResolver = new CSharpAttributeLiteralResolver(csharpFileTextCache, documentBuffer, logger);
         _bindingResolver = new RenameBindingResolver(matchService, scopeManager, _sessionManager, logger);
         _nameReconciler  = new NewNameReconciler(logger);
+        _postApplyCoordinator = new RenamePostApplyCoordinator(
+            languageServer, clientIdeContext, matchService, documentBuffer,
+            csharpDiscoveryService, csharpFileTextCache, logger);
     }
 
     // ── textDocument/prepareRename ──────────────────────────────────────────────
@@ -399,82 +403,18 @@ public sealed class StepRenameHandler
 
         var workspaceEdit = builder.Build();
 
-        // VS's Rename Step command sends textDocument/rename over a custom interception pipe
-        // that swallows this method's return value before VS's built-in LSP client ever sees it,
-        // so VS needs the edit pushed via a genuine workspace/applyEdit request instead — the
-        // same mechanism already proven for the Comment/Uncomment toggle (CommentToggleHandler). Other
-        // clients (e.g. VS Code) apply the returned WorkspaceEdit natively and must NOT also
-        // receive this push, or the edit would be applied twice.
-        //
         // The push is awaited and its Applied flag checked *before* touching any server-side
-        // cache below: if VS rejects or fails to apply the edit (e.g. a locked/read-only file,
-        // or the user having closed the document with unsaved conflicting changes), the actual
+        // cache below: if VS rejects or fails to apply the edit (e.g. a locked/read-only file, or
+        // the user having closed the document with unsaved conflicting changes), the actual
         // buffer/file content never changed, so self-refreshing the registry or invalidating the
         // match cache here would desync server state from reality — the registry would claim the
-        // rename succeeded while the source still has the old text.
-        if (_clientIdeContext.IsVisualStudio)
-        {
-            // VS never advertises changeAnnotationSupport (Phase 0), so builder's edits are
-            // already plain TextEdit here — this push is unannotated DocumentChanges regardless.
-            var pushParams = new ApplyWorkspaceEditParams
-            {
-                Edit = new WorkspaceEdit
-                {
-                    DocumentChanges = new Container<WorkspaceEditDocumentChange>(
-                        builder.GetEditsByUri().Select(kvp => new WorkspaceEditDocumentChange(new TextDocumentEdit
-                        {
-                            TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = kvp.Key, Version = null },
-                            Edits = new TextEditContainer(kvp.Value)
-                        })))
-                }
-            };
+        // rename succeeded while the source still has the old text. See
+        // RenamePostApplyCoordinator.PushEditIfVisualStudioAsync for why VS needs this push at all.
+        if (!await _postApplyCoordinator.PushEditIfVisualStudioAsync(builder, cancellationToken))
+            return null;
 
-            var response = await _languageServer.SendRequest(LspMethodNames.WorkspaceApplyEdit, pushParams)
-                .Returning<ApplyWorkspaceEditResponse>(cancellationToken);
-
-            if (response is not { Applied: true })
-            {
-                _logger.LogVerbose($"StepRenameHandler: VS rejected workspace/applyEdit (reason: '{response?.FailureReason}') — not refreshing server caches");
-                return null;
-            }
-
-            _logger.LogVerbose("StepRenameHandler: VS applied workspace/applyEdit");
-        }
-
-        // Invalidate the match cache for CLOSED feature files that were modified by the rename.
-        // When a feature file is closed at rename time, no didChange notification fires, so the
-        // server's in-memory match cache would otherwise retain the old step text until the file
-        // is re-opened and re-parsed. For OPEN files, applying the edit (via workspace/applyEdit
-        // for VS, or natively for other clients) already triggers a real textDocument/didChange,
-        // which reparses and correctly rebuilds the match cache through the normal sync pipeline
-        // — invalidating here too would race with that rebuild. Losing that race (which happens
-        // reliably, since this runs after awaiting the VS applyEdit round-trip) leaves the cache
-        // empty with nothing left to repopulate it, since the file's content isn't changing
-        // again: confirmed live as inlay hints silently disappearing for the whole file post-rename.
-        foreach (var changedUri in builder.TouchedUris)
-        {
-            var changedPath = changedUri.GetFileSystemPath();
-            if (!string.IsNullOrEmpty(changedPath) && changedPath.EndsWith(".feature", StringComparison.OrdinalIgnoreCase) &&
-                !_documentBuffer.TryGet(changedUri, out _))
-            {
-                _matchService.InvalidateAllForDocument(changedUri.ToString());
-                _logger.LogVerbose($"StepRenameHandler: invalidated match cache for closed '{changedUri}'");
-            }
-        }
-
-        // Self-refresh the C# binding registry for the edited .cs file directly, rather than
-        // relying on a client-echoed textDocument/didChange (there is no file-system watcher for
-        // .cs content changes, and a closed file may never round-trip one at all). For VS Code
-        // (no confirmed-apply signal available) this is optimistic, same as the .feature
-        // invalidation above; for VS it only runs once workspace/applyEdit has been confirmed
-        // applied. Any redundant didChange-triggered refresh the client's own sync machinery
-        // fires afterward is harmless (idempotent — same content, same result).
-        if (csFileUri is not null && newCsText != null)
-        {
-            await _csharpDiscoveryService.UpdateFromSourceAsync(csFileUri, newCsText, isOpen: false, cancellationToken);
-            _csharpFileTextCache.Update(csFileUri, newCsText);
-            _logger.LogVerbose($"StepRenameHandler: self-refreshed C# binding registry for '{csFileUri}'");
-        }
+        _postApplyCoordinator.InvalidateClosedFeatureCaches(builder);
+        await _postApplyCoordinator.RefreshCSharpRegistryAsync(csFileUri, newCsText, cancellationToken);
 
         // Telemetry
         _telemetryService?.SendEvent("Rename step command executed", new()
