@@ -447,9 +447,19 @@ public sealed class StepRenameHandler
             workspaceEditCapability.Value.Value?.DocumentChanges == true &&
             workspaceEditCapability.Value.Value?.ChangeAnnotationSupport is not null;
 
+        // A rename that touches more than one .feature file crosses file boundaries the user may
+        // not have anticipated from a single step's rename prompt — ask the client to confirm
+        // before applying, if it renders that confirmation (see WorkspaceEditBuilder's shape
+        // negotiation; unsupported clients never see this flag).
+        var featureFileCount = usages.Select(u => u.FeatureDocumentId).Distinct().Count();
+
         var builder = new WorkspaceEditBuilder(supportsChangeAnnotations);
         builder.DeclareAnnotation(RenameChangeAnnotations.Feature,
-            new ChangeAnnotation { Label = $"Rename step usages → \"{effectiveNewName}\"" });
+            new ChangeAnnotation
+            {
+                Label = $"Rename step usages → \"{effectiveNewName}\"",
+                NeedsConfirmation = featureFileCount > 1
+            });
         builder.DeclareAnnotation(RenameChangeAnnotations.Binding,
             new ChangeAnnotation { Label = "Update step-definition attribute" });
 
