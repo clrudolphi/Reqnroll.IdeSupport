@@ -47,6 +47,7 @@ public sealed class StepRenameHandler
     private readonly IOperationDurationRecorder    _recorder;
     private readonly CSharpAttributeLiteralResolver _attributeLiteralResolver;
     private readonly RenameBindingResolver         _bindingResolver;
+    private readonly NewNameReconciler             _nameReconciler;
 
     /// <summary>Initializes a new instance of the <see cref="StepRenameHandler"/> class.</summary>
     public StepRenameHandler(
@@ -76,6 +77,7 @@ public sealed class StepRenameHandler
         _recorder        = recorder ?? NullOperationDurationRecorder.Instance;
         _attributeLiteralResolver = new CSharpAttributeLiteralResolver(csharpFileTextCache, documentBuffer, logger);
         _bindingResolver = new RenameBindingResolver(matchService, scopeManager, _sessionManager, logger);
+        _nameReconciler  = new NewNameReconciler(logger);
     }
 
     // ── textDocument/prepareRename ──────────────────────────────────────────────
@@ -309,54 +311,14 @@ public sealed class StepRenameHandler
         var sourceLiteral = await _attributeLiteralResolver.FindAttributeLiteralAsync(uri, binding);
         var sourceExpression = sourceLiteral?.Token.ValueText ?? expression;
 
-        // A .feature-triggered rename can arrive in two shapes, both via the same
-        // textDocument/rename call, with no protocol-level way to tell them apart:
-        //  - VS Code's native F2 seeds the dialog via prepareRename's whole-line range, so
-        //    `newName` comes back as concrete step text (real parameter values, e.g.
-        //    "I have 10 cukes" rather than "I have {int} cukes"). Comparing that straight
-        //    against the abstract expression always trips ValidateNewName's parameter-count
-        //    check, silently discarding every rename of a parameterized step.
-        //  - VS's custom "Rename Step" command builds its own prompt seeded with the binding's
-        //    abstract expression (RenameStepCommand.cs), so `newName` already carries the
-        //    correct placeholder syntax and needs no reconciliation — attempting it anyway would
-        //    fail to find any parameter "value" to locate in already-abstract text and wrongly
-        //    reject a rename that never needed fixing up.
-        // Try the abstract form first (matching parameter-slot count against the live source
-        // expression); only when that count differs do we attempt to derive the abstract
-        // expression by diffing the edited concrete text against the original.
-        var effectiveNewName = newName;
-        if (path.EndsWith(".feature", StringComparison.OrdinalIgnoreCase) &&
-            StepExpressionParameters.ExtractSlots(newName).Count != StepExpressionParameters.ExtractSlots(sourceExpression).Count)
-        {
-            var currentUsage = usages.FirstOrDefault(u =>
-                string.Equals(u.FeatureDocumentId, uri.ToString(), StringComparison.OrdinalIgnoreCase) &&
-                u.Range != null &&
-                request.Position.Line >= u.Range.ToLspRange().Start.Line &&
-                request.Position.Line <= u.Range.ToLspRange().End.Line);
-
-            var oldStepText = currentUsage?.Range != null
-                ? ReadStepText(uri, currentUsage.Range.ToLspRange())
-                : null;
-
-            if (oldStepText == null)
-            {
-                // Can't read the pre-edit step text (buffer and disk both unavailable) — fall
-                // back to treating newName as-is, same as before this reconciliation existed.
-                _logger.LogVerbose("StepRenameHandler: could not read original step text for the edited position — using newName as-is");
-            }
-            else
-            {
-                var derived = FeatureStepTextBuilder.DeriveExpressionFromEditedText(sourceExpression, oldStepText, newName);
-                if (derived == null)
-                {
-                    _logger.LogVerbose("StepRenameHandler: could not reconcile edited step text with the binding's parameter positions — the parameter values, not just the wording, appear to have changed");
-                    return null;
-                }
-
-                effectiveNewName = derived;
-                _logger.LogVerbose($"StepRenameHandler: derived abstract expression '{effectiveNewName}' from edited step text '{newName}'");
-            }
-        }
+        // Reconciles concrete step text (VS Code's native F2) against the binding's abstract
+        // expression (VS's "Rename Step" command) — see NewNameReconciler.Reconcile for the full
+        // rationale. Null means the edited text couldn't be reconciled with the binding's
+        // parameter positions; the rename is rejected.
+        var effectiveNewName = _nameReconciler.Reconcile(
+            path, uri, request.Position, usages, sourceExpression, newName, ReadStepText);
+        if (effectiveNewName == null)
+            return null;
 
         // ── 3. Validate new name ───────────────────────────────────────────────
         var nameError = StepRenameValidator.ValidateNewName(expression, effectiveNewName);
