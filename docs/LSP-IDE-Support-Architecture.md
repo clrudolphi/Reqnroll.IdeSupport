@@ -922,6 +922,8 @@ This section records key architectural decisions and the alternatives that were 
 
 **Risk acknowledged**: OmniSharp.Extensions.LanguageServer is a community library, not a Microsoft-owned product. If it becomes unmaintained, the migration path is to `Microsoft.VisualStudio.LanguageServer.Protocol` with a thin handler layer. This risk is accepted because `LSP.Core` business logic is insulated from the framework layer by the MediatR notification boundary — switching the framework would not require rewriting Gherkin parsing, binding discovery, or matching logic.
 
+**Protocol version ceiling**: `OmniSharp.Extensions.LanguageServer` 0.19.9 implements up to **LSP 3.17** — verified by inspecting the shipped DLL's protocol types and converters. Any feature introduced in **LSP 3.18 or later** is not modelled by the library at all: the server would need hand-rolled request/response DTOs and JSON converters (no `OnRequest<T,>` base-class support to build on), rather than the "already modelled, no custom DTO plumbing" pattern every implemented feature in this document has relied on so far. This is a hard capability boundary, not a configuration choice — confirmed concretely by [Q19](LSP-IDE-Support-Open-Questions.md), where the library's pull-diagnostics (LSP 3.17+) *write*-side JSON converters turned out to be `NotImplementedException` stubs even though the request shape itself is nominally 3.17. Any future feature proposal that depends on a 3.18+ protocol addition must budget for that custom DTO work up front, or evaluate the [alternatives above](#102--omnisharpextensionslanguageserver-vs-alternatives) instead.
+
 ---
 
 ### 10.3 · MediatR vs. Direct Service Calls for Internal Events
