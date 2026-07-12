@@ -184,6 +184,9 @@ public static class ServiceCollectionExtensions
             .AddSingleton<CommentToggleHandler>()
             .AddSingleton<StepRenameHandler>()
             .AddSingleton<RenameSessionManager>()
+            .AddSingleton<RenameBindingResolver>()
+            .AddSingleton<CSharpAttributeLiteralResolver>()
+            .AddSingleton<RenameTargetsHandler>()
             .AddSingleton<FeatureInlayHintHandler>()
             .AddSingleton<SetTraceNotificationHandler>();
     }

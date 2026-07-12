@@ -116,6 +116,38 @@ public sealed class RenameStepsSteps
             $"a text edit for '{fileName}' should contain '{expectedText}'");
     }
 
+    // ── Then: change-annotation assertions (issue #70) ─────────────────────────
+
+    [Then("the workspace edit uses annotated document changes")]
+    public void ThenTheWorkspaceEditUsesAnnotatedDocumentChanges()
+    {
+        _ctx.LastRenameEdit.Should().NotBeNull("the server should return a WorkspaceEdit for a valid rename");
+        _ctx.LastRenameEdit!.Changes.Should().BeNull(
+            "a client that negotiated change-annotation support should get DocumentChanges, not the legacy Changes map");
+        _ctx.LastRenameEdit.DocumentChanges.Should().NotBeNullOrEmpty();
+        _ctx.LastRenameEdit.DocumentChanges!.Should().OnlyContain(c =>
+            c.TextDocumentEdit!.Edits.All(e => e is AnnotatedTextEdit));
+        _ctx.LastRenameEdit.ChangeAnnotations.Should().NotBeNullOrEmpty(
+            "every AnnotatedTextEdit's annotation id must resolve in the ChangeAnnotations catalogue");
+    }
+
+    [Then(@"the annotated workspace edit changes to ""(.*)"" include new text ""(.*)""")]
+    public void ThenAnnotatedWorkspaceEditChangesIncludeNewText(string fileName, string expectedText)
+    {
+        _ctx.LastRenameEdit.Should().NotBeNull();
+        var docChanges = _ctx.LastRenameEdit!.DocumentChanges;
+        docChanges.Should().NotBeNullOrEmpty();
+
+        var edits = docChanges!
+            .Where(c => c.TextDocumentEdit!.TextDocument.Uri.ToString().EndsWith(fileName, StringComparison.OrdinalIgnoreCase))
+            .SelectMany(c => c.TextDocumentEdit!.Edits)
+            .ToList();
+
+        edits.Should().Contain(
+            e => e.NewText.Contains(expectedText, StringComparison.OrdinalIgnoreCase),
+            $"an annotated text edit for '{fileName}' should contain '{expectedText}'");
+    }
+
     // ── Then: rename targets assertions ────────────────────────────────────────
 
     [Then(@"(\d+) rename target(?:s are|s is| is| are) returned")]

@@ -207,6 +207,39 @@ Scenario: Rename is not available for an undefined step in a .feature file
     When prepare rename is requested at line 2 column 9 in "UndefinedRename.feature"
     Then no prepare rename range is returned
 
+# ── Change-annotation negotiation (issue #70) ──────────────────────────────────
+# A client advertising LSP 3.16 documentChanges + changeAnnotationSupport (e.g. VS Code) gets
+# a grouped, labelled rename preview instead of the legacy Changes map. See
+# docs/Rename-ChangeAnnotations-Implementation-Plan.md.
+
+Scenario: A client that supports change annotations receives an annotated DocumentChanges edit
+    Given the LSP client supports rename change annotations
+    When the project is announced with output assembly "Sample.dll" for "Annotated.feature"
+    And the C# step definition file "Steps.cs" is opened and saved to disk with
+        """
+        using Reqnroll;
+        namespace Sample
+        {
+            [Binding]
+            public class Steps
+            {
+                [When("I press add")]
+                public void WhenIPressAdd() { }
+            }
+        }
+        """
+    And the feature file "Annotated.feature" is opened with
+        """
+        Feature: Annotated
+        Scenario: Add
+            When I press add
+        """
+    Then the feature step "I press add" is reported as bound
+    When rename is requested at line 7 column 20 in "Steps.cs" with new name "I choose add"
+    Then the workspace edit uses annotated document changes
+    And the annotated workspace edit changes to "Steps.cs" include new text "I choose add"
+    And the annotated workspace edit changes to "Annotated.feature" include new text "I choose add"
+
 # ── Multi-attribute method: rename targets picker ─────────────────────────────
 
 Scenario: A method with multiple step attributes returns one rename target per attribute

@@ -56,10 +56,10 @@ public sealed class LspScenarioContext
     public DocumentUri UriFor(string relativeName)
         => DocumentUri.FromFileSystemPath(Path.Combine(WorkspaceFolder, relativeName));
 
-    public async Task EnsureStartedAsync(string? ideId = null)
+    public async Task EnsureStartedAsync(string? ideId = null, bool supportsChangeAnnotations = false)
     {
         if (Started) return;
-        await Harness.StartAsync(WorkspaceFolder, ideId).ConfigureAwait(false);
+        await Harness.StartAsync(WorkspaceFolder, ideId, supportsChangeAnnotations).ConfigureAwait(false);
         Started = true;
     }
 

@@ -30,7 +30,7 @@ Supporting analysis: the OmniSharp library tops out at **LSP 3.17** (`OmniSharp.
 - [ ] Move each remaining plan's "Risks & open questions" into the design doc's deferred/known-limitations sections, resolved or carried forward. — folded into [#134](https://github.com/reqnroll/Reqnroll.IdeSupport/issues/134) / [#135](https://github.com/reqnroll/Reqnroll.IdeSupport/issues/135)
 
 ### 2. `LSP-IDE-Support-Architecture.md` (module/component inventory)
-- [ ] Register new components: `WorkspaceEditBuilder`, `GherkinInlayHintService` + `FeatureInlayHintHandler`. — [#134](https://github.com/reqnroll/Reqnroll.IdeSupport/issues/134) / [#135](https://github.com/reqnroll/Reqnroll.IdeSupport/issues/135)
+- [ ] Register new components: `WorkspaceEditBuilder`, `GherkinInlayHintService` + `FeatureInlayHintHandler`. The rename pipeline was further decomposed in #139/#140 — `StepRenameHandler` now delegates to `CSharpAttributeLiteralResolver`, `RenameBindingResolver`, `NewNameReconciler`, `RenamePostApplyCoordinator`, and `RenameTargetsHandler`; the component inventory should reflect this split, not just the single handler. — [#134](https://github.com/reqnroll/Reqnroll.IdeSupport/issues/134) / [#135](https://github.com/reqnroll/Reqnroll.IdeSupport/issues/135)
 - [x] ~~Note the diagnostics transport change (push → push/pull negotiated)~~ — N/A, diagnostics stay push-only; abandonment is already noted in Open-Questions Q19.
 - [ ] Record the **library ceiling = LSP 3.17** fact and the implication that 3.18+ features require custom DTOs. — [#136](https://github.com/reqnroll/Reqnroll.IdeSupport/issues/136)
 
