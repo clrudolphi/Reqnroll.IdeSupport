@@ -66,12 +66,12 @@ class ReqnrollDocumentActivationSync : ProjectActivity {
 }
 
 /** Ported verbatim from DocumentActivationState.cs's four-phase design — see that file's remarks. */
-private enum class DocumentActivationPhase { NOT_SEEN, OPENED, ACTIVATION_PENDING, ACTIVATED }
+internal enum class DocumentActivationPhase { NOT_SEEN, OPENED, ACTIVATION_PENDING, ACTIVATED }
 
-private enum class DocumentActivationAction { NONE, SEND_NOW }
+internal enum class DocumentActivationAction { NONE, SEND_NOW }
 
 /** Thread-safe per-file state machine tracking whether a document-activation notification is still owed. */
-private class DocumentActivationState {
+internal class DocumentActivationState {
     private val lock = Any()
     private val phases = HashMap<String, DocumentActivationPhase>()
 

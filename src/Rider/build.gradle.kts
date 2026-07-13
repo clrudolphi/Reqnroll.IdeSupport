@@ -20,10 +20,20 @@ dependencies {
         rider(providers.gradleProperty("platformVersion"))
         instrumentationTools()
     }
+
+    // Plain JUnit5 (kotlin.test assertions on the JUnit5 engine) for pure-logic unit tests that
+    // don't need an IntelliJ Platform fixture — see src/test/kotlin. Platform-fixture tests
+    // (BasePlatformTestCase) would need intellijPlatform { testFramework(TestFrameworkType.Platform) }
+    // instead/additionally; not needed yet since nothing under test touches the platform directly.
+    testImplementation(kotlin("test-junit5"))
 }
 
 kotlin {
     jvmToolchain(21)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 intellijPlatform {
