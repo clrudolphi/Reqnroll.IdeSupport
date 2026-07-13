@@ -98,7 +98,11 @@ repo, and point Gradle at it exactly the way CI does).
 5. First run downloads the Rider platform SDK (large, one-time). A sandboxed Rider
    window should eventually appear on the Windows desktop via WSLg.
 6. Open/create a small scratch project containing a `.feature` file to trigger
-   `ReqnrollLspServerSupportProvider.fileOpened`. Confirm the server actually started:
+   `ReqnrollLspServerSupportProvider.fileOpened`. Create it under
+   `/workspaces/rider-samples` (a dedicated named volume, mounted in
+   `devcontainer.json`) rather than anywhere under the repo checkout — it persists
+   across container rebuilds the same way the repo does, but stays outside the git
+   working tree entirely. Confirm the server actually started:
    - the LSP status widget / "Language Servers" view in Rider should list "Reqnroll";
    - `ps aux | grep Reqnroll.IdeSupport.LSP.Server` inside the container should show
      the process running;

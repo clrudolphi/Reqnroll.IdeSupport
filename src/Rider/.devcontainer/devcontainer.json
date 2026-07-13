@@ -17,7 +17,16 @@
     // the UNC form that actually works. Update "Ubuntu" below if your
     // distro is named differently.
     "source=\\\\wsl.localhost\\Ubuntu\\mnt\\wslg,target=/mnt/wslg,type=bind",
-    "source=reqnroll-gradle-cache,target=/root/.gradle,type=volume"
+    "source=reqnroll-gradle-cache,target=/root/.gradle,type=volume",
+    // Scratch home for ad hoc sample Reqnroll .NET projects created while manually
+    // testing the plugin in a running Rider sandbox. Deliberately a named volume
+    // outside the repo bind mount (rather than a gitignored folder under
+    // /workspaces/Reqnroll.IdeSupport): it persists across "Rebuild Container" the
+    // same way the repo itself does, but stays completely outside the git working
+    // tree — no risk of `git status` noise, `git clean` wiping test projects, or one
+    // slipping into a commit by accident. Sits alongside the repo checkout under
+    // /workspaces so it's just as easy to reach from Rider's Open dialog.
+    "source=reqnroll-rider-samples,target=/workspaces/rider-samples,type=volume"
   ],
   "customizations": {
     "vscode": {
