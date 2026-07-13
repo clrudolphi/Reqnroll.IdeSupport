@@ -4,6 +4,15 @@
 * text=auto
 
 ###############################################################################
+# Force LF regardless of platform autocrlf settings for files whose shebang or
+# execution model breaks under CRLF (checking these out with CRLF on Windows,
+# as `* text=auto` + a Windows core.autocrlf=true would otherwise do, produces
+# "bad interpreter" errors when run from Linux/WSL/devcontainers).
+###############################################################################
+*.sh text eol=lf
+gradlew text eol=lf
+
+###############################################################################
 # Set default behavior for command prompt diff.
 #
 # This is need for earlier builds of msysgit that does not have it on by
