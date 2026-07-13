@@ -1,0 +1,29 @@
+// src/Rider/.devcontainer/devcontainer.json
+{
+  "name": "reqnroll-rider-plugin",
+  "build": {
+    "dockerfile": "../docker/dev.Dockerfile",
+    "context": ".."
+  },
+  "containerEnv": {
+    // WSLg's DISPLAY is typically ":0" — confirm with `echo $DISPLAY`
+    // in Step 1 and adjust if yours differs.
+    "DISPLAY": ":0"
+  },
+  "mounts": [
+    // Docker Desktop's docker.exe is Windows-native, so bind-mount sources
+    // must be paths Windows can resolve — a bare "/mnt/wslg" fails with
+    // "bind source path does not exist". \\wsl.localhost\<distro>\... is
+    // the UNC form that actually works. Update "Ubuntu" below if your
+    // distro is named differently.
+    "source=\\\\wsl.localhost\\Ubuntu\\mnt\\wslg,target=/mnt/wslg,type=bind",
+    "source=reqnroll-gradle-cache,target=/root/.gradle,type=volume"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "fwcd.kotlin"
+      ]
+    }
+  }
+}

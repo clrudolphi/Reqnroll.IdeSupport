@@ -1,0 +1,33 @@
+<idea-plugin>
+  <id>com.reqnroll.ide.rider</id>
+  <name>Reqnroll</name>
+  <vendor url="https://github.com/reqnroll/Reqnroll.IdeSupport">Reqnroll</vendor>
+
+  <description>
+<![CDATA[
+Reqnroll language support for Rider: Gherkin feature files and C# step-binding
+navigation, backed by the Reqnroll.IdeSupport LSP server.
+]]>
+  </description>
+
+  <depends>com.intellij.modules.platform</depends>
+  <depends>com.intellij.modules.rider</depends>
+  <!-- Not `com.intellij.modules.lsp` — that module ID isn't registered in Rider's
+       distribution (confirmed via runIde: "requires plugin 'com.intellij.modules.lsp'
+       to be installed" with no such plugin found). The com.intellij.platform.lsp.api.*
+       classes used below are part of the core platform artifact and don't sit behind
+       a separate module dependency. -->
+
+
+  <extensions defaultExtensionNs="com.intellij">
+    <platform.lsp.serverSupportProvider
+        implementation="com.reqnroll.ide.rider.lsp.ReqnrollLspServerSupportProvider" />
+
+    <fileType
+        name="Reqnroll Feature"
+        implementationClass="com.reqnroll.ide.rider.ReqnrollFeatureFileType"
+        fieldName="INSTANCE"
+        language="Reqnroll Feature"
+        extensions="feature" />
+  </extensions>
+</idea-plugin>
