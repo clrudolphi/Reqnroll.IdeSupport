@@ -32,5 +32,6 @@ navigation, backed by the Reqnroll.IdeSupport LSP server.
 
     <postStartupActivity implementation="com.reqnroll.ide.rider.lsp.project.ReqnrollRunnableProjectsListener" />
     <postStartupActivity implementation="com.reqnroll.ide.rider.lsp.project.ReqnrollProjectFilesSync" />
+    <postStartupActivity implementation="com.reqnroll.ide.rider.lsp.project.ReqnrollDocumentActivationSync" />
   </extensions>
 </idea-plugin>
