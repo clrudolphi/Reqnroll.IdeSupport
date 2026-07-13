@@ -77,13 +77,22 @@ public class ConnectorBindingRegistryProviderTests : IDisposable
     {
         // Discovery returns the last-good registry with the same (empty) hash → no swap.
         GivenDiscoveryReturns(ProjectBindingRegistry.Invalid, string.Empty);
+        var telemetry = Substitute.For<ILspTelemetryService>();
 
-        var sut = CreateSut();
+        // The hash-noop branch always ends in a telemetry send (see
+        // TriggerRefresh_emits_hash_noop_telemetry_when_hash_unchanged below) — the only
+        // synchronous signal available to wait on for "the debounced run has fully settled"
+        // in this no-swap path, since BindingRegistryChanged never fires here by design.
+        var settled = new TaskCompletionSource();
+        telemetry.When(t => t.SendEvent(Arg.Any<string>(), Arg.Any<Dictionary<string, object?>>()))
+            .Do(_ => settled.TrySetResult());
+
+        var sut = CreateSutWithTelemetry(telemetry);
         var raised = false;
         sut.BindingRegistryChanged += (_, _) => raised = true;
 
         sut.TriggerRefresh();
-        await Task.Delay(1200); // past the 500 ms debounce + run
+        await Task.WhenAny(settled.Task, Task.Delay(5000));
 
         raised.Should().BeFalse();
         sut.Current.Should().BeSameAs(ProjectBindingRegistry.Invalid);
@@ -284,10 +293,13 @@ namespace S
     {
         GivenDiscoveryReturns(ProjectBindingRegistry.Invalid, string.Empty);
         var telemetry = Substitute.For<ILspTelemetryService>();
+        var sent = new TaskCompletionSource();
+        telemetry.When(t => t.SendEvent(Arg.Any<string>(), Arg.Any<Dictionary<string, object?>>()))
+            .Do(_ => sent.TrySetResult());
 
         var sut = CreateSutWithTelemetry(telemetry);
         sut.TriggerRefresh();
-        await Task.Delay(1200);
+        await Task.WhenAny(sent.Task, Task.Delay(5000));
 
         telemetry.Received(1).SendEvent(
             "Reqnroll Discovery executed",
@@ -337,10 +349,13 @@ namespace S
                 Arg.Any<CancellationToken>())
             .Returns(_ => throw new InvalidOperationException("connector boom"));
         var telemetry = Substitute.For<ILspTelemetryService>();
+        var sent = new TaskCompletionSource();
+        telemetry.When(t => t.SendEvent(Arg.Any<string>(), Arg.Any<Dictionary<string, object?>>()))
+            .Do(_ => sent.TrySetResult());
 
         var sut = CreateSutWithTelemetry(telemetry);
         sut.TriggerRefresh();
-        await Task.Delay(1200); // past the 500 ms debounce + run
+        await Task.WhenAny(sent.Task, Task.Delay(5000));
 
         telemetry.Received(1).SendEvent(
             "Reqnroll Discovery executed",
