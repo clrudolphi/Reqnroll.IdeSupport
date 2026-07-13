@@ -398,6 +398,8 @@ This means the Protocol Handler is responsible for the initial synchronous state
 | `StepRenameHandler` | `textDocument/prepareRename`, `textDocument/rename` |
 | `StepCodeLensHandler` | `textDocument/codeLens`, `codeLens/resolve` |
 
+> **As-built note (rename change annotations)**: `StepRenameHandler` builds its `WorkspaceEdit` response through `WorkspaceEditBuilder` (`Features/Rename/`), which negotiates per-request whether the client advertised LSP 3.16 change-annotation support (`documentChanges` + `changeAnnotationSupport` in `ClientSettings.Capabilities.Workspace.WorkspaceEdit`) and emits either an annotated `DocumentChanges` edit (grouped/labelled preview — VS Code) or the legacy `Changes` map (VS, which never advertises `changeAnnotationSupport`). `RenameChangeAnnotations` holds the two annotation-id constants (`reqnroll.rename.feature`, `reqnroll.rename.binding`); `RenamePostApplyCoordinator` handles what happens after the edit is built — pushing it to VS via a genuine `workspace/applyEdit` (VS's rename pipe swallows the handler's return value) and invalidating the match cache for closed `.feature` files the edit touched. See [Feature Designs — Rename change annotations as-built](LSP-IDE-Support-Feature-Designs.md#rename-change-annotations---as-built) and [docs/Rename-ChangeAnnotations-Implementation-Plan.md](Rename-ChangeAnnotations-Implementation-Plan.md).
+
 **Key internal MediatR notifications** and the handlers that consume them:
 
 | Notification | Produced by | Consumed by |
