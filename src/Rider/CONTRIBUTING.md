@@ -8,15 +8,16 @@ the server directly over stdio.
 
 ## First-time setup
 
-The Gradle wrapper jar isn't committed (binary blob). Bootstrap it once, then use
-`./gradlew` for everything after:
+The Gradle wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/`) is committed, pinned to
+8.10 — just use `./gradlew` directly, no bootstrap step needed.
 
-```
-gradle wrapper --gradle-version 8.10
-```
-
-Inside the provided dev container (`.devcontainer/devcontainer.json`), a system `gradle`
-is preinstalled for exactly this step.
+If the wrapper ever needs regenerating (e.g. bumping the Gradle version), do it from
+inside the dev container, which has a system `gradle` preinstalled for exactly that:
+`gradle wrapper --gradle-version <version>`. **Don't** use that system `gradle` for
+anything else — the container/CI runner's system Gradle version can be materially ahead
+of what `build.gradle.kts` is written against (e.g. Gradle 9's `Project.exec()` /
+Kotlin-DSL changes broke this script when CI briefly evaluated it under a system Gradle
+9.6.1 instead of the committed wrapper's 8.10).
 
 ## Build / run
 

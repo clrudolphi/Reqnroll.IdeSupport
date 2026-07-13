@@ -98,7 +98,11 @@ val publishServer by tasks.registering(Exec::class) {
         // Restore the Connector project for this RID first — it's multi-TFM and doesn't
         // resolve correctly as part of the Server's own restore. Same requirement as
         // src/VSCode/scripts/publish-server.sh.
-        exec {
+        // `project.exec` (not bare `exec`) — this task is itself an `Exec` task, which has its
+        // own no-arg `exec(): Unit` member that shadows the `Project.exec(Action)` extension;
+        // the unqualified name resolves to that member and fails to compile ("too many
+        // arguments") under some Gradle/Kotlin-DSL combinations.
+        project.exec {
             commandLine("dotnet", "restore", connectorProject.toString(), "--runtime", serverRid)
         }
     }
