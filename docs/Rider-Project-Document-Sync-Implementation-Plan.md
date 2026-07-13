@@ -13,7 +13,15 @@
 > `projectLoaded`/`projectUnloaded` via a single reactive-property subscription, simpler than
 > originally planned (see §5). `./gradlew verifyPlugin` now passes for real against two actual
 > Rider versions — fixed a genuine Marketplace-rule violation (plugin ID contained "rider")
-> along the way. Phase 3+ (file membership, tab activation) not started.
+> along the way.
+> **Phases 3 and 4 also complete** (2026-07-13) — `ReqnrollProjectFilesSync` sends
+> `projectFiles` baselines/deltas (folder-prefix attribution, not a full `ProjectModelEntity`
+> traversal — deliberate scope reduction, see §5); `ReqnrollDocumentActivationSync` ports VS's
+> `DocumentActivationState` state machine verbatim, driven by `FileEditorManagerListener` instead
+> of raw LSP-pipe interception (which doesn't exist on Rider). All four `reqnroll/*` lifecycle
+> notifications now have working client-side glue, verified via `compileKotlin`/`buildPlugin`/
+> `verifyPlugin`/`test` inside the devcontainer. **Not yet verified end-to-end against a live
+> server connection** — no `runIde` session driven this round; see §6.
 > **Audience:** Core team contributors picking up Rider glue work after the skeleton (`src/Rider`).
 > **Supersedes:** Risk **R1 · Rider Custom Notification Transport** in
 > [Porting-to-VSCode-Rider-Analysis.md](Porting-to-VSCode-Rider-Analysis.md) — that risk asked
@@ -261,15 +269,37 @@ server needs exact format parity. `packageReferences` stays empty (§3.3's `proj
 follow-up, not yet implemented). Verified via `compileKotlin`/`buildPlugin`/`verifyPlugin`/`test`
 inside the devcontainer.
 
-**Phase 3 — File membership** (`reqnroll/projectFiles`):
-- `AsyncFileListener` for individual add/remove/rename (the issue #32 gap VS specifically had to
-  add `IVsTrackProjectDocumentsEvents2` for) → deltas.
-- Baseline send alongside each `projectLoaded` (mirrors `TrySendProjectFilesAsync` being called
-  right after `TrySendProjectLoadedAsync`).
+**Phase 3 — File membership — COMPLETE (2026-07-13).** `ReqnrollProjectFilesSync`
+(`lsp/project/`), a separate `ProjectActivity` from Phase 2's listener even though both
+subscribe to the same `runnableProjectsModel.projects` property (kept self-contained rather
+than sharing state). Sends a baseline on every `advise` firing (same "fires immediately +
+on every recompute" property Phase 2 relies on) and tracks individual add/remove/rename via
+`VirtualFileManager.addAsyncFileListener`, sending deltas.
+**Deliberate scope reduction:** project attribution is longest-matching-folder-prefix
+(mirrors VS's own `VsProjectEventMonitor.FindProjectContaining`), not a full
+`ProjectModelEntity`/`WorkspaceModel` traversal — that class's traversal semantics (linked
+files? `Compile Remove` exclusions?) were confirmed to exist but not fully verified, and
+guessing wrong there risks sending *incorrect* data, worse than this honest approximation.
+So Phase 3 delivers the "real-time file-event refresh" half of `projectFiles`'s value, not
+yet the full linked/excluded-file correctness half (VS's issue #32 concern) — revisit with
+`ProjectModelEntity` if that turns out to matter in practice.
 
-**Phase 4 — Document activation** (`reqnroll/documentActivated`):
-- `FileEditorManagerListener.selectionChanged`, filtered to `.feature` files.
-- Port `DocumentActivationState`'s dedup logic verbatim.
+**Phase 4 — Document activation — COMPLETE (2026-07-13).** `ReqnrollDocumentActivationSync`
+ports `DocumentActivationState`'s four-phase dedup state machine verbatim. Driven by
+`FileEditorManagerListener.fileOpened`/`fileClosed`/`selectionChanged` rather than raw
+`textDocument/didOpen`/`didClose` pipe observation (VS's approach — no such hook exists on
+Rider), on the assumption the platform's generic LSP client sends the real `didOpen`/
+`didClose` in lockstep with these editor events. Notification URI built via
+`VirtualFileManager.constructUrl("file", URLUtil.encodePath(path))`, confirmed by decompiling
+`LspServerDescriptor.getFileUri`'s actual bytecode to be the platform's own construction —
+not a hand-rolled string, so it matches whatever URI format the same file's `didOpen` used.
+
+Two more real Kotlin/API mistakes caught by compiling rather than eyeballing (Phase 3):
+`@Volatile` cannot annotate a local variable (used `AtomicReference` instead, shared between
+the `advise` callback and the `AsyncFileListener` callback on a different thread);
+`AsyncFileListener.ChangeApplier` has two default methods and zero abstract ones in the
+decompiled bytecode, so it isn't SAM-convertible (needed a real anonymous `object`, not a
+lambda). Phase 4 compiled successfully on the first try.
 
 ---
 
