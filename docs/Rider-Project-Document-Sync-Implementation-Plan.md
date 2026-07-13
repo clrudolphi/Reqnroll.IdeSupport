@@ -8,8 +8,12 @@
 > **Phase 1 also complete** (2026-07-13) — `ReqnrollLanguageServer`, the Kotlin protocol DTOs,
 > `ReqnrollNotificationSender`, and the `lsp4jServerClass` wiring all exist and compile/build
 > successfully (`./gradlew compileKotlin`/`buildPlugin`, verified for real inside the
-> devcontainer, not just eyeballed). Phase 2+ (actual event sources — project/file/tab
-> listeners) not started.
+> devcontainer, not just eyeballed).
+> **Phase 2 also complete** (2026-07-13) — `ReqnrollRunnableProjectsListener` sends
+> `projectLoaded`/`projectUnloaded` via a single reactive-property subscription, simpler than
+> originally planned (see §5). `./gradlew verifyPlugin` now passes for real against two actual
+> Rider versions — fixed a genuine Marketplace-rule violation (plugin ID contained "rider")
+> along the way. Phase 3+ (file membership, tab activation) not started.
 > **Audience:** Core team contributors picking up Rider glue work after the skeleton (`src/Rider`).
 > **Supersedes:** Risk **R1 · Rider Custom Notification Transport** in
 > [Porting-to-VSCode-Rider-Analysis.md](Porting-to-VSCode-Rider-Analysis.md) — that risk asked
@@ -238,10 +242,24 @@ analysis's R5 "~70 lines" estimate for this piece specifically):
   container to verify this phase.
 - Nothing calls `ReqnrollNotificationSender` yet — that's Phases 2-4 (the actual event sources).
 
-**Phase 2 — Project lifecycle** (size depends entirely on Phase 0 finding #2):
-- `ModuleListener`/`WorkspaceModel` subscription → `projectLoaded`/`projectUnloaded`.
-- Initial flush on project open (mirrors `SendInitialProjectsAsync`).
-- Full resend on build-completion signal (Phase 0 finding #3 determines the mechanism).
+**Phase 2 — Project lifecycle — COMPLETE (2026-07-13).** Turned out simpler than planned:
+rather than separate `WorkspaceModel`/`ModuleListener` + a distinct build-completion listener,
+`ReqnrollRunnableProjectsListener` (a `ProjectActivity`, `lsp/project/`) subscribes once to
+`project.solution.runnableProjectsModel.projects` (an RD `IOptProperty`, confirmed via decompiling
+Rider 2024.3.5's actual classes — `RunnableProjectsModel`/`SolutionHostExtensionsKt`). A single
+`advise` call covers all three original bullet points: it fires immediately with the current
+value on subscribe (initial flush — no separate `SendInitialProjectsAsync`-equivalent needed),
+and again whenever Rider's backend recomputes the model, including after a build (no separate
+build-completion listener needed either — this resolves Phase 0 finding #3 differently than
+guessed: `RunnableProjectListener` turned out to be Rider's own *internal* gutter-icon-refresh
+listener, not a public extension point). Project removal is detected by diffing full-list
+snapshots against the previous one, since `advise` has no per-item add/remove callback.
+`RunnableProject`/`ProjectOutput`/`RdTargetFrameworkId` supply `projectFile`/`outputAssemblyPath`
+directly; `targetFrameworkMoniker` uses `RdTargetFrameworkId.shortName` (e.g. `net8.0`) since
+Rider's model has no classic-MSBuild-moniker field — flagged as a possible follow-up if the
+server needs exact format parity. `packageReferences` stays empty (§3.3's `project.assets.json`
+follow-up, not yet implemented). Verified via `compileKotlin`/`buildPlugin`/`verifyPlugin`/`test`
+inside the devcontainer.
 
 **Phase 3 — File membership** (`reqnroll/projectFiles`):
 - `AsyncFileListener` for individual add/remove/rename (the issue #32 gap VS specifically had to
@@ -281,6 +299,8 @@ Extends the existing TODO list in `src/Rider/CONTRIBUTING.md`:
 | **R4** | Degraded-but-functional fallback (folder-prefix membership, no reflection discovery) may already be "good enough" for common cases, making this lower priority than it looks. | Confirm via manual testing in the sample project (`/workspaces/rider-samples`) whether symptoms are actually visible before investing Phase 1-4 effort. |
 | **R5** | No dedicated Rider model class found for NuGet package references (new, from Phase 0). | Read `obj/project.assets.json` from disk instead of hunting for a Rider API — see §3.3. |
 | **R6** | Whether Reqnroll test projects actually appear in Rider's `RunnableProject` list (new, from Phase 0) — `RunnableProjectKind` is backend-supplied, not a static enum, so this can't be confirmed without running it. | Log `RunnableProject.kind.name` for the sample project in Phase 1; if test projects are excluded, will need a different/additional Rider API for non-runnable project enumeration. |
+| **R7** | `verifyPlugin` (Phase 2, real run) flags every LSP API this plugin uses (`LspServerManager`, `LspServerDescriptor`, `LspServerSupportProvider`, and their methods) as `@Experimental` — "can be changed in a future release leading to incompatibilities." | Not actionable now (it's the whole LSP API surface, no stable alternative exists). Just means: re-run `verifyPlugin` after any Rider SDK version bump in `gradle.properties`, since an experimental API is exactly where breakage would show up first. |
+| **R8** | `RdTargetFrameworkId` has no classic MSBuild moniker field (".NETCoreApp,Version=v8.0") — only `shortName` ("net8.0") and `presentableName` (".NET 8.0"). Currently sends `shortName` for `targetFrameworkMoniker`. | Confirm whether the server's reflection-based binding discovery actually needs the classic format or just uses this field as an opaque grouping key once there's a real server round-trip to test against (Phase 3/4 or later). |
 
 ---
 
