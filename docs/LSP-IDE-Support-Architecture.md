@@ -402,6 +402,8 @@ This means the Protocol Handler is responsible for the initial synchronous state
 | `StepRenameHandler` | `textDocument/prepareRename`, `textDocument/rename` |
 | `StepCodeLensHandler` | `textDocument/codeLens`, `codeLens/resolve` |
 
+> **As-built note (rename change annotations)**: `StepRenameHandler` builds its `WorkspaceEdit` response through `WorkspaceEditBuilder` (`Features/Rename/`), which negotiates per-request whether the client advertised LSP 3.16 change-annotation support (`documentChanges` + `changeAnnotationSupport` in `ClientSettings.Capabilities.Workspace.WorkspaceEdit`) and emits either an annotated `DocumentChanges` edit (grouped/labelled preview — VS Code) or the legacy `Changes` map (VS, which never advertises `changeAnnotationSupport`). `RenameChangeAnnotations` holds the two annotation-id constants (`reqnroll.rename.feature`, `reqnroll.rename.binding`); `RenamePostApplyCoordinator` handles what happens after the edit is built — pushing it to VS via a genuine `workspace/applyEdit` (VS's rename pipe swallows the handler's return value) and invalidating the match cache for closed `.feature` files the edit touched. See [Feature Designs — Rename change annotations as-built](LSP-IDE-Support-Feature-Designs.md#rename-change-annotations---as-built) and [docs/Rename-ChangeAnnotations-Implementation-Plan.md](Rename-ChangeAnnotations-Implementation-Plan.md).
+
 **Key internal MediatR notifications** and the handlers that consume them:
 
 | Notification | Produced by | Consumed by |
@@ -925,6 +927,8 @@ This section records key architectural decisions and the alternatives that were 
 | Build from scratch | Not justified given OmniSharp's maturity and the community's existing familiarity with it |
 
 **Risk acknowledged**: OmniSharp.Extensions.LanguageServer is a community library, not a Microsoft-owned product. If it becomes unmaintained, the migration path is to `Microsoft.VisualStudio.LanguageServer.Protocol` with a thin handler layer. This risk is accepted because `LSP.Core` business logic is insulated from the framework layer by the MediatR notification boundary — switching the framework would not require rewriting Gherkin parsing, binding discovery, or matching logic.
+
+**Protocol version ceiling**: `OmniSharp.Extensions.LanguageServer` 0.19.9 implements up to **LSP 3.17** — verified by inspecting the shipped DLL's protocol types and converters. Any feature introduced in **LSP 3.18 or later** is not modelled by the library at all: the server would need hand-rolled request/response DTOs and JSON converters (no `OnRequest<T,>` base-class support to build on), rather than the "already modelled, no custom DTO plumbing" pattern every implemented feature in this document has relied on so far. This is a hard capability boundary, not a configuration choice — confirmed concretely by [Q19](LSP-IDE-Support-Open-Questions.md), where the library's pull-diagnostics (LSP 3.17+) *write*-side JSON converters turned out to be `NotImplementedException` stubs even though the request shape itself is nominally 3.17. Any future feature proposal that depends on a 3.18+ protocol addition must budget for that custom DTO work up front, or evaluate the [alternatives above](#102--omnisharpextensionslanguageserver-vs-alternatives) instead.
 
 ---
 

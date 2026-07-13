@@ -131,8 +131,8 @@ For the detailed internals of each component — the parsing/discovery/matching 
 |-------|----------|------------------|
 | **1 · Basic Syntax Coloring** | F1 (Semantic Tokens) | Architecture validated: LSP server startup, client wiring (all 3 IDEs), `--client` flag, static vs. dynamic registration, CI pipeline |
 | **2 · Minimum Viable** | F2 (Binding Discovery), F3+F4 (Diagnostics), F5 (Go to Definition), F6 (Define Steps), F19 (Wizards) | Core value loop: developer can write feature files, get feedback on unmatched steps, navigate to or create bindings; VS wizard enables quick project setup |
-| **3 · Editor Quality** | F7 (Keyword Completion), F9 (Outline), F10 (Folding), F11 (Formatting), F12 (Table Format), F13 (Comment/Uncomment), F17 (Hook Navigation), F20 (Install/Upgrade UX) | Extension is a credible replacement for daily use |
-| **4 · Advanced Navigation** | F8 (Step Completion), F14 (Find Usages), F15 (Find Unused), F16 (Rename), F18 (Code Lens) | Feature parity with existing VS extension; Preview designation can be lifted |
+| **3 · Editor Quality** | F7 (Keyword Completion), F9 (Outline), F10 (Folding), F11 (Formatting), F12 (Table Format), F13 (Comment/Uncomment), F17 (Hook Navigation), F20 (Install/Upgrade UX), F23 (Inlay Hints) | Extension is a credible replacement for daily use |
+| **4 · Advanced Navigation** | F8 (Step Completion), F14 (Find Usages), F15 (Find Unused), F16 (Rename, incl. change-annotation previews on supporting clients), F18 (Code Lens) | Feature parity with existing VS extension; Preview designation can be lifted |
 
 ---
 
@@ -148,9 +148,13 @@ Each uses a distinct marketplace identifier, coexisting with the existing `Reqnr
 **Coexistence**: The existing `Reqnroll.VisualStudio` extension continues unchanged throughout the Preview period. Both extensions can be installed simultaneously in Visual Studio without conflict (they use different GUIDs and do not share any in-process components).
 
 **Transition trigger**: The Preview designation is lifted and the new extension is promoted as the recommended extension when:
-- Phase 4 parity is achieved (all F1–F20 features passing)
+- Phase 4 parity is achieved (all F1–F20 features passing, plus F23 Inlay Hints)
 - The E2E test suite passes against the supported IDE versions
 - The new extension has been in Preview use by the core team for at least one release cycle
+
+**Cross-client capability story — Rename change annotations and Inlay Hints**: both features are implemented, but their user-visible richness differs by client rather than being uniformly "done":
+- **Rename change annotations** (extends F16): VS Code and Rider negotiate the LSP 3.16 `changeAnnotationSupport` capability and get a grouped, labelled rename preview. Visual Studio does not advertise `changeAnnotationSupport` and negotiates down to the legacy `Changes`-shaped edit — renames apply silently, exactly as before this feature existed, with no regression. See [Feature Designs — Rename change annotations as-built](LSP-IDE-Support-Feature-Designs.md#rename-change-annotations---as-built).
+- **Inlay Hints (F23)**: `textDocument/inlayHint` is a standard pull feature all three clients support, per the plan's Phase-0 capability verification. Visual Studio additionally requires the user to enable inline hints display in the editor (Tools → Options → Text Editor); the extension does not force this setting on. See [Feature Designs — F23 as-built](LSP-IDE-Support-Feature-Designs.md#f23--inlay-hints-step-binding-info).
 
 **Deprecation of the existing extension**: After promotion, `Reqnroll.VisualStudio` is marked deprecated in the Visual Studio Marketplace. A marketplace description update and a welcome notification in the existing extension direct users to install the new one. The existing extension continues to receive critical bug fixes for one additional release cycle, then enters maintenance-only mode.
 

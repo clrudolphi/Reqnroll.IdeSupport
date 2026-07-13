@@ -34,9 +34,11 @@ public class InlayHintRefreshHandlerTests
     public async Task Handle_sends_refresh_when_the_client_supports_it()
     {
         SetRefreshSupport(true);
+        var sent = new TaskCompletionSource();
+        _languageServer.Client.When(c => c.SendRequest(Arg.Any<string>())).Do(_ => sent.TrySetResult());
 
         await CreateSut().Handle(new MatchCacheChangedNotification(DocumentUri.From("file:///f.feature"), 1), CancellationToken.None);
-        await Task.Delay(700); // past the 500ms debounce window
+        await Task.WhenAny(sent.Task, Task.Delay(5000));
 
         _languageServer.Client.Received(1).SendRequest(WorkspaceNames.InlayHintRefresh);
     }
@@ -67,13 +69,15 @@ public class InlayHintRefreshHandlerTests
     public async Task Handle_debounces_bursts_into_a_single_refresh()
     {
         SetRefreshSupport(true);
+        var sent = new TaskCompletionSource();
+        _languageServer.Client.When(c => c.SendRequest(Arg.Any<string>())).Do(_ => sent.TrySetResult());
 
         var uri = DocumentUri.From("file:///f.feature");
         var sut = CreateSut();
         await sut.Handle(new MatchCacheChangedNotification(uri, 1), CancellationToken.None);
         await sut.Handle(new MatchCacheChangedNotification(uri, 2), CancellationToken.None);
         await sut.Handle(new MatchCacheChangedNotification(uri, 3), CancellationToken.None);
-        await Task.Delay(700);
+        await Task.WhenAny(sent.Task, Task.Delay(5000));
 
         _languageServer.Client.Received(1).SendRequest(WorkspaceNames.InlayHintRefresh);
     }
