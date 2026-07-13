@@ -144,11 +144,26 @@ JVM across the same OSes VS Code does:
 - macOS: `~/Library/Logs/Reqnroll`
 - Linux: `~/.local/share/Reqnroll`
 
-## Testing (TODO — not yet written)
+## Testing
 
-- `ReqnrollServerPathResolver` — plain JUnit, no platform fixture needed: RID selection
-  for each `(os.name, os.arch)` combination, correct binary name per OS, and the error
-  message when the binary is missing.
+Pure-logic tests (no IntelliJ Platform fixture needed) are written — `kotlin("test-junit5")`
+is wired into `build.gradle.kts`, `./gradlew test` runs them:
+
+- `ReqnrollServerPathResolverTest` — RID/binary-name selection for each `(os.name, os.arch)`
+  combination. The resolver's RID logic is `internal` and explicitly parameterized
+  (`rid(osName, osArch)`, `isWindows(osName)`, `binaryName(osName)`) specifically so this
+  doesn't need to mutate real `System` properties.
+- `ProjectFileRoleTest` — `.feature`/`.cs` classification, case-insensitivity, untracked
+  extensions falling back to `null`.
+- `DocumentActivationStateTest` — every phase transition from the ported
+  `DocumentActivationState.cs`, including the issue #85 activation-before-open ordering and
+  the close/reopen reset.
+- `ReqnrollSemanticTokensSupportTest` — every one of the 11 `reqnroll.*` legend types actually
+  has a `TextAttributesKey` mapping (guards against silently losing color for a type if the
+  legend grows and the mapping isn't updated to match).
+
+**Still TODO — needs a platform fixture** (`intellijPlatform { testFramework(TestFrameworkType.Platform) }`,
+not wired in yet):
 - `ReqnrollLspServerSupportProvider.fileOpened` — `BasePlatformTestCase` with a
   fake/spy `LspServerStarter`, asserting `ensureServerStarted` is (or isn't) called for
   `.feature`/`.cs` vs. other extensions.
@@ -158,10 +173,11 @@ JVM across the same OSes VS Code does:
   resolves to `ReqnrollFeatureFileType`/`ReqnrollFeatureLanguage` at runtime (catches
   `plugin.xml` wiring typos that `verifyPlugin` doesn't, since that only checks API
   compatibility).
+- `ReqnrollRunnableProjectsListener`/`ReqnrollProjectFilesSync`/`ReqnrollDocumentActivationSync`
+  — each needs a real `Project`/`RunnableProjectsModel`/`FileEditorManager` fixture to test the
+  event-wiring itself (the pure logic each delegates to — `ProjectFileRole.classify`,
+  `DocumentActivationState` — is already covered above).
 - Deferred: a full end-to-end functional test (real Rider sandbox, open a `.feature`
-  file, confirm the LSP connection comes up) — expensive, and there isn't much
-  Rider-specific behavior to protect yet. Revisit once there's a PSI reference provider
-  or similar genuinely Rider-side logic.
-- Adding these requires `testFramework(TestFrameworkType.Platform)` in
-  `build.gradle.kts`'s `dependencies { intellijPlatform { ... } }` block (not present
-  yet) plus a `src/test/kotlin` source set.
+  file, confirm the LSP connection comes up and `reqnroll/*` notifications actually arrive)
+  — expensive; revisit once there's been at least one live `runIde` verification pass to
+  know what "working" looks like concretely.
