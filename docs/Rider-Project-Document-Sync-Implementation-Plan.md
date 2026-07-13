@@ -4,8 +4,12 @@
 > the actual bytecode of Rider 2024.3.5's bundled `product.jar`/`intellij.rider.jar` inside the
 > devcontainer's Gradle cache (`javap`/`unzip -l`), not just JetBrains' public docs or `master`
 > branch source — those reflect a materially newer, not-yet-released API (`LspClientDescriptor`,
-> `LspClient`, a distinct `Lsp4jServer` type) that **does not exist in 2024.3.5 at all**. Phase 1+
-> not started.
+> `LspClient`, a distinct `Lsp4jServer` type) that **does not exist in 2024.3.5 at all**.
+> **Phase 1 also complete** (2026-07-13) — `ReqnrollLanguageServer`, the Kotlin protocol DTOs,
+> `ReqnrollNotificationSender`, and the `lsp4jServerClass` wiring all exist and compile/build
+> successfully (`./gradlew compileKotlin`/`buildPlugin`, verified for real inside the
+> devcontainer, not just eyeballed). Phase 2+ (actual event sources — project/file/tab
+> listeners) not started.
 > **Audience:** Core team contributors picking up Rider glue work after the skeleton (`src/Rider`).
 > **Supersedes:** Risk **R1 · Rider Custom Notification Transport** in
 > [Porting-to-VSCode-Rider-Analysis.md](Porting-to-VSCode-Rider-Analysis.md) — that risk asked
@@ -217,13 +221,22 @@ Port verbatim (logic is IDE-agnostic):
 Net effect: this plan is meaningfully smaller than originally estimated (no RD protocol work), and
 Phase 1 can start directly instead of blocking on further research.
 
-**Phase 1 — Transport plumbing** (small, ~50-70 lines Kotlin, matches the original porting
+**Phase 1 — Transport plumbing — COMPLETE (2026-07-13)** (matches the original porting
 analysis's R5 "~70 lines" estimate for this piece specifically):
-- `ReqnrollLanguageServer` interface (§3.1).
-- Wire it into `ReqnrollLspServerDescriptor` via `lsp4jServerClass`.
-- Kotlin DTOs mirroring §3.2's table.
-- A thin "send if connected, log+swallow if not" wrapper (mirrors VS's `TrySend*Async` try/catch
-  pattern) using `ReqnrollDebugLogger` for failures.
+- ✅ `ReqnrollLanguageServer` interface (§3.1) — `lsp/protocol/ReqnrollLanguageServer.kt`.
+- ✅ Wired into `ReqnrollLspServerDescriptor` via `override val lsp4jServerClass`.
+- ✅ Kotlin DTOs mirroring §3.2's table — `lsp/protocol/ReqnrollProtocolTypes.kt`. `kind`/`role`
+  ended up as plain `Int` rather than Kotlin enums — LSP4J's Gson serializer defaults enums to
+  name-as-string, which wouldn't match the server's integer-based wire format.
+- ✅ A thin "send if connected, log+swallow if not" wrapper — `lsp/ReqnrollNotificationSender.kt`,
+  using `ReqnrollDebugLogger` for failures.
+- Verified for real via `./gradlew compileKotlin` and `buildPlugin` inside the devcontainer, not
+  just eyeballed — caught a real bug this way: block comments nest in Kotlin, so literal
+  `reqnroll/*` text inside a KDoc comment opened an unterminated nested comment, silently
+  swallowing the rest of the file. Also fixed `gradlew`'s CRLF line-ending corruption
+  (`.gitattributes` now pins it to LF) discovered while trying to run `./gradlew` in the
+  container to verify this phase.
+- Nothing calls `ReqnrollNotificationSender` yet — that's Phases 2-4 (the actual event sources).
 
 **Phase 2 — Project lifecycle** (size depends entirely on Phase 0 finding #2):
 - `ModuleListener`/`WorkspaceModel` subscription → `projectLoaded`/`projectUnloaded`.
