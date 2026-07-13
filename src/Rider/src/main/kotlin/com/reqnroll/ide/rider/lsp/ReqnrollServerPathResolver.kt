@@ -10,7 +10,9 @@ import java.nio.file.Path
  * (see src/VSCode/src/extension.ts resolveServerPath).
  */
 object ReqnrollServerPathResolver {
-    private val PLUGIN_ID = PluginId.getId("com.reqnroll.ide.rider")
+    // Marketplace plugin ID (gradle.properties' `pluginId`) — deliberately not
+    // "com.reqnroll.ide.rider": the Plugin Verifier rejects IDs containing "rider".
+    private val PLUGIN_ID = PluginId.getId("com.reqnroll.idesupport")
 
     fun resolve(): Path {
         val plugin = PluginManagerCore.getPlugin(PLUGIN_ID)

@@ -28,7 +28,7 @@ kotlin {
 
 intellijPlatform {
     pluginConfiguration {
-        id = providers.gradleProperty("pluginGroup")
+        id = providers.gradleProperty("pluginId")
         name = "Reqnroll"
         version = providers.gradleProperty("pluginVersion")
 
