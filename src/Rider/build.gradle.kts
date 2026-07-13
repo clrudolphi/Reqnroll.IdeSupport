@@ -37,6 +37,15 @@ intellijPlatform {
             untilBuild = providers.gradleProperty("pluginUntilBuild")
         }
     }
+
+    // `recommended()` picks IDE versions from the sinceBuild/untilBuild range above.
+    // Without this block, `verifyPlugin` fails immediately with "No IDE resolved for
+    // verification" — there's nothing implicit to verify against.
+    pluginVerification {
+        ides {
+            recommended()
+        }
+    }
 }
 
 // ── Bundle the Reqnroll.IdeSupport LSP server ───────────────────────────────
