@@ -4,8 +4,10 @@ import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor
+import com.intellij.platform.lsp.api.customization.LspSemanticTokensSupport
 import com.reqnroll.ide.rider.logging.ReqnrollDebugLogger
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollLanguageServer
+import com.reqnroll.ide.rider.lsp.semantictokens.ReqnrollSemanticTokensSupport
 import org.eclipse.lsp4j.services.LanguageServer
 
 class ReqnrollLspServerDescriptor(project: Project) :
@@ -16,6 +18,13 @@ class ReqnrollLspServerDescriptor(project: Project) :
     // must opt in explicitly. FeatureDefinitionHandler/GoToStepDefinitionsHandler
     // implement it server-side. Hover isn't implemented server-side, so left disabled.
     override val lspGoToDefinitionSupport: Boolean = true
+
+    // Without this, Rider's platform default only colors the LSP *standard* token type
+    // vocabulary (confirmed by decompiling LspSemanticTokensSupport.getTextAttributesKey — a
+    // fixed switch over ~23 hardcoded names) and silently ignores our custom `reqnroll.*`
+    // names — same class of problem VS's built-in colorizer has. See
+    // com/reqnroll/ide/rider/lsp/semantictokens/ReqnrollSemanticTokensSupport.kt.
+    override val lspSemanticTokensSupport: LspSemanticTokensSupport = ReqnrollSemanticTokensSupport()
 
     // Adds the reqnroll-prefixed client-to-server notifications (ReqnrollNotificationSender) on top
     // of the standard LanguageServer interface. Confirmed against Rider 2024.3.5's actual
