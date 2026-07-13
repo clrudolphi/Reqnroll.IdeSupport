@@ -2,6 +2,7 @@ package com.reqnroll.ide.rider.lsp.project
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.rd.createLifetime
+import com.intellij.openapi.rd.util.RdCoroutineHost
 import com.intellij.openapi.startup.ProjectActivity
 import com.jetbrains.rider.model.RunnableProject
 import com.jetbrains.rider.model.runnableProjectsModel
@@ -11,6 +12,7 @@ import com.reqnroll.ide.rider.lsp.ReqnrollNotificationSender
 import com.reqnroll.ide.rider.lsp.protocol.PackageReferenceInfo
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollProjectLoadedParams
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollProjectUnloadedParams
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
@@ -37,22 +39,29 @@ class ReqnrollRunnableProjectsListener : ProjectActivity {
         val lifetime = project.createLifetime()
         val knownProjectFiles = mutableSetOf<String>()
 
-        project.solution.runnableProjectsModel.projects.advise(lifetime) { runnableProjects ->
-            val current = runnableProjects.orEmpty()
-            val currentFiles = current.map { it.projectFilePath }.toSet()
+        // RD reactive properties assert they're advised from the UI thread or a scheduler the RD
+        // dispatcher itself recognizes — a plain background ProjectActivity coroutine is neither,
+        // and .advise() throws IllegalStateException("Wrong thread ...") without this. Confirmed
+        // by decompiling Rider 2024.3.5's actual RdCoroutineHost class that .uiDispatcher is the
+        // correct RD-aware context for exactly this.
+        withContext(RdCoroutineHost.instance.uiDispatcher) {
+            project.solution.runnableProjectsModel.projects.advise(lifetime) { runnableProjects ->
+                val current = runnableProjects.orEmpty()
+                val currentFiles = current.map { it.projectFilePath }.toSet()
 
-            (knownProjectFiles - currentFiles).forEach { removedFile ->
-                ReqnrollDebugLogger.info("projectUnloaded: $removedFile")
-                ReqnrollNotificationSender.sendProjectUnloaded(project, ReqnrollProjectUnloadedParams(removedFile))
+                (knownProjectFiles - currentFiles).forEach { removedFile ->
+                    ReqnrollDebugLogger.info("projectUnloaded: $removedFile")
+                    ReqnrollNotificationSender.sendProjectUnloaded(project, ReqnrollProjectUnloadedParams(removedFile))
+                }
+
+                current.forEach { runnableProject ->
+                    ReqnrollDebugLogger.info("projectLoaded: ${runnableProject.projectFilePath}")
+                    ReqnrollNotificationSender.sendProjectLoaded(project, buildProjectLoadedParams(project, runnableProject))
+                }
+
+                knownProjectFiles.clear()
+                knownProjectFiles.addAll(currentFiles)
             }
-
-            current.forEach { runnableProject ->
-                ReqnrollDebugLogger.info("projectLoaded: ${runnableProject.projectFilePath}")
-                ReqnrollNotificationSender.sendProjectLoaded(project, buildProjectLoadedParams(project, runnableProject))
-            }
-
-            knownProjectFiles.clear()
-            knownProjectFiles.addAll(currentFiles)
         }
     }
 

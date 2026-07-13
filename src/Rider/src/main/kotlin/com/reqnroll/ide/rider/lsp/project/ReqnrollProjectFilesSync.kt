@@ -2,6 +2,7 @@ package com.reqnroll.ide.rider.lsp.project
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.rd.createLifetime
+import com.intellij.openapi.rd.util.RdCoroutineHost
 import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.openapi.vfs.AsyncFileListener
 import com.intellij.openapi.vfs.VirtualFileManager
@@ -18,6 +19,7 @@ import com.reqnroll.ide.rider.lsp.protocol.ProjectFileEntry
 import com.reqnroll.ide.rider.lsp.protocol.ProjectFileRole
 import com.reqnroll.ide.rider.lsp.protocol.ProjectFilesKind
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollProjectFilesParams
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
@@ -49,16 +51,21 @@ class ReqnrollProjectFilesSync : ProjectActivity {
 
         val lifetime = project.createLifetime()
 
-        project.solution.runnableProjectsModel.projects.advise(lifetime) { runnableProjects ->
-            val projects = runnableProjects.orEmpty()
-            projectFolders.set(
-                projects
-                    .map { (File(it.projectFilePath).parent ?: "") to it.projectFilePath }
-                    .sortedByDescending { it.first.length }
-            )
+        // See ReqnrollRunnableProjectsListener's identical wrapping for why: RD reactive
+        // properties assert an RD-recognized thread, which a plain background ProjectActivity
+        // coroutine is not.
+        withContext(RdCoroutineHost.instance.uiDispatcher) {
+            project.solution.runnableProjectsModel.projects.advise(lifetime) { runnableProjects ->
+                val projects = runnableProjects.orEmpty()
+                projectFolders.set(
+                    projects
+                        .map { (File(it.projectFilePath).parent ?: "") to it.projectFilePath }
+                        .sortedByDescending { it.first.length }
+                )
 
-            projects.forEach { runnableProject ->
-                sendBaseline(project, runnableProject.projectFilePath)
+                projects.forEach { runnableProject ->
+                    sendBaseline(project, runnableProject.projectFilePath)
+                }
             }
         }
 
