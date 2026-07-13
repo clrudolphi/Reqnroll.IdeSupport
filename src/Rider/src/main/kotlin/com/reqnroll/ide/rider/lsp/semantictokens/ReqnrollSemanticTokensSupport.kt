@@ -75,8 +75,14 @@ class ReqnrollSemanticTokensSupport : LspSemanticTokensSupport() {
                 "REQNROLL_STEP_PARAMETER", DefaultLanguageHighlighterColors.PARAMETER),
             ReqnrollSemanticTokenTypes.SCENARIO_OUTLINE_PLACEHOLDER to TextAttributesKey.createTextAttributesKey(
                 "REQNROLL_SCENARIO_OUTLINE_PLACEHOLDER", DefaultLanguageHighlighterColors.INSTANCE_FIELD),
+            // WARNINGS_ATTRIBUTES (a background-fill style) was the original choice, but it
+            // renders close enough to the IDE's own caret-row highlight to be confusing when the
+            // undefined step also happens to be the active line — confirmed via live testing
+            // (2026-07-13). ERRORS_ATTRIBUTES (squiggly-underline style) is visually distinct from
+            // any row-background highlight, and a better semantic fit anyway: an undefined step
+            // genuinely will fail at runtime, not just a soft warning.
             ReqnrollSemanticTokenTypes.UNDEFINED_STEP to TextAttributesKey.createTextAttributesKey(
-                "REQNROLL_UNDEFINED_STEP", CodeInsightColors.WARNINGS_ATTRIBUTES),
+                "REQNROLL_UNDEFINED_STEP", CodeInsightColors.ERRORS_ATTRIBUTES),
             ReqnrollSemanticTokenTypes.AMBIGUOUS_STEP to TextAttributesKey.createTextAttributesKey(
                 "REQNROLL_AMBIGUOUS_STEP", CodeInsightColors.WEAK_WARNING_ATTRIBUTES),
         )
