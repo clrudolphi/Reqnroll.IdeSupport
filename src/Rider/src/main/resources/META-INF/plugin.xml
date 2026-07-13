@@ -1,5 +1,5 @@
 <idea-plugin>
-  <id>com.reqnroll.ide.rider</id>
+  <id>com.reqnroll.idesupport</id>
   <name>Reqnroll</name>
   <vendor url="https://github.com/reqnroll/Reqnroll.IdeSupport">Reqnroll</vendor>
 
