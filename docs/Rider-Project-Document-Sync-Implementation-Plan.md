@@ -1,6 +1,11 @@
 # Rider Client-Side Project & Document Lifecycle Sync — Implementation Plan
 
-> **Status:** Design only — not started.
+> **Status:** Phase 0 spike complete (2026-07-13) — see §5 and §7. Findings verified against
+> the actual bytecode of Rider 2024.3.5's bundled `product.jar`/`intellij.rider.jar` inside the
+> devcontainer's Gradle cache (`javap`/`unzip -l`), not just JetBrains' public docs or `master`
+> branch source — those reflect a materially newer, not-yet-released API (`LspClientDescriptor`,
+> `LspClient`, a distinct `Lsp4jServer` type) that **does not exist in 2024.3.5 at all**. Phase 1+
+> not started.
 > **Audience:** Core team contributors picking up Rider glue work after the skeleton (`src/Rider`).
 > **Supersedes:** Risk **R1 · Rider Custom Notification Transport** in
 > [Porting-to-VSCode-Rider-Analysis.md](Porting-to-VSCode-Rider-Analysis.md) — that risk asked
@@ -42,12 +47,20 @@ need their own UI-action wiring (Rider `AnAction`s) — a separate, later plan.
 ## 2. What we already confirmed (no further research needed)
 
 - **No generic send-anything API.** `com.intellij.platform.lsp.api.LspServer`/`LspServerManager`
-  expose no `sendNotification(method, params)`. Confirmed against the platform source
-  (`platform/lsp/src/api/LspServer.kt`, `LspServerManager.kt`).
-- **Typed custom-notification path exists and is documented.** Per JetBrains' own LSP docs: override
-  `LspServerDescriptor.lsp4jServerClass` with a custom interface extending LSP4J's base
-  `LanguageServer`, annotating additional methods with `@JsonNotification`/`@JsonRequest`. The
-  platform hands back a typed proxy for that interface. This is the mechanism §3.1 designs against.
+  expose no `sendNotification(method, params)` overload taking a raw method name. Confirmed against
+  the platform source and — decisively — against Rider 2024.3.5's actual decompiled
+  `LspServer`/`LspServerManager` classes (§3.1).
+- **Typed custom-notification path exists, verified against the real 2024.3.5 bytecode, not just
+  docs.** `LspServerDescriptor.lsp4jServerClass: Class<out LanguageServer>` is a genuine, overridable
+  property in the exact bundled `product.jar`. `LspServer.sendNotification(lambda)` and
+  `LspServer.getLsp4jServer(): LanguageServer` both exist as real methods. Full mechanism in §3.1 —
+  no longer an "open question."
+- **`LspServerDescriptor`/`ProjectWideLspServerDescriptor` are NOT deprecated at 2024.3.5** — despite
+  JetBrains' current `master` branch marking them `@Deprecated` in favor of `LspClientDescriptor`.
+  That replacement class, along with `LspClient` and a distinct `Lsp4jServer` type, **does not exist
+  in 2024.3.5's bundled jars at all** (confirmed by extracting and listing every class under
+  `com/intellij/platform/lsp/api/` in `product.jar` — only the classes this plan uses are present).
+  No migration concern for the `sinceBuild`/`untilBuild` range this plugin currently targets.
 - **No pipe/middleware interception** (established in prior work on this plugin) — so unlike VS's
   `LspInterceptingPipe`, this can't be layered in as a message-stream interceptor. It has to be
   independent Kotlin listener code calling the typed proxy directly, parallel to (not wrapping)
@@ -80,18 +93,31 @@ interface ReqnrollLanguageServer : LanguageServer {
 ```
 
 `ReqnrollLspServerDescriptor` overrides `lsp4jServerClass` to return
-`ReqnrollLanguageServer::class.java` instead of the platform default. Once the server connects, the
-descriptor (or a service holding a reference to it) exposes the typed proxy so the event-watcher
-classes in §3.3 can call `server.projectLoaded(...)` etc. directly — no JSON string-building by
-hand, unlike VS's `JsonConvert.SerializeObject(paramsObj, ...)` + raw pipe write (that pattern
-exists there only because VS intercepts at the raw-pipe level; here LSP4J's proxy handles
-serialization for us, which is strictly less code).
+`ReqnrollLanguageServer::class.java` instead of the platform default.
 
-**Open question:** exactly how a Kotlin class obtains the live proxy instance for an
-already-`ensureServerStarted`-ed descriptor isn't yet confirmed against 2024.3's exact API surface
-(candidates: a property on `LspServer`, or storing the proxy from a `createLsp4jClient()`-adjacent
-callback). Resolve this in Phase 0 (§5) before building anything on top of it — it's the load-bearing
-fact the rest of the design depends on.
+**Sending, verified against Rider 2024.3.5's actual decompiled classes** (`javap -p` output, not
+guessed):
+
+```kotlin
+val servers = LspServerManager.getInstance(project)
+    .getServersForProvider(ReqnrollLspServerSupportProvider::class.java)
+
+servers.forEach { server ->
+    server.sendNotification { lsp4jServer ->
+        (lsp4jServer as ReqnrollLanguageServer).projectLoaded(params)
+    }
+}
+```
+
+`LspServerManager.getInstance(project).getServersForProvider(...)` returns the
+`Collection<LspServer>` started by our provider; `LspServer.sendNotification(lambda: (LanguageServer)
+-> Unit)` is a real method on the real interface (confirmed: `public abstract void
+sendNotification(kotlin.jvm.functions.Function1<...>)` in the decompiled
+`com/intellij/platform/lsp/api/LspServer.class`). `LspServer` also exposes a direct
+`getLsp4jServer(): LanguageServer` getter as an alternative to the lambda form. No JSON
+string-building by hand, unlike VS's `JsonConvert.SerializeObject(paramsObj, ...)` + raw pipe write
+(that pattern exists there only because VS intercepts at the raw-pipe level; here LSP4J's proxy
+handles serialization for us).
 
 ### 3.2 Payload mapping
 
@@ -120,21 +146,37 @@ single-file operations don't raise solution/build events at all, issue #32). Rid
 | VS source | Fires on | Confirmed Rider/IntelliJ equivalent |
 |---|---|---|
 | `SolutionEvents.Opened`/`AfterClosing` | Solution open/close | `ProjectManagerListener` (generic IntelliJ Platform, not Rider-specific) — confirmed to exist. |
-| `SolutionEvents.ProjectAdded`/`ProjectRemoved` | Project add/remove | IntelliJ's `WorkspaceModel`/`ModuleListener` — generic IntelliJ Platform API, exists. Whether it carries enough .NET-specific data (TFM, package refs) is the open question, not whether the add/remove event itself exists. |
-| `BuildEvents.OnBuildDone` | Any build/rebuild completes | **Unconfirmed for Rider.** Candidates: a Rider-specific build-event listener (if the .NET backend exposes one to the frontend), or fall back to VS Code's approach — a file watcher on `**/bin/**/*.dll` (`VirtualFileManager.addAsyncFileListener`) as a proxy for "a build happened." Needs Phase 0 research. |
+| `SolutionEvents.ProjectAdded`/`ProjectRemoved` | Project add/remove | `com.jetbrains.rider.run.configurations.RunnableProjectListener` — confirmed to exist in `intellij.rider.jar` (Rider-specific, not generic IntelliJ Platform). Exact firing semantics (add/remove vs. any recompute) not yet empirically confirmed — verify in Phase 1 by logging every event it delivers against the sample project. |
+| `BuildEvents.OnBuildDone` | Any build/rebuild completes | Same `RunnableProjectListener` is the leading candidate — `RunnableProject`/`ProjectOutput` (below) are recomputed data that plausibly refreshes post-build, same purpose as VS's full-resend-on-build-done. Not yet empirically confirmed; if it doesn't fire on rebuild specifically, fall back to VS Code's `**/bin/**/*.dll` watcher approach. |
 | `IVsTrackProjectDocumentsEvents2` (add/remove/rename) | Single-file Solution Explorer ops | `VirtualFileListener`/`AsyncFileListener` (generic IntelliJ Platform, `VirtualFileManager.addAsyncFileListener`) — confirmed to exist and fire for individual file add/remove/rename, matching the "no solution/build event" gap issue #32 called out. |
 | `WindowEvents.WindowActivated` (filtered to `.feature` docs) | Tab switch | `FileEditorManagerListener.selectionChanged` — confirmed to exist, standard IntelliJ Platform editor-tab API. Directly analogous; likely simpler than VS's DTE `Window`/`Document` COM traversal. |
 
-**The one real unknown is `ReqnrollProjectLoadedParams`'s rich fields** (`outputAssemblyPath`,
-`targetFrameworkMoniker`, `defaultNamespace`, `packageReferences`). VS gets these from a real
-Visual Studio Project System; VS Code has none and shells out to `dotnet msbuild` for evaluation
-(`msbuildEvaluator.ts`). Rider's actual .NET project model lives in its .NET backend process (the
-same "ReSharperHost" process that needed `libicu`/`libssl` to start under the dev container — see
-`src/Rider/CONTRIBUTING.md`'s manual-verification section) — whether that data is already reflected into something
-the Kotlin/JVM frontend can read directly (Rider's frontend project-view/module bridge), or whether
-it requires defining custom RD protocol models (the `protocol/` Gradle submodule pattern seen in
-Thomas Heijtink's sample plugin, not present in our skeleton) to pull backend-only data across, is
-**not yet confirmed** and is this plan's biggest risk (§7 R1).
+**`ReqnrollProjectLoadedParams`'s rich fields — resolved, mostly good news.** Confirmed by
+decompiling the actual bundled model classes (`com.jetbrains.rider.model.RunnableProject`,
+`ProjectOutput`, `RdTargetFrameworkId` in `product.jar`) — these are **already-generated classes
+shipped inside the Rider SDK itself**, consumable as ordinary Kotlin classes via the existing
+`intellijPlatform { rider(...) }` Gradle dependency. **No custom RD protocol submodule needed** —
+this was the plan's single biggest named risk (old R1) and it does not materialize:
+
+- `RunnableProject`: `projectFilePath`, `name`, `fullName`, `kind: RunnableProjectKind`,
+  `projectOutputs: List<ProjectOutput>` → covers `projectFile` directly.
+- `ProjectOutput`: `tfm: RdTargetFrameworkId`, `exePath: String`, `workingDirectory`,
+  `configuration` → covers `targetFrameworkMoniker` and `outputAssemblyPath` directly.
+- **Open sub-item (small, not blocking):** whether a typical Reqnroll test project (an MSTest/NUnit/
+  xUnit host) is categorized under a `RunnableProjectKind` that actually appears in Rider's runnable-
+  project list — `RunnableProjectKind` wraps a plain `name: String` set dynamically by the backend,
+  not a fixed compile-time enum, so this can't be confirmed by more static class inspection. Confirm
+  empirically in Phase 1 by logging `RunnableProject.kind.name` for the sample project.
+- **Package references (NuGet) — no dedicated Rider model class found** in `product.jar` or the
+  `dotCommon`/`rider-nuget`-adjacent plugin jars searched. Recommendation: don't keep hunting for a
+  Rider-specific API — read `obj/<project>.csproj.nuget.g.props` / `obj/project.assets.json` directly
+  from disk instead (produced by `dotnet restore`, IDE-agnostic, reliable). This is arguably the
+  better design regardless of editor, since it sidesteps the question entirely.
+- **File membership** (`reqnroll/projectFiles`, all `.feature`/`.cs` files per project):
+  `com.jetbrains.rider.projectView.workspace.ProjectModelEntity` confirmed to exist in the SDK;
+  exact traversal API not fully mapped in this pass — reasonable to defer to Phase 3 implementation
+  rather than block Phase 0 further, since the class's existence already answers "is this reachable
+  without RD protocol authoring" (yes).
 
 ### 3.4 Reuse from `VsProjectEventMonitor`/`VsProjectPayloadBuilder`
 
@@ -159,20 +201,21 @@ Port verbatim (logic is IDE-agnostic):
 
 ## 5. Phased implementation plan
 
-**Phase 0 — Research spike (do first, blocks everything else):**
-1. Confirm how to obtain the live `ReqnrollLanguageServer` proxy from a running
-   `ReqnrollLspServerDescriptor` instance (§3.1 open question).
-2. Confirm what Rider's frontend project model actually exposes for a .NET project — specifically
-   whether TFM/package-references/output-assembly-path are already bridged into IntelliJ's generic
-   `Module`/`WorkspaceModel` for Rider projects, or whether accessing them requires the RD protocol
-   (custom `protocol/` submodule + generated model classes). This single finding determines whether
-   Phase 2 is "read some existing API" (small) or "define + wire an RD protocol model" (large,
-   comparable in size to `ImplicitReferenceProvider` from the original porting estimate).
-3. Confirm whether Rider exposes a build-completion event to the frontend, or whether the
-   `**/bin/**/*.dll` file-watcher fallback (VS Code's approach) is necessary.
+**Phase 0 — Research spike — COMPLETE (2026-07-13):**
+1. ✅ **Resolved.** Transport confirmed by decompiling Rider 2024.3.5's actual `product.jar`:
+   `LspServerManager.getInstance(project).getServersForProvider(...)` →
+   `LspServer.sendNotification { (it as ReqnrollLanguageServer).projectLoaded(params) }`. See §3.1.
+2. ✅ **Resolved, favorably.** Rider's frontend already ships generated project-model classes
+   (`RunnableProject`/`ProjectOutput`/`RdTargetFrameworkId`) covering TFM + output assembly path —
+   **no RD protocol submodule needed.** Package references need a disk-read fallback
+   (`project.assets.json`) instead of a Rider API. See §3.3.
+3. 🟡 **Partially resolved.** `RunnableProjectListener` is a strong, confirmed-to-exist candidate for
+   the build-completion/project-add-remove signal, but exact firing semantics need empirical
+   confirmation in Phase 1 (log every event against the sample project) rather than further static
+   analysis — decompiling a listener interface doesn't reveal *when* the backend actually calls it.
 
-Do not start Phase 1+ until these three are answered — they change the shape/size of the rest of
-this plan.
+Net effect: this plan is meaningfully smaller than originally estimated (no RD protocol work), and
+Phase 1 can start directly instead of blocking on further research.
 
 **Phase 1 — Transport plumbing** (small, ~50-70 lines Kotlin, matches the original porting
 analysis's R5 "~70 lines" estimate for this piece specifically):
@@ -217,12 +260,14 @@ Extends the existing TODO list in `src/Rider/CONTRIBUTING.md`:
 
 ## 7. Risks
 
-| ID | Risk | Mitigation |
+| ID | Risk | Status / Mitigation |
 |---|---|---|
-| **R1** | Phase 0 finding #2 (Rider project-model data access) turns out to require the RD protocol — substantially larger effort than the "~70 lines" original estimate assumed. | Time-box the Phase 0 spike; if RD protocol is required, treat it as its own follow-up plan sized like `ImplicitReferenceProvider` (~150 lines) rather than folding it into this one. |
-| **R2** | No confirmed build-completion event on Rider's frontend (Phase 0 finding #3). | Fall back to VS Code's `**/bin/**/*.dll` watcher approach — already a proven, if coarser, signal. |
-| **R3** | `lsp4jServerClass`/typed-proxy mechanism is under-documented (only one doc sentence found, no code sample retrieved) — actual usage pattern may differ from §3.1's sketch once tried. | Phase 0 spike also includes a throwaway "send one custom notification and confirm the server receives it" smoke test before committing to the full design. |
+| ~~R1~~ | ~~Rider project-model data access requires the RD protocol.~~ | **Resolved, did not materialize** — `RunnableProject`/`ProjectOutput` are already-bundled SDK classes (§3.3). |
+| **R2** | `RunnableProjectListener`'s exact firing semantics (Phase 0 finding #3) unconfirmed — may not fire on rebuild specifically. | Confirm empirically in Phase 1 (log every event against the sample project). Fall back to VS Code's `**/bin/**/*.dll` watcher approach if it doesn't. |
+| ~~R3~~ | ~~`lsp4jServerClass`/typed-proxy mechanism under-documented.~~ | **Resolved** — verified against decompiled 2024.3.5 bytecode, not just docs (§2, §3.1). Still worth a Phase 1 throwaway smoke test (send one notification, confirm the server receives it) before building the full design on top, since bytecode confirms the API shape but not runtime behavior. |
 | **R4** | Degraded-but-functional fallback (folder-prefix membership, no reflection discovery) may already be "good enough" for common cases, making this lower priority than it looks. | Confirm via manual testing in the sample project (`/workspaces/rider-samples`) whether symptoms are actually visible before investing Phase 1-4 effort. |
+| **R5** | No dedicated Rider model class found for NuGet package references (new, from Phase 0). | Read `obj/project.assets.json` from disk instead of hunting for a Rider API — see §3.3. |
+| **R6** | Whether Reqnroll test projects actually appear in Rider's `RunnableProject` list (new, from Phase 0) — `RunnableProjectKind` is backend-supplied, not a static enum, so this can't be confirmed without running it. | Log `RunnableProject.kind.name` for the sample project in Phase 1; if test projects are excluded, will need a different/additional Rider API for non-runnable project enumeration. |
 
 ---
 
