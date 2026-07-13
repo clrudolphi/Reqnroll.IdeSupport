@@ -114,6 +114,35 @@ no client-side feature behavior yet (completions, diagnostics, etc. all come fro
 server itself), so "success" here just means the process spawns and the LSP connection
 initializes cleanly, not that anything visibly lights up in the editor.
 
+## Logging
+
+VS and VS Code both tee every LSP JSON-RPC message (both directions) into an
+`[LSP - HH:mm:ss] {"isLSPMessage":true,...}` file consumable by
+[lsp-viewer](https://lampepfl.github.io/lsp-viewer/) — `LspInspectorLogger` on each
+side. **That isn't replicable on Rider**: `com.intellij.platform.lsp.api`'s
+`LspServerDescriptor`/`ProjectWideLspServerDescriptor` only exposes `createCommandLine()`
+and `startServerProcess()` — the platform spawns the subprocess and owns its stdio pipes
+directly, with no interceptor/middleware hook like VS's `IDuplexPipe`-based
+`ILspMessageInterceptor` chain (`LspServerConnectionService.cs`) or vscode-languageclient's
+`traceOutputChannel`. `LspServerListener` only exposes `serverInitialized`/`serverStopped`
+lifecycle callbacks, not raw traffic. For wire-level tracing on Rider, use the platform's
+own built-in mechanism instead: `Help → Diagnostic Tools → Debug Log Settings`, add
+`#com.intellij.platform.lsp`, then check `idea.log` — it's the platform's own internal
+format, not our lsp-viewer JSON, but it's the only supported path.
+
+What *is* replicable: the general client-side glue log (plugin lifecycle/diagnostics —
+resolved server path, launch command, exceptions — not wire traffic). `ReqnrollDebugLogger`
+(`src/main/kotlin/com/reqnroll/ide/rider/logging`) mirrors the VS extension's
+`AsynchronousFileLogger`/`SynchronousFileLogger` convention
+(`src/Core/Reqnroll.IdeSupport.Common/Logging`): appends to
+`<Reqnroll log dir>/reqnroll-rider-ext-<yyyyMMdd>-<pid>.log`, pruned after 10 days. Log
+directory follows the VS Code extension's per-OS convention (`lspInspectorLogger.ts`
+`resolveLogDirectory`) rather than the Windows-only VS one, since this plugin runs on the
+JVM across the same OSes VS Code does:
+- Windows: `%LOCALAPPDATA%\Reqnroll`
+- macOS: `~/Library/Logs/Reqnroll`
+- Linux: `~/.local/share/Reqnroll`
+
 ## Testing (TODO — not yet written)
 
 - `ReqnrollServerPathResolver` — plain JUnit, no platform fixture needed: RID selection

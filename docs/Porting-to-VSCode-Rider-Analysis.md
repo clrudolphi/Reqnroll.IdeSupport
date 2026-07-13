@@ -218,13 +218,20 @@ This section catalogues every feature that requires client-side code because the
 
 ### R1 · Rider Custom Notification Transport (Medium)
 
+> **Resolved (design-level) — see [Rider-Project-Document-Sync-Implementation-Plan.md](Rider-Project-Document-Sync-Implementation-Plan.md).**
+> `LspServer`/`LspServerManager` confirmed to have no generic `sendNotification`, but JetBrains'
+> own docs confirm a supported typed path: override `LspServerDescriptor.lsp4jServerClass` with a
+> custom LSP4J interface annotated with `@JsonNotification`. The linked plan scopes the actual
+> implementation (transport, event sources, phasing) — the "side-channel" mitigation below is no
+> longer needed.
+
 **Risk:** Rider's `ProjectWideLspServerDescriptor` + built-in LSP client may not reliably forward custom client-to-server notifications (`reqnroll/projectLoaded`, `reqnroll/projectFiles`, `reqnroll/projectUnloaded`). The PoC does not test this path.
 
 **Impact:** Without `projectLoaded`, the server cannot discover the project's output assembly path for reflection-based binding discovery. Without `projectFiles`, the server falls back to the folder-prefix membership model, which does not handle linked/excluded files. Degraded but functional (like VS Code's fallback).
 
 **Mitigation:**
-- Investigate whether Rider's `LspServer` API supports `sendNotification` for arbitrary LSP methods.
-- Fallback: Have the Kotlin glue layer implement a side-channel (e.g., the server also accepts configuration file paths or listens on a local IPC port) for project system data.
+- ~~Investigate whether Rider's `LspServer` API supports `sendNotification` for arbitrary LSP methods.~~ Done — see above.
+- ~~Fallback: Have the Kotlin glue layer implement a side-channel...~~ Not needed — the typed-interface path covers this.
 
 ### R2 · Rider `onTypeFormatting` Not Supported (Medium)
 

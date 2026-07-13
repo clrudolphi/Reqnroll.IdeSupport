@@ -151,11 +151,11 @@ After VS Code stabilizes, the analysis recommends tackling Rider with these task
 
 | ID | Task | Effort |
 |----|------|--------|
-| R1 | Rider plugin scaffolding (Gradle, plugin.xml, FileType) | ~210 lines |
-| R2 | Core LSP server bridge (LspServerSupportProvider, Descriptor) | ~55 lines |
+| R1 | Rider plugin scaffolding (Gradle, plugin.xml, FileType) — **done**, `src/Rider` | ~210 lines |
+| R2 | Core LSP server bridge (LspServerSupportProvider, Descriptor) — **done** | ~55 lines |
 | R3 | ImplicitReferenceProvider for cross-language navigation | ~150 lines |
 | R4 | Semantic token TextAttributesKey mapping | ~50 lines |
-| R5 | Custom notification transport | ~70 lines |
+| R5 | Custom notification transport — design done, see [Rider-Project-Document-Sync-Implementation-Plan.md](Rider-Project-Document-Sync-Implementation-Plan.md) | ~70 lines (transport only; project/file/tab watchers are additional) |
 | R6 | Table cell decoration | ~200–400 lines |
 | R7 | Gutter run icons | ~200–400 lines |
 | R8 | Failing-step gutter marks | ~200–300 lines |
