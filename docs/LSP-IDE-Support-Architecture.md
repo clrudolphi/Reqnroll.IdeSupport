@@ -146,9 +146,11 @@ graph TB
             FmtSvc["Formatting\nService"]
             BindingMatch["Binding Match\nService"]
             SymbolSvc["Symbol / Outline\nService"]
+            InlayHintSvc["Gherkin Inlay Hint\nService (F23)"]
 
             RoslynDiscovery --> BindingRegistry
             BindingMatch --> BindingRegistry
+            InlayHintSvc --> BindingMatch
         end
 
         Handlers --> GherkinParser
@@ -159,6 +161,7 @@ graph TB
         Handlers --> FmtSvc
         Handlers --> BindingMatch
         Handlers --> SymbolSvc
+        Handlers --> InlayHintSvc
     end
 
     subgraph Connector["Binding Connector  (out-of-process)"]
@@ -391,6 +394,7 @@ This means the Protocol Handler is responsible for the initial synchronous state
 | `GherkinCompletionHandler` | `textDocument/completion`, `completionItem/resolve` |
 | `FeatureDocumentSymbolHandler` | `textDocument/documentSymbol` |
 | `FeatureFoldingRangeHandler` | `textDocument/foldingRange` |
+| `FeatureInlayHintHandler` | `textDocument/inlayHint` (F23 — binding info hints; statically-declared capability, manually registered alongside `FeatureFoldingRangeHandler` — see [F23 as-built](LSP-IDE-Support-Feature-Designs.md#f23--inlay-hints-step-binding-info)) |
 | `GherkinFormattingHandler` | `textDocument/formatting`, `rangeFormatting`, `onTypeFormatting` |
 | `ReqnrollCommandHandler` | `workspace/executeCommand` |
 | `StepReferencesHandler` | `textDocument/references` (from `.cs` cursors; two-state) |

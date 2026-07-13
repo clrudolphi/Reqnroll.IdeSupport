@@ -1,8 +1,10 @@
 # Inlay Hints for Feature Files — Implementation Plan
 
 > **Status:** Implemented (shipped: #43 "F23", follow-up fixes #57, #77). Canonical-doc
-> reconciliation (Feature-Designs/Architecture/Open-Questions) not yet done — tracked in
-> [#135](https://github.com/reqnroll/Reqnroll.IdeSupport/issues/135).
+> reconciliation done in [#135](https://github.com/reqnroll/Reqnroll.IdeSupport/issues/135) — see
+> [Feature Designs — F23 as-built](LSP-IDE-Support-Feature-Designs.md#f23--inlay-hints-step-binding-info)
+> for what shipped, including the deliberate scope reductions (no `inlayHint/resolve`, no
+> parameter-type hints, no settings surface) relative to this plan.
 > **Audience:** Core team contributors
 > **Based on:** LSP 3.17 `textDocument/inlayHint`; reuses the binding-match cache ([[binding-match-service-plan]])
 > **Library support:** Already modelled in OmniSharp.Extensions.LanguageServer 0.19.9

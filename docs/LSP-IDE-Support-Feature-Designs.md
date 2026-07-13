@@ -37,6 +37,7 @@
 - [F18 · Code Lens (Step Usage Counts)](#f18--code-lens-step-usage-counts)
 - [F19 · New Project / Item Wizards](#f19--new-project--item-wizards)
 - [F20 · Installation & Upgrade Experience](#f20--installation--upgrade-experience)
+- [F23 · Inlay Hints (Step Binding Info)](#f23--inlay-hints-step-binding-info)
 - [Appendix B · Deferred / Future Features](#appendix-b--deferred--future-features)
 
 ---
@@ -1558,6 +1559,50 @@ None directly — installation and upgrade UX is entirely IDE-side. However, the
 - Detecting install-vs-upgrade requires persisting the last-run version per IDE (e.g., extension storage / settings). The existing VS extension already implements this; reuse its approach.
 - Each IDE client is responsible for its own install/upgrade UX; there is no shared cross-IDE implementation, though the telemetry event names are common.
 - This feature is the primary in-product driver of the `ExtensionInstalled` / `ExtensionUpgraded` / `ExtensionDaysOfUsage` events listed in [Architecture §9 Telemetry](LSP-IDE-Support-Architecture.md#telemetry).
+
+---
+
+### F23 · Inlay Hints (Step Binding Info)
+
+**Status: Implemented** (shipped #43, follow-up fixes #57, #77), per [docs/InlayHints-Implementation-Plan.md](InlayHints-Implementation-Plan.md).
+
+#### End-user experience
+
+Each defined step in a `.feature` file shows a dimmed, non-editable inline annotation at the end of the line naming the step definition it resolves to, e.g. `→ CalculatorSteps.AddNumbers`. An ambiguous step shows `→ {n} matches` instead; a Scenario Outline/Background template step whose example rows resolve to more than one distinct binding shows `→ {n} bindings`. Undefined steps get no hint — the existing diagnostic already covers those. Hovering a hint shows the full method signature (and, for multi-match hints, every candidate) in the tooltip.
+
+#### IDE support matrix
+
+| VS Code | Visual Studio | Rider |
+|---------|---------------|-------|
+| ✅ Generic | ✅ Generic (`textDocument/inlayHint` supported; requires the user's inline-hints display setting) | ✅ Generic |
+
+`textDocument/inlayHint` is a standard pull feature with no IDE-specific handler; VS additionally requires the user to have inline hints enabled in the editor (Tools → Options → Text Editor → display inline hints, or the hold-to-show gesture) — the extension does not force this on.
+
+#### LSP messages
+
+| Direction | Method | Purpose |
+|-----------|--------|---------|
+| Client → Server | `textDocument/inlayHint` | Request hints for a document range (viewport) |
+| Server → Client | `InlayHint[]` response | One hint per defined/ambiguous/templated step whose anchor intersects the requested range |
+| Server → Client | `workspace/inlayHint/refresh` | Sent after `MatchCacheChangedNotification` (debounced 500ms) so the client re-pulls hints when bindings change |
+
+#### As-built notes
+
+The implementation ships a materially smaller feature than [the plan](InlayHints-Implementation-Plan.md) scoped, all deliberate simplifications rather than defects:
+
+- **`GherkinInlayHintService`** (`LSP.Core/InlayHints/`) projects a `FeatureBindingMatchSet` directly into `GherkinInlayHint`s — one per step with a `Defined`/`Ambiguous` result and no per-request options object (the plan's `InlayHintOptions`/settings toggles were not built; see below).
+- **`FeatureInlayHintHandler`** (`LSP.Server/Features/InlayHints/`) resolves the requesting document's primary owner ([Q22](LSP-IDE-Support-Open-Questions.md) primary-owner rule) to key into `IBindingMatchService`, builds hints, then filters to the requested viewport.
+- **No resolve support, no deferred tooltips.** The plan's `inlayHint/resolve` split (cheap initial response, tooltip filled lazily) was **not** built — the handler computes the full label *and* tooltip eagerly in one pass, and `InlayHintProvider.ResolveProvider = false` is declared statically. This has been acceptable in practice because the tooltip text (a method signature string, already resolved in the match set) is cheap to format — no I/O or additional lookups are needed at hint-build time.
+- **No parameter-type hints.** The plan's second hint kind (annotating captured-argument spans with `:type`) was not implemented — only the binding-target hint kind (renamed `GherkinInlayHintKind.Binding`/`Ambiguous`, plus an as-built third kind `Templated` the plan didn't anticipate — see below) exists. There is no `reqnroll.inlayHints.showParameterTypes` setting because there is nothing for it to toggle.
+- **No settings surface at all.** Neither `reqnroll.inlayHints.showBindingTarget` nor `showParameterTypes` was built; the feature is unconditionally on (equivalent to the plan's defaults, minus the ability to turn it off).
+- **New `Templated` hint kind, not in the plan.** A Scenario Outline/Background step's single merged `MatchResult` (one entry per template line, not per expanded example row) can itself resolve to more than one *distinct* Defined binding across different rows. The plan didn't anticipate this case; the as-built service reports it as `→ {n} bindings` (`GherkinInlayHintKind.Templated`), distinct from the `Ambiguous` case (one row's text matching multiple bindings).
+- **Static capability declaration, not dynamic registration.** Like [F10 Folding](#f10--code-folding), `inlayHintProvider` is declared statically in the `initialize` response (`Program.ConfigureServer`) rather than negotiated via OmniSharp's dynamic-registration interface — `vscode-languageclient`'s dynamic `client/registerCapability` round trip for `inlayHint`/`foldingRange` races VS Code's restore of previously-open `.feature` tabs on window load, and a tab that renders first never gets a provider re-check for the rest of the session.
+- **Refresh mirrors semantic tokens.** `InlayHintRefreshHandler` (`LSP.Server/Pipeline/`) debounces `MatchCacheChangedNotification` bursts (500ms) into a single `workspace/inlayHint/refresh`, gated on the client having advertised `workspace.inlayHint.refreshSupport` — the same pattern as `SemanticTokensRefreshHandler`.
+
+#### Known limitations
+
+- **Parameter-type hints and the settings surface are deferred, not abandoned.** If a future request wants them, `GherkinInlayHintService.Build` would need a second projection pass over each step's regex capture groups (IH-3's parameter-offset-mapping concern below still applies) and `InlayHintOptions` would need to be threaded from config into the handler.
+- **IH-2 (VS built-in Gherkin hint provider conflict) was not hit** — VS has no built-in inline-hint provider for `.feature` files, so there is nothing to conflict with the server's hints.
 
 ---
 
