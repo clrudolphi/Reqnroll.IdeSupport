@@ -10,6 +10,9 @@ import com.intellij.platform.lsp.api.customization.LspSemanticTokensSupport
 import com.reqnroll.ide.rider.logging.ReqnrollDebugLogger
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollLanguageServer
 import com.reqnroll.ide.rider.lsp.semantictokens.ReqnrollSemanticTokensSupport
+import org.eclipse.lsp4j.ClientCapabilities
+import org.eclipse.lsp4j.InlayHintWorkspaceCapabilities
+import org.eclipse.lsp4j.WorkspaceClientCapabilities
 import org.eclipse.lsp4j.services.LanguageServer
 
 /**
@@ -50,6 +53,19 @@ class ReqnrollLspServerDescriptor(project: Project) :
     /** Wraps the platform's own handler so `workspace/inlayHint/refresh` also refreshes `.feature` inlay hints here — see [ReqnrollInlayHintRefreshInterceptor]. */
     override fun createLsp4jClient(serverNotificationsHandler: LspServerNotificationsHandler): Lsp4jClient =
         Lsp4jClient(ReqnrollInlayHintRefreshInterceptor(project, serverNotificationsHandler))
+
+    // Rider's own default ClientCapabilities doesn't advertise workspace.inlayHint.refreshSupport
+    // (confirmed live: the server's InlayHintRefreshHandler never fired — its capability guard
+    // saw it as unset — while the equivalent semanticTokens.refreshSupport, which Rider *does*
+    // advertise, fired every time). Presumably because Rider's generic client has no built-in
+    // consumer for inlay hints to refresh (same "capability-name bookkeeping only" finding noted
+    // elsewhere in this file). Since ReqnrollInlayHintRefreshInterceptor gives it a real one now,
+    // advertise the capability truthfully rather than leaving the server's push silently gated off.
+    override val clientCapabilities: ClientCapabilities
+        get() = super.clientCapabilities.apply {
+            val workspaceCapabilities = workspace ?: WorkspaceClientCapabilities().also { workspace = it }
+            workspaceCapabilities.inlayHint = InlayHintWorkspaceCapabilities(true)
+        }
 
     /** Resolves the bundled server executable and builds the launch command line, with the log level chosen per [resolveLogLevel]. */
     override fun createCommandLine(): GeneralCommandLine {
