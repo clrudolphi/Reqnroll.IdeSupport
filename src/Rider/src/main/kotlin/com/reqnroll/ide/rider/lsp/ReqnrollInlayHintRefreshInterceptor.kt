@@ -7,21 +7,21 @@ import java.util.concurrent.CompletableFuture
 
 /**
  * Delegates every [LspServerNotificationsHandler] callback straight through to Rider's own
- * platform-provided [handler], except [refreshSemanticTokens] — there it also refreshes this
+ * platform-provided [handler], except [refreshInlayHints] — there it also refreshes this
  * project's `.feature` inlay hints ([ReqnrollFeatureInlayHintsController]) before delegating.
  *
- * The server already sends the *standard* `workspace/semanticTokens/refresh` request
- * unconditionally, for every client, the moment binding discovery changes (see
- * `SemanticTokensRefreshHandler` server-side) — reusing that existing signal avoids adding a new
- * custom `reqnroll`-prefixed protocol message that VS/VS Code clients would just ignore. Installed via
+ * The server already sends the *standard* `workspace/inlayHint/refresh` request — purpose-built
+ * for exactly this — debounced, whenever binding discovery changes and the client advertised
+ * `workspace.inlayHint.refreshSupport` (see `InlayHintRefreshHandler` server-side). No new
+ * `reqnroll`-prefixed protocol message needed. Installed via
  * [ReqnrollLspServerDescriptor.createLsp4jClient].
  */
-class ReqnrollSemanticTokensRefreshInterceptor(
+class ReqnrollInlayHintRefreshInterceptor(
     private val project: Project,
     private val handler: LspServerNotificationsHandler,
 ) : LspServerNotificationsHandler by handler {
-    override fun refreshSemanticTokens(): CompletableFuture<Void> {
+    override fun refreshInlayHints(): CompletableFuture<Void> {
         ReqnrollFeatureInlayHintsController.refreshOpenFeatureEditors(project)
-        return handler.refreshSemanticTokens()
+        return handler.refreshInlayHints()
     }
 }

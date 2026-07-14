@@ -47,12 +47,11 @@ import java.awt.Rectangle
  *
  * Refresh has two triggers, neither of which needed a new custom `reqnroll`-prefixed protocol message:
  *  - [refreshOpenFeatureEditors], called from
- *    [com.reqnroll.ide.rider.lsp.ReqnrollSemanticTokensRefreshInterceptor] whenever the server
- *    sends the *standard* `workspace/semanticTokens/refresh` request — which it already does,
- *    unconditionally for every client, the moment binding discovery changes (see
- *    `SemanticTokensRefreshHandler` server-side). Piggybacking on that existing signal means
- *    hints repaint the moment bindings are actually ready, with no guessing at delays and no new
- *    wire protocol for other IDEs (VS/VS Code) to ignore.
+ *    [com.reqnroll.ide.rider.lsp.ReqnrollInlayHintRefreshInterceptor] whenever the server sends
+ *    the *standard* `workspace/inlayHint/refresh` request — purpose-built for exactly this, and
+ *    already implemented server-side (`InlayHintRefreshHandler`), debounced, whenever binding
+ *    discovery changes. Hooking that instead of e.g. the semantic-tokens refresh keeps the trigger
+ *    thematically tied to what it's actually refreshing.
  *  - A short debounce on document edits, as a local fallback for the case where the user's own
  *    typing is what invalidated the hints (a pure client-side edit doesn't necessarily trigger a
  *    server-side semantic-tokens refresh on its own).

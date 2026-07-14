@@ -47,9 +47,9 @@ class ReqnrollLspServerDescriptor(project: Project) :
     override fun isSupportedFile(file: VirtualFile): Boolean =
         file.extension == "feature" || file.extension == "cs"
 
-    /** Wraps the platform's own handler so a `workspace/semanticTokens/refresh` also refreshes `.feature` inlay hints — see [ReqnrollSemanticTokensRefreshInterceptor]. */
+    /** Wraps the platform's own handler so `workspace/inlayHint/refresh` also refreshes `.feature` inlay hints here — see [ReqnrollInlayHintRefreshInterceptor]. */
     override fun createLsp4jClient(serverNotificationsHandler: LspServerNotificationsHandler): Lsp4jClient =
-        Lsp4jClient(ReqnrollSemanticTokensRefreshInterceptor(project, serverNotificationsHandler))
+        Lsp4jClient(ReqnrollInlayHintRefreshInterceptor(project, serverNotificationsHandler))
 
     /** Resolves the bundled server executable and builds the launch command line, with the log level chosen per [resolveLogLevel]. */
     override fun createCommandLine(): GeneralCommandLine {
