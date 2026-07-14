@@ -33,6 +33,23 @@ navigation, backed by the Reqnroll.IdeSupport LSP server.
     <postStartupActivity implementation="com.reqnroll.ide.rider.lsp.project.ReqnrollRunnableProjectsListener" />
     <postStartupActivity implementation="com.reqnroll.ide.rider.lsp.project.ReqnrollProjectFilesSync" />
     <postStartupActivity implementation="com.reqnroll.ide.rider.lsp.project.ReqnrollDocumentActivationSync" />
+
+    <!-- Rider's generic LSP client has no rendering-side consumer for textDocument/codeLens or
+         textDocument/inlayHint at all (confirmed by decompiling — only capability-name
+         bookkeeping exists in com.intellij.platform.lsp.impl.LspDynamicCapabilities). Both
+         requests are called directly (ReqnrollRequestSender) and rendered through IntelliJ's
+         own native extension points instead. -->
+    <codeInsight.codeVisionProvider implementation="com.reqnroll.ide.rider.codevision.StepUsagesCodeVisionProvider" />
+
+    <codeInsight.declarativeInlayProvider
+        language="Reqnroll Feature"
+        implementationClass="com.reqnroll.ide.rider.inlayhints.FeatureStepInlayHintsProvider"
+        group="OTHER_GROUP"
+        providerId="reqnroll.featureSteps"
+        isEnabledByDefault="true"
+        bundle="messages.ReqnrollBundle"
+        nameKey="inlayHints.featureSteps.name"
+        descriptionKey="inlayHints.featureSteps.description" />
   </extensions>
 
   <actions>

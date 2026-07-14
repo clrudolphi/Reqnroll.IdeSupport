@@ -7,10 +7,15 @@ import com.reqnroll.ide.rider.lsp.protocol.FindStepUsagesResponse
 import com.reqnroll.ide.rider.lsp.protocol.FindUnusedStepDefinitionsResponse
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollEmptyParams
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollLanguageServer
+import org.eclipse.lsp4j.CodeLens
+import org.eclipse.lsp4j.CodeLensParams
+import org.eclipse.lsp4j.InlayHint
+import org.eclipse.lsp4j.InlayHintParams
 import org.eclipse.lsp4j.ReferenceContext
 import org.eclipse.lsp4j.ReferenceParams
 import org.eclipse.lsp4j.TextDocumentIdentifier
 import org.eclipse.lsp4j.Position as Lsp4jPosition
+import org.eclipse.lsp4j.Range as Lsp4jRange
 
 /**
  * Sends the reqnroll-prefixed client-to-server *requests* (as opposed to
@@ -24,6 +29,8 @@ import org.eclipse.lsp4j.Position as Lsp4jPosition
 object ReqnrollRequestSender {
     private const val FIND_UNUSED_TIMEOUT_MS = 30_000
     private const val FIND_USAGES_TIMEOUT_MS = 10_000
+    private const val CODE_LENS_TIMEOUT_MS = 10_000
+    private const val INLAY_HINT_TIMEOUT_MS = 10_000
 
     /** Runs `reqnroll/findUnusedStepDefinitions`. Returns null if no Reqnroll LSP server is running, or on failure. */
     fun findUnusedStepDefinitions(project: Project): FindUnusedStepDefinitionsResponse? {
@@ -52,6 +59,40 @@ object ReqnrollRequestSender {
             }
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("findStepUsages: request failed", ex)
+            null
+        }
+    }
+
+    /**
+     * Runs the *standard* `textDocument/codeLens` request (step-usage-count lenses for `.cs`
+     * files — see StepCodeLensHandler.cs). Standard LSP methods are already declared on LSP4J's
+     * base `LanguageServer`/`TextDocumentService` interfaces, so no custom `@JsonRequest` method
+     * or cast to `ReqnrollLanguageServer` is needed, unlike the custom reqnroll-prefixed methods above.
+     */
+    fun codeLens(project: Project, uri: String): List<CodeLens>? {
+        val server = firstRunningServer(project) ?: return null
+        val params = CodeLensParams(TextDocumentIdentifier(uri))
+        return try {
+            server.sendRequestSync(CODE_LENS_TIMEOUT_MS) { languageServer ->
+                languageServer.textDocumentService.codeLens(params)
+            }?.filterNotNull()
+        } catch (ex: Exception) {
+            ReqnrollDebugLogger.warn("codeLens: request failed", ex)
+            null
+        }
+    }
+
+    /** Runs the *standard* `textDocument/inlayHint` request (binding-info hints for `.feature` files — see FeatureInlayHintHandler.cs) covering the given line range. */
+    fun inlayHint(project: Project, uri: String, startLine: Int, endLine: Int): List<InlayHint>? {
+        val server = firstRunningServer(project) ?: return null
+        val range = Lsp4jRange(Lsp4jPosition(startLine, 0), Lsp4jPosition(endLine, Int.MAX_VALUE))
+        val params = InlayHintParams(TextDocumentIdentifier(uri), range)
+        return try {
+            server.sendRequestSync(INLAY_HINT_TIMEOUT_MS) { languageServer ->
+                languageServer.textDocumentService.inlayHint(params)
+            }
+        } catch (ex: Exception) {
+            ReqnrollDebugLogger.warn("inlayHint: request failed", ex)
             null
         }
     }
