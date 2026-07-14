@@ -34,4 +34,25 @@ navigation, backed by the Reqnroll.IdeSupport LSP server.
     <postStartupActivity implementation="com.reqnroll.ide.rider.lsp.project.ReqnrollProjectFilesSync" />
     <postStartupActivity implementation="com.reqnroll.ide.rider.lsp.project.ReqnrollDocumentActivationSync" />
   </extensions>
+
+  <actions>
+    <group id="Reqnroll.ActionGroup" text="Reqnroll" popup="true">
+      <add-to-group group-id="ToolsMenu" anchor="last" />
+
+      <action id="Reqnroll.FindUnusedStepDefinitions"
+          class="com.reqnroll.ide.rider.actions.FindUnusedStepDefinitionsAction"
+          text="Find Unused Step Definitions"
+          description="Scans the workspace for step-definition bindings with no matching steps in any feature file" />
+
+      <!-- Mirrors VS Code's editor/context "Find Step Usages" entry (when editorLangId ==
+           csharp) — the action's own update() restricts visibility to .cs files, so it's safe to
+           also add it to the editor context menu below without a declarative language condition. -->
+      <action id="Reqnroll.FindStepUsages"
+          class="com.reqnroll.ide.rider.actions.FindStepUsagesAction"
+          text="Find Step Usages"
+          description="Finds feature-file steps that use the step-definition binding at the caret">
+        <add-to-group group-id="EditorPopupMenu" anchor="last" />
+      </action>
+    </group>
+  </actions>
 </idea-plugin>

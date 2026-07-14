@@ -76,3 +76,46 @@ object ProjectFileRole {
 data class DocumentActivatedParams(
     val uri: String,
 )
+
+/** Params for `reqnroll/findUnusedStepDefinitions` — the request takes no data, but LSP4J's `@JsonRequest` needs a params argument; matches the server's empty `FindUnusedStepDefinitionsParams` class. */
+class ReqnrollEmptyParams
+
+/** Response for `reqnroll/findUnusedStepDefinitions` — mirrors FindUnusedStepDefinitionsResponse.cs field-for-field. */
+data class FindUnusedStepDefinitionsResponse(
+    val items: List<UnusedStepDefinitionItem> = emptyList(),
+)
+
+/** One step-definition binding with zero matching steps across the workspace. */
+data class UnusedStepDefinitionItem(
+    val projectName: String? = null,
+    val className: String? = null,
+    val methodName: String? = null,
+    val bindingExpression: String? = null,
+    val sourceFile: String? = null,
+    val sourceLine: Int = 0,
+    val sourceChar: Int = 0,
+)
+
+/**
+ * Response for `reqnroll/findStepUsages` — mirrors FindStepUsagesResponse.cs field-for-field,
+ * including the three-state contract: [isBinding] false means the queried position isn't a
+ * step-definition binding at all (caller should fall back to built-in C# Find Usages);
+ * [isBinding] true with an empty [locations] means the binding genuinely has zero usages.
+ */
+data class FindStepUsagesResponse(
+    val isBinding: Boolean = false,
+    val locations: List<FindStepUsageItem> = emptyList(),
+)
+
+/** One step-usage location within a feature file. */
+data class FindStepUsageItem(
+    val uri: String = "",
+    val startLine: Int = 0,
+    val startChar: Int = 0,
+    val endLine: Int = 0,
+    val endChar: Int = 0,
+    val stepText: String? = null,
+    val keyword: String? = null,
+    val scenarioName: String? = null,
+    val projectName: String? = null,
+)
