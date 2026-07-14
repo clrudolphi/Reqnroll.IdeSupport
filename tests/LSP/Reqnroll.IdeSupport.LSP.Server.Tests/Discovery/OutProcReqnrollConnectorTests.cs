@@ -69,9 +69,10 @@ public class OutProcReqnrollConnectorTests
     // covered regardless of which OS actually runs the test.
 
     [Fact]
-    public void ResolveNonWindowsDotNetCommand_falls_back_to_bare_dotnet_when_DOTNET_ROOT_is_null()
+    public void ResolveNonWindowsDotNetCommand_falls_back_to_bare_dotnet_when_nothing_else_resolves()
     {
-        var command = OutProcReqnrollConnector.ResolveNonWindowsDotNetCommand(null);
+        var command = OutProcReqnrollConnector.ResolveNonWindowsDotNetCommand(
+            dotNetRoot: null, userHome: null, fileExists: _ => false);
 
         command.Should().Be("dotnet", "PATH resolution is the standard install on Linux/macOS");
     }
@@ -79,7 +80,8 @@ public class OutProcReqnrollConnectorTests
     [Fact]
     public void ResolveNonWindowsDotNetCommand_falls_back_to_bare_dotnet_when_DOTNET_ROOT_is_empty()
     {
-        var command = OutProcReqnrollConnector.ResolveNonWindowsDotNetCommand("");
+        var command = OutProcReqnrollConnector.ResolveNonWindowsDotNetCommand(
+            dotNetRoot: "", userHome: null, fileExists: _ => false);
 
         command.Should().Be("dotnet", "PATH resolution is the standard install on Linux/macOS");
     }
@@ -89,7 +91,46 @@ public class OutProcReqnrollConnectorTests
     {
         var dotNetRoot = Path.Combine(Path.GetTempPath(), "dotnet-root");
 
-        var command = OutProcReqnrollConnector.ResolveNonWindowsDotNetCommand(dotNetRoot);
+        var command = OutProcReqnrollConnector.ResolveNonWindowsDotNetCommand(
+            dotNetRoot, userHome: null, fileExists: _ => false);
+
+        command.Should().Be(Path.Combine(dotNetRoot, "dotnet"));
+    }
+
+    [Fact]
+    public void ResolveNonWindowsDotNetCommand_falls_back_to_conventional_dotnet_install_dir_when_present()
+    {
+        // Confirmed necessary live: in a Rider/Linux devcontainer, "dotnet" was not resolvable
+        // via PATH for our process (nor for Rider's own JVM, whose environment ours inherits),
+        // but the standard dotnet-install.sh location under $HOME/.dotnet/dotnet did exist.
+        var home = Path.Combine(Path.GetTempPath(), "home-with-dotnet");
+        var expected = Path.Combine(home, ".dotnet", "dotnet");
+
+        var command = OutProcReqnrollConnector.ResolveNonWindowsDotNetCommand(
+            dotNetRoot: null, userHome: home, fileExists: path => path == expected);
+
+        command.Should().Be(expected);
+    }
+
+    [Fact]
+    public void ResolveNonWindowsDotNetCommand_falls_back_to_bare_dotnet_when_conventional_install_dir_is_absent()
+    {
+        var home = Path.Combine(Path.GetTempPath(), "home-without-dotnet");
+
+        var command = OutProcReqnrollConnector.ResolveNonWindowsDotNetCommand(
+            dotNetRoot: null, userHome: home, fileExists: _ => false);
+
+        command.Should().Be("dotnet", "no DOTNET_ROOT, no conventional install dir — PATH is the last resort");
+    }
+
+    [Fact]
+    public void ResolveNonWindowsDotNetCommand_DOTNET_ROOT_takes_priority_over_the_conventional_install_dir()
+    {
+        var dotNetRoot = Path.Combine(Path.GetTempPath(), "dotnet-root");
+        var home = Path.Combine(Path.GetTempPath(), "home-with-dotnet");
+
+        var command = OutProcReqnrollConnector.ResolveNonWindowsDotNetCommand(
+            dotNetRoot, userHome: home, fileExists: _ => true);
 
         command.Should().Be(Path.Combine(dotNetRoot, "dotnet"));
     }
