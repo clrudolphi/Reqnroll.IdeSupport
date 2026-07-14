@@ -1,9 +1,12 @@
 package com.reqnroll.ide.rider.inlayhints
 
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.editor.EditorCustomElementRenderer
+import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.Inlay
 import com.intellij.openapi.editor.colors.EditorFontType
 import com.intellij.openapi.editor.event.DocumentEvent
@@ -12,6 +15,7 @@ import com.intellij.openapi.editor.event.EditorFactoryEvent
 import com.intellij.openapi.editor.event.EditorFactoryListener
 import com.intellij.openapi.editor.markup.TextAttributes
 import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.Key
 import com.intellij.openapi.vfs.VirtualFile
@@ -41,13 +45,20 @@ import java.awt.Rectangle
  * works (semantic tokens, diagnostics, CodeLens): driven directly off the LSP request, keyed by
  * URI/[Editor], with no PSI dependency at all.
  *
- * Refresh is client-side polling, not server push: there's no `workspace/inlayHint/refresh`
- * wiring (client or server) in this pipeline, so hints are recomputed on document edits and on a
- * few bounded delays after the editor opens, to catch up once the async project/binding-discovery
- * pipeline (see `ReqnrollLspServerReadiness`) finishes shortly after open.
+ * Refresh has two triggers, neither of which needed a new custom `reqnroll`-prefixed protocol message:
+ *  - [refreshOpenFeatureEditors], called from
+ *    [com.reqnroll.ide.rider.lsp.ReqnrollSemanticTokensRefreshInterceptor] whenever the server
+ *    sends the *standard* `workspace/semanticTokens/refresh` request — which it already does,
+ *    unconditionally for every client, the moment binding discovery changes (see
+ *    `SemanticTokensRefreshHandler` server-side). Piggybacking on that existing signal means
+ *    hints repaint the moment bindings are actually ready, with no guessing at delays and no new
+ *    wire protocol for other IDEs (VS/VS Code) to ignore.
+ *  - A short debounce on document edits, as a local fallback for the case where the user's own
+ *    typing is what invalidated the hints (a pure client-side edit doesn't necessarily trigger a
+ *    server-side semantic-tokens refresh on its own).
  */
 class ReqnrollFeatureInlayHintsController : EditorFactoryListener {
-    private class Session(val disposable: com.intellij.openapi.Disposable, val alarm: Alarm, val docListener: DocumentListener)
+    private class Session(val disposable: Disposable, val alarm: Alarm, val docListener: DocumentListener)
 
     override fun editorCreated(event: EditorFactoryEvent) {
         val editor = event.editor
@@ -58,24 +69,16 @@ class ReqnrollFeatureInlayHintsController : EditorFactoryListener {
         val disposable = Disposer.newDisposable("ReqnrollFeatureInlayHints:${virtualFile.path}")
         val alarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, disposable)
 
-        fun scheduleRefresh(delayMs: Int) {
-            if (!alarm.isDisposed) alarm.addRequest({ refresh(project, editor, virtualFile) }, delayMs)
-        }
-
         val docListener = object : DocumentListener {
             override fun documentChanged(event: DocumentEvent) {
                 alarm.cancelAllRequests()
-                scheduleRefresh(DEBOUNCE_MS)
+                if (!alarm.isDisposed) alarm.addRequest({ refresh(project, editor, virtualFile) }, DEBOUNCE_MS)
             }
         }
         editor.document.addDocumentListener(docListener, disposable)
         editor.putUserData(SESSION_KEY, Session(disposable, alarm, docListener))
 
-        // Initial paint, plus bounded catch-up retries for the async binding-discovery window
-        // right after the server/project just started (see class doc).
-        scheduleRefresh(200)
-        scheduleRefresh(1500)
-        scheduleRefresh(4000)
+        refresh(project, editor, virtualFile)
     }
 
     override fun editorReleased(event: EditorFactoryEvent) {
@@ -86,47 +89,64 @@ class ReqnrollFeatureInlayHintsController : EditorFactoryListener {
         clearInlays(editor)
     }
 
-    private fun refresh(project: com.intellij.openapi.project.Project, editor: Editor, virtualFile: VirtualFile) {
-        if (project.isDisposed || editor.isDisposed) return
+    companion object {
+        private const val DEBOUNCE_MS = 400
+        private const val PADDING_PX = 4
+        private val SESSION_KEY = Key.create<Session>("Reqnroll.FeatureInlayHints.Session")
+        private val INLAYS_KEY = Key.create<MutableList<Inlay<*>>>("Reqnroll.FeatureInlayHints.Inlays")
 
-        val uri = VirtualFileManager.constructUrl("file", URLUtil.encodePath(virtualFile.path))
-        val hints = ReqnrollRequestSender.inlayHint(project, uri, 0, editor.document.lineCount)
-        ReqnrollDebugLogger.info("ReqnrollFeatureInlayHintsController: ${hints?.size ?: "null"} hint(s) for $uri")
-
-        ApplicationManager.getApplication().invokeLater(
-            {
-                if (!editor.isDisposed) renderInlays(editor, editor.document, hints.orEmpty())
-            },
-            ModalityState.any(),
-        )
-    }
-
-    private fun renderInlays(editor: Editor, document: Document, hints: List<InlayHint>) {
-        clearInlays(editor)
-        val inlays = mutableListOf<Inlay<*>>()
-
-        for (hint in hints) {
-            val line = hint.position.line
-            if (line !in 0 until document.lineCount) continue
-            val lineEndOffset = document.getLineEndOffset(line)
-            val character = hint.position.character.coerceAtMost(lineEndOffset - document.getLineStartOffset(line))
-            val offset = document.getLineStartOffset(line) + character
-            val label = hint.label.left ?: continue
-
-            val inlay = editor.inlayModel.addInlineElement(offset, true, BindingHintRenderer(label)) ?: continue
-            inlays += inlay
+        /** Refreshes inlay hints for every currently open `.feature` editor belonging to [project]. */
+        fun refreshOpenFeatureEditors(project: Project) {
+            for (editor in EditorFactory.getInstance().allEditors) {
+                if (editor.project != project) continue
+                val virtualFile = FileDocumentManager.getInstance().getFile(editor.document) ?: continue
+                if (virtualFile.extension != "feature") continue
+                refresh(project, editor, virtualFile)
+            }
         }
 
-        editor.putUserData(INLAYS_KEY, inlays)
-    }
+        private fun refresh(project: Project, editor: Editor, virtualFile: VirtualFile) {
+            if (project.isDisposed || editor.isDisposed) return
 
-    private fun clearInlays(editor: Editor) {
-        editor.getUserData(INLAYS_KEY)?.forEach { Disposer.dispose(it) }
-        editor.putUserData(INLAYS_KEY, null)
+            val uri = VirtualFileManager.constructUrl("file", URLUtil.encodePath(virtualFile.path))
+            val hints = ReqnrollRequestSender.inlayHint(project, uri, 0, editor.document.lineCount)
+            ReqnrollDebugLogger.info("ReqnrollFeatureInlayHintsController: ${hints?.size ?: "null"} hint(s) for $uri")
+
+            ApplicationManager.getApplication().invokeLater(
+                {
+                    if (!editor.isDisposed) renderInlays(editor, editor.document, hints.orEmpty())
+                },
+                ModalityState.any(),
+            )
+        }
+
+        private fun renderInlays(editor: Editor, document: Document, hints: List<InlayHint>) {
+            clearInlays(editor)
+            val inlays = mutableListOf<Inlay<*>>()
+
+            for (hint in hints) {
+                val line = hint.position.line
+                if (line !in 0 until document.lineCount) continue
+                val lineEndOffset = document.getLineEndOffset(line)
+                val character = hint.position.character.coerceAtMost(lineEndOffset - document.getLineStartOffset(line))
+                val offset = document.getLineStartOffset(line) + character
+                val label = hint.label.left ?: continue
+
+                val inlay = editor.inlayModel.addInlineElement(offset, true, BindingHintRenderer(label)) ?: continue
+                inlays += inlay
+            }
+
+            editor.putUserData(INLAYS_KEY, inlays)
+        }
+
+        private fun clearInlays(editor: Editor) {
+            editor.getUserData(INLAYS_KEY)?.forEach { Disposer.dispose(it) }
+            editor.putUserData(INLAYS_KEY, null)
+        }
     }
 
     /** Paints a single-line, greyed-out text label — no tooltip yet (see class doc: v1 scope). */
-    private class BindingHintRenderer(private val text: String) : com.intellij.openapi.editor.EditorCustomElementRenderer {
+    private class BindingHintRenderer(private val text: String) : EditorCustomElementRenderer {
         override fun calcWidthInPixels(inlay: Inlay<*>): Int {
             val editor = inlay.editor
             val metrics = editor.contentComponent.getFontMetrics(editor.colorsScheme.getFont(EditorFontType.PLAIN))
@@ -140,12 +160,5 @@ class ReqnrollFeatureInlayHintsController : EditorFactoryListener {
             val ascent = g.fontMetrics.ascent
             g.drawString(text, targetRegion.x + PADDING_PX, targetRegion.y + ascent)
         }
-    }
-
-    private companion object {
-        const val DEBOUNCE_MS = 400
-        const val PADDING_PX = 4
-        val SESSION_KEY = Key.create<Session>("Reqnroll.FeatureInlayHints.Session")
-        val INLAYS_KEY = Key.create<MutableList<Inlay<*>>>("Reqnroll.FeatureInlayHints.Inlays")
     }
 }

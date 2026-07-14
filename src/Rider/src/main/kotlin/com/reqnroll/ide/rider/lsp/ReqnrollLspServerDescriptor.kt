@@ -3,6 +3,8 @@ package com.reqnroll.ide.rider.lsp
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.platform.lsp.api.Lsp4jClient
+import com.intellij.platform.lsp.api.LspServerNotificationsHandler
 import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor
 import com.intellij.platform.lsp.api.customization.LspSemanticTokensSupport
 import com.reqnroll.ide.rider.logging.ReqnrollDebugLogger
@@ -44,6 +46,10 @@ class ReqnrollLspServerDescriptor(project: Project) :
     /** This server covers `.feature` files (Gherkin) and `.cs` files (step-definition bindings). */
     override fun isSupportedFile(file: VirtualFile): Boolean =
         file.extension == "feature" || file.extension == "cs"
+
+    /** Wraps the platform's own handler so a `workspace/semanticTokens/refresh` also refreshes `.feature` inlay hints — see [ReqnrollSemanticTokensRefreshInterceptor]. */
+    override fun createLsp4jClient(serverNotificationsHandler: LspServerNotificationsHandler): Lsp4jClient =
+        Lsp4jClient(ReqnrollSemanticTokensRefreshInterceptor(project, serverNotificationsHandler))
 
     /** Resolves the bundled server executable and builds the launch command line, with the log level chosen per [resolveLogLevel]. */
     override fun createCommandLine(): GeneralCommandLine {
