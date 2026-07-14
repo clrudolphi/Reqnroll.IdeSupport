@@ -161,22 +161,35 @@ is wired into `build.gradle.kts`, `./gradlew test` runs them:
 - `ReqnrollSemanticTokensSupportTest` — every one of the 11 `reqnroll.*` legend types actually
   has a `TextAttributesKey` mapping (guards against silently losing color for a type if the
   legend grows and the mapping isn't updated to match).
+- `ReqnrollLspServerDescriptorTest` — `resolveLogLevel(isDevSandbox)` picks Verbose/Warning
+  correctly. Pulled out to `internal` on the companion object for the same reason as
+  `ReqnrollServerPathResolver`'s RID logic: parameterized instead of reading the real
+  `reqnroll.devSandbox` system property directly.
+- `FindUnusedStepDefinitionsActionTest` / `FindStepUsagesRunnerTest` — the popup-row label
+  formatting (`renderLabel`) for both custom-command result lists, including the
+  null-optional-field omission behavior. Pulled out to `internal` for the same reason.
 
 **Still TODO — needs a platform fixture** (`intellijPlatform { testFramework(TestFrameworkType.Platform) }`,
 not wired in yet):
 - `ReqnrollLspServerSupportProvider.fileOpened` — `BasePlatformTestCase` with a
   fake/spy `LspServerStarter`, asserting `ensureServerStarted` is (or isn't) called for
-  `.feature`/`.cs` vs. other extensions.
+  `.feature`/`.cs` vs. other extensions, and that `ReqnrollProjectBaseline.pushForAllRunnableProjects`
+  fires afterward.
 - `ReqnrollLspServerDescriptor` — `isSupportedFile` gating, and `createCommandLine()`
-  producing the right exe path plus `--ide rider --log-level Warning` args.
+  producing the right exe path (the `--log-level` value itself is covered by
+  `ReqnrollLspServerDescriptorTest` above).
 - File type/language registration — `BasePlatformTestCase` confirming a `.feature` file
   resolves to `ReqnrollFeatureFileType`/`ReqnrollFeatureLanguage` at runtime (catches
   `plugin.xml` wiring typos that `verifyPlugin` doesn't, since that only checks API
   compatibility).
-- `ReqnrollRunnableProjectsListener`/`ReqnrollProjectFilesSync`/`ReqnrollDocumentActivationSync`
-  — each needs a real `Project`/`RunnableProjectsModel`/`FileEditorManager` fixture to test the
-  event-wiring itself (the pure logic each delegates to — `ProjectFileRole.classify`,
-  `DocumentActivationState` — is already covered above).
+- `ReqnrollRunnableProjectsListener`/`ReqnrollProjectFilesSync`/`ReqnrollDocumentActivationSync`/
+  `ReqnrollProjectBaseline.buildProjectLoadedParams` — each needs a real
+  `Project`/`RunnableProjectsModel`/`FileEditorManager` fixture to test the event-wiring itself
+  (the pure logic each delegates to — `ProjectFileRole.classify`, `DocumentActivationState` — is
+  already covered above).
+- `StepUsagesCodeVisionProvider`/`FeatureStepInlayHintsProvider` — need a real `Editor`/`PsiFile`
+  fixture; the request/response plumbing they call (`ReqnrollRequestSender`) is thin glue over
+  `LspServer.sendRequestSync` with no independent logic to unit-test.
 - Deferred: a full end-to-end functional test (real Rider sandbox, open a `.feature`
   file, confirm the LSP connection comes up and `reqnroll/*` notifications actually arrive)
   — expensive; revisit once there's been at least one live `runIde` verification pass to

@@ -60,7 +60,8 @@ object FindStepUsagesRunner {
         )
     }
 
-    private fun renderLabel(item: FindStepUsageItem): String {
+    /** `internal` (rather than private) purely so it's unit-testable without an AnAction/platform fixture. */
+    internal fun renderLabel(item: FindStepUsageItem): String {
         val keyword = item.keyword?.let { "$it " } ?: ""
         val text = item.stepText ?: item.uri.substringAfterLast('/')
         val scenario = item.scenarioName?.let { " — $it" } ?: ""

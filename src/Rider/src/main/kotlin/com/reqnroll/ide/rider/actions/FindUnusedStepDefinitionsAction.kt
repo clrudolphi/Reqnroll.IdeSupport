@@ -60,10 +60,13 @@ class FindUnusedStepDefinitionsAction : AnAction() {
         )
     }
 
-    private fun renderLabel(item: UnusedStepDefinitionItem): String {
-        val name = listOfNotNull(item.className, item.methodName).joinToString(".")
-        val expression = item.bindingExpression?.let { " — $it" } ?: ""
-        val project = item.projectName?.let { " [$it]" } ?: ""
-        return "$name$expression$project"
+    companion object {
+        /** Pulled out to `internal` (rather than a private member function) purely so it's unit-testable without an AnAction/platform fixture. */
+        internal fun renderLabel(item: UnusedStepDefinitionItem): String {
+            val name = listOfNotNull(item.className, item.methodName).joinToString(".")
+            val expression = item.bindingExpression?.let { " — $it" } ?: ""
+            val project = item.projectName?.let { " [$it]" } ?: ""
+            return "$name$expression$project"
+        }
     }
 }
