@@ -2,12 +2,9 @@ package com.reqnroll.ide.rider.lsp
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.platform.lsp.api.LspServer
-import com.intellij.platform.lsp.api.LspServerManager
-import com.intellij.platform.lsp.api.LspServerManagerListener
-import com.intellij.platform.lsp.api.LspServerState
 import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.reqnroll.ide.rider.logging.ReqnrollDebugLogger
+import com.reqnroll.ide.rider.lsp.project.ReqnrollLspServerReadiness
 import com.reqnroll.ide.rider.lsp.project.ReqnrollProjectBaseline
 
 /**
@@ -44,36 +41,17 @@ class ReqnrollLspServerSupportProvider : LspServerSupportProvider {
     /**
      * ensureServerStarted only *initiates* startup — it returns well before the LSP
      * initialize/initialized handshake completes, while the server is still in
-     * [LspServerState.Initializing]. Pushing the baseline synchronously right after it (as this
-     * used to do) sent the notification before the server considered itself ready to receive
-     * anything, and the server correctly rejected it as an "Unexpected notification" per the LSP
-     * spec — confirmed live: `reqnroll/projectLoaded`/`projectFiles` showed up in
-     * OmniSharp's `LspServerReceiver` warning log, and the server's own log never logged
-     * `HandleProjectLoadedAsync` at all for that session. Wait for [LspServerState.Running]
-     * (immediately if already there, otherwise via [LspServerManagerListener]) before pushing.
+     * [com.intellij.platform.lsp.api.LspServerState.Initializing]. Pushing the baseline
+     * synchronously right after it (as this used to do) sent the notification before the server
+     * considered itself ready to receive anything, and the server correctly rejected it as an
+     * "Unexpected notification" per the LSP spec — confirmed live: `reqnroll/projectLoaded`/
+     * `projectFiles` showed up in OmniSharp's `LspServerReceiver` warning log, and the server's own
+     * log never logged `HandleProjectLoadedAsync` at all for that session. Deferred via
+     * [ReqnrollLspServerReadiness] rather than sent directly.
      */
     private fun pushBaselineOnceRunning(project: Project) {
-        val manager = LspServerManager.getInstance(project)
-        val server = manager.getServersForProvider(ReqnrollLspServerSupportProvider::class.java).firstOrNull()
-            ?: return
-
-        if (server.state == LspServerState.Running) {
+        ReqnrollLspServerReadiness.runWhenRunning(project) {
             ReqnrollProjectBaseline.pushForAllRunnableProjects(project)
-            return
         }
-
-        manager.addLspServerManagerListener(
-            object : LspServerManagerListener {
-                override fun serverStateChanged(server: LspServer) {
-                    if (server.providerClass == ReqnrollLspServerSupportProvider::class.java &&
-                        server.state == LspServerState.Running
-                    ) {
-                        ReqnrollProjectBaseline.pushForAllRunnableProjects(project)
-                    }
-                }
-            },
-            project,
-            false,
-        )
     }
 }

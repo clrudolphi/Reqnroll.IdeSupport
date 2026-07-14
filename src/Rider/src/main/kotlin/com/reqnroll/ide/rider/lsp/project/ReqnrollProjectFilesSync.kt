@@ -63,8 +63,12 @@ class ReqnrollProjectFilesSync : ProjectActivity {
                         .sortedByDescending { it.first.length }
                 )
 
-                projects.forEach { runnableProject ->
-                    ReqnrollProjectBaseline.sendProjectFilesBaseline(project, runnableProject.projectFilePath)
+                // advise() fires immediately at project open, before the server is typically even
+                // started — see ReqnrollLspServerReadiness for why this must be deferred.
+                ReqnrollLspServerReadiness.runWhenRunning(project) {
+                    projects.forEach { runnableProject ->
+                        ReqnrollProjectBaseline.sendProjectFilesBaseline(project, runnableProject.projectFilePath)
+                    }
                 }
             }
         }

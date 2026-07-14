@@ -45,15 +45,20 @@ class ReqnrollRunnableProjectsListener : ProjectActivity {
                 val current = runnableProjects.orEmpty()
                 val currentFiles = current.map { it.projectFilePath }.toSet()
 
-                (knownProjectFiles - currentFiles).forEach { removedFile ->
-                    ReqnrollDebugLogger.info("projectUnloaded: $removedFile")
-                    ReqnrollNotificationSender.sendProjectUnloaded(project, ReqnrollProjectUnloadedParams(removedFile))
-                }
+                // advise() fires immediately at project open, independent of and almost always
+                // before the server itself is started (see ReqnrollLspServerReadiness) — defer the
+                // actual sends rather than dropping them straight into the server's face.
+                ReqnrollLspServerReadiness.runWhenRunning(project) {
+                    (knownProjectFiles - currentFiles).forEach { removedFile ->
+                        ReqnrollDebugLogger.info("projectUnloaded: $removedFile")
+                        ReqnrollNotificationSender.sendProjectUnloaded(project, ReqnrollProjectUnloadedParams(removedFile))
+                    }
 
-                current.forEach { runnableProject ->
-                    ReqnrollDebugLogger.info("projectLoaded: ${runnableProject.projectFilePath}")
-                    ReqnrollNotificationSender.sendProjectLoaded(
-                        project, ReqnrollProjectBaseline.buildProjectLoadedParams(project, runnableProject))
+                    current.forEach { runnableProject ->
+                        ReqnrollDebugLogger.info("projectLoaded: ${runnableProject.projectFilePath}")
+                        ReqnrollNotificationSender.sendProjectLoaded(
+                            project, ReqnrollProjectBaseline.buildProjectLoadedParams(project, runnableProject))
+                    }
                 }
 
                 knownProjectFiles.clear()
