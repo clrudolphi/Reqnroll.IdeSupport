@@ -71,10 +71,24 @@ class ReqnrollSemanticTokensSupport : LspSemanticTokensSupport() {
                 "REQNROLL_DATA_TABLE", DefaultLanguageHighlighterColors.STRING),
             ReqnrollSemanticTokenTypes.DATA_TABLE_HEADER to TextAttributesKey.createTextAttributesKey(
                 "REQNROLL_DATA_TABLE_HEADER", DefaultLanguageHighlighterColors.CONSTANT),
+            // DefaultLanguageHighlighterColors.PARAMETER was the original choice, but most default
+            // color schemes leave "Parameter" with little or no distinct styling (unlike the other
+            // keys below, which are all strongly colored everywhere) — confirmed via live testing
+            // (2026-07-13): tokens were arriving and mapped correctly, just not visually distinct
+            // until the color scheme's Parameter style was customized. NUMBER renders distinctly in
+            // every default IntelliJ/Rider scheme.
             ReqnrollSemanticTokenTypes.STEP_PARAMETER to TextAttributesKey.createTextAttributesKey(
-                "REQNROLL_STEP_PARAMETER", DefaultLanguageHighlighterColors.PARAMETER),
+                "REQNROLL_STEP_PARAMETER", DefaultLanguageHighlighterColors.NUMBER),
+            // INSTANCE_FIELD was the original choice, but it's the same class of "soft" fallback
+            // that bit STEP_PARAMETER's original PARAMETER mapping above — no distinct default
+            // styling in most schemes. NUMBER renders distinctly everywhere; reusing it here
+            // (rather than picking a third arbitrary key) also matches the VS extension's own
+            // DeveroomClassifications, which bases ScenarioOutlinePlaceholder on "number" too
+            // (plus italic). Safe to share with STEP_PARAMETER's color since the two never
+            // co-occur on the same step (DeveroomTagParser skips StepParameter tags entirely for
+            // scenario outline steps whose text contains a placeholder).
             ReqnrollSemanticTokenTypes.SCENARIO_OUTLINE_PLACEHOLDER to TextAttributesKey.createTextAttributesKey(
-                "REQNROLL_SCENARIO_OUTLINE_PLACEHOLDER", DefaultLanguageHighlighterColors.INSTANCE_FIELD),
+                "REQNROLL_SCENARIO_OUTLINE_PLACEHOLDER", DefaultLanguageHighlighterColors.NUMBER),
             // WARNINGS_ATTRIBUTES (a background-fill style) was the original choice, but it
             // renders close enough to the IDE's own caret-row highlight to be confusing when the
             // undefined step also happens to be the active line — confirmed via live testing
