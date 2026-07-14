@@ -41,9 +41,9 @@ public class GenericOutProcReqnrollConnectorTests
     // ── .NET Framework: returns the .exe path directly, no "exec" arguments ────
 
     [Theory]
-    [InlineData(".NETFramework,Version=v4.6.2", @"Reqnroll-Generic-net462\reqnroll-ide-connector.exe")]
-    [InlineData(".NETFramework,Version=v4.7.2", @"Reqnroll-Generic-net472\reqnroll-ide-connector.exe")]
-    [InlineData(".NETFramework,Version=v4.8.1", @"Reqnroll-Generic-net481\reqnroll-ide-connector.exe")]
+    [InlineData(".NETFramework,Version=v4.6.2", "Reqnroll-Generic-net462/reqnroll-ide-connector.exe")]
+    [InlineData(".NETFramework,Version=v4.7.2", "Reqnroll-Generic-net472/reqnroll-ide-connector.exe")]
+    [InlineData(".NETFramework,Version=v4.8.1", "Reqnroll-Generic-net481/reqnroll-ide-connector.exe")]
     public void GetConnectorPath_for_netfx_returns_exe_for_the_matching_minor_version(
         string tfm, string expectedRelative)
     {
@@ -56,11 +56,11 @@ public class GenericOutProcReqnrollConnectorTests
     // ── Modern .NET: launched via "dotnet exec <dir>/<tfm>/...dll" ─────────────
 
     [Theory]
-    [InlineData(".NETCoreApp,Version=v6.0", @"Reqnroll-Generic-net6.0\reqnroll-ide-connector.dll")]
-    [InlineData(".NETCoreApp,Version=v7.0", @"Reqnroll-Generic-net7.0\reqnroll-ide-connector.dll")]
-    [InlineData(".NETCoreApp,Version=v8.0", @"Reqnroll-Generic-net8.0\reqnroll-ide-connector.dll")]
-    [InlineData(".NETCoreApp,Version=v9.0", @"Reqnroll-Generic-net9.0\reqnroll-ide-connector.dll")]
-    [InlineData(".NETCoreApp,Version=v10.0", @"Reqnroll-Generic-net10.0\reqnroll-ide-connector.dll")]
+    [InlineData(".NETCoreApp,Version=v6.0", "Reqnroll-Generic-net6.0/reqnroll-ide-connector.dll")]
+    [InlineData(".NETCoreApp,Version=v7.0", "Reqnroll-Generic-net7.0/reqnroll-ide-connector.dll")]
+    [InlineData(".NETCoreApp,Version=v8.0", "Reqnroll-Generic-net8.0/reqnroll-ide-connector.dll")]
+    [InlineData(".NETCoreApp,Version=v9.0", "Reqnroll-Generic-net9.0/reqnroll-ide-connector.dll")]
+    [InlineData(".NETCoreApp,Version=v10.0", "Reqnroll-Generic-net10.0/reqnroll-ide-connector.dll")]
     public void GetConnectorPath_for_netcore_uses_dotnet_exec_with_the_matching_dll(
         string tfm, string expectedRelative)
     {
@@ -83,6 +83,6 @@ public class GenericOutProcReqnrollConnectorTests
         var (path, args) = Resolve(".NETCoreApp");
 
         path.Should().EndWith(OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet");
-        args[1].Should().Be(Path.Combine(_extensionFolder, @"Reqnroll-Generic-net8.0\reqnroll-ide-connector.dll"));
+        args[1].Should().Be(Path.Combine(_extensionFolder, "Reqnroll-Generic-net8.0/reqnroll-ide-connector.dll"));
     }
 }
