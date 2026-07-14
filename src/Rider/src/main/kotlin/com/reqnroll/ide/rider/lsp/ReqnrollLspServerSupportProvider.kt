@@ -6,7 +6,13 @@ import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.reqnroll.ide.rider.logging.ReqnrollDebugLogger
 import com.reqnroll.ide.rider.lsp.project.ReqnrollProjectBaseline
 
+/**
+ * Entry point Rider's platform calls whenever a file is opened anywhere in the IDE; the only
+ * place that decides whether the Reqnroll LSP server should be running at all. Registered via
+ * `plugin.xml`'s `platform.lsp.serverSupportProvider` extension.
+ */
 class ReqnrollLspServerSupportProvider : LspServerSupportProvider {
+    /** Starts (or reuses) the Reqnroll server for `.feature`/`.cs` files; ignores everything else. */
     override fun fileOpened(
         project: Project,
         file: VirtualFile,

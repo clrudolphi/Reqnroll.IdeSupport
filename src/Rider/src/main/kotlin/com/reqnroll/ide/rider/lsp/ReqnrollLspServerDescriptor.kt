@@ -10,6 +10,13 @@ import com.reqnroll.ide.rider.lsp.protocol.ReqnrollLanguageServer
 import com.reqnroll.ide.rider.lsp.semantictokens.ReqnrollSemanticTokensSupport
 import org.eclipse.lsp4j.services.LanguageServer
 
+/**
+ * Central configuration point for the Reqnroll LSP server as far as Rider's generic
+ * `com.intellij.platform.lsp.api` client is concerned: which files it covers, how to launch it,
+ * and which optional client-side customizations (go to definition, semantic token coloring, the
+ * custom reqnroll-prefixed protocol extensions) to enable. One instance is created per project by
+ * [ReqnrollLspServerSupportProvider].
+ */
 class ReqnrollLspServerDescriptor(project: Project) :
     ProjectWideLspServerDescriptor(project, "Reqnroll") {
 
@@ -34,9 +41,11 @@ class ReqnrollLspServerDescriptor(project: Project) :
     // though the compiled superclass's JVM member is a getLsp4jServerClass() method.
     override val lsp4jServerClass: Class<out LanguageServer> = ReqnrollLanguageServer::class.java
 
+    /** This server covers `.feature` files (Gherkin) and `.cs` files (step-definition bindings). */
     override fun isSupportedFile(file: VirtualFile): Boolean =
         file.extension == "feature" || file.extension == "cs"
 
+    /** Resolves the bundled server executable and builds the launch command line, with the log level chosen per [resolveLogLevel]. */
     override fun createCommandLine(): GeneralCommandLine {
         val serverPath = try {
             ReqnrollServerPathResolver.resolve()
