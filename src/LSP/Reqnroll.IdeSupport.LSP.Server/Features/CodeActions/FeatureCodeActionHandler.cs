@@ -7,8 +7,10 @@ using Reqnroll.IdeSupport.Common.Configuration;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Core.Scaffolding;
+using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 using Reqnroll.IdeSupport.LSP.Server.Performance;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
+using Reqnroll.IdeSupport.LSP.Server.Protocol.Documents;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -25,6 +27,7 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
     private readonly IBindingMatchService          _matchService;
     private readonly IStepScaffoldService          _scaffoldService;
     private readonly ILspWorkspaceScopeManager     _scopeManager;
+    private readonly IDocumentBufferService        _bufferService;
     private readonly IIdeSupportLogger               _logger;
     private readonly IOperationDurationRecorder    _recorder;
 
@@ -33,12 +36,14 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
         IBindingMatchService      matchService,
         IStepScaffoldService      scaffoldService,
         ILspWorkspaceScopeManager scopeManager,
+        IDocumentBufferService    bufferService,
         IIdeSupportLogger            logger,
         IOperationDurationRecorder? recorder = null)
     {
         _matchService    = matchService;
         _scaffoldService = scaffoldService;
         _scopeManager    = scopeManager;
+        _bufferService   = bufferService;
         _logger          = logger;
         _recorder        = recorder ?? NullOperationDurationRecorder.Instance;
     }
@@ -83,6 +88,18 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
         if (allUndefined.Count == 0)
         {
             _logger.LogVerbose($"FeatureCodeActionHandler: no undefined steps for {uri}");
+            return Task.FromResult<CommandOrCodeActionContainer?>(new CommandOrCodeActionContainer());
+        }
+
+        // Only offer "Define missing step" actions when the request's cursor position actually
+        // falls on an undefined step. Without this, a lightbulb invoked over an ambiguous (or
+        // otherwise bound) step would still offer to "define" some unrelated undefined step
+        // elsewhere in the file, which is misleading — that step has nothing to do with what's
+        // under the cursor.
+        var stepAtCursor = ResolveStepAtCursor(uri, request.Range.Start, matchSet);
+        if (stepAtCursor is null || !stepAtCursor.IsUndefined)
+        {
+            _logger.LogVerbose($"FeatureCodeActionHandler: no undefined step at the request position in {uri}");
             return Task.FromResult<CommandOrCodeActionContainer?>(new CommandOrCodeActionContainer());
         }
 
@@ -137,19 +154,15 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
             if (action is not null) actions.Add(new CommandOrCodeAction(action));
         }
 
-        // ── Per-step actions (when cursor is on a step in the request range) ───
-        var stepsInRange = allUndefined
-            .Where(s => OverlapsRange(s, request.Range, matchSet))
-            .ToList();
-
-        if (stepsInRange.Count == 1 && stepsInRange[0] != allUndefined[0])
+        // ── Per-step action for the step actually under the cursor ─────────────
+        // Only add it as a distinct action when it differs from the "all" action above
+        // (i.e. there are other undefined steps in the file besides this one).
+        if (stepAtCursor != allUndefined[0])
         {
-            // Only add individual action if it's different from the "all" action above.
-            var singleStep = stepsInRange[0];
-            var stepText = GetStepText(singleStep);
+            var stepText = GetStepText(stepAtCursor);
             var singleAction = BuildAction(
                 title:          $"Define step: {stepText}",
-                steps:          new[] { singleStep },
+                steps:          new[] { stepAtCursor },
                 style:          style,
                 csharpConfig:   csharpConfig,
                 className:      className,
@@ -235,18 +248,18 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
     private static bool IsFeatureFile(DocumentUri uri) =>
         uri.Path.EndsWith(".feature", StringComparison.OrdinalIgnoreCase);
 
-    private static bool OverlapsRange(
-        LSP.Core.Matching.StepBindingMatch step,
-        LspRange                           requestRange,
+    /// <summary>Resolves the step (if any) that the request's cursor position falls on.</summary>
+    private LSP.Core.Matching.StepBindingMatch? ResolveStepAtCursor(
+        DocumentUri uri,
+        Position position,
         LSP.Core.Matching.FeatureBindingMatchSet? matchSet)
     {
-        if (matchSet is null) return false;
-        // The match set maps character offsets; LSP range is line/character.
-        // Use a conservative overlap: include the step if it appears anywhere in the document.
-        // A more precise line-based overlap would require the document snapshot, which is
-        // not available here without additional plumbing. Returning true includes all steps,
-        // and per-step narrowing is deferred to full implementation.
-        return true;
+        if (matchSet is null) return null;
+        if (!_bufferService.TryGet(uri, out var buffer) || buffer is null) return null;
+
+        var snapshot = buffer.ToGherkinTextSnapshot();
+        var offset   = snapshot.ToOffset(position.Line, position.Character);
+        return matchSet.FindAt(offset);
     }
 
     private static string GetStepText(LSP.Core.Matching.StepBindingMatch step)
