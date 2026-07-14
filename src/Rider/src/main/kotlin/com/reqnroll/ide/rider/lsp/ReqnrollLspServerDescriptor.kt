@@ -45,8 +45,13 @@ class ReqnrollLspServerDescriptor(project: Project) :
             throw ex
         }
 
-        ReqnrollDebugLogger.info("createCommandLine: launching $serverPath --ide rider --log-level Warning")
+        // "reqnroll.devSandbox" is set by build.gradle.kts only on the JVM that `runIde` launches
+        // (a local dev sandbox) — never present in a real installed plugin — so local dev gets
+        // full diagnostic logging without needing a manual override every time.
+        val logLevel = if (System.getProperty("reqnroll.devSandbox") == "true") "Verbose" else "Warning"
+
+        ReqnrollDebugLogger.info("createCommandLine: launching $serverPath --ide rider --log-level $logLevel")
         return GeneralCommandLine(serverPath.toString())
-            .withParameters("--ide", "rider", "--log-level", "Warning")
+            .withParameters("--ide", "rider", "--log-level", logLevel)
     }
 }

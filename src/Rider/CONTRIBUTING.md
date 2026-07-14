@@ -181,3 +181,25 @@ not wired in yet):
   file, confirm the LSP connection comes up and `reqnroll/*` notifications actually arrive)
   — expensive; revisit once there's been at least one live `runIde` verification pass to
   know what "working" looks like concretely.
+
+## Known follow-ups
+
+- ~~Debug builds always bundle/launch the Release LSP server at Warning log level~~ **Fixed.**
+  `publishServer` now publishes with `--configuration Debug` when invoked via `runIde` (detected
+  from `gradle.startParameter.taskNames`) and `Release` otherwise (`buildPlugin`/CI unaffected).
+  `runIde`'s JVM also gets a `reqnroll.devSandbox=true` system property, which
+  `ReqnrollLspServerDescriptor.createCommandLine()` reads to pick `--log-level Verbose` instead of
+  `Warning` in the dev sandbox.
+- ~~`GenericOutProcReqnrollConnector`/`OutProcReqnrollConnector.RunDiscovery` logs "Unable to find
+  connector: dotnet" on every build~~ **Fixed.** Root cause: on non-Windows
+  (`ResolveNonWindowsDotNetCommand`), when `DOTNET_ROOT` is unset, `GetDotNetCommand()` returns the
+  literal string `"dotnet"` (relying on `PATH` resolution at process-launch time), but
+  `RunDiscovery`'s existence check (`File.Exists(connectorPath)`) could never succeed for a bare
+  command name — `File.Exists` doesn't do `PATH` search — so it always short-circuited with this
+  misleading error, even when `dotnet` genuinely was resolvable and would launch fine. (Confirmed
+  this wasn't just a dev-container environment gap: Rider's own Test Explorer can build and run the
+  generated NUnit tests in the same sandbox, so `dotnet` facilities are genuinely available there.)
+  The same flawed check was duplicated one layer down in `ProcessHelper.RunProcessInternal`. Both
+  now only apply `File.Exists` when the path looks like an actual file path (has a directory
+  component); a bare PATH-relative command is trusted to resolve at launch time, and a genuine
+  failure to resolve it now surfaces as a real process-launch error instead of a bogus pre-check.
