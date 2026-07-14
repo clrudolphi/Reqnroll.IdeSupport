@@ -68,7 +68,14 @@ public abstract class OutProcReqnrollConnector
         if (DebugConnector)
             arguments.Add("--debug");
 
-        if (connectorPath == null || !File.Exists(connectorPath))
+        // A bare command name (e.g. "dotnet", from GetDotNetCommand()'s non-Windows PATH-resolution
+        // fallback) has no directory component and is meant to be resolved by the OS via PATH when
+        // the process actually launches — File.Exists can't check that (it only resolves relative
+        // to the current directory) and would always report it missing even when it isn't. Only
+        // pre-validate paths that look like real file paths; a genuinely-missing bare command still
+        // surfaces a clear failure from ProcessHelper.RunProcess when the launch itself fails.
+        var looksLikeFilePath = connectorPath != null && !string.IsNullOrEmpty(Path.GetDirectoryName(connectorPath));
+        if (connectorPath == null || (looksLikeFilePath && !File.Exists(connectorPath)))
             return new DiscoveryResult
             {
                 ErrorMessage = $"Error during binding discovery. Unable to find connector: {connectorPath}",
