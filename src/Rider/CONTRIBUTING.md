@@ -6,6 +6,17 @@ Rider. It registers a `.feature` file type/language and an `LspServerSupportProv
 half; the IntelliJ Platform's built-in `com.intellij.platform.lsp.api` framework talks to
 the server directly over stdio.
 
+Beyond what that generic framework wires up automatically (semantic token coloring, go to
+definition, code actions), a few LSP features have no rendering-side consumer in Rider's
+platform at all (confirmed by decompiling — only capability-name bookkeeping exists for
+`textDocument/codeLens` and `textDocument/inlayHint`), so this plugin calls those requests
+directly (`ReqnrollRequestSender`) and renders through IntelliJ's own native extension
+points instead: a `CodeVisionProvider` (step-usage-count lenses in `.cs` files) and a
+declarative `InlayHintsProvider` (bound-method hints in `.feature` files). Two custom
+`AnAction`s (Find Unused Step Definitions, Find Step Usages — `com/reqnroll/ide/rider/actions`)
+surface the equivalent custom `reqnroll/*` requests that have no standard-LSP client hook at
+all.
+
 ## First-time setup
 
 The Gradle wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/`) is committed, pinned to
@@ -25,6 +36,11 @@ Kotlin-DSL changes broke this script when CI briefly evaluated it under a system
 ./gradlew buildPlugin   # produces build/distributions/*.zip
 ./gradlew runIde         # launches a sandboxed Rider instance with the plugin loaded
 ```
+
+If `src/Rider` is open as the VS Code workspace folder, `.vscode/tasks.json` wraps
+`./gradlew runIde` as the default build task (Ctrl+Shift+B / Cmd+Shift+B) — not bound to
+F5, since there's no real debug target VS Code can attach to (Gradle launches its own
+separate JVM/Rider sandbox process).
 
 ## Bundling the LSP server
 
@@ -48,8 +64,17 @@ There are two ways to populate `server/<rid>/`, both wired up in `build.gradle.k
   ```
 
   Requires the .NET SDK (`dotnet`) on `PATH` — the dev container does not currently
-  include one; run these from a host that has it, or add the SDK to
+  include one (Rider's own bundled backend/Test Explorer has its own separate .NET
+  runtime it manages independently, which does *not* put `dotnet` on the container's
+  `PATH` for Gradle to find); run these from a host that has it, or add the SDK to
   `docker/dev.Dockerfile` if you need `publishServer` inside the container.
+
+  `runIde` specifically publishes with `--configuration Debug` (detected from
+  `gradle.startParameter.taskNames`); `buildPlugin`/CI publish `Release`. `runIde`'s
+  sandboxed IDE process also gets a `reqnroll.devSandbox=true` system property, which
+  `ReqnrollLspServerDescriptor` reads to launch the server with `--log-level Verbose`
+  instead of the `Warning` a real installed plugin uses — so local dev gets a Debug
+  server build and full diagnostic logging with zero manual configuration.
 
 - **CI** (see `.github/workflows/build-rider-plugin.yml`) — passes
   `-PlspServerBuildDir=<dir>`, where `<dir>` contains a `win-x64/`, `linux-x64/`,
@@ -109,11 +134,23 @@ repo, and point Gradle at it exactly the way CI does).
      the process running;
    - the sandbox's `idea.log` (under `build/idea-sandbox/.../log/`) should show the LSP
      initialize handshake, with no errors from `ReqnrollServerPathResolver`.
-
-Note the plugin currently only registers the file type and starts the server — there's
-no client-side feature behavior yet (completions, diagnostics, etc. all come from the
-server itself), so "success" here just means the process spawns and the LSP connection
-initializes cleanly, not that anything visibly lights up in the editor.
+7. Beyond "does the server start," worth checking the actual feature surface once it's up:
+   - `.feature` files: Gherkin keywords/tags/step text are colored (custom `reqnroll.*`
+     semantic tokens — Rider's default color scheme doesn't style all of them distinctly
+     out of the box; see `ReqnrollSemanticTokensSupport`'s fallback-key choices if a
+     specific token type looks unstyled), undefined/ambiguous steps are highlighted, "Define
+     missing step(s)" code actions appear on undefined steps, Go to Step Definition (F12)
+     jumps into the bound `.cs` method, and the bound method name appears as an inlay hint
+     at the end of each step line.
+   - `.cs` files: each step-definition method shows a "N step usages" CodeVision lens above
+     it; clicking navigates to (or lists) the matching feature-file steps. Right-click → Find
+     Step Usages does the same from the caret.
+   - Tools menu → Reqnroll → Find Unused Step Definitions scans the whole workspace.
+   - None of the above needs an explicit rebuild between edits: `publishServer`'s Gradle
+     inputs cover the full `src/LSP`/`src/Core` source trees (content-hashed), so
+     `./gradlew runIde` republishes automatically whenever server-side source actually
+     changed and skips it (fast) when it didn't — a stale binary shouldn't be the culprit
+     if something doesn't reflect a recent server-side change.
 
 ## Logging
 
@@ -143,6 +180,10 @@ JVM across the same OSes VS Code does:
 - Windows: `%LOCALAPPDATA%\Reqnroll`
 - macOS: `~/Library/Logs/Reqnroll`
 - Linux: `~/.local/share/Reqnroll`
+
+This is a separate log from the *server's* own `reqnroll-<ide>-*.log` (governed by
+`--log-level`, which `runIde` sets to `Verbose` automatically — see "Bundling the LSP
+server" above) — `ReqnrollDebugLogger` only covers the plugin's own client-side glue.
 
 ## Testing
 
