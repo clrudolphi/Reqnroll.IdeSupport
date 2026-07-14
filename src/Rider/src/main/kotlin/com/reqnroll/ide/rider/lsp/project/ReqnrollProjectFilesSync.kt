@@ -64,7 +64,7 @@ class ReqnrollProjectFilesSync : ProjectActivity {
                 )
 
                 projects.forEach { runnableProject ->
-                    sendBaseline(project, runnableProject.projectFilePath)
+                    ReqnrollProjectBaseline.sendProjectFilesBaseline(project, runnableProject.projectFilePath)
                 }
             }
         }
@@ -72,27 +72,6 @@ class ReqnrollProjectFilesSync : ProjectActivity {
         VirtualFileManager.getInstance().addAsyncFileListener(
             { events -> prepareChange(project, events) { projectFolders.get() } },
             project,
-        )
-    }
-
-    private fun sendBaseline(project: Project, projectFile: String) {
-        val folder = File(projectFile).parent ?: return
-        val files = File(folder).walkTopDown()
-            .filter { it.isFile }
-            .mapNotNull { file ->
-                ProjectFileRole.classify(file.path)?.let { role -> ProjectFileEntry(file.path, role) }
-            }
-            .toList()
-
-        ReqnrollDebugLogger.info("projectFiles baseline: $projectFile (${files.size} file(s))")
-        ReqnrollNotificationSender.sendProjectFiles(
-            project,
-            ReqnrollProjectFilesParams(
-                projectFile = projectFile,
-                targetFrameworkMoniker = "",
-                kind = ProjectFilesKind.BASELINE,
-                files = files,
-            ),
         )
     }
 

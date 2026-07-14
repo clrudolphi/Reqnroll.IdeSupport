@@ -4,16 +4,12 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.rd.createLifetime
 import com.intellij.openapi.rd.util.RdCoroutineHost
 import com.intellij.openapi.startup.ProjectActivity
-import com.jetbrains.rider.model.RunnableProject
 import com.jetbrains.rider.model.runnableProjectsModel
 import com.jetbrains.rider.projectView.solution
 import com.reqnroll.ide.rider.logging.ReqnrollDebugLogger
 import com.reqnroll.ide.rider.lsp.ReqnrollNotificationSender
-import com.reqnroll.ide.rider.lsp.protocol.PackageReferenceInfo
-import com.reqnroll.ide.rider.lsp.protocol.ReqnrollProjectLoadedParams
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollProjectUnloadedParams
 import kotlinx.coroutines.withContext
-import java.io.File
 
 /**
  * Feeds `reqnroll/projectLoaded`/`reqnroll/projectUnloaded` from Rider's own runnable-projects
@@ -56,38 +52,13 @@ class ReqnrollRunnableProjectsListener : ProjectActivity {
 
                 current.forEach { runnableProject ->
                     ReqnrollDebugLogger.info("projectLoaded: ${runnableProject.projectFilePath}")
-                    ReqnrollNotificationSender.sendProjectLoaded(project, buildProjectLoadedParams(project, runnableProject))
+                    ReqnrollNotificationSender.sendProjectLoaded(
+                        project, ReqnrollProjectBaseline.buildProjectLoadedParams(project, runnableProject))
                 }
 
                 knownProjectFiles.clear()
                 knownProjectFiles.addAll(currentFiles)
             }
         }
-    }
-
-    private fun buildProjectLoadedParams(project: Project, runnableProject: RunnableProject): ReqnrollProjectLoadedParams {
-        // Reqnroll test projects normally have a single output per TFM; multi-TFM projects are
-        // a known follow-up (see ReqnrollProjectFilesParams.TargetFrameworkMoniker's own
-        // "Phase 1 ignores TFM" note on the server side).
-        val output = runnableProject.projectOutputs.firstOrNull()
-        val projectFolder = File(runnableProject.projectFilePath).parent ?: ""
-
-        return ReqnrollProjectLoadedParams(
-            workspaceFolder = project.basePath ?: "",
-            projectFile = runnableProject.projectFilePath,
-            projectFolder = projectFolder,
-            outputAssemblyPath = output?.exePath ?: "",
-            // RdTargetFrameworkId has no classic MSBuild moniker field (".NETCoreApp,Version=v8.0")
-            // — shortName ("net8.0") is the closest available. Revisit if the server's reflection
-            // discovery needs the exact classic format rather than the short one.
-            targetFrameworkMoniker = output?.tfm?.shortName ?: "",
-            // Not available from RunnableProject; server uses this only to derive namespaces for
-            // scaffolded files, which isn't reachable from Rider yet anyway (no scaffolding UI).
-            defaultNamespace = "",
-            // No dedicated Rider model class for resolved NuGet package references (Phase 0
-            // finding) — reading obj/project.assets.json from disk is the planned follow-up
-            // (see the plan doc's R5), not yet implemented.
-            packageReferences = emptyList<PackageReferenceInfo>(),
-        )
     }
 }
