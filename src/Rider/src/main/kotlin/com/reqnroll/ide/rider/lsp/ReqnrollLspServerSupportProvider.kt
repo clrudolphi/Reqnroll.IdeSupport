@@ -2,6 +2,10 @@ package com.reqnroll.ide.rider.lsp
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.platform.lsp.api.LspServer
+import com.intellij.platform.lsp.api.LspServerManager
+import com.intellij.platform.lsp.api.LspServerManagerListener
+import com.intellij.platform.lsp.api.LspServerState
 import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.reqnroll.ide.rider.logging.ReqnrollDebugLogger
 import com.reqnroll.ide.rider.lsp.project.ReqnrollProjectBaseline
@@ -31,9 +35,45 @@ class ReqnrollLspServerSupportProvider : LspServerSupportProvider {
         // gated on this very fileOpened callback — that first push is silently dropped, and unlike
         // VS (which has its own preload side channel for the same problem), there's no guarantee
         // anything re-triggers those listeners' advise callback again in the same session. Re-push
-        // the current snapshot now that the server is guaranteed to exist; safe/idempotent even if
-        // the listeners' own push already succeeded (the server treats a repeat baseline for an
-        // already-loaded project as an update, not a duplicate).
-        ReqnrollProjectBaseline.pushForAllRunnableProjects(project)
+        // the current snapshot once the server is genuinely ready (see pushBaselineOnceRunning);
+        // safe/idempotent even if the listeners' own push already succeeded (the server treats a
+        // repeat baseline for an already-loaded project as an update, not a duplicate).
+        pushBaselineOnceRunning(project)
+    }
+
+    /**
+     * ensureServerStarted only *initiates* startup — it returns well before the LSP
+     * initialize/initialized handshake completes, while the server is still in
+     * [LspServerState.Initializing]. Pushing the baseline synchronously right after it (as this
+     * used to do) sent the notification before the server considered itself ready to receive
+     * anything, and the server correctly rejected it as an "Unexpected notification" per the LSP
+     * spec — confirmed live: `reqnroll/projectLoaded`/`projectFiles` showed up in
+     * OmniSharp's `LspServerReceiver` warning log, and the server's own log never logged
+     * `HandleProjectLoadedAsync` at all for that session. Wait for [LspServerState.Running]
+     * (immediately if already there, otherwise via [LspServerManagerListener]) before pushing.
+     */
+    private fun pushBaselineOnceRunning(project: Project) {
+        val manager = LspServerManager.getInstance(project)
+        val server = manager.getServersForProvider(ReqnrollLspServerSupportProvider::class.java).firstOrNull()
+            ?: return
+
+        if (server.state == LspServerState.Running) {
+            ReqnrollProjectBaseline.pushForAllRunnableProjects(project)
+            return
+        }
+
+        manager.addLspServerManagerListener(
+            object : LspServerManagerListener {
+                override fun serverStateChanged(server: LspServer) {
+                    if (server.providerClass == ReqnrollLspServerSupportProvider::class.java &&
+                        server.state == LspServerState.Running
+                    ) {
+                        ReqnrollProjectBaseline.pushForAllRunnableProjects(project)
+                    }
+                }
+            },
+            project,
+            false,
+        )
     }
 }
