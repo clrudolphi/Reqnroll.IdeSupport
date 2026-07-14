@@ -20,15 +20,34 @@ all.
 ## First-time setup
 
 The Gradle wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/`) is committed, pinned to
-8.10 — just use `./gradlew` directly, no bootstrap step needed.
+8.10 — just use `./gradlew` directly, no bootstrap step needed, on either track below.
 
-If the wrapper ever needs regenerating (e.g. bumping the Gradle version), do it from
-inside the dev container, which has a system `gradle` preinstalled for exactly that:
+If the wrapper ever needs regenerating (e.g. bumping the Gradle version), do it from a
+machine/container with a system `gradle` preinstalled for exactly that:
 `gradle wrapper --gradle-version <version>`. **Don't** use that system `gradle` for
-anything else — the container/CI runner's system Gradle version can be materially ahead
-of what `build.gradle.kts` is written against (e.g. Gradle 9's `Project.exec()` /
-Kotlin-DSL changes broke this script when CI briefly evaluated it under a system Gradle
-9.6.1 instead of the committed wrapper's 8.10).
+anything else — a system Gradle install can be materially ahead of what
+`build.gradle.kts` is written against (e.g. Gradle 9's `Project.exec()` / Kotlin-DSL
+changes broke this script when CI briefly evaluated it under a system Gradle 9.6.1
+instead of the committed wrapper's 8.10).
+
+There are two tracks, depending on what's already on your machine — pick one:
+
+- **Native toolchain (recommended if you can install a JDK)** — this is what CI already
+  uses (`ubuntu-latest` + `actions/setup-java`), so it's the better-trodden, faster path
+  if it's available to you:
+  - JDK 21 on `PATH` (or `JAVA_HOME` pointing at one) — matches `kotlin { jvmToolchain(21) }`.
+  - `dotnet` SDK on `PATH`, for `publishServer` (see "Bundling the LSP server" below).
+  - **No local Rider install needed even here** — the IntelliJ Platform Gradle plugin
+    downloads the pinned Rider SDK version (`platformVersion` in `gradle.properties`)
+    into `~/.gradle/caches` automatically on first `runIde`/build. Large (several GB),
+    one-time, needs network access.
+  - `./gradlew runIde` then launches a sandboxed Rider window directly on your desktop —
+    no container, no X11 forwarding, no bind-mount indirection.
+- **Devcontainer** — for a constrained workstation without permission or disk space to
+  install a JDK/Rider SDK locally (e.g. a locked-down corporate Windows machine). Slower
+  and more indirect (WSLg X11 forwarding, cross-host server publishing), but needs
+  nothing installed on the host beyond Docker/VS Code Dev Containers. See "Manual
+  verification — devcontainer" below for the full setup.
 
 ## Build / run
 
@@ -63,11 +82,13 @@ There are two ways to populate `server/<rid>/`, both wired up in `build.gradle.k
   ./gradlew buildPlugin -PserverRid=linux-x64   # cross-publish a different single RID
   ```
 
-  Requires the .NET SDK (`dotnet`) on `PATH` — the dev container does not currently
-  include one (Rider's own bundled backend/Test Explorer has its own separate .NET
-  runtime it manages independently, which does *not* put `dotnet` on the container's
-  `PATH` for Gradle to find); run these from a host that has it, or add the SDK to
-  `docker/dev.Dockerfile` if you need `publishServer` inside the container.
+  Requires the .NET SDK (`dotnet`) on `PATH`. On the native toolchain track this is
+  normally already there if you do any .NET development. The devcontainer does *not*
+  currently include one (Rider's own bundled backend/Test Explorer inside it has its own
+  separate .NET runtime it manages independently, which does *not* put `dotnet` on the
+  container's `PATH` for Gradle to find) — run `publishServer` from the Windows host
+  instead (see "Manual verification — devcontainer" below), or add the SDK to
+  `docker/dev.Dockerfile` if you need it to work inside the container directly.
 
   `runIde` specifically publishes with `--configuration Debug` (detected from
   `gradle.startParameter.taskNames`); `buildPlugin`/CI publish `Release`. `runIde`'s
@@ -83,15 +104,29 @@ There are two ways to populate `server/<rid>/`, both wired up in `build.gradle.k
   mode — Gradle never needs `dotnet` on the CI runner — and `prepareSandbox` bundles
   every RID found under `<dir>` instead of just one.
 
-## Manual verification (no local Rider install)
+## Manual verification
 
-There is no locally installed Rider on the dev machine, and no plan to add one — this
-is exactly what the dev container (`.devcontainer/devcontainer.json`) is for: it runs
-Rider headless-from-the-container's-perspective, displayed on the host desktop over
-WSLg's X11 forwarding (`DISPLAY=:0`). All verification below happens *inside* the
-container, except publishing the server (the container has no .NET SDK — see the
-"Local dev" bullet above — so publish from the Windows host, into the bind-mounted
-repo, and point Gradle at it exactly the way CI does).
+### Native toolchain
+
+If you have JDK 21 and `dotnet` on `PATH` (see "First-time setup" above), this is just:
+
+```
+cd src/Rider
+./gradlew runIde
+```
+
+A sandboxed Rider window appears directly on your desktop — no container, no X11
+forwarding, first run downloads the Rider platform SDK (large, one-time). Skip straight
+to "What to check" below.
+
+### Devcontainer (no local JDK/Rider install)
+
+This is the fallback for a constrained workstation — it runs Rider
+headless-from-the-container's-perspective, displayed on the host desktop over WSLg's X11
+forwarding (`DISPLAY=:0`). All verification below happens *inside* the container, except
+publishing the server (the container has no .NET SDK — see "Bundling the LSP server"
+above — so publish from the Windows host, into the bind-mounted repo, and point Gradle
+at it exactly the way CI does).
 
 1. **Rebuild the container** in VS Code (`Dev Containers: Rebuild and Reopen in
    Container`) after any `docker/dev.Dockerfile` change. The image needs
@@ -123,18 +158,23 @@ repo, and point Gradle at it exactly the way CI does).
    ```
 5. First run downloads the Rider platform SDK (large, one-time). A sandboxed Rider
    window should eventually appear on the Windows desktop via WSLg.
-6. Open/create a small scratch project containing a `.feature` file to trigger
-   `ReqnrollLspServerSupportProvider.fileOpened`. Create it under
+
+### What to check
+
+Applies regardless of which track launched the sandbox.
+
+1. Open/create a small scratch project containing a `.feature` file to trigger
+   `ReqnrollLspServerSupportProvider.fileOpened`. In the devcontainer, create it under
    `/workspaces/rider-samples` (a dedicated named volume, mounted in
    `devcontainer.json`) rather than anywhere under the repo checkout — it persists
    across container rebuilds the same way the repo does, but stays outside the git
    working tree entirely. Confirm the server actually started:
    - the LSP status widget / "Language Servers" view in Rider should list "Reqnroll";
-   - `ps aux | grep Reqnroll.IdeSupport.LSP.Server` inside the container should show
-     the process running;
+   - `ps aux | grep Reqnroll.IdeSupport.LSP.Server` (or Task Manager, on the native
+     track) should show the process running;
    - the sandbox's `idea.log` (under `build/idea-sandbox/.../log/`) should show the LSP
      initialize handshake, with no errors from `ReqnrollServerPathResolver`.
-7. Beyond "does the server start," worth checking the actual feature surface once it's up:
+2. Beyond "does the server start," worth checking the actual feature surface once it's up:
    - `.feature` files: Gherkin keywords/tags/step text are colored (custom `reqnroll.*`
      semantic tokens — Rider's default color scheme doesn't style all of them distinctly
      out of the box; see `ReqnrollSemanticTokensSupport`'s fallback-key choices if a
@@ -150,7 +190,9 @@ repo, and point Gradle at it exactly the way CI does).
      inputs cover the full `src/LSP`/`src/Core` source trees (content-hashed), so
      `./gradlew runIde` republishes automatically whenever server-side source actually
      changed and skips it (fast) when it didn't — a stale binary shouldn't be the culprit
-     if something doesn't reflect a recent server-side change.
+     if something doesn't reflect a recent server-side change. (Devcontainer track only:
+     this doesn't apply to the `-PlspServerBuildDir` external-build-dir flow, which skips
+     `publishServer` entirely — republish manually via step 2 above after server changes.)
 
 ## Logging
 
