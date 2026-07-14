@@ -49,8 +49,14 @@ class StepUsagesCodeVisionProvider : CodeVisionProvider<Unit> {
             val offset = document.getLineStartOffset(line)
             val range = TextRange(offset, offset)
 
+            // ClickableTextCodeVisionEntry's constructor is (text, providerId, onClick, icon,
+            // longPresentation, tooltip, extraActions) — confirmed via the JVM parameter-name
+            // assertions embedded in the decompiled bytecode (Intrinsics.checkNotNullParameter
+            // literally names each one). `text` is what's actually rendered above the method; an
+            // earlier version of this code had `text`/`providerId` swapped, so the lens displayed
+            // this provider's id ("Reqnroll.StepUsagesCodeVision") instead of "N step usages".
             val entry = ClickableTextCodeVisionEntry(
-                id, command.title, { _, _ ->
+                command.title, id, { _, _ ->
                     if (command.command == "reqnroll.findStepUsages")
                         FindStepUsagesRunner.runAndShow(project, uri, line, 0)
                     else
