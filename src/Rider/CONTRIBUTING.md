@@ -11,11 +11,14 @@ definition, code actions), a few LSP features have no rendering-side consumer in
 platform at all (confirmed by decompiling — only capability-name bookkeeping exists for
 `textDocument/codeLens` and `textDocument/inlayHint`), so this plugin calls those requests
 directly (`ReqnrollRequestSender`) and renders through IntelliJ's own native extension
-points instead: a `CodeVisionProvider` (step-usage-count lenses in `.cs` files) and a
-declarative `InlayHintsProvider` (bound-method hints in `.feature` files). Two custom
-`AnAction`s (Find Unused Step Definitions, Find Step Usages — `com/reqnroll/ide/rider/actions`)
-surface the equivalent custom `reqnroll/*` requests that have no standard-LSP client hook at
-all.
+points instead: a `CodeVisionProvider` (step-usage-count lenses in `.cs` files) and, for
+`.feature` files, a hand-managed `Editor.inlayModel` (`ReqnrollFeatureInlayHintsController`)
+rather than the declarative `InlayHintsProvider` framework — that framework dispatches by PSI
+language, but `.feature` files have no `ParserDefinition` registered (confirmed live: a
+declarative provider registered for it was silently never invoked; see that class's doc
+comment for the full story). Two custom `AnAction`s (Find Unused Step Definitions, Find Step
+Usages — `com/reqnroll/ide/rider/actions`) surface the equivalent custom `reqnroll/*` requests
+that have no standard-LSP client hook at all.
 
 ## First-time setup
 
@@ -270,9 +273,9 @@ not wired in yet):
   `Project`/`RunnableProjectsModel`/`FileEditorManager` fixture to test the event-wiring itself
   (the pure logic each delegates to — `ProjectFileRole.classify`, `DocumentActivationState` — is
   already covered above).
-- `StepUsagesCodeVisionProvider`/`FeatureStepInlayHintsProvider` — need a real `Editor`/`PsiFile`
-  fixture; the request/response plumbing they call (`ReqnrollRequestSender`) is thin glue over
-  `LspServer.sendRequestSync` with no independent logic to unit-test.
+- `StepUsagesCodeVisionProvider`/`ReqnrollFeatureInlayHintsController` — need a real
+  `Editor`/`PsiFile` fixture; the request/response plumbing they call (`ReqnrollRequestSender`)
+  is thin glue over `LspServer.sendRequestSync` with no independent logic to unit-test.
 - Deferred: a full end-to-end functional test (real Rider sandbox, open a `.feature`
   file, confirm the LSP connection comes up and `reqnroll/*` notifications actually arrive)
   — expensive; revisit once there's been at least one live `runIde` verification pass to

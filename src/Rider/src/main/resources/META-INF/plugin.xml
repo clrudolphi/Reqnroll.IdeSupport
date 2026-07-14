@@ -5,7 +5,7 @@
 
   <description>
 <![CDATA[
-Reqnroll language support for Rider: Gherkin feature files and C# step-binding
+Experimental Reqnroll language support for Rider: Gherkin feature files and C# step-binding
 navigation, backed by the Reqnroll.IdeSupport LSP server.
 ]]>
   </description>
@@ -41,15 +41,11 @@ navigation, backed by the Reqnroll.IdeSupport LSP server.
          own native extension points instead. -->
     <codeInsight.codeVisionProvider implementation="com.reqnroll.ide.rider.codevision.StepUsagesCodeVisionProvider" />
 
-    <codeInsight.declarativeInlayProvider
-        language="Reqnroll Feature"
-        implementationClass="com.reqnroll.ide.rider.inlayhints.FeatureStepInlayHintsProvider"
-        group="OTHER_GROUP"
-        providerId="reqnroll.featureSteps"
-        isEnabledByDefault="true"
-        bundle="messages.ReqnrollBundle"
-        nameKey="inlayHints.featureSteps.name"
-        descriptionKey="inlayHints.featureSteps.description" />
+    <!-- Not a codeInsight.declarativeInlayProvider: that EP dispatches by PSI language, but
+         .feature files have no ParserDefinition registered (see
+         ReqnrollFeatureInlayHintsController's doc comment for why that silently breaks
+         language-scoped routing). Managed manually via Editor.inlayModel instead. -->
+    <editorFactoryListener implementation="com.reqnroll.ide.rider.inlayhints.ReqnrollFeatureInlayHintsController" />
   </extensions>
 
   <actions>
