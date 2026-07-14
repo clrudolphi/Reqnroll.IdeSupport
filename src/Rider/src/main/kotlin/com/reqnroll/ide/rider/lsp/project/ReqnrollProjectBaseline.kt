@@ -1,6 +1,7 @@
 package com.reqnroll.ide.rider.lsp.project
 
 import com.intellij.openapi.project.Project
+import com.jetbrains.rider.model.RdTargetFrameworkId
 import com.jetbrains.rider.model.RunnableProject
 import com.jetbrains.rider.model.runnableProjectsModel
 import com.jetbrains.rider.projectView.solution
@@ -63,10 +64,7 @@ object ReqnrollProjectBaseline {
             projectFile = runnableProject.projectFilePath,
             projectFolder = projectFolder,
             outputAssemblyPath = output?.exePath ?: "",
-            // RdTargetFrameworkId has no classic MSBuild moniker field (".NETCoreApp,Version=v8.0")
-            // — shortName ("net8.0") is the closest available. Revisit if the server's reflection
-            // discovery needs the exact classic format rather than the short one.
-            targetFrameworkMoniker = output?.tfm?.shortName ?: "",
+            targetFrameworkMoniker = output?.tfm?.let(::toClassicMoniker) ?: "",
             // Not available from RunnableProject; server uses this only to derive namespaces for
             // scaffolded files, which isn't reachable from Rider yet anyway (no scaffolding UI).
             defaultNamespace = "",
@@ -97,5 +95,25 @@ object ReqnrollProjectBaseline {
                 files = files,
             ),
         )
+    }
+
+    /**
+     * Builds the classic MSBuild target framework moniker (e.g. `.NETCoreApp,Version=v9.0`) the
+     * server's [Reqnroll.IdeSupport.Common.ProjectSystem.TargetFrameworkMoniker] parser expects.
+     *
+     * [RdTargetFrameworkId.getShortName] was assumed (unverified) to hold a `net9.0`-style short
+     * name, but a live devcontainer run showed the server receiving the literal string
+     * `.NETCoreApp` for a net9.0 sample project — confirmed via decompiling
+     * `RdTargetFrameworkId`'s real bytecode that `shortName` does not reliably hold that format.
+     * `isNetCoreApp`/`isNetFramework`/`version` are typed fields on the same model class, so build
+     * the moniker from those directly instead of trusting an unverified string.
+     */
+    internal fun toClassicMoniker(tfm: RdTargetFrameworkId): String {
+        val version = tfm.version
+        return when {
+            tfm.isNetCoreApp -> ".NETCoreApp,Version=v${version.major}.${version.minor}"
+            tfm.isNetFramework -> ".NETFramework,Version=v${version.major}.${version.minor}.${version.patch}"
+            else -> tfm.shortName
+        }
     }
 }
