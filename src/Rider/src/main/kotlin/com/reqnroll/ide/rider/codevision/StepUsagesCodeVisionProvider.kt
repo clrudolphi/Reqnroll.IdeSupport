@@ -17,6 +17,8 @@ import com.reqnroll.ide.rider.actions.FindStepUsagesRunner
 import com.reqnroll.ide.rider.lsp.ReqnrollRequestSender
 import com.intellij.util.io.URLUtil
 import com.intellij.openapi.vfs.VirtualFileManager
+import org.eclipse.lsp4j.CodeLens
+import org.eclipse.lsp4j.Command
 
 /**
  * "N step usages" CodeVision lens above each step-definition method in `.cs` files — the Rider
@@ -48,6 +50,26 @@ class StepUsagesCodeVisionProvider : CodeVisionProvider<Unit> {
                 codeVisionHost.invalidateProvider(CodeVisionHost.LensInvalidateSignal(editor, listOf(ID)))
             }
         }
+
+        /** True if [lens] has a command and its start line actually exists in a [lineCount]-line document. Pure filtering logic, kept separate from live Editor/Document access so it's unit-testable. */
+        internal fun isRenderable(lens: CodeLens, lineCount: Int): Boolean =
+            lens.command != null && lens.range.start.line in 0 until lineCount
+
+        /**
+         * Builds the CodeVision entry rendered for [command], reporting as [providerId]. `internal`
+         * (rather than folded into [computeEntries]) so the exact text/providerId wiring can be
+         * regression-tested without a platform fixture — `ClickableTextCodeVisionEntry`'s
+         * constructor is `(text, providerId, onClick, icon, longPresentation, tooltip,
+         * extraActions)`, confirmed via the JVM parameter-name assertions embedded in its
+         * decompiled bytecode; an earlier version of this code had `text`/`providerId` swapped, so
+         * the lens displayed this provider's id ("Reqnroll.StepUsagesCodeVision") instead of the
+         * actual usage count.
+         */
+        internal fun buildEntry(command: Command, providerId: String, onClick: () -> Unit): ClickableTextCodeVisionEntry =
+            ClickableTextCodeVisionEntry(
+                command.title, providerId, { _, _ -> onClick() },
+                null, command.title, command.title, emptyList(),
+            )
     }
 
     override val id: String = ID
@@ -68,30 +90,20 @@ class StepUsagesCodeVisionProvider : CodeVisionProvider<Unit> {
         val uri = VirtualFileManager.constructUrl("file", URLUtil.encodePath(file.path))
         val lenses = ReqnrollRequestSender.codeLens(project, uri) ?: return emptyList()
 
-        return lenses.mapNotNull { lens ->
-            val command = lens.command ?: return@mapNotNull null
+        val document = editor.document
+        return lenses.filter { isRenderable(it, document.lineCount) }.map { lens ->
+            // isRenderable already confirmed lens.command is non-null; Kotlin can't smart-cast
+            // across the filter/map boundary, hence the !!.
+            val command = lens.command!!
             val line = lens.range.start.line
-            val document = editor.document
-            if (line !in 0 until document.lineCount) return@mapNotNull null
             val offset = document.getLineStartOffset(line)
-            val range = TextRange(offset, offset)
-
-            // ClickableTextCodeVisionEntry's constructor is (text, providerId, onClick, icon,
-            // longPresentation, tooltip, extraActions) — confirmed via the JVM parameter-name
-            // assertions embedded in the decompiled bytecode (Intrinsics.checkNotNullParameter
-            // literally names each one). `text` is what's actually rendered above the method; an
-            // earlier version of this code had `text`/`providerId` swapped, so the lens displayed
-            // this provider's id ("Reqnroll.StepUsagesCodeVision") instead of "N step usages".
-            val entry = ClickableTextCodeVisionEntry(
-                command.title, id, { _, _ ->
-                    if (command.command == "reqnroll.findStepUsages")
-                        FindStepUsagesRunner.runAndShow(project, uri, line, 0)
-                    else
-                        FindStepUsagesRunner.showNoUsages(project)
-                },
-                null, command.title, command.title, emptyList(),
-            )
-            range to entry
+            val entry = buildEntry(command, id) {
+                if (command.command == "reqnroll.findStepUsages")
+                    FindStepUsagesRunner.runAndShow(project, uri, line, 0)
+                else
+                    FindStepUsagesRunner.showNoUsages(project)
+            }
+            TextRange(offset, offset) to entry
         }
     }
 }

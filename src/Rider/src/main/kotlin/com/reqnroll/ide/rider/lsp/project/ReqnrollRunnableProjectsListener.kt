@@ -42,8 +42,7 @@ import kotlinx.coroutines.withContext
 class ReqnrollRunnableProjectsListener : ProjectActivity {
     override suspend fun execute(project: Project) {
         val lifetime = project.createLifetime()
-        val knownProjectFiles = mutableSetOf<String>()
-        val lastSentParams = mutableMapOf<String, ReqnrollProjectLoadedParams>()
+        val tracker = ProjectLoadedTracker()
 
         // RD reactive properties assert they're advised from the UI thread or a scheduler the RD
         // dispatcher itself recognizes — a plain background ProjectActivity coroutine is neither,
@@ -57,27 +56,51 @@ class ReqnrollRunnableProjectsListener : ProjectActivity {
 
                 // advise() fires immediately at project open, independent of and almost always
                 // before the server itself is started (see ReqnrollLspServerReadiness) — defer the
-                // actual sends rather than dropping them straight into the server's face.
+                // actual sends rather than dropping them straight into the server's face. Both
+                // halves of tracker's state are updated inside this same deferred block (not one
+                // synchronously outside it, as an earlier version did) so a second advise() firing
+                // before the first's deferred action has run can't read half-updated tracking state.
                 ReqnrollLspServerReadiness.runWhenRunning(project) {
-                    (knownProjectFiles - currentFiles).forEach { removedFile ->
+                    tracker.removedSince(currentFiles).forEach { removedFile ->
                         ReqnrollDebugLogger.info("projectUnloaded: $removedFile")
                         ReqnrollNotificationSender.sendProjectUnloaded(project, ReqnrollProjectUnloadedParams(removedFile))
-                        lastSentParams.remove(removedFile)
                     }
 
                     current.forEach { runnableProject ->
                         val params = ReqnrollProjectBaseline.buildProjectLoadedParams(project, runnableProject)
-                        if (lastSentParams[runnableProject.projectFilePath] == params) return@forEach
+                        if (!tracker.shouldSend(runnableProject.projectFilePath, params)) return@forEach
 
                         ReqnrollDebugLogger.info("projectLoaded: ${runnableProject.projectFilePath}")
                         ReqnrollNotificationSender.sendProjectLoaded(project, params)
-                        lastSentParams[runnableProject.projectFilePath] = params
                     }
                 }
-
-                knownProjectFiles.clear()
-                knownProjectFiles.addAll(currentFiles)
             }
         }
+    }
+}
+
+/**
+ * Tracks, per project file path, the last [ReqnrollProjectLoadedParams] actually sent — so
+ * [ReqnrollRunnableProjectsListener] only resends `projectLoaded` when something genuinely
+ * changed (see its class doc: `advise()` re-fires with an *identical* list many times while a
+ * solution settles) and can detect removals by diffing against the previous snapshot. Pure and
+ * platform-independent so this diffing logic is unit-testable without an RD reactive-property
+ * fixture.
+ */
+internal class ProjectLoadedTracker {
+    private val lastSentParams = mutableMapOf<String, ReqnrollProjectLoadedParams>()
+
+    /** Returns project file paths that were previously tracked but are absent from [currentFiles], and stops tracking them. */
+    fun removedSince(currentFiles: Set<String>): Set<String> {
+        val removed = lastSentParams.keys - currentFiles
+        removed.forEach { lastSentParams.remove(it) }
+        return removed
+    }
+
+    /** Returns `true` (and records [params] as sent) only if [params] differs from what was last sent for [projectFilePath]. */
+    fun shouldSend(projectFilePath: String, params: ReqnrollProjectLoadedParams): Boolean {
+        if (lastSentParams[projectFilePath] == params) return false
+        lastSentParams[projectFilePath] = params
+        return true
     }
 }

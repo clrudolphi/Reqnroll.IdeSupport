@@ -72,14 +72,8 @@ class ReqnrollFeatureOnTypeFormattingHandler : TypedHandlerDelegate() {
 
     companion object {
         private fun applyEdits(project: Project, document: Document, edits: List<TextEdit>) {
-            // Apply in reverse document order so each edit's offsets stay valid even though
-            // earlier edits in the list may shift later text — the edits themselves don't overlap.
-            val orderedEdits = edits.sortedWith(
-                compareByDescending<TextEdit> { it.range.start.line }
-                    .thenByDescending { it.range.start.character },
-            )
             WriteCommandAction.runWriteCommandAction(project) {
-                for (edit in orderedEdits) {
+                for (edit in orderForApplication(edits)) {
                     val startOffset = offsetOf(document, edit.range.start.line, edit.range.start.character)
                     val endOffset = offsetOf(document, edit.range.end.line, edit.range.end.character)
                     document.replaceString(startOffset, endOffset, edit.newText)
@@ -93,5 +87,18 @@ class ReqnrollFeatureOnTypeFormattingHandler : TypedHandlerDelegate() {
             val lineEnd = document.getLineEndOffset(line)
             return (lineStart + character).coerceIn(lineStart, lineEnd)
         }
+
+        /**
+         * Sorts [edits] in reverse document order (latest start position first) so each edit's
+         * offsets stay valid when applied in sequence, even though earlier edits in the *original*
+         * list may otherwise shift later text — the edits themselves are assumed non-overlapping
+         * (true for table-realignment edits from a single `onTypeFormatting` response). Pure and
+         * `internal` so this ordering is unit-testable without a live `Document`.
+         */
+        internal fun orderForApplication(edits: List<TextEdit>): List<TextEdit> =
+            edits.sortedWith(
+                compareByDescending<TextEdit> { it.range.start.line }
+                    .thenByDescending { it.range.start.character },
+            )
     }
 }
