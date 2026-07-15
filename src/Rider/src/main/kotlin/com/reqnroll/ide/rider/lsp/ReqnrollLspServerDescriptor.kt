@@ -12,6 +12,7 @@ import com.reqnroll.ide.rider.logging.ReqnrollDebugLogger
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollLanguageServer
 import com.reqnroll.ide.rider.lsp.semantictokens.ReqnrollSemanticTokensSupport
 import org.eclipse.lsp4j.ClientCapabilities
+import org.eclipse.lsp4j.CodeLensWorkspaceCapabilities
 import org.eclipse.lsp4j.FormattingCapabilities
 import org.eclipse.lsp4j.InlayHintWorkspaceCapabilities
 import org.eclipse.lsp4j.OnTypeFormattingCapabilities
@@ -69,9 +70,19 @@ class ReqnrollLspServerDescriptor(project: Project) :
     override fun isSupportedFile(file: VirtualFile): Boolean =
         file.extension == "feature" || file.extension == "cs"
 
-    /** Wraps the platform's own handler so `workspace/inlayHint/refresh` also refreshes `.feature` inlay hints here — see [ReqnrollInlayHintRefreshInterceptor]. */
+    /**
+     * Wraps the platform's own handler so `workspace/inlayHint/refresh` also refreshes `.feature`
+     * inlay hints (see [ReqnrollInlayHintRefreshInterceptor]) and `workspace/codeLens/refresh`
+     * also refreshes the step-usages CodeVision lens (see [ReqnrollCodeLensRefreshInterceptor]) —
+     * nested so both wrap the same underlying platform handler via Kotlin interface delegation.
+     */
     override fun createLsp4jClient(serverNotificationsHandler: LspServerNotificationsHandler): Lsp4jClient =
-        Lsp4jClient(ReqnrollInlayHintRefreshInterceptor(project, serverNotificationsHandler))
+        Lsp4jClient(
+            ReqnrollCodeLensRefreshInterceptor(
+                project,
+                ReqnrollInlayHintRefreshInterceptor(project, serverNotificationsHandler),
+            ),
+        )
 
     // Rider's own default ClientCapabilities doesn't advertise workspace.inlayHint.refreshSupport
     // (confirmed live: the server's InlayHintRefreshHandler never fired — its capability guard
@@ -96,6 +107,11 @@ class ReqnrollLspServerDescriptor(project: Project) :
         get() = super.clientCapabilities.apply {
             val workspaceCapabilities = workspace ?: WorkspaceClientCapabilities().also { workspace = it }
             workspaceCapabilities.inlayHint = InlayHintWorkspaceCapabilities(true)
+            // Not required for the server to actually send workspace/codeLens/refresh (it does so
+            // unconditionally, unlike the capability-gated inlayHint/semanticTokens refreshes —
+            // see BindingRegistryChangedHandler.RequestCodeLensRefreshAsync), but advertised
+            // truthfully now that ReqnrollCodeLensRefreshInterceptor gives it a real consumer.
+            workspaceCapabilities.codeLens = CodeLensWorkspaceCapabilities(true)
 
             val textDocumentCapabilities = textDocument ?: TextDocumentClientCapabilities().also { textDocument = it }
             textDocumentCapabilities.formatting = FormattingCapabilities(true)

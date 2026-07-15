@@ -1,5 +1,7 @@
 package com.reqnroll.ide.rider.inlayhints
 
+import com.intellij.codeInsight.hint.TooltipController
+import com.intellij.codeInsight.hint.TooltipGroup
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
@@ -13,6 +15,8 @@ import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
 import com.intellij.openapi.editor.event.EditorFactoryEvent
 import com.intellij.openapi.editor.event.EditorFactoryListener
+import com.intellij.openapi.editor.event.EditorMouseEvent
+import com.intellij.openapi.editor.event.EditorMouseMotionListener
 import com.intellij.openapi.editor.markup.TextAttributes
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
@@ -55,9 +59,21 @@ import java.awt.Rectangle
  *  - A short debounce on document edits, as a local fallback for the case where the user's own
  *    typing is what invalidated the hints (a pure client-side edit doesn't necessarily trigger a
  *    server-side semantic-tokens refresh on its own).
+ *
+ * Hover tooltip likewise needs manual glue: [EditorCustomElementRenderer] (unlike the declarative
+ * framework's `InlayPresentation`) has no built-in hover/tooltip support at all — confirmed by
+ * decompiling the interface, which only has paint/width/gutter-icon/context-menu hooks. An
+ * [EditorMouseMotionListener] per editor session locates the hovered [Inlay] via
+ * `InlayModel.getElementAt(Point)` and shows [BindingHintRenderer.tooltip] (already sent by the
+ * server as `InlayHint.tooltip` — was simply never read client-side) via [TooltipController].
  */
 class ReqnrollFeatureInlayHintsController : EditorFactoryListener {
-    private class Session(val disposable: Disposable, val alarm: Alarm, val docListener: DocumentListener)
+    private class Session(
+        val disposable: Disposable,
+        val alarm: Alarm,
+        val docListener: DocumentListener,
+        val mouseMotionListener: EditorMouseMotionListener,
+    )
 
     override fun editorCreated(event: EditorFactoryEvent) {
         val editor = event.editor
@@ -75,7 +91,22 @@ class ReqnrollFeatureInlayHintsController : EditorFactoryListener {
             }
         }
         editor.document.addDocumentListener(docListener, disposable)
-        editor.putUserData(SESSION_KEY, Session(disposable, alarm, docListener))
+
+        val mouseMotionListener = object : EditorMouseMotionListener {
+            override fun mouseMoved(e: EditorMouseEvent) {
+                val tooltip = (editor.inlayModel.getElementAt(e.mouseEvent.point)?.renderer as? BindingHintRenderer)
+                    ?.tooltip
+                if (tooltip.isNullOrBlank()) {
+                    TooltipController.getInstance().cancelTooltip(TOOLTIP_GROUP, e.mouseEvent, true)
+                } else {
+                    TooltipController.getInstance()
+                        .showTooltip(editor, e.mouseEvent.point, tooltip, false, TOOLTIP_GROUP)
+                }
+            }
+        }
+        editor.addEditorMouseMotionListener(mouseMotionListener, disposable)
+
+        editor.putUserData(SESSION_KEY, Session(disposable, alarm, docListener, mouseMotionListener))
 
         refresh(project, editor, virtualFile)
     }
@@ -93,6 +124,7 @@ class ReqnrollFeatureInlayHintsController : EditorFactoryListener {
         private const val PADDING_PX = 4
         private val SESSION_KEY = Key.create<Session>("Reqnroll.FeatureInlayHints.Session")
         private val INLAYS_KEY = Key.create<MutableList<Inlay<*>>>("Reqnroll.FeatureInlayHints.Inlays")
+        private val TOOLTIP_GROUP = TooltipGroup("Reqnroll.FeatureInlayHints", 0)
 
         /** Refreshes inlay hints for every currently open `.feature` editor belonging to [project]. */
         fun refreshOpenFeatureEditors(project: Project) {
@@ -138,8 +170,10 @@ class ReqnrollFeatureInlayHintsController : EditorFactoryListener {
                 val character = hint.position.character.coerceAtMost(lineEndOffset - document.getLineStartOffset(line))
                 val offset = document.getLineStartOffset(line) + character
                 val label = hint.label.left ?: continue
+                val tooltip = hint.tooltip?.left
 
-                val inlay = editor.inlayModel.addInlineElement(offset, true, BindingHintRenderer(label)) ?: continue
+                val inlay =
+                    editor.inlayModel.addInlineElement(offset, true, BindingHintRenderer(label, tooltip)) ?: continue
                 inlays += inlay
             }
 
@@ -152,8 +186,8 @@ class ReqnrollFeatureInlayHintsController : EditorFactoryListener {
         }
     }
 
-    /** Paints a single-line, greyed-out text label — no tooltip yet (see class doc: v1 scope). */
-    private class BindingHintRenderer(private val text: String) : EditorCustomElementRenderer {
+    /** Paints a single-line, greyed-out text label; [tooltip] (if any) is shown on hover — see the class doc's mouse-motion-listener note. */
+    private class BindingHintRenderer(private val text: String, val tooltip: String?) : EditorCustomElementRenderer {
         override fun calcWidthInPixels(inlay: Inlay<*>): Int {
             val editor = inlay.editor
             val metrics = editor.contentComponent.getFontMetrics(editor.colorsScheme.getFont(EditorFontType.PLAIN))

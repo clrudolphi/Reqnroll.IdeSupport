@@ -2,12 +2,16 @@ package com.reqnroll.ide.rider.codevision
 
 import com.intellij.codeInsight.codeVision.CodeVisionAnchorKind
 import com.intellij.codeInsight.codeVision.CodeVisionEntry
+import com.intellij.codeInsight.codeVision.CodeVisionHost
 import com.intellij.codeInsight.codeVision.CodeVisionProvider
 import com.intellij.codeInsight.codeVision.CodeVisionRelativeOrdering
 import com.intellij.codeInsight.codeVision.CodeVisionState
 import com.intellij.codeInsight.codeVision.ui.model.ClickableTextCodeVisionEntry
+import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.TextRange
 import com.reqnroll.ide.rider.actions.FindStepUsagesRunner
 import com.reqnroll.ide.rider.lsp.ReqnrollRequestSender
@@ -23,7 +27,30 @@ import com.intellij.openapi.vfs.VirtualFileManager
  * and renders the results through IntelliJ's native CodeVision extension point instead.
  */
 class StepUsagesCodeVisionProvider : CodeVisionProvider<Unit> {
-    override val id: String = "Reqnroll.StepUsagesCodeVision"
+    companion object {
+        private const val ID = "Reqnroll.StepUsagesCodeVision"
+
+        /**
+         * Forces a recompute of this lens for every currently open `.cs` editor in [project] —
+         * called from [com.reqnroll.ide.rider.lsp.ReqnrollCodeLensRefreshInterceptor] when the
+         * server sends `workspace/codeLens/refresh`. Without this, IntelliJ's CodeVision engine
+         * only recomputes on its own signals (document edits to the `.cs` file itself, editor
+         * focus, etc.) — it has no way to know a `.feature` file's edit changed this file's step-
+         * usage counts, so the lens silently goes stale (clicking still worked because that reruns
+         * `findStepUsages` fresh; only the cached *count* was wrong).
+         */
+        fun refreshOpenCsEditors(project: Project) {
+            val codeVisionHost = project.service<CodeVisionHost>()
+            for (editor in EditorFactory.getInstance().allEditors) {
+                if (editor.project != project) continue
+                val virtualFile = FileDocumentManager.getInstance().getFile(editor.document) ?: continue
+                if (!virtualFile.extension.equals("cs", ignoreCase = true)) continue
+                codeVisionHost.invalidateProvider(CodeVisionHost.LensInvalidateSignal(editor, listOf(ID)))
+            }
+        }
+    }
+
+    override val id: String = ID
     override val name: String = "Reqnroll step usages"
     override val relativeOrderings: List<CodeVisionRelativeOrdering> = emptyList()
     override val defaultAnchor: CodeVisionAnchorKind = CodeVisionAnchorKind.Default
