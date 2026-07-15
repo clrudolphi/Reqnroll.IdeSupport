@@ -1,6 +1,8 @@
 package com.reqnroll.ide.rider.lsp.project
 
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Disposer
 import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerManager
 import com.intellij.platform.lsp.api.LspServerManagerListener
@@ -20,6 +22,15 @@ import com.reqnroll.ide.rider.lsp.ReqnrollLspServerSupportProvider
  * project open, independent of any file being opened — so its very first `advise` callback almost
  * always races ahead of server startup. Route every such push through this gate rather than
  * sending directly from an `advise`/model-change callback.
+ *
+ * Registers the deferred listener against a fresh, per-call [Disposable] (a child of [project],
+ * not [project] itself) and disposes it immediately once [action] runs — confirmed by decompiling
+ * `LspServerManager` that there is no `removeLspServerManagerListener` at all; the *only* way to
+ * deregister is via the parent `Disposable` passed at registration. Without this, a listener
+ * registered here would stay subscribed for the rest of the project's lifetime even after firing
+ * once, and would fire `action` again on every later "Running" transition — including after a
+ * manual LSP server restart (a real, user-reachable action via the status-bar widget), silently
+ * turning "run once when ready" into "run every time the server (re)starts."
  */
 object ReqnrollLspServerReadiness {
     fun runWhenRunning(project: Project, action: () -> Unit) {
@@ -31,17 +42,19 @@ object ReqnrollLspServerReadiness {
             return
         }
 
+        val listenerLifetime = Disposer.newDisposable(project, "ReqnrollLspServerReadiness.runWhenRunning")
         manager.addLspServerManagerListener(
             object : LspServerManagerListener {
                 override fun serverStateChanged(server: LspServer) {
                     if (server.providerClass == ReqnrollLspServerSupportProvider::class.java &&
                         server.state == LspServerState.Running
                     ) {
+                        Disposer.dispose(listenerLifetime)
                         action()
                     }
                 }
             },
-            project,
+            listenerLifetime,
             false,
         )
     }
