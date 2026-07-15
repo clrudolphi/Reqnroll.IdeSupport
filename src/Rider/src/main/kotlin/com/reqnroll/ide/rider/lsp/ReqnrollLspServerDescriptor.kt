@@ -6,12 +6,17 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.lsp.api.Lsp4jClient
 import com.intellij.platform.lsp.api.LspServerNotificationsHandler
 import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor
+import com.intellij.platform.lsp.api.customization.LspFormattingSupport
 import com.intellij.platform.lsp.api.customization.LspSemanticTokensSupport
 import com.reqnroll.ide.rider.logging.ReqnrollDebugLogger
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollLanguageServer
 import com.reqnroll.ide.rider.lsp.semantictokens.ReqnrollSemanticTokensSupport
 import org.eclipse.lsp4j.ClientCapabilities
+import org.eclipse.lsp4j.FormattingCapabilities
 import org.eclipse.lsp4j.InlayHintWorkspaceCapabilities
+import org.eclipse.lsp4j.OnTypeFormattingCapabilities
+import org.eclipse.lsp4j.RangeFormattingCapabilities
+import org.eclipse.lsp4j.TextDocumentClientCapabilities
 import org.eclipse.lsp4j.WorkspaceClientCapabilities
 import org.eclipse.lsp4j.services.LanguageServer
 
@@ -38,6 +43,20 @@ class ReqnrollLspServerDescriptor(project: Project) :
     // com/reqnroll/ide/rider/lsp/semantictokens/ReqnrollSemanticTokensSupport.kt.
     override val lspSemanticTokensSupport: LspSemanticTokensSupport = ReqnrollSemanticTokensSupport()
 
+    // Enables the platform's built-in LspFormattingService (an AsyncDocumentFormattingService) for
+    // whole-document Reformat Code. Confirmed by decompiling LspFormattingService.canFormat that
+    // eligibility here is PSI-independent — unlike declarative inlay hints, it does NOT require a
+    // registered FormattingModelBuilder for .feature's language; it only needs this property
+    // non-null and requires !hasFormattingModelBuilder (true for .feature, since none is
+    // registered) plus the server advertising documentFormattingProvider (already true via
+    // GherkinFormattingHandler). The platform's LspFormattingTask sends the standard
+    // textDocument/formatting request and applies the returned edits itself — no client glue
+    // needed. Note: LspFormattingService.getFeatures() decompiles to emptySet(), so
+    // FormattingService.Feature.FORMAT_FRAGMENTS is not declared — Reformat Selection does not
+    // route through this path (whole-document only); on-type table-column realignment likewise
+    // has no generic platform hook and would need separate custom client glue.
+    override val lspFormattingSupport: LspFormattingSupport = LspFormattingSupport()
+
     // Adds the reqnroll-prefixed client-to-server notifications (ReqnrollNotificationSender) on top
     // of the standard LanguageServer interface. Confirmed against Rider 2024.3.5's actual
     // bundled LspServerDescriptor.class that this property genuinely exists and is overridable
@@ -61,10 +80,27 @@ class ReqnrollLspServerDescriptor(project: Project) :
     // consumer for inlay hints to refresh (same "capability-name bookkeeping only" finding noted
     // elsewhere in this file). Since ReqnrollInlayHintRefreshInterceptor gives it a real one now,
     // advertise the capability truthfully rather than leaving the server's push silently gated off.
+    // Rider's generic LspFormattingService (see lspFormattingSupport above) only treats a server as
+    // "explicitly wanting" to format a file when it finds a *dynamically registered*
+    // textDocument/formatting capability whose DocumentSelector matches that file — confirmed by
+    // decompiling LspServerImpl's private capability-lookup helper, which reads solely from
+    // LspDynamicCapabilities and never consults the static documentFormattingProvider flag from the
+    // initialize response (that flag only feeds the separate, already-satisfied
+    // hasFormattingRelatedCapabilities check). GherkinFormattingHandler is registered server-side via
+    // AddHandler<>() (dynamic registration, per lsp-handler-dynamic-registration precedent), but
+    // OmniSharp only attempts it when the client advertises dynamicRegistration=true for the
+    // capability — Rider's platform default doesn't. Same gap class as workspace.inlayHint.refreshSupport
+    // above; fixed the same way, for all three formatting-related capabilities the server implements
+    // (document, range, on-type — see GherkinFormattingHandler).
     override val clientCapabilities: ClientCapabilities
         get() = super.clientCapabilities.apply {
             val workspaceCapabilities = workspace ?: WorkspaceClientCapabilities().also { workspace = it }
             workspaceCapabilities.inlayHint = InlayHintWorkspaceCapabilities(true)
+
+            val textDocumentCapabilities = textDocument ?: TextDocumentClientCapabilities().also { textDocument = it }
+            textDocumentCapabilities.formatting = FormattingCapabilities(true)
+            textDocumentCapabilities.rangeFormatting = RangeFormattingCapabilities(true)
+            textDocumentCapabilities.onTypeFormatting = OnTypeFormattingCapabilities(true)
         }
 
     /** Resolves the bundled server executable and builds the launch command line, with the log level chosen per [resolveLogLevel]. */

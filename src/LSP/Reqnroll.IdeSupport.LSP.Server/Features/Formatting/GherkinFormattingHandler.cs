@@ -27,8 +27,14 @@ public sealed class GherkinFormattingHandler
     private readonly IOperationDurationRecorder _recorder;
     private readonly GherkinDocumentFormatter _formatter = new();
 
+    // Scheme is set explicitly (not just Pattern) because Rider's client-side document-selector
+    // matcher for the formatting-exclusivity check (decompiled from LspServerImpl: the private
+    // helper backing doesServerExplicitlyWantToFormatThisFile) requires each DocumentFilter's
+    // scheme to literally equal "file" before even looking at language/pattern — a filter with
+    // scheme left unset is skipped entirely, silently making the dynamic registration invisible
+    // to that specific check (other capabilities' selector matching isn't affected by this).
     private static readonly TextDocumentSelector FeatureSelector = new(
-        new TextDocumentFilter { Pattern = "**/*.feature" });
+        new TextDocumentFilter { Scheme = "file", Pattern = "**/*.feature" });
 
     /// <summary>Initializes a new instance of the <see cref="GherkinFormattingHandler"/> class.</summary>
     public GherkinFormattingHandler(
