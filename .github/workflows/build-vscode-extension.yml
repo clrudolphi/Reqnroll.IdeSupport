@@ -14,12 +14,14 @@ on:
     branches:
       - 'main'
     paths:
+      - 'src/Core/**'
       - 'src/LSP/**'
       - 'src/VSCode/**'
       - '.github/workflows/build-vscode-extension.yml'
       - '.github/workflows/test-lsp.yml'
   pull_request:
     paths:
+      - 'src/Core/**'
       - 'src/LSP/**'
       - 'src/VSCode/**'
       - '.github/workflows/build-vscode-extension.yml'
