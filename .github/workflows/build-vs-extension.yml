@@ -63,6 +63,7 @@ on:
     branches:
       - 'main'
     paths:
+      - 'src/Core/**'
       - 'src/VisualStudio/**'
       - 'src/LSP/**'
       - 'tests/VisualStudio/**'
@@ -70,6 +71,7 @@ on:
       - '.github/workflows/build-vs-extension.yml'
   pull_request:
     paths:
+      - 'src/Core/**'
       - 'src/VisualStudio/**'
       - 'src/LSP/**'
       - 'tests/VisualStudio/**'

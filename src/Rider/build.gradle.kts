@@ -20,10 +20,20 @@ dependencies {
         rider(providers.gradleProperty("platformVersion"))
         instrumentationTools()
     }
+
+    // Plain JUnit5 (kotlin.test assertions on the JUnit5 engine) for pure-logic unit tests that
+    // don't need an IntelliJ Platform fixture — see src/test/kotlin. Platform-fixture tests
+    // (BasePlatformTestCase) would need intellijPlatform { testFramework(TestFrameworkType.Platform) }
+    // instead/additionally; not needed yet since nothing under test touches the platform directly.
+    testImplementation(kotlin("test-junit5"))
 }
 
 kotlin {
     jvmToolchain(21)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 intellijPlatform {
@@ -88,6 +98,15 @@ val serverOutputDir = layout.projectDirectory.dir("server/$serverRid")
 val serverProject = File(repoRoot, "src/LSP/Reqnroll.IdeSupport.LSP.Server/Reqnroll.IdeSupport.LSP.Server.csproj")
 val connectorProject = File(repoRoot, "src/LSP/Reqnroll.IdeSupport.LSP.Connector/Connector/Connector.csproj")
 
+// `runIde` is the local dev-sandbox entry point — Gradle itself has no MSBuild-style
+// Debug/Release build-type concept, so "Debug build of the Rider plugin" is interpreted as
+// "invoked via runIde" (as opposed to buildPlugin/verifyPlugin/CI, which package for real
+// distribution and should keep bundling the Release server). Checked via the requested task
+// names rather than a project property so plain `./gradlew runIde` does the right thing with
+// no extra flags.
+val isRunIdeInvocation = gradle.startParameter.taskNames.any { it == "runIde" || it.endsWith(":runIde") }
+val serverConfiguration = if (isRunIdeInvocation) "Debug" else "Release"
+
 // Directory containing one server-<rid>-shaped subdirectory per RID, pre-published
 // and tested by CI (see .github/workflows/build-rider-plugin.yml). When set,
 // publishServer is skipped and prepareSandbox bundles every RID found here instead
@@ -96,11 +115,25 @@ val externalServerBuildDir = (findProperty("lspServerBuildDir") as String?)?.let
 
 val publishServer by tasks.registering(Exec::class) {
     group = "reqnroll"
-    description = "Publishes Reqnroll.IdeSupport.LSP.Server (RID=$serverRid) into server/$serverRid. " +
-        "Skipped when -PlspServerBuildDir is set."
+    description = "Publishes Reqnroll.IdeSupport.LSP.Server (RID=$serverRid, configuration=$serverConfiguration) " +
+        "into server/$serverRid. Skipped when -PlspServerBuildDir is set."
     onlyIf { externalServerBuildDir == null }
 
-    inputs.file(serverProject)
+    // Track the full source trees that feed the published server (not just the .csproj file
+    // itself, which was the previous, too-narrow input — Gradle's up-to-date check would report
+    // "up-to-date" and silently skip republishing whenever any .cs file changed without also
+    // touching the .csproj, serving a stale binary to runIde just like VS Code's F5 did before
+    // dev-publish-server.mjs, except less visibly since Gradle reported success). Covers both
+    // src/LSP (Server + Connector + all their project references) and src/Core (Common, which
+    // the Server references but isn't under src/LSP).
+    inputs.files(
+        fileTree(File(repoRoot, "src/LSP")) { exclude("**/bin/**", "**/obj/**") },
+        fileTree(File(repoRoot, "src/Core")) { exclude("**/bin/**", "**/obj/**") },
+    )
+    // Also invalidate the up-to-date check when switching between runIde (Debug) and
+    // buildPlugin/CI (Release) against otherwise-unchanged source, so alternating between the
+    // two locally doesn't serve a stale build from the other configuration.
+    inputs.property("serverConfiguration", serverConfiguration)
     outputs.dir(serverOutputDir)
 
     doFirst {
@@ -118,7 +151,7 @@ val publishServer by tasks.registering(Exec::class) {
 
     commandLine(
         "dotnet", "publish", serverProject.toString(),
-        "--configuration", "Release",
+        "--configuration", serverConfiguration,
         "--runtime", serverRid,
         "--self-contained", "true",
         "--nologo",
@@ -149,4 +182,14 @@ tasks {
     wrapper {
         gradleVersion = "8.10"
     }
+}
+
+// Flags the sandboxed IDE process launched by `runIde` as a dev sandbox so
+// ReqnrollLspServerDescriptor can default to verbose LSP server logging there, without
+// affecting a real installed plugin (which never sets this system property). runIde is a
+// JavaExec-derived task in the IntelliJ Platform Gradle Plugin, so `systemProperty` applies to
+// the JVM it launches (the sandboxed IDE itself, not our LSP server subprocess — the plugin
+// code reads it and passes the corresponding --log-level through when it spawns the server).
+tasks.matching { it.name == "runIde" }.configureEach {
+    (this as? JavaExec)?.systemProperty("reqnroll.devSandbox", "true")
 }

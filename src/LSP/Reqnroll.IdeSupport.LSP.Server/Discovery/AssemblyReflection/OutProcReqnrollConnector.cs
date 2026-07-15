@@ -68,7 +68,14 @@ public abstract class OutProcReqnrollConnector
         if (DebugConnector)
             arguments.Add("--debug");
 
-        if (connectorPath == null || !File.Exists(connectorPath))
+        // A bare command name (e.g. "dotnet", from GetDotNetCommand()'s non-Windows PATH-resolution
+        // fallback) has no directory component and is meant to be resolved by the OS via PATH when
+        // the process actually launches — File.Exists can't check that (it only resolves relative
+        // to the current directory) and would always report it missing even when it isn't. Only
+        // pre-validate paths that look like real file paths; a genuinely-missing bare command still
+        // surfaces a clear failure from ProcessHelper.RunProcess when the launch itself fails.
+        var looksLikeFilePath = connectorPath != null && !string.IsNullOrEmpty(Path.GetDirectoryName(connectorPath));
+        if (connectorPath == null || (looksLikeFilePath && !File.Exists(connectorPath)))
             return new DiscoveryResult
             {
                 ErrorMessage = $"Error during binding discovery. Unable to find connector: {connectorPath}",
@@ -203,18 +210,40 @@ public abstract class OutProcReqnrollConnector
     private string GetDotNetCommand()
     {
         if (!OperatingSystem.IsWindows())
-            return ResolveNonWindowsDotNetCommand(Environment.GetEnvironmentVariable("DOTNET_ROOT"));
+            return ResolveNonWindowsDotNetCommand(
+                Environment.GetEnvironmentVariable("DOTNET_ROOT"),
+                Environment.GetEnvironmentVariable("HOME"),
+                File.Exists);
 
         return Path.Combine(GetDotNetInstallLocation(), "dotnet.exe");
     }
 
     // No Windows-style Program Files layout on Linux/macOS. Prefer an explicit DOTNET_ROOT
-    // (set by the .NET install scripts / CI images); otherwise rely on "dotnet" being
-    // resolvable via PATH, which is the standard install on Linux/macOS.
-    // Extracted as a pure function (taking the env var value as a parameter) so it can be
-    // unit-tested without depending on the host OS actually being non-Windows.
-    internal static string ResolveNonWindowsDotNetCommand(string dotNetRoot) =>
-        string.IsNullOrEmpty(dotNetRoot) ? "dotnet" : Path.Combine(dotNetRoot, "dotnet");
+    // (set by the .NET install scripts / CI images); otherwise try the conventional ~/.dotnet
+    // install location the official dotnet-install.sh script uses — confirmed necessary live in
+    // a Rider/Linux devcontainer: "dotnet" was not resolvable via PATH for our process (nor for
+    // Rider's own JVM process, whose environment ours inherits), even though Rider's own Test
+    // Explorer can build and run tests, meaning Rider locates dotnet some other way entirely
+    // (its own SDK detection) that a plain child process doesn't get to share. Only fall back to
+    // the bare command name (relying on PATH) as a last resort, for the cases where dotnet
+    // genuinely is on PATH (e.g. CI images, or a host with a system-wide install).
+    // Extracted as a pure function (taking the env var values and a File.Exists-shaped predicate
+    // as parameters) so it can be unit-tested deterministically without depending on the host OS
+    // or the real filesystem/environment.
+    internal static string ResolveNonWindowsDotNetCommand(string dotNetRoot, string userHome, Func<string, bool> fileExists)
+    {
+        if (!string.IsNullOrEmpty(dotNetRoot))
+            return Path.Combine(dotNetRoot, "dotnet");
+
+        if (!string.IsNullOrEmpty(userHome))
+        {
+            var candidate = Path.Combine(userHome, ".dotnet", "dotnet");
+            if (fileExists(candidate))
+                return candidate;
+        }
+
+        return "dotnet";
+    }
 
     /// <summary>Returns the extension's <c>Connectors</c> subfolder if it exists, otherwise falls back to the extension folder itself.</summary>
     protected string GetConnectorsFolder()

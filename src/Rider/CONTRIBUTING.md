@@ -6,18 +6,51 @@ Rider. It registers a `.feature` file type/language and an `LspServerSupportProv
 half; the IntelliJ Platform's built-in `com.intellij.platform.lsp.api` framework talks to
 the server directly over stdio.
 
+Beyond what that generic framework wires up automatically (semantic token coloring, go to
+definition, code actions), a few LSP features have no rendering-side consumer in Rider's
+platform at all (confirmed by decompiling — only capability-name bookkeeping exists for
+`textDocument/codeLens` and `textDocument/inlayHint`), so this plugin calls those requests
+directly (`ReqnrollRequestSender`) and renders through IntelliJ's own native extension
+points instead: a `CodeVisionProvider` (step-usage-count lenses in `.cs` files) and, for
+`.feature` files, a hand-managed `Editor.inlayModel` (`ReqnrollFeatureInlayHintsController`)
+rather than the declarative `InlayHintsProvider` framework — that framework dispatches by PSI
+language, but `.feature` files have no `ParserDefinition` registered (confirmed live: a
+declarative provider registered for it was silently never invoked; see that class's doc
+comment for the full story). Two custom `AnAction`s (Find Unused Step Definitions, Find Step
+Usages — `com/reqnroll/ide/rider/actions`) surface the equivalent custom `reqnroll/*` requests
+that have no standard-LSP client hook at all.
+
 ## First-time setup
 
 The Gradle wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/`) is committed, pinned to
-8.10 — just use `./gradlew` directly, no bootstrap step needed.
+8.10 — just use `./gradlew` directly, no bootstrap step needed, on either track below.
 
-If the wrapper ever needs regenerating (e.g. bumping the Gradle version), do it from
-inside the dev container, which has a system `gradle` preinstalled for exactly that:
+If the wrapper ever needs regenerating (e.g. bumping the Gradle version), do it from a
+machine/container with a system `gradle` preinstalled for exactly that:
 `gradle wrapper --gradle-version <version>`. **Don't** use that system `gradle` for
-anything else — the container/CI runner's system Gradle version can be materially ahead
-of what `build.gradle.kts` is written against (e.g. Gradle 9's `Project.exec()` /
-Kotlin-DSL changes broke this script when CI briefly evaluated it under a system Gradle
-9.6.1 instead of the committed wrapper's 8.10).
+anything else — a system Gradle install can be materially ahead of what
+`build.gradle.kts` is written against (e.g. Gradle 9's `Project.exec()` / Kotlin-DSL
+changes broke this script when CI briefly evaluated it under a system Gradle 9.6.1
+instead of the committed wrapper's 8.10).
+
+There are two tracks, depending on what's already on your machine — pick one:
+
+- **Native toolchain (recommended if you can install a JDK)** — this is what CI already
+  uses (`ubuntu-latest` + `actions/setup-java`), so it's the better-trodden, faster path
+  if it's available to you:
+  - JDK 21 on `PATH` (or `JAVA_HOME` pointing at one) — matches `kotlin { jvmToolchain(21) }`.
+  - `dotnet` SDK on `PATH`, for `publishServer` (see "Bundling the LSP server" below).
+  - **No local Rider install needed even here** — the IntelliJ Platform Gradle plugin
+    downloads the pinned Rider SDK version (`platformVersion` in `gradle.properties`)
+    into `~/.gradle/caches` automatically on first `runIde`/build. Large (several GB),
+    one-time, needs network access.
+  - `./gradlew runIde` then launches a sandboxed Rider window directly on your desktop —
+    no container, no X11 forwarding, no bind-mount indirection.
+- **Devcontainer** — for a constrained workstation without permission or disk space to
+  install a JDK/Rider SDK locally (e.g. a locked-down corporate Windows machine). Slower
+  and more indirect (WSLg X11 forwarding, cross-host server publishing), but needs
+  nothing installed on the host beyond Docker/VS Code Dev Containers. See "Manual
+  verification — devcontainer" below for the full setup.
 
 ## Build / run
 
@@ -25,6 +58,11 @@ Kotlin-DSL changes broke this script when CI briefly evaluated it under a system
 ./gradlew buildPlugin   # produces build/distributions/*.zip
 ./gradlew runIde         # launches a sandboxed Rider instance with the plugin loaded
 ```
+
+If `src/Rider` is open as the VS Code workspace folder, `.vscode/tasks.json` wraps
+`./gradlew runIde` as the default build task (Ctrl+Shift+B / Cmd+Shift+B) — not bound to
+F5, since there's no real debug target VS Code can attach to (Gradle launches its own
+separate JVM/Rider sandbox process).
 
 ## Bundling the LSP server
 
@@ -47,9 +85,20 @@ There are two ways to populate `server/<rid>/`, both wired up in `build.gradle.k
   ./gradlew buildPlugin -PserverRid=linux-x64   # cross-publish a different single RID
   ```
 
-  Requires the .NET SDK (`dotnet`) on `PATH` — the dev container does not currently
-  include one; run these from a host that has it, or add the SDK to
-  `docker/dev.Dockerfile` if you need `publishServer` inside the container.
+  Requires the .NET SDK (`dotnet`) on `PATH`. On the native toolchain track this is
+  normally already there if you do any .NET development. The devcontainer does *not*
+  currently include one (Rider's own bundled backend/Test Explorer inside it has its own
+  separate .NET runtime it manages independently, which does *not* put `dotnet` on the
+  container's `PATH` for Gradle to find) — run `publishServer` from the Windows host
+  instead (see "Manual verification — devcontainer" below), or add the SDK to
+  `docker/dev.Dockerfile` if you need it to work inside the container directly.
+
+  `runIde` specifically publishes with `--configuration Debug` (detected from
+  `gradle.startParameter.taskNames`); `buildPlugin`/CI publish `Release`. `runIde`'s
+  sandboxed IDE process also gets a `reqnroll.devSandbox=true` system property, which
+  `ReqnrollLspServerDescriptor` reads to launch the server with `--log-level Verbose`
+  instead of the `Warning` a real installed plugin uses — so local dev gets a Debug
+  server build and full diagnostic logging with zero manual configuration.
 
 - **CI** (see `.github/workflows/build-rider-plugin.yml`) — passes
   `-PlspServerBuildDir=<dir>`, where `<dir>` contains a `win-x64/`, `linux-x64/`,
@@ -58,15 +107,29 @@ There are two ways to populate `server/<rid>/`, both wired up in `build.gradle.k
   mode — Gradle never needs `dotnet` on the CI runner — and `prepareSandbox` bundles
   every RID found under `<dir>` instead of just one.
 
-## Manual verification (no local Rider install)
+## Manual verification
 
-There is no locally installed Rider on the dev machine, and no plan to add one — this
-is exactly what the dev container (`.devcontainer/devcontainer.json`) is for: it runs
-Rider headless-from-the-container's-perspective, displayed on the host desktop over
-WSLg's X11 forwarding (`DISPLAY=:0`). All verification below happens *inside* the
-container, except publishing the server (the container has no .NET SDK — see the
-"Local dev" bullet above — so publish from the Windows host, into the bind-mounted
-repo, and point Gradle at it exactly the way CI does).
+### Native toolchain
+
+If you have JDK 21 and `dotnet` on `PATH` (see "First-time setup" above), this is just:
+
+```
+cd src/Rider
+./gradlew runIde
+```
+
+A sandboxed Rider window appears directly on your desktop — no container, no X11
+forwarding, first run downloads the Rider platform SDK (large, one-time). Skip straight
+to "What to check" below.
+
+### Devcontainer (no local JDK/Rider install)
+
+This is the fallback for a constrained workstation — it runs Rider
+headless-from-the-container's-perspective, displayed on the host desktop over WSLg's X11
+forwarding (`DISPLAY=:0`). All verification below happens *inside* the container, except
+publishing the server (the container has no .NET SDK — see "Bundling the LSP server"
+above — so publish from the Windows host, into the bind-mounted repo, and point Gradle
+at it exactly the way CI does).
 
 1. **Rebuild the container** in VS Code (`Dev Containers: Rebuild and Reopen in
    Container`) after any `docker/dev.Dockerfile` change. The image needs
@@ -98,22 +161,41 @@ repo, and point Gradle at it exactly the way CI does).
    ```
 5. First run downloads the Rider platform SDK (large, one-time). A sandboxed Rider
    window should eventually appear on the Windows desktop via WSLg.
-6. Open/create a small scratch project containing a `.feature` file to trigger
-   `ReqnrollLspServerSupportProvider.fileOpened`. Create it under
+
+### What to check
+
+Applies regardless of which track launched the sandbox.
+
+1. Open/create a small scratch project containing a `.feature` file to trigger
+   `ReqnrollLspServerSupportProvider.fileOpened`. In the devcontainer, create it under
    `/workspaces/rider-samples` (a dedicated named volume, mounted in
    `devcontainer.json`) rather than anywhere under the repo checkout — it persists
    across container rebuilds the same way the repo does, but stays outside the git
    working tree entirely. Confirm the server actually started:
    - the LSP status widget / "Language Servers" view in Rider should list "Reqnroll";
-   - `ps aux | grep Reqnroll.IdeSupport.LSP.Server` inside the container should show
-     the process running;
+   - `ps aux | grep Reqnroll.IdeSupport.LSP.Server` (or Task Manager, on the native
+     track) should show the process running;
    - the sandbox's `idea.log` (under `build/idea-sandbox/.../log/`) should show the LSP
      initialize handshake, with no errors from `ReqnrollServerPathResolver`.
-
-Note the plugin currently only registers the file type and starts the server — there's
-no client-side feature behavior yet (completions, diagnostics, etc. all come from the
-server itself), so "success" here just means the process spawns and the LSP connection
-initializes cleanly, not that anything visibly lights up in the editor.
+2. Beyond "does the server start," worth checking the actual feature surface once it's up:
+   - `.feature` files: Gherkin keywords/tags/step text are colored (custom `reqnroll.*`
+     semantic tokens — Rider's default color scheme doesn't style all of them distinctly
+     out of the box; see `ReqnrollSemanticTokensSupport`'s fallback-key choices if a
+     specific token type looks unstyled), undefined/ambiguous steps are highlighted, "Define
+     missing step(s)" code actions appear on undefined steps, Go to Step Definition (F12)
+     jumps into the bound `.cs` method, and the bound method name appears as an inlay hint
+     at the end of each step line.
+   - `.cs` files: each step-definition method shows a "N step usages" CodeVision lens above
+     it; clicking navigates to (or lists) the matching feature-file steps. Right-click → Find
+     Step Usages does the same from the caret.
+   - Tools menu → Reqnroll → Find Unused Step Definitions scans the whole workspace.
+   - None of the above needs an explicit rebuild between edits: `publishServer`'s Gradle
+     inputs cover the full `src/LSP`/`src/Core` source trees (content-hashed), so
+     `./gradlew runIde` republishes automatically whenever server-side source actually
+     changed and skips it (fast) when it didn't — a stale binary shouldn't be the culprit
+     if something doesn't reflect a recent server-side change. (Devcontainer track only:
+     this doesn't apply to the `-PlspServerBuildDir` external-build-dir flow, which skips
+     `publishServer` entirely — republish manually via step 2 above after server changes.)
 
 ## Logging
 
@@ -144,24 +226,79 @@ JVM across the same OSes VS Code does:
 - macOS: `~/Library/Logs/Reqnroll`
 - Linux: `~/.local/share/Reqnroll`
 
-## Testing (TODO — not yet written)
+This is a separate log from the *server's* own `reqnroll-<ide>-*.log` (governed by
+`--log-level`, which `runIde` sets to `Verbose` automatically — see "Bundling the LSP
+server" above) — `ReqnrollDebugLogger` only covers the plugin's own client-side glue.
 
-- `ReqnrollServerPathResolver` — plain JUnit, no platform fixture needed: RID selection
-  for each `(os.name, os.arch)` combination, correct binary name per OS, and the error
-  message when the binary is missing.
+## Testing
+
+Pure-logic tests (no IntelliJ Platform fixture needed) are written — `kotlin("test-junit5")`
+is wired into `build.gradle.kts`, `./gradlew test` runs them:
+
+- `ReqnrollServerPathResolverTest` — RID/binary-name selection for each `(os.name, os.arch)`
+  combination. The resolver's RID logic is `internal` and explicitly parameterized
+  (`rid(osName, osArch)`, `isWindows(osName)`, `binaryName(osName)`) specifically so this
+  doesn't need to mutate real `System` properties.
+- `ProjectFileRoleTest` — `.feature`/`.cs` classification, case-insensitivity, untracked
+  extensions falling back to `null`.
+- `DocumentActivationStateTest` — every phase transition from the ported
+  `DocumentActivationState.cs`, including the issue #85 activation-before-open ordering and
+  the close/reopen reset.
+- `ReqnrollSemanticTokensSupportTest` — every one of the 11 `reqnroll.*` legend types actually
+  has a `TextAttributesKey` mapping (guards against silently losing color for a type if the
+  legend grows and the mapping isn't updated to match).
+- `ReqnrollLspServerDescriptorTest` — `resolveLogLevel(isDevSandbox)` picks Verbose/Warning
+  correctly. Pulled out to `internal` on the companion object for the same reason as
+  `ReqnrollServerPathResolver`'s RID logic: parameterized instead of reading the real
+  `reqnroll.devSandbox` system property directly.
+- `FindUnusedStepDefinitionsActionTest` / `FindStepUsagesRunnerTest` — the popup-row label
+  formatting (`renderLabel`) for both custom-command result lists, including the
+  null-optional-field omission behavior. Pulled out to `internal` for the same reason.
+
+**Still TODO — needs a platform fixture** (`intellijPlatform { testFramework(TestFrameworkType.Platform) }`,
+not wired in yet):
 - `ReqnrollLspServerSupportProvider.fileOpened` — `BasePlatformTestCase` with a
   fake/spy `LspServerStarter`, asserting `ensureServerStarted` is (or isn't) called for
-  `.feature`/`.cs` vs. other extensions.
+  `.feature`/`.cs` vs. other extensions, and that `ReqnrollProjectBaseline.pushForAllRunnableProjects`
+  fires afterward.
 - `ReqnrollLspServerDescriptor` — `isSupportedFile` gating, and `createCommandLine()`
-  producing the right exe path plus `--ide rider --log-level Warning` args.
+  producing the right exe path (the `--log-level` value itself is covered by
+  `ReqnrollLspServerDescriptorTest` above).
 - File type/language registration — `BasePlatformTestCase` confirming a `.feature` file
   resolves to `ReqnrollFeatureFileType`/`ReqnrollFeatureLanguage` at runtime (catches
   `plugin.xml` wiring typos that `verifyPlugin` doesn't, since that only checks API
   compatibility).
+- `ReqnrollRunnableProjectsListener`/`ReqnrollProjectFilesSync`/`ReqnrollDocumentActivationSync`/
+  `ReqnrollProjectBaseline.buildProjectLoadedParams` — each needs a real
+  `Project`/`RunnableProjectsModel`/`FileEditorManager` fixture to test the event-wiring itself
+  (the pure logic each delegates to — `ProjectFileRole.classify`, `DocumentActivationState` — is
+  already covered above).
+- `StepUsagesCodeVisionProvider`/`ReqnrollFeatureInlayHintsController` — need a real
+  `Editor`/`PsiFile` fixture; the request/response plumbing they call (`ReqnrollRequestSender`)
+  is thin glue over `LspServer.sendRequestSync` with no independent logic to unit-test.
 - Deferred: a full end-to-end functional test (real Rider sandbox, open a `.feature`
-  file, confirm the LSP connection comes up) — expensive, and there isn't much
-  Rider-specific behavior to protect yet. Revisit once there's a PSI reference provider
-  or similar genuinely Rider-side logic.
-- Adding these requires `testFramework(TestFrameworkType.Platform)` in
-  `build.gradle.kts`'s `dependencies { intellijPlatform { ... } }` block (not present
-  yet) plus a `src/test/kotlin` source set.
+  file, confirm the LSP connection comes up and `reqnroll/*` notifications actually arrive)
+  — expensive; revisit once there's been at least one live `runIde` verification pass to
+  know what "working" looks like concretely.
+
+## Known follow-ups
+
+- ~~Debug builds always bundle/launch the Release LSP server at Warning log level~~ **Fixed.**
+  `publishServer` now publishes with `--configuration Debug` when invoked via `runIde` (detected
+  from `gradle.startParameter.taskNames`) and `Release` otherwise (`buildPlugin`/CI unaffected).
+  `runIde`'s JVM also gets a `reqnroll.devSandbox=true` system property, which
+  `ReqnrollLspServerDescriptor.createCommandLine()` reads to pick `--log-level Verbose` instead of
+  `Warning` in the dev sandbox.
+- ~~`GenericOutProcReqnrollConnector`/`OutProcReqnrollConnector.RunDiscovery` logs "Unable to find
+  connector: dotnet" on every build~~ **Fixed.** Root cause: on non-Windows
+  (`ResolveNonWindowsDotNetCommand`), when `DOTNET_ROOT` is unset, `GetDotNetCommand()` returns the
+  literal string `"dotnet"` (relying on `PATH` resolution at process-launch time), but
+  `RunDiscovery`'s existence check (`File.Exists(connectorPath)`) could never succeed for a bare
+  command name — `File.Exists` doesn't do `PATH` search — so it always short-circuited with this
+  misleading error, even when `dotnet` genuinely was resolvable and would launch fine. (Confirmed
+  this wasn't just a dev-container environment gap: Rider's own Test Explorer can build and run the
+  generated NUnit tests in the same sandbox, so `dotnet` facilities are genuinely available there.)
+  The same flawed check was duplicated one layer down in `ProcessHelper.RunProcessInternal`. Both
+  now only apply `File.Exists` when the path looks like an actual file path (has a directory
+  component); a bare PATH-relative command is trusted to resolve at launch time, and a genuine
+  failure to resolve it now surfaces as a real process-launch error instead of a bogus pre-check.

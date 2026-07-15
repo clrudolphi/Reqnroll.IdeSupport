@@ -268,6 +268,10 @@ public sealed class LspWorkspaceScopeManager : ILspWorkspaceScopeManager, IDispo
             }
             ApplyDelta(key, parameters.Files);
 
+            _logger.LogInfo(
+                $"[Membership] Applied delta for '{parameters.ProjectFile}' " +
+                $"[{parameters.TargetFrameworkMoniker}]: {parameters.Files.Length} change(s).");
+
             // A binding-role file removed from the project (e.g. the user deletes a .cs
             // step-definition file) must also have its stale entries purged from the project's
             // binding registry -- otherwise the step keeps showing as bound until the next full

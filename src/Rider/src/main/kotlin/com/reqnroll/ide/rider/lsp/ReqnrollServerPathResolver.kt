@@ -14,12 +14,13 @@ object ReqnrollServerPathResolver {
     // "com.reqnroll.ide.rider": the Plugin Verifier rejects IDs containing "rider".
     private val PLUGIN_ID = PluginId.getId("com.reqnroll.idesupport")
 
+    /** Locates the bundled server executable for the current OS/arch under this plugin's own install directory; throws with a descriptive message if it isn't there. */
     fun resolve(): Path {
         val plugin = PluginManagerCore.getPlugin(PLUGIN_ID)
             ?: error("Reqnroll plugin descriptor '$PLUGIN_ID' not found")
 
-        val rid = currentRid()
-        val binaryName = if (isWindows()) "Reqnroll.IdeSupport.LSP.Server.exe" else "Reqnroll.IdeSupport.LSP.Server"
+        val rid = rid(System.getProperty("os.name"), System.getProperty("os.arch"))
+        val binaryName = binaryName(System.getProperty("os.name"))
         val candidate = plugin.pluginPath.resolve("server").resolve(rid).resolve(binaryName)
 
         if (candidate.toFile().exists()) {
@@ -32,11 +33,19 @@ object ReqnrollServerPathResolver {
         )
     }
 
-    private fun isWindows() = System.getProperty("os.name").lowercase().contains("win")
+    /**
+     * Pure functions taking explicit `os.name`/`os.arch` values rather than reading
+     * `System.getProperty` directly — lets [resolve]'s RID/binary-name selection be unit tested
+     * for every OS/arch combination without mutating global JVM system properties.
+     */
+    internal fun isWindows(osName: String) = osName.lowercase().contains("win")
 
-    private fun currentRid(): String {
-        val os = System.getProperty("os.name").lowercase()
-        val arch = System.getProperty("os.arch").lowercase()
+    internal fun binaryName(osName: String) =
+        if (isWindows(osName)) "Reqnroll.IdeSupport.LSP.Server.exe" else "Reqnroll.IdeSupport.LSP.Server"
+
+    internal fun rid(osName: String, osArch: String): String {
+        val os = osName.lowercase()
+        val arch = osArch.lowercase()
         return when {
             os.contains("win") -> "win-x64"
             os.contains("mac") -> if (arch.contains("aarch64") || arch.contains("arm")) "osx-arm64" else "osx-x64"

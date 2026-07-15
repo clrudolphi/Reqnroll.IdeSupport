@@ -5,7 +5,7 @@
 
   <description>
 <![CDATA[
-Reqnroll language support for Rider: Gherkin feature files and C# step-binding
+Experimental Reqnroll language support for Rider: Gherkin feature files and C# step-binding
 navigation, backed by the Reqnroll.IdeSupport LSP server.
 ]]>
   </description>
@@ -29,5 +29,49 @@ navigation, backed by the Reqnroll.IdeSupport LSP server.
         fieldName="INSTANCE"
         language="Reqnroll Feature"
         extensions="feature" />
+
+    <postStartupActivity implementation="com.reqnroll.ide.rider.lsp.project.ReqnrollRunnableProjectsListener" />
+    <postStartupActivity implementation="com.reqnroll.ide.rider.lsp.project.ReqnrollProjectFilesSync" />
+    <postStartupActivity implementation="com.reqnroll.ide.rider.lsp.project.ReqnrollDocumentActivationSync" />
+
+    <!-- Rider's generic LSP client has no rendering-side consumer for textDocument/codeLens or
+         textDocument/inlayHint at all (confirmed by decompiling — only capability-name
+         bookkeeping exists in com.intellij.platform.lsp.impl.LspDynamicCapabilities). Both
+         requests are called directly (ReqnrollRequestSender) and rendered through IntelliJ's
+         own native extension points instead. -->
+    <codeInsight.codeVisionProvider implementation="com.reqnroll.ide.rider.codevision.StepUsagesCodeVisionProvider" />
+
+    <!-- Not a codeInsight.declarativeInlayProvider: that EP dispatches by PSI language, but
+         .feature files have no ParserDefinition registered (see
+         ReqnrollFeatureInlayHintsController's doc comment for why that silently breaks
+         language-scoped routing). Managed manually via Editor.inlayModel instead. -->
+    <editorFactoryListener implementation="com.reqnroll.ide.rider.inlayhints.ReqnrollFeatureInlayHintsController" />
+
+    <!-- Rider's generic LSP client has no bridge for textDocument/onTypeFormatting at all (unlike
+         whole-document formatting's LspFormattingService — see
+         ReqnrollLspServerDescriptor.lspFormattingSupport), so `|`-triggered table-column
+         realignment is driven manually, same reasoning as the codeVision/inlay entries above. -->
+    <typedHandler implementation="com.reqnroll.ide.rider.formatting.ReqnrollFeatureOnTypeFormattingHandler" />
   </extensions>
+
+  <actions>
+    <group id="Reqnroll.ActionGroup" text="Reqnroll" popup="true">
+      <add-to-group group-id="ToolsMenu" anchor="last" />
+
+      <action id="Reqnroll.FindUnusedStepDefinitions"
+          class="com.reqnroll.ide.rider.actions.FindUnusedStepDefinitionsAction"
+          text="Find Unused Step Definitions"
+          description="Scans the workspace for step-definition bindings with no matching steps in any feature file" />
+
+      <!-- Mirrors VS Code's editor/context "Find Step Usages" entry (when editorLangId ==
+           csharp) — the action's own update() restricts visibility to .cs files, so it's safe to
+           also add it to the editor context menu below without a declarative language condition. -->
+      <action id="Reqnroll.FindStepUsages"
+          class="com.reqnroll.ide.rider.actions.FindStepUsagesAction"
+          text="Find Step Usages"
+          description="Finds feature-file steps that use the step-definition binding at the caret">
+        <add-to-group group-id="EditorPopupMenu" anchor="last" />
+      </action>
+    </group>
+  </actions>
 </idea-plugin>

@@ -10,10 +10,13 @@ using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 
 
+using System.Text.RegularExpressions;
+using Reqnroll.IdeSupport.LSP.Core.Bindings;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 using Reqnroll.IdeSupport.LSP.Core.Scaffolding;
 using Reqnroll.IdeSupport.LSP.Server.Features.CodeActions;
+using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Features.CodeActions;
@@ -23,6 +26,7 @@ public class FeatureCodeActionHandlerTests
     private readonly BindingMatchService         _matchService  = new();
     private readonly IStepScaffoldService        _scaffoldService = new StepScaffoldService();
     private readonly ILspWorkspaceScopeManager   _scopeManager  = Substitute.For<ILspWorkspaceScopeManager>();
+    private readonly IDocumentBufferService      _bufferService = Substitute.For<IDocumentBufferService>();
     private readonly IIdeSupportLogger             _logger        = Substitute.For<IIdeSupportLogger>();
     private readonly IDeveroomConfigurationProvider _configProvider = Substitute.For<IDeveroomConfigurationProvider>();
 
@@ -45,7 +49,7 @@ public class FeatureCodeActionHandlerTests
     }
 
     private FeatureCodeActionHandler CreateSut() =>
-        new(_matchService, _scaffoldService, _scopeManager, _logger);
+        new(_matchService, _scaffoldService, _scopeManager, _bufferService, _logger);
 
     private static CodeActionParams RequestAt(DocumentUri uri, int line = 0) =>
         new()
@@ -94,6 +98,22 @@ public class FeatureCodeActionHandlerTests
         var action = actions[0].CodeAction!;
         action.Title.Should().Be("Define missing step");
         action.Kind.Should().Be(CodeActionKind.QuickFix);
+    }
+
+    [Fact]
+    public async Task Returns_no_actions_when_cursor_is_on_an_ambiguous_step()
+    {
+        // Line 2 ("    Given a step") is ambiguous; line 3 ("    When I press add") is a
+        // genuinely undefined step elsewhere in the same file. Invoking the lightbulb on the
+        // ambiguous step must not offer to "define" the unrelated undefined step — that step has
+        // nothing to do with what's under the cursor.
+        SeedMatchService(
+            AmbiguousMatch("a step", lineOffset: 23, length: 6),
+            UndefinedMatch("I press add", ScenarioBlock.When, lineOffset: 41));
+
+        var result = await CreateSut().Handle(RequestAt(FeatureUri, line: 2), CancellationToken.None);
+
+        result.Should().BeEmpty();
     }
 
     [Fact]
@@ -256,12 +276,28 @@ public class FeatureCodeActionHandlerTests
             steps: matches);
 
         _matchService.Store(matchSet);
+
+        // The handler resolves the step under the request's cursor via the document buffer, so
+        // every seeded URI needs a buffer registered too.
+        var buffer = new DocumentBuffer(uri, 1, FeatureText);
+        _bufferService.TryGet(uri, out Arg.Any<DocumentBuffer?>())
+            .Returns(x =>
+            {
+                x[1] = buffer;
+                return true;
+            });
     }
 
     private static StepBindingMatch UndefinedMatch(string text, ScenarioBlock block) =>
-        UndefinedMatch(text, block, FeatureUri);
+        UndefinedMatch(text, block, FeatureUri, lineOffset: 0);
 
-    private static StepBindingMatch UndefinedMatch(string text, ScenarioBlock block, DocumentUri uri)
+    private static StepBindingMatch UndefinedMatch(string text, ScenarioBlock block, int lineOffset) =>
+        UndefinedMatch(text, block, FeatureUri, lineOffset);
+
+    private static StepBindingMatch UndefinedMatch(string text, ScenarioBlock block, DocumentUri uri) =>
+        UndefinedMatch(text, block, uri, lineOffset: 0);
+
+    private static StepBindingMatch UndefinedMatch(string text, ScenarioBlock block, DocumentUri uri, int lineOffset)
     {
         var keyword = block switch
         {
@@ -277,9 +313,32 @@ public class FeatureCodeActionHandlerTests
         var result = MatchResult.CreateMultiMatch(new[] { item });
 
         var snapshot = new LspTextSnapshot(uri.ToString(), 1, FeatureText);
-        var range    = GherkinRange.FromPoint(snapshot, 0, text.Length);
+        var range    = GherkinRange.FromPoint(snapshot, lineOffset, text.Length);
 
         return new StepBindingMatch(uri.ToString(), range, result,
             keyword.Trim(), "S", null);
+    }
+
+    /// <summary>Builds an ambiguous <see cref="StepBindingMatch"/> (two conflicting bindings) at the given offset.</summary>
+    private static StepBindingMatch AmbiguousMatch(string text, int lineOffset, int length)
+    {
+        var snapshot = new LspTextSnapshot(FeatureUri.ToString(), 1, FeatureText);
+        var range    = GherkinRange.FromPoint(snapshot, lineOffset, length);
+
+        var items = new[] { "StepsA.Handle", "StepsB.Handle" }
+            .Select(method =>
+            {
+                var binding = new ProjectStepDefinitionBinding(
+                    ScenarioBlock.Given,
+                    new Regex($"^{text}$"),
+                    null,
+                    new ProjectBindingImplementation(method, null, new SourceLocation("Steps.cs", 1, 1)));
+                return MatchResultItem.CreateMatch(binding, ParameterMatch.NotMatch).CloneToAmbiguousItem();
+            })
+            .ToArray();
+
+        return new StepBindingMatch(
+            FeatureUri.ToString(), range, MatchResult.CreateMultiMatch(items),
+            "Given", "S", null);
     }
 }

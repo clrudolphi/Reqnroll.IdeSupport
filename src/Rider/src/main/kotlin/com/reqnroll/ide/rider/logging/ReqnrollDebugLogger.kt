@@ -48,11 +48,20 @@ object ReqnrollDebugLogger {
         return File(dir, "reqnroll-rider-ext-$date-$pid.log")
     }
 
-    private fun resolveLogDirectory(): File {
-        val os = System.getProperty("os.name").lowercase()
-        val home = System.getProperty("user.home")
+    private fun resolveLogDirectory(): File =
+        logDirectory(System.getProperty("os.name"), System.getenv("LOCALAPPDATA"), System.getProperty("user.home"))
+
+    /**
+     * Pure function taking explicit `os.name`/`LOCALAPPDATA`/`user.home` values rather than
+     * reading `System.getProperty`/`getenv` directly — lets [resolveLogDirectory]'s per-OS
+     * selection be unit tested for every OS without mutating global JVM/environment state. Mirrors
+     * [com.reqnroll.ide.rider.lsp.ReqnrollServerPathResolver]'s identical rationale for its own
+     * `rid`/`isWindows` functions.
+     */
+    internal fun logDirectory(osName: String, localAppData: String?, home: String): File {
+        val os = osName.lowercase()
         return when {
-            os.contains("win") -> File(System.getenv("LOCALAPPDATA") ?: home, "Reqnroll")
+            os.contains("win") -> File(localAppData ?: home, "Reqnroll")
             os.contains("mac") -> File(home, "Library/Logs/Reqnroll")
             else -> File(home, ".local/share/Reqnroll")
         }

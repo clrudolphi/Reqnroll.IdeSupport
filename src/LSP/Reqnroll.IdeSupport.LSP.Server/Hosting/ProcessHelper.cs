@@ -38,7 +38,12 @@ public static class ProcessHelper
         if (workingDirectory == null || !Directory.Exists(workingDirectory))
             throw new DeveroomConfigurationException($"Unable to find directory: {workingDirectory}");
 
-        if (executablePath == null || !File.Exists(executablePath))
+        // A bare command name (no directory component, e.g. "dotnet") is meant to be resolved by
+        // the OS via PATH when the process launches — File.Exists can't check that, so only
+        // pre-validate paths that look like real file paths. If a bare command genuinely isn't
+        // resolvable, Process.Start below throws and that failure is surfaced normally.
+        var looksLikeFilePath = executablePath != null && !string.IsNullOrEmpty(Path.GetDirectoryName(executablePath));
+        if (executablePath == null || (looksLikeFilePath && !File.Exists(executablePath)))
             throw new DeveroomConfigurationException($"Unable to find process: {executablePath}");
 
         ProcessStartInfo psi = new ProcessStartInfo(executablePath, parameters)
