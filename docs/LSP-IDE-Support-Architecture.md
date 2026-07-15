@@ -496,7 +496,7 @@ When `reqnroll.trace.server` is set to `messages` or `verbose`, the `lspInspecto
 
 - Built with `vsce` (VS Code Extension CLI) and packaged as a `.vsix`
 - The LSP server self-contained binaries for all four RIDs are bundled under `server/<rid>/` inside the `.vsix`
-- CI publishes all four RIDs in parallel (see `.github/workflows/ci.yml`); the `build-extension` job downloads all four artifacts and then runs `vsce package`
+- CI publishes all four RIDs in parallel (see `.github/workflows/ci.yml`); the `build-vscode-extension` job downloads all four artifacts and then runs `vsce package`
 - Minimum VS Code version: **1.96.0**
 
 ### 6.2 Visual Studio

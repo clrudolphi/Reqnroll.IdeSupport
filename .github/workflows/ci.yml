@@ -20,7 +20,7 @@
 #     └─> lsp (test-lsp.yml)                                  [if vs || vscode || rider]
 #           ├─> build-vs-extension ─┬─> test-vs-extension ──┐  [if vs]
 #           │                       └─> test-vs-wizards ─────┴─> publish-vsix
-#           ├─> build-extension (VSIX)                        [if vscode]
+#           ├─> build-vscode-extension (VSIX)                 [if vscode]
 #           └─> build-rider-plugin                             [if rider]
 #   tsc-only (VS Code, no LSP dependency)                      [if vscode]
 #   test-rider-plugin (Rider, no LSP dependency)                [if rider]
@@ -330,7 +330,7 @@ jobs:
   # published by the lsp job, and produces the .vsix package. Does not publish
   # to the Marketplace (same rationale as the VS extension above).
   # ---------------------------------------------------------------------------
-  build-extension:
+  build-vscode-extension:
     name: Build VSIX (VS Code)
     needs: [changes, lsp]
     if: needs.changes.outputs.vscode == 'true'
@@ -457,7 +457,7 @@ jobs:
   # src/Rider/CONTRIBUTING.md).
   # ---------------------------------------------------------------------------
   build-rider-plugin:
-    name: Build Plugin
+    name: Build Rider Plugin
     needs: [changes, lsp]
     if: needs.changes.outputs.rider == 'true'
     runs-on: ubuntu-latest
@@ -526,7 +526,7 @@ jobs:
   # does above.
   # ---------------------------------------------------------------------------
   test-rider-plugin:
-    name: Unit Tests (Rider Plugin)
+    name: Kotlin Unit Tests (build skip)
     needs: [changes]
     if: needs.changes.outputs.rider == 'true'
     runs-on: ubuntu-latest
