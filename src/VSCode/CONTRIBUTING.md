@@ -128,7 +128,7 @@ server (the `--log-level` it maps to is fixed at process launch).
 
 ## CI
 
-The GitHub Actions workflow [`.github/workflows/build-vscode-extension.yml`](../../.github/workflows/build-vscode-extension.yml) runs on every push to `feat/vscode-extension-**` branches. It:
+The GitHub Actions workflow [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs its VS Code jobs (`build-extension`, `tsc-only`) whenever a push or PR touches VS Code, Core, or LSP paths. It:
 
 1. Publishes the server for all four RIDs in parallel
 2. Compiles TypeScript, lints, format-checks, and validates semantic token scopes

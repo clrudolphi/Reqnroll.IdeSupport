@@ -100,7 +100,7 @@ There are two ways to populate `server/<rid>/`, both wired up in `build.gradle.k
   instead of the `Warning` a real installed plugin uses — so local dev gets a Debug
   server build and full diagnostic logging with zero manual configuration.
 
-- **CI** (see `.github/workflows/build-rider-plugin.yml`) — passes
+- **CI** (see `.github/workflows/ci.yml`'s `build-rider-plugin` job) — passes
   `-PlspServerBuildDir=<dir>`, where `<dir>` contains a `win-x64/`, `linux-x64/`,
   `osx-x64/`, `osx-arm64/` subdirectory (populated from the `server-<rid>` artifacts
   `test-lsp.yml` already built and tested). `publishServer` is skipped entirely in this

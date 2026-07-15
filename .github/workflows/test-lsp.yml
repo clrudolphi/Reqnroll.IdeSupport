@@ -3,11 +3,10 @@
 # (LSP.Core, LSP.Server, Connector) once, then publishes self-contained
 # server binaries for every supported RID as artifacts named `server-<rid>`.
 #
-# Both build-vs-extension.yml and build-vscode-extension.yml call this via
-# `uses: ./.github/workflows/test-lsp.yml` so the LSP is only compiled and
-# tested once per run, and both consumers gate their own work on it instead
-# of re-validating (or, for the VS Code extension, re-publishing) the same
-# code independently.
+# ci.yml's `lsp` job calls this once via `uses: ./.github/workflows/test-lsp.yml`,
+# shared by whichever of the VS/VS Code/Rider job chains actually run for a given
+# push or PR (see ci.yml's `changes` job), so the LSP is only compiled and tested
+# once per run instead of once per consumer.
 #
 # build-lsp/unit-test-lsp/spec-test-lsp run on windows-latest because
 # Reqnroll.VisualStudio.VsxStubs (referenced by LSP.Core.Tests) is a net481

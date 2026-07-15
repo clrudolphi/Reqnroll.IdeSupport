@@ -89,7 +89,7 @@
        of ReferenceOutputAssembly) — this is what makes plain `dotnet build`
        "just work" for local development.
 
-       CI (build-vs-extension.yml) already builds and tests the LSP layer
+       CI (ci.yml's build-vs-extension job) already builds and tests the LSP layer
        once in its own job (see test-lsp.yml) and publishes a win-x64
        self-contained server as an artifact. Rather than rebuild LSP.Server
        again here, CI passes -p:UseExternalLspServerBuild=true and

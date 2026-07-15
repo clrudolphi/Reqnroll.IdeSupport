@@ -1,4 +1,4 @@
-# Shared setup for the two build-rider-plugin.yml jobs that run Gradle against src/Rider
+# Shared setup for the two ci.yml jobs that run Gradle against src/Rider
 # (build-rider-plugin, test-rider-plugin) — JDK + Gradle cache were previously copy-pasted
 # identically into both, which risked one getting updated without the other.
 name: Setup JDK and Gradle cache for the Rider plugin

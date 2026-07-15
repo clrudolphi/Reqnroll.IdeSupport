@@ -123,10 +123,9 @@ dotnet test tests/VisualStudio/Reqnroll.VisualStudio.Tests/Reqnroll.VisualStudio
 cd tests/VSCode && npm ci && npm test
 ```
 
-CI (`.github/workflows/build-vscode-extension.yml`) builds and packages the VS Code extension and
+CI (`.github/workflows/ci.yml`) builds and packages the VS Code extension and
 publishes the LSP server for all supported runtimes (win-x64, linux-x64, osx-x64, osx-arm64) on
-every push to `feat/vscode-extension-**`/`main` and on pull requests touching `src/LSP/` or
-`src/VSCode/`.
+every push to `main` and on pull requests touching `src/Core/`, `src/LSP/`, or `src/VSCode/`.
 
 ## Contributing
 
