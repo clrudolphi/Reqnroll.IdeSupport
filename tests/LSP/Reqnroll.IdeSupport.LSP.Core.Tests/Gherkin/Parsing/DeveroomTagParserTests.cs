@@ -1,4 +1,4 @@
-﻿using Reqnroll.VisualStudio.VsxStubs.LspStubs;
+﻿using Reqnroll.IdeSupport.LSP.TestStubs;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Tests.Gherkin.Parsing;
 

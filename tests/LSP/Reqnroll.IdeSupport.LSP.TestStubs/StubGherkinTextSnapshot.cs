@@ -1,11 +1,13 @@
 using Reqnroll.IdeSupport.LSP.Core.Documents;
 using System.Collections.Generic;
 
-namespace Reqnroll.VisualStudio.VsxStubs.LspStubs;
+namespace Reqnroll.IdeSupport.LSP.TestStubs;
 
 /// <summary>
 /// Lightweight IGherkinTextSnapshot for use in LSP.Core and LSP.Server tests.
-/// Has no VSSDK dependencies.
+/// Has no VSSDK dependencies — lives in its own project for exactly that reason,
+/// so referencing it doesn't drag in the VsxStubs/VSSDKIntegration net481 dependency
+/// graph (see Reqnroll.IdeSupport.LSP.Core.Tests.csproj).
 /// </summary>
 public class StubGherkinTextSnapshot : IGherkinTextSnapshot
 {

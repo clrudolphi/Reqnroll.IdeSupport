@@ -24,8 +24,6 @@ global using Reqnroll.IdeSupport.LSP.Core.Matching;
 
 
 global using Reqnroll.IdeSupport.LSP.Connector.Models;
-global using Reqnroll.VisualStudio.VsxStubs;
-global using Reqnroll.VisualStudio.VsxStubs.ProjectSystem;
 global using System;
 global using System.Collections.Concurrent;
 global using System.Collections.Generic;

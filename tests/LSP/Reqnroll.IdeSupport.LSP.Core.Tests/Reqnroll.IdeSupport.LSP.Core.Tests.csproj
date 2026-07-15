@@ -7,12 +7,16 @@
     <IsPackable>false</IsPackable>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>../../../reqnroll.snk</AssemblyOriginatorKeyFile>
-    <NoWarn>NU1701;NU1702;VSTHRD200</NoWarn>
-    <!-- NU1701: .NET Framework packages (e.g., VS editor) with no net10.0 variant are safe to use here -->
-    <!-- NU1702: ProjectRef to net481 projects (VsxStubs, VSSDKIntegration) in net10.0 tests is safe -->
+    <NoWarn>VSTHRD200</NoWarn>
     <!-- VSTHRD200: Test methods don't require "Async" suffix convention -->
   </PropertyGroup>
 
+  <!-- The two deferred files below are the only ones needing MockableDiscoveryService/StubIdeScope
+       from Reqnroll.VisualStudio.VsxStubs (a net481 WPF project referencing the VSSDK), which is why
+       this project doesn't reference VsxStubs at all — every other test only needs the lightweight,
+       dependency-free StubGherkinTextSnapshot from Reqnroll.IdeSupport.LSP.TestStubs below. Un-deferring
+       either file means adding a VsxStubs ProjectReference back (and its net481 restore cost) alongside
+       the NU1702 NoWarn for that cross-TFM ProjectReference. -->
   <ItemGroup Label="Deferred - depends on VS connector not yet ported">
     <!-- ProjectBindingRegistryCache depends on connector discovery pipeline -->
     <Compile Remove="Bindings\ProjectBindingRegistryCacheTests.cs" />
@@ -46,6 +50,6 @@
   <ItemGroup>
     <ProjectReference Include="../../../src/Core/Reqnroll.IdeSupport.Common/Reqnroll.IdeSupport.Common.csproj" />
     <ProjectReference Include="../../../src/LSP/Reqnroll.IdeSupport.LSP.Core/Reqnroll.IdeSupport.LSP.Core.csproj" />
-    <ProjectReference Include="../../VisualStudio/Reqnroll.VisualStudio.VsxStubs/Reqnroll.VisualStudio.VsxStubs.csproj" />
+    <ProjectReference Include="../Reqnroll.IdeSupport.LSP.TestStubs/Reqnroll.IdeSupport.LSP.TestStubs.csproj" />
   </ItemGroup>
 </Project>

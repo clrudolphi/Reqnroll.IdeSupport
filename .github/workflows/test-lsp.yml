@@ -8,13 +8,17 @@
 # push or PR (see ci.yml's `changes` job), so the LSP is only compiled and tested
 # once per run instead of once per consumer.
 #
-# build-lsp/unit-test-lsp/spec-test-lsp run on windows-latest because
-# Reqnroll.VisualStudio.VsxStubs (referenced by LSP.Core.Tests) is a net481
-# WPF project, and LSP.Server.Specs pins RuntimeIdentifier=win-x64 to drive
-# the real out-of-process server. publish-lsp-server has no such constraint
-# — self-contained publish for any RID is just a NuGet runtime-pack download,
-# not a host-OS requirement — so it runs on cheaper ubuntu-latest runners,
-# same as build-vscode-extension.yml's old publish-server job.
+# build-lsp/unit-test-lsp/spec-test-lsp run on windows-latest because Connector.csproj
+# (built via LSP.Server's BuildConnector target) multi-targets net462/net472/net481
+# alongside its modern TFMs, and those classic .NET Framework targets need the
+# Windows-only MSBuild toolchain. LSP.Server.Specs additionally pins
+# RuntimeIdentifier=win-x64 to drive the real out-of-process server. (LSP.Core.Tests
+# itself has no such requirement — its one VS-shaped dependency, StubGherkinTextSnapshot,
+# lives in the dependency-free Reqnroll.IdeSupport.LSP.TestStubs project, not the net481
+# Reqnroll.VisualStudio.VsxStubs.) publish-lsp-server has no such constraint — self-contained
+# publish for any RID is just a NuGet runtime-pack download, not a host-OS requirement —
+# so it runs on cheaper ubuntu-latest runners, same as build-vscode-extension.yml's old
+# publish-server job.
 #
 # skip-tests: every consumer (VS/VS Code/Rider) needs a server-<rid> artifact
 # from *this* run to bundle — GitHub Actions artifacts aren't reusable across

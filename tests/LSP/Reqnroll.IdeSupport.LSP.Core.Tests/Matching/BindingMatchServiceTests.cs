@@ -1,6 +1,6 @@
 ﻿using Reqnroll.IdeSupport.LSP.Core.Documents;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
-using Reqnroll.VisualStudio.VsxStubs.LspStubs;
+using Reqnroll.IdeSupport.LSP.TestStubs;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Tests.Matching;
 
