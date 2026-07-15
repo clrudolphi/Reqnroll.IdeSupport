@@ -8,6 +8,7 @@ import com.jetbrains.rider.model.runnableProjectsModel
 import com.jetbrains.rider.projectView.solution
 import com.reqnroll.ide.rider.logging.ReqnrollDebugLogger
 import com.reqnroll.ide.rider.lsp.ReqnrollNotificationSender
+import com.reqnroll.ide.rider.lsp.protocol.ReqnrollProjectLoadedParams
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollProjectUnloadedParams
 import kotlinx.coroutines.withContext
 
@@ -29,11 +30,20 @@ import kotlinx.coroutines.withContext
  *
  * `advise` only ever hands us the *current full list* — there's no per-project add/remove
  * callback — so project removal is detected by diffing against the previous snapshot.
+ *
+ * Rider's backend recomputes `runnableProjectsModel.projects` repeatedly while a solution is still
+ * settling (restore, target-framework resolution, etc.) — confirmed live: over a dozen re-fires
+ * within a few hundred milliseconds of opening a solution, each handing back an *identical* project
+ * list. Since `advise` gives no "did anything change" signal of its own, `projectLoaded` is only
+ * actually (re-)sent when the built params for that project file differ from the last ones sent —
+ * cheap since [ReqnrollProjectLoadedParams] is a data class — otherwise every recompute would
+ * re-trigger the server's full Roslyn rediscovery/binding-registry replacement for no reason.
  */
 class ReqnrollRunnableProjectsListener : ProjectActivity {
     override suspend fun execute(project: Project) {
         val lifetime = project.createLifetime()
         val knownProjectFiles = mutableSetOf<String>()
+        val lastSentParams = mutableMapOf<String, ReqnrollProjectLoadedParams>()
 
         // RD reactive properties assert they're advised from the UI thread or a scheduler the RD
         // dispatcher itself recognizes — a plain background ProjectActivity coroutine is neither,
@@ -52,12 +62,16 @@ class ReqnrollRunnableProjectsListener : ProjectActivity {
                     (knownProjectFiles - currentFiles).forEach { removedFile ->
                         ReqnrollDebugLogger.info("projectUnloaded: $removedFile")
                         ReqnrollNotificationSender.sendProjectUnloaded(project, ReqnrollProjectUnloadedParams(removedFile))
+                        lastSentParams.remove(removedFile)
                     }
 
                     current.forEach { runnableProject ->
+                        val params = ReqnrollProjectBaseline.buildProjectLoadedParams(project, runnableProject)
+                        if (lastSentParams[runnableProject.projectFilePath] == params) return@forEach
+
                         ReqnrollDebugLogger.info("projectLoaded: ${runnableProject.projectFilePath}")
-                        ReqnrollNotificationSender.sendProjectLoaded(
-                            project, ReqnrollProjectBaseline.buildProjectLoadedParams(project, runnableProject))
+                        ReqnrollNotificationSender.sendProjectLoaded(project, params)
+                        lastSentParams[runnableProject.projectFilePath] = params
                     }
                 }
 

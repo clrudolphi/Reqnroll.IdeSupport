@@ -48,6 +48,11 @@ class ReqnrollProjectFilesSync : ProjectActivity {
         // AtomicReference, not a plain var: the `advise` callback (writer) and the
         // AsyncFileListener callback (reader) can run on different threads.
         val projectFolders = java.util.concurrent.atomic.AtomicReference<List<Pair<String, String>>>(emptyList())
+        // Tracks which project file paths a baseline (a full disk walk — see
+        // ReqnrollProjectBaseline.sendProjectFilesBaseline) has already been sent for, so a
+        // same-content re-fire of `advise` (see ReqnrollRunnableProjectsListener's doc comment on
+        // why that happens repeatedly during solution load) doesn't re-walk and re-send it.
+        var previousProjectFiles = emptySet<String>()
 
         val lifetime = project.createLifetime()
 
@@ -62,6 +67,10 @@ class ReqnrollProjectFilesSync : ProjectActivity {
                         .map { (File(it.projectFilePath).parent ?: "") to it.projectFilePath }
                         .sortedByDescending { it.first.length }
                 )
+
+                val currentFiles = projects.map { it.projectFilePath }.toSet()
+                if (currentFiles == previousProjectFiles) return@advise
+                previousProjectFiles = currentFiles
 
                 // advise() fires immediately at project open, before the server is typically even
                 // started — see ReqnrollLspServerReadiness for why this must be deferred.
