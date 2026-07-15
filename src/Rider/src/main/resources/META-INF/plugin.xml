@@ -46,6 +46,12 @@ navigation, backed by the Reqnroll.IdeSupport LSP server.
          ReqnrollFeatureInlayHintsController's doc comment for why that silently breaks
          language-scoped routing). Managed manually via Editor.inlayModel instead. -->
     <editorFactoryListener implementation="com.reqnroll.ide.rider.inlayhints.ReqnrollFeatureInlayHintsController" />
+
+    <!-- Rider's generic LSP client has no bridge for textDocument/onTypeFormatting at all (unlike
+         whole-document formatting's LspFormattingService — see
+         ReqnrollLspServerDescriptor.lspFormattingSupport), so `|`-triggered table-column
+         realignment is driven manually, same reasoning as the codeVision/inlay entries above. -->
+    <typedHandler implementation="com.reqnroll.ide.rider.formatting.ReqnrollFeatureOnTypeFormattingHandler" />
   </extensions>
 
   <actions>

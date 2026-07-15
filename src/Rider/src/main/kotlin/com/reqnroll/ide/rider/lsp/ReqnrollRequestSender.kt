@@ -9,11 +9,14 @@ import com.reqnroll.ide.rider.lsp.protocol.ReqnrollEmptyParams
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollLanguageServer
 import org.eclipse.lsp4j.CodeLens
 import org.eclipse.lsp4j.CodeLensParams
+import org.eclipse.lsp4j.DocumentOnTypeFormattingParams
+import org.eclipse.lsp4j.FormattingOptions
 import org.eclipse.lsp4j.InlayHint
 import org.eclipse.lsp4j.InlayHintParams
 import org.eclipse.lsp4j.ReferenceContext
 import org.eclipse.lsp4j.ReferenceParams
 import org.eclipse.lsp4j.TextDocumentIdentifier
+import org.eclipse.lsp4j.TextEdit
 import org.eclipse.lsp4j.Position as Lsp4jPosition
 import org.eclipse.lsp4j.Range as Lsp4jRange
 
@@ -31,6 +34,7 @@ object ReqnrollRequestSender {
     private const val FIND_USAGES_TIMEOUT_MS = 10_000
     private const val CODE_LENS_TIMEOUT_MS = 10_000
     private const val INLAY_HINT_TIMEOUT_MS = 10_000
+    private const val ON_TYPE_FORMATTING_TIMEOUT_MS = 10_000
 
     /** Runs `reqnroll/findUnusedStepDefinitions`. Returns null if no Reqnroll LSP server is running, or on failure. */
     fun findUnusedStepDefinitions(project: Project): FindUnusedStepDefinitionsResponse? {
@@ -93,6 +97,33 @@ object ReqnrollRequestSender {
             }
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("inlayHint: request failed", ex)
+            null
+        }
+    }
+
+    /** Runs the *standard* `textDocument/onTypeFormatting` request (table-column realignment for `.feature` files — see GherkinFormattingHandler.cs) at (line, character), triggered by typing [triggerChar]. */
+    fun onTypeFormatting(
+        project: Project,
+        uri: String,
+        line: Int,
+        character: Int,
+        triggerChar: String,
+        tabSize: Int,
+        insertSpaces: Boolean,
+    ): List<TextEdit>? {
+        val server = firstRunningServer(project) ?: return null
+        val params = DocumentOnTypeFormattingParams(
+            TextDocumentIdentifier(uri),
+            FormattingOptions(tabSize, insertSpaces),
+            Lsp4jPosition(line, character),
+            triggerChar,
+        )
+        return try {
+            server.sendRequestSync(ON_TYPE_FORMATTING_TIMEOUT_MS) { languageServer ->
+                languageServer.textDocumentService.onTypeFormatting(params)
+            }?.filterNotNull()
+        } catch (ex: Exception) {
+            ReqnrollDebugLogger.warn("onTypeFormatting: request failed", ex)
             null
         }
     }
