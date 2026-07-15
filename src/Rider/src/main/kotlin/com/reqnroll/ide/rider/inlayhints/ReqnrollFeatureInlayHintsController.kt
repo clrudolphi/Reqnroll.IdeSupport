@@ -107,16 +107,24 @@ class ReqnrollFeatureInlayHintsController : EditorFactoryListener {
         private fun refresh(project: Project, editor: Editor, virtualFile: VirtualFile) {
             if (project.isDisposed || editor.isDisposed) return
 
-            val uri = VirtualFileManager.constructUrl("file", URLUtil.encodePath(virtualFile.path))
-            val hints = ReqnrollRequestSender.inlayHint(project, uri, 0, editor.document.lineCount)
-            ReqnrollDebugLogger.info("ReqnrollFeatureInlayHintsController: ${hints?.size ?: "null"} hint(s) for $uri")
+            // ReqnrollRequestSender.inlayHint uses sendRequestSync, which blocks the calling
+            // thread for up to INLAY_HINT_TIMEOUT_MS — refresh() is called from the EDT (both
+            // editorCreated and the SWING_THREAD debounce alarm), so the request itself must run
+            // on a background thread or every editor open / debounced keystroke freezes the UI.
+            ApplicationManager.getApplication().executeOnPooledThread {
+                if (project.isDisposed || editor.isDisposed) return@executeOnPooledThread
 
-            ApplicationManager.getApplication().invokeLater(
-                {
-                    if (!editor.isDisposed) renderInlays(editor, editor.document, hints.orEmpty())
-                },
-                ModalityState.any(),
-            )
+                val uri = VirtualFileManager.constructUrl("file", URLUtil.encodePath(virtualFile.path))
+                val hints = ReqnrollRequestSender.inlayHint(project, uri, 0, editor.document.lineCount)
+                ReqnrollDebugLogger.info("ReqnrollFeatureInlayHintsController: ${hints?.size ?: "null"} hint(s) for $uri")
+
+                ApplicationManager.getApplication().invokeLater(
+                    {
+                        if (!editor.isDisposed) renderInlays(editor, editor.document, hints.orEmpty())
+                    },
+                    ModalityState.any(),
+                )
+            }
         }
 
         private fun renderInlays(editor: Editor, document: Document, hints: List<InlayHint>) {
