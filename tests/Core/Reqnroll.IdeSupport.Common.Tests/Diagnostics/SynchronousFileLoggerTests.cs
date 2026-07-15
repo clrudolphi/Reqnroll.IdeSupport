@@ -22,6 +22,21 @@ public class SynchronousFileLoggerTests : IDisposable
     }
 
     [Fact]
+    public void LogFilePath_includes_current_process_id()
+    {
+        var logger = new SynchronousFileLogger("test", $"pid-{Guid.NewGuid():N}");
+        try
+        {
+            logger.LogFilePath.Should().Contain($"-{Process.GetCurrentProcess().Id}.log",
+                "each process must write to its own log file so concurrent IDE instances don't share one");
+        }
+        finally
+        {
+            DeleteLogFile(logger);
+        }
+    }
+
+    [Fact]
     public void Default_level_is_Warning()
     {
         var logger = new SynchronousFileLogger("test", $"default-{Guid.NewGuid():N}");

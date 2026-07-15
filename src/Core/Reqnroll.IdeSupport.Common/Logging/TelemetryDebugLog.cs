@@ -47,7 +47,7 @@ public static class TelemetryDebugLog
 
     /// <summary>
     /// <c>%LOCALAPPDATA%\Reqnroll\reqnroll-telemetry-{yyyyMMdd}.jsonl</c> — a sibling of the
-    /// existing diagnostic logs written by <see cref="AsynchronousFileLogger"/>.
+    /// existing diagnostic logs written by <see cref="SynchronousFileLogger"/>.
     /// </summary>
     public static string DefaultPath()
         => Path.Combine(
