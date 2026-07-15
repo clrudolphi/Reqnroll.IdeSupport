@@ -14,6 +14,11 @@ public class AsynchronousFileLogger : IIdeSupportLogger, IDisposable
     private readonly Channel<LogMessage> _channel;
     private readonly IFileSystemForIDE _fileSystem;
     private readonly CancellationTokenSource _stopTokenSource;
+    // Guards WriteLogMessage's file append. The async path (WorkerLoop) only ever has one reader,
+    // so this is a no-op there, but SynchronousFileLogger calls WriteLogMessage directly from
+    // whichever thread called Log() — with many LSP handlers logging concurrently from the
+    // thread-pool, unsynchronized File.AppendAllText calls interleave/tear each other's writes.
+    private readonly object _writeLock = new();
 
     /// <summary>Initializes a new instance of the <see cref="AsynchronousFileLogger"/> class.</summary>
     protected AsynchronousFileLogger(IFileSystemForIDE fileSystem, TraceLevel level, string ide, string role)
@@ -120,7 +125,10 @@ public class AsynchronousFileLogger : IIdeSupportLogger, IDisposable
         if (message.Exception != null) content += $"\n    : {message.Exception}".Replace("\n", "\n    ");
         content += Environment.NewLine;
 
-        _fileSystem.File.AppendAllText(LogFilePath, content, Encoding.UTF8);
+        lock (_writeLock)
+        {
+            _fileSystem.File.AppendAllText(LogFilePath, content, Encoding.UTF8);
+        }
     }
 
     /// <summary>Resolves <see cref="LogFilePath"/> to a full path and creates its containing folder if missing.</summary>

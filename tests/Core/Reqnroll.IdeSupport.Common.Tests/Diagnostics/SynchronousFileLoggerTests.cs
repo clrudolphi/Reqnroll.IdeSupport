@@ -1,4 +1,6 @@
 using System.IO;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace Reqnroll.IdeSupport.Common.Tests.Diagnostics;
 
@@ -142,6 +144,58 @@ public class SynchronousFileLoggerTests : IDisposable
         try
         {
             logger.Level.Should().Be(TraceLevel.Info);
+        }
+        finally
+        {
+            DeleteLogFile(logger);
+        }
+    }
+
+    // Regression test for a real bug: SynchronousFileLogger.Log() calls WriteLogMessage directly on
+    // the calling thread (unlike the base class's async path, which serializes through a single-
+    // reader Channel), so with many threads logging concurrently onto one shared instance (as
+    // happens with LspIdeSupportLogger's singleton and ~30 concurrently-firing LSP handlers),
+    // unsynchronized File.AppendAllText calls could interleave/tear each other's writes — observed
+    // live as a complete log line immediately followed by a stray fragment of another thread's line.
+    // Without the lock in WriteLogMessage this test fails intermittently (torn/merged lines); with
+    // it, every line must round-trip intact regardless of thread contention.
+    [Fact]
+    public void Concurrent_writers_never_interleave_or_tear_lines()
+    {
+        const int threadCount = 32;
+        const int messagesPerThread = 50;
+        var logger = new SynchronousFileLogger("test", $"concurrency-{Guid.NewGuid():N}", TraceLevel.Verbose);
+        try
+        {
+            Parallel.For(0, threadCount, threadIndex =>
+            {
+                for (var i = 0; i < messagesPerThread; i++)
+                {
+                    // Padded and thread/index-tagged so a torn or merged line is detectable: it will
+                    // either fail the per-line regex below or produce a duplicate/missing tag.
+                    var payload = $"thread={threadIndex} index={i} ".PadRight(200, 'x');
+                    logger.Log(new LogMessage(TraceLevel.Verbose, payload,
+                        nameof(Concurrent_writers_never_interleave_or_tear_lines)));
+                }
+            });
+
+            var lines = File.ReadAllLines(logger.LogFilePath)
+                .Where(line => line.Length > 0)
+                .ToList();
+
+            lines.Should().HaveCount(threadCount * messagesPerThread,
+                "every logged message should produce exactly one intact line, with none merged, split, or dropped");
+
+            var seenTags = new HashSet<(int threadIndex, int index)>();
+            var lineFormat = new Regex(
+                @"^\S+, Verbose@\d+, Concurrent_writers_never_interleave_or_tear_lines: thread=(\d+) index=(\d+) x+$");
+            foreach (var line in lines)
+            {
+                var match = lineFormat.Match(line);
+                match.Success.Should().BeTrue($"line should be a single, intact, well-formed entry but was: {line}");
+                var tag = (int.Parse(match.Groups[1].Value), int.Parse(match.Groups[2].Value));
+                seenTags.Add(tag).Should().BeTrue($"tag {tag} should appear exactly once, not merged into another line");
+            }
         }
         finally
         {
