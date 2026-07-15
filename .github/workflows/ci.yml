@@ -1,0 +1,580 @@
+# ---------------------------------------------------------------------------
+# ci.yml — single top-level CI workflow for all three IDE consumers (VS
+# extension, VS Code extension, Rider plugin).
+#
+# This replaces three separate top-level workflows (build-vs-extension.yml,
+# build-vscode-extension.yml, build-rider-plugin.yml) that each independently
+# triggered on overlapping paths (all three included src/Core/** and
+# src/LSP/**) and each called the shared test-lsp.yml reusable workflow via
+# `uses:`. Because workflow_call reusable workflows are scoped to the run of
+# whichever top-level workflow invokes them, three separate top-level runs
+# meant three separate, non-sharing executions of the LSP build/test/publish
+# chain (~11-15 min each) for the same commit — see issue #149. Consolidating
+# into one workflow with one `lsp:` job fixes that: the LSP layer is now built
+# and tested at most once per run, and the per-IDE jobs below are gated by
+# dorny/paths-filter on whether that IDE's own files (or the shared
+# Core/LSP files all of them depend on) actually changed.
+#
+# A further wrinkle: every consumer still needs a server-<rid> artifact
+# published *this run* even if src/Core and src/LSP are completely untouched
+# (e.g. a Rider-only Kotlin change), since GitHub Actions artifacts don't
+# carry over between separate workflow runs. So the `lsp` job itself can't be
+# skipped in that case — but re-running its unit-test-lsp/spec-test-lsp jobs
+# would just re-validate LSP code that didn't change. The `core_lsp` filter
+# below drives test-lsp.yml's skip-tests input so that case publishes
+# straight off build-lsp instead (see test-lsp.yml for the mechanics).
+#
+# Job graph:
+#   changes (paths-filter)
+#     └─> lsp (test-lsp.yml)                                  [if vs || vscode || rider]
+#           ├─> build-vs-extension ─┬─> test-vs-extension ──┐  [if vs]
+#           │                       └─> test-vs-wizards ─────┴─> publish-vsix
+#           ├─> build-vscode-extension (VSIX)                 [if vscode]
+#           └─> build-rider-plugin                             [if rider]
+#   tsc-only (VS Code, no LSP dependency)                      [if vscode]
+#   test-rider-plugin (Rider, no LSP dependency)                [if rider]
+#
+# NOTE: this changes the required-status-check contexts branch protection
+# rules see (workflow name / job name pairs) — the old
+# "Build VS Extension / ...", "Build VS Code Extension / ...", and
+# "Build Rider Plugin / ..." contexts are replaced by "CI / ...". Branch
+# protection rules referencing the old contexts need to be updated after this
+# merges.
+# ---------------------------------------------------------------------------
+name: CI
+
+on:
+  push:
+    branches:
+      - 'main'
+    paths:
+      - 'src/Core/**'
+      - 'src/LSP/**'
+      - 'src/VisualStudio/**'
+      - 'src/VSCode/**'
+      - 'src/Rider/**'
+      - 'tests/VisualStudio/**'
+      - 'tests/LSP/**'
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/test-lsp.yml'
+      - '.github/actions/setup-rider-gradle-env/**'
+  pull_request:
+    paths:
+      - 'src/Core/**'
+      - 'src/LSP/**'
+      - 'src/VisualStudio/**'
+      - 'src/VSCode/**'
+      - 'src/Rider/**'
+      - 'tests/VisualStudio/**'
+      - 'tests/LSP/**'
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/test-lsp.yml'
+      - '.github/actions/setup-rider-gradle-env/**'
+  workflow_dispatch:
+
+# Cancel a superseded run (e.g. a new push to the same PR) rather than letting both finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least-privilege default: every job here only checks out code and uploads its own artifacts.
+permissions:
+  contents: read
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  CONFIGURATION: Release
+  NODE_VERSION: '22.x'
+  RIDER_DIR: src/Rider
+  VSCODE_DIR: src/VSCode
+  # See test-lsp.yml for what this feeds (VersionPrefix -> AssemblyInformationalVersion ->
+  # ServerInfo.Version). Applied to every project built here so the whole run carries the
+  # same build number.
+  BUILD_NUMBER_ARG: -p:ReqnrollBuildNumber=${{ github.run_number }}
+  EXTENSION_PROJECT: src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Extension/Reqnroll.IdeSupport.VisualStudio.Extension.csproj
+  TESTS_PROJECT: tests/VisualStudio/Reqnroll.VisualStudio.Tests/Reqnroll.VisualStudio.Tests.csproj
+  WIZARDS_TESTS_PROJECT: tests/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Wizards.Tests/Reqnroll.IdeSupport.VisualStudio.Wizards.Tests.csproj
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 0: Detect which IDE(s) are actually affected by this change, so the
+  # jobs below (and the shared lsp job) only run for the IDEs that need them.
+  # Each filter includes the shared Core/LSP paths too, since a change there
+  # affects every consumer.
+  # ---------------------------------------------------------------------------
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      vs: ${{ steps.filter.outputs.vs }}
+      vscode: ${{ steps.filter.outputs.vscode }}
+      rider: ${{ steps.filter.outputs.rider }}
+      core_lsp: ${{ steps.filter.outputs.core_lsp }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Filter changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            vs:
+              - 'src/Core/**'
+              - 'src/LSP/**'
+              - 'src/VisualStudio/**'
+              - 'tests/VisualStudio/**'
+              - 'tests/LSP/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/test-lsp.yml'
+            vscode:
+              - 'src/Core/**'
+              - 'src/LSP/**'
+              - 'src/VSCode/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/test-lsp.yml'
+            rider:
+              - 'src/Core/**'
+              - 'src/LSP/**'
+              - 'src/Rider/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/test-lsp.yml'
+              - '.github/actions/setup-rider-gradle-env/**'
+            # Whether the LSP layer test-lsp.yml builds/tests actually changed. Drives
+            # the lsp job's skip-tests input: false here means re-running
+            # unit-test-lsp/spec-test-lsp would just re-validate unchanged code, so
+            # publish-lsp-server proceeds straight off build-lsp instead (see test-lsp.yml).
+            core_lsp:
+              - 'src/Core/**'
+              - 'src/LSP/**'
+              - 'tests/LSP/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/test-lsp.yml'
+
+  # ---------------------------------------------------------------------------
+  # Job 1: Build + test the LSP layer, and publish self-contained server
+  # binaries for every supported RID. See test-lsp.yml. Runs at most once per
+  # push/PR, shared by whichever of the three IDE job chains below actually run.
+  #
+  # Every consumer still needs a server-<rid> artifact published *this run*
+  # (GitHub Actions artifacts don't carry over between runs), so this job
+  # can't be skipped outright just because src/Core and src/LSP are untouched
+  # — but skip-tests tells it to skip re-validating LSP code that didn't
+  # change (e.g. a Rider-only Kotlin commit), publishing straight off
+  # build-lsp instead of waiting on unit-test-lsp/spec-test-lsp.
+  # ---------------------------------------------------------------------------
+  lsp:
+    name: LSP
+    needs: [changes]
+    if: needs.changes.outputs.vs == 'true' || needs.changes.outputs.vscode == 'true' || needs.changes.outputs.rider == 'true'
+    uses: ./.github/workflows/test-lsp.yml
+    with:
+      skip-tests: ${{ needs.changes.outputs.core_lsp != 'true' }}
+
+  # ===========================================================================
+  # Visual Studio extension
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # Build VS extension — builds the extension (which also republishes the LSP
+  # server into the VSIX via IncludeLspServerInVsix) and uploads the resulting
+  # .vsix as a candidate artifact for the test/publish jobs below.
+  #
+  # Passes -p:UseExternalLspServerBuild=true plus -p:LspServerBuildDir=<downloaded
+  # artifact path> so the Extension project's ProjectReference to LSP.Server is
+  # dropped in favor of the win-x64 artifact the lsp job already published,
+  # instead of rebuilding it a second time.
+  # ---------------------------------------------------------------------------
+  build-vs-extension:
+    name: Build VS Extension
+    needs: [changes, lsp]
+    if: needs.changes.outputs.vs == 'true'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Download published LSP server (win-x64)
+        uses: actions/download-artifact@v4
+        with:
+          name: server-win-x64
+          path: lsp-server-win-x64
+
+      - name: Restore Extension
+        run: dotnet restore ${{ env.EXTENSION_PROJECT }} -p:UseExternalLspServerBuild=true "-p:LspServerBuildDir=${{ github.workspace }}\lsp-server-win-x64\"
+
+      - name: Build VSIX (${{ env.CONFIGURATION }})
+        run: dotnet build ${{ env.EXTENSION_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} -p:UseExternalLspServerBuild=true "-p:LspServerBuildDir=${{ github.workspace }}\lsp-server-win-x64\" ${{ env.BUILD_NUMBER_ARG }}
+
+      - name: Upload VSIX candidate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reqnroll-vs-extension-vsix-candidate
+          path: src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Extension/bin/${{ env.CONFIGURATION }}/net481/*.vsix
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Test VS extension — Reqnroll.VisualStudio.Tests (client parse/transform
+  # logic; see src/VisualStudio/CONTRIBUTING.md for what belongs here vs. the
+  # LSP server specs). Runs in parallel with test-vs-wizards.
+  # ---------------------------------------------------------------------------
+  test-vs-extension:
+    name: Unit Tests (VS Extension)
+    needs: [build-vs-extension]
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Download published LSP server (win-x64)
+        # Reqnroll.VisualStudio.Tests references the Extension project, which by default
+        # builds LSP.Server itself via ProjectReference — see build-vs-extension's identical
+        # step for why this instead reuses the artifact the lsp job already published.
+        uses: actions/download-artifact@v4
+        with:
+          name: server-win-x64
+          path: lsp-server-win-x64
+
+      - name: Restore
+        run: dotnet restore ${{ env.TESTS_PROJECT }} -p:UseExternalLspServerBuild=true "-p:LspServerBuildDir=${{ github.workspace }}\lsp-server-win-x64\"
+
+      - name: Test
+        run: dotnet test ${{ env.TESTS_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} --logger trx --results-directory TestResults -p:UseExternalLspServerBuild=true "-p:LspServerBuildDir=${{ github.workspace }}\lsp-server-win-x64\" ${{ env.BUILD_NUMBER_ARG }}
+
+      - name: Upload Test Result TRX Files
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vs-extension-tests-trx
+          if-no-files-found: error
+          path: "TestResults/*.trx"
+
+  # ---------------------------------------------------------------------------
+  # Test VS wizards — New Project/New Item wizard + welcome-dialog unit tests.
+  # Runs in parallel with test-vs-extension.
+  # ---------------------------------------------------------------------------
+  test-vs-wizards:
+    name: Unit Tests (VS Wizards)
+    needs: [build-vs-extension]
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore Wizards Tests
+        run: dotnet restore ${{ env.WIZARDS_TESTS_PROJECT }}
+
+      - name: Test Wizards
+        run: dotnet test ${{ env.WIZARDS_TESTS_PROJECT }} --no-restore --configuration ${{ env.CONFIGURATION }} --logger trx --results-directory TestResults
+
+      - name: Upload Test Result TRX Files
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vs-wizards-tests-trx
+          if-no-files-found: error
+          path: "TestResults/*.trx"
+
+  # ---------------------------------------------------------------------------
+  # Publish VSIX — promotes the candidate .vsix built in build-vs-extension to
+  # its final artifact name, but only once every LSP and VS-extension test
+  # suite above has passed. Does not push to the Visual Studio Marketplace (no
+  # marketplace credentials are configured for this repo yet; see
+  # reqnroll/Reqnroll.VisualStudio's `release` job for the
+  # CodingWithCalvin/GHA-VSMarketplacePublisher pattern to adopt once
+  # publishing is desired).
+  # ---------------------------------------------------------------------------
+  publish-vsix:
+    name: Publish VSIX
+    needs: [test-vs-extension, test-vs-wizards]
+    runs-on: windows-latest
+    steps:
+      - name: Download VSIX candidate artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: reqnroll-vs-extension-vsix-candidate
+          path: vsix
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reqnroll-vs-extension-vsix
+          path: vsix/*.vsix
+          if-no-files-found: error
+
+  # ===========================================================================
+  # VS Code extension
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # Extension build — compiles TypeScript, bundles the server binaries
+  # published by the lsp job, and produces the .vsix package. Does not publish
+  # to the Marketplace (same rationale as the VS extension above).
+  # ---------------------------------------------------------------------------
+  build-vscode-extension:
+    name: Build VSIX (VS Code)
+    needs: [changes, lsp]
+    if: needs.changes.outputs.vscode == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: ${{ env.VSCODE_DIR }}/package-lock.json
+
+      - name: Download server artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: server-*
+          path: ${{ env.VSCODE_DIR }}/server/
+          merge-multiple: false
+        # The download creates server/win-x64/, server/linux-x64/, etc.
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ${{ env.VSCODE_DIR }}
+
+      - name: Compile TypeScript
+        run: npm run compile
+        working-directory: ${{ env.VSCODE_DIR }}
+
+      - name: Lint
+        run: npm run lint
+        working-directory: ${{ env.VSCODE_DIR }}
+
+      - name: Validate semantic token scopes
+        run: npm run validate:tokens
+        working-directory: ${{ env.VSCODE_DIR }}
+
+      - name: Prettier check
+        run: npm run format:check
+        working-directory: ${{ env.VSCODE_DIR }}
+
+      - name: Package VSIX
+        run: npx @vscode/vsce package --out "reqnroll-ide-support-${{ github.sha }}.vsix"
+        working-directory: ${{ env.VSCODE_DIR }}
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reqnroll-ide-support-vsix
+          path: ${{ env.VSCODE_DIR }}/reqnroll-ide-support-*.vsix
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # TypeScript only (fast path for quick-checks on unrelated changes) — no LSP
+  # dependency, so it doesn't need the lsp job at all.
+  # ---------------------------------------------------------------------------
+  tsc-only:
+    name: TypeScript Compile (server skip)
+    needs: [changes]
+    if: needs.changes.outputs.vscode == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: ${{ env.VSCODE_DIR }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ${{ env.VSCODE_DIR }}
+
+      - name: Compile TypeScript
+        run: npm run compile
+        working-directory: ${{ env.VSCODE_DIR }}
+
+      - name: Lint
+        run: npm run lint
+        working-directory: ${{ env.VSCODE_DIR }}
+
+      - name: Validate semantic token scopes
+        run: npm run validate:tokens
+        working-directory: ${{ env.VSCODE_DIR }}
+
+      - name: Prettier check
+        run: npm run format:check
+        working-directory: ${{ env.VSCODE_DIR }}
+
+  # ===========================================================================
+  # Rider plugin
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # Plugin build — bundles the server binaries published by the lsp job for
+  # every RID and produces the plugin .zip, then runs the Plugin Verifier
+  # against it.
+  #
+  # Gradle never invokes `dotnet` in CI: -PlspServerBuildDir tells
+  # build.gradle.kts's prepareSandbox task to bundle the already-downloaded
+  # server-<rid> directories directly instead of running its local-dev-only
+  # publishServer task.
+  #
+  # Rider runs on every desktop OS, so the plugin bundles all four RIDs into
+  # one universal .zip and picks the right one at runtime
+  # (ReqnrollServerPathResolver.currentRid()). Each RID is downloaded to an
+  # explicit path below rather than via a single `pattern: server-*` download:
+  # with merge-multiple left at its default (false),
+  # actions/download-artifact@v4 nests pattern-matched artifacts one level
+  # deeper, under a directory named after the artifact itself
+  # (server-<rid>/<files>) rather than the bare RID — downloading each one
+  # explicitly by name avoids that extra nesting level ending up inside the
+  # plugin.
+  #
+  # The Gradle wrapper (gradlew, gradle/wrapper/*) is committed, pinned to
+  # 8.10 — this job calls ./gradlew directly rather than bootstrapping from
+  # the runner's system `gradle` (currently 9.6.1 on ubuntu-latest, which is
+  # NOT what build.gradle.kts is written/tested against — see
+  # src/Rider/CONTRIBUTING.md).
+  # ---------------------------------------------------------------------------
+  build-rider-plugin:
+    name: Build Rider Plugin
+    needs: [changes, lsp]
+    if: needs.changes.outputs.rider == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK and Gradle cache
+        uses: ./.github/actions/setup-rider-gradle-env
+
+      - name: Download server (win-x64)
+        uses: actions/download-artifact@v4
+        with:
+          name: server-win-x64
+          path: ${{ env.RIDER_DIR }}/downloaded-server/win-x64
+
+      - name: Download server (linux-x64)
+        uses: actions/download-artifact@v4
+        with:
+          name: server-linux-x64
+          path: ${{ env.RIDER_DIR }}/downloaded-server/linux-x64
+
+      - name: Download server (osx-x64)
+        uses: actions/download-artifact@v4
+        with:
+          name: server-osx-x64
+          path: ${{ env.RIDER_DIR }}/downloaded-server/osx-x64
+
+      - name: Download server (osx-arm64)
+        uses: actions/download-artifact@v4
+        with:
+          name: server-osx-arm64
+          path: ${{ env.RIDER_DIR }}/downloaded-server/osx-arm64
+
+      - name: Build plugin
+        run: ./gradlew buildPlugin -PlspServerBuildDir="${{ github.workspace }}/${{ env.RIDER_DIR }}/downloaded-server"
+        working-directory: ${{ env.RIDER_DIR }}
+
+      - name: Verify plugin
+        run: ./gradlew verifyPlugin -PlspServerBuildDir="${{ github.workspace }}/${{ env.RIDER_DIR }}/downloaded-server"
+        working-directory: ${{ env.RIDER_DIR }}
+
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reqnroll-ide-support-rider-plugin
+          path: ${{ env.RIDER_DIR }}/build/distributions/*.zip
+          if-no-files-found: error
+
+      # Only the raw Action log was available for a buildPlugin/verifyPlugin failure otherwise —
+      # this captures the Plugin Verifier's own report (and any other build report) for download.
+      - name: Upload build reports on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: rider-plugin-build-reports
+          path: ${{ env.RIDER_DIR }}/build/reports/
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Kotlin unit tests. Runs independently of the lsp job/server bundling —
+  # nothing under src/Rider launches the LSP server yet (see
+  # src/Rider/CONTRIBUTING.md); once a functional test does, give it a `needs:
+  # lsp` dependency and download the server the same way build-rider-plugin
+  # does above.
+  # ---------------------------------------------------------------------------
+  test-rider-plugin:
+    name: Kotlin Unit Tests (build skip)
+    needs: [changes]
+    if: needs.changes.outputs.rider == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK and Gradle cache
+        uses: ./.github/actions/setup-rider-gradle-env
+
+      - name: Test
+        run: ./gradlew test
+        working-directory: ${{ env.RIDER_DIR }}
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rider-plugin-test-results
+          path: ${{ env.RIDER_DIR }}/build/test-results/**/*.xml
+          if-no-files-found: ignore

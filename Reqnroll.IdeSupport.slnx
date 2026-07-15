@@ -44,6 +44,7 @@
     <Folder Name="/Tests/LSP/">
         <Project Path="tests/LSP/Reqnroll.IdeSupport.LSP.Core.Tests/Reqnroll.IdeSupport.LSP.Core.Tests.csproj" />
         <Project Path="tests/LSP/Reqnroll.IdeSupport.LSP.Server.Tests/Reqnroll.IdeSupport.LSP.Server.Tests.csproj" />
+        <Project Path="tests/LSP/Reqnroll.IdeSupport.LSP.TestStubs/Reqnroll.IdeSupport.LSP.TestStubs.csproj" />
         <Project Path="tests/LSP/Reqnroll.IdeSupport.LSP.Server.Specs/Reqnroll.IdeSupport.LSP.Server.Specs.csproj" />
         <Project Path="tests/LSP/Reqnroll.IdeSupport.LSP.Server.Specs.BindingsFixture/Reqnroll.IdeSupport.LSP.Server.Specs.BindingsFixture.csproj" />
     </Folder>

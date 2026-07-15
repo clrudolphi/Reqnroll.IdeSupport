@@ -1,5 +1,5 @@
 ﻿using Reqnroll.IdeSupport.LSP.Core.Diagnostics;
-using Reqnroll.VisualStudio.VsxStubs.LspStubs;
+using Reqnroll.IdeSupport.LSP.TestStubs;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Tests.Diagnostics;
 

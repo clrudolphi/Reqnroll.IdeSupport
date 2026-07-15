@@ -68,7 +68,7 @@ intellijPlatform {
 //
 // Two ways to populate server/<rid>/ here, matching the `UseExternalLspServerBuild`
 // / `LspServerBuildDir` MSBuild properties the VS extension build already uses for
-// the same problem (see build-vs-extension.yml):
+// the same problem (see ci.yml's build-vs-extension job):
 //
 //  - Local dev (no -PlspServerBuildDir): publishServer runs `dotnet publish` for the
 //    host RID only — fast, and sufficient since a local `runIde` only ever needs the
@@ -108,7 +108,7 @@ val isRunIdeInvocation = gradle.startParameter.taskNames.any { it == "runIde" ||
 val serverConfiguration = if (isRunIdeInvocation) "Debug" else "Release"
 
 // Directory containing one server-<rid>-shaped subdirectory per RID, pre-published
-// and tested by CI (see .github/workflows/build-rider-plugin.yml). When set,
+// and tested by CI (see .github/workflows/ci.yml's build-rider-plugin job). When set,
 // publishServer is skipped and prepareSandbox bundles every RID found here instead
 // of just the host's.
 val externalServerBuildDir = (findProperty("lspServerBuildDir") as String?)?.let { File(it) }

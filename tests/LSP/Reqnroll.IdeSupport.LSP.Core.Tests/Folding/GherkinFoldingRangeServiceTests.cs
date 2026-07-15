@@ -1,7 +1,7 @@
 ﻿#nullable enable
 
 using Reqnroll.IdeSupport.LSP.Core.Folding;
-using Reqnroll.VisualStudio.VsxStubs.LspStubs;
+using Reqnroll.IdeSupport.LSP.TestStubs;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Tests.Folding;
 
