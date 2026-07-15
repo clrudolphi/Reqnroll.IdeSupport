@@ -15,6 +15,15 @@
 # dorny/paths-filter on whether that IDE's own files (or the shared
 # Core/LSP files all of them depend on) actually changed.
 #
+# A further wrinkle: every consumer still needs a server-<rid> artifact
+# published *this run* even if src/Core and src/LSP are completely untouched
+# (e.g. a Rider-only Kotlin change), since GitHub Actions artifacts don't
+# carry over between separate workflow runs. So the `lsp` job itself can't be
+# skipped in that case — but re-running its unit-test-lsp/spec-test-lsp jobs
+# would just re-validate LSP code that didn't change. The `core_lsp` filter
+# below drives test-lsp.yml's skip-tests input so that case publishes
+# straight off build-lsp instead (see test-lsp.yml for the mechanics).
+#
 # Job graph:
 #   changes (paths-filter)
 #     └─> lsp (test-lsp.yml)                                  [if vs || vscode || rider]
@@ -100,6 +109,7 @@ jobs:
       vs: ${{ steps.filter.outputs.vs }}
       vscode: ${{ steps.filter.outputs.vscode }}
       rider: ${{ steps.filter.outputs.rider }}
+      core_lsp: ${{ steps.filter.outputs.core_lsp }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -130,17 +140,36 @@ jobs:
               - '.github/workflows/ci.yml'
               - '.github/workflows/test-lsp.yml'
               - '.github/actions/setup-rider-gradle-env/**'
+            # Whether the LSP layer test-lsp.yml builds/tests actually changed. Drives
+            # the lsp job's skip-tests input: false here means re-running
+            # unit-test-lsp/spec-test-lsp would just re-validate unchanged code, so
+            # publish-lsp-server proceeds straight off build-lsp instead (see test-lsp.yml).
+            core_lsp:
+              - 'src/Core/**'
+              - 'src/LSP/**'
+              - 'tests/LSP/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/test-lsp.yml'
 
   # ---------------------------------------------------------------------------
   # Job 1: Build + test the LSP layer, and publish self-contained server
   # binaries for every supported RID. See test-lsp.yml. Runs at most once per
   # push/PR, shared by whichever of the three IDE job chains below actually run.
+  #
+  # Every consumer still needs a server-<rid> artifact published *this run*
+  # (GitHub Actions artifacts don't carry over between runs), so this job
+  # can't be skipped outright just because src/Core and src/LSP are untouched
+  # — but skip-tests tells it to skip re-validating LSP code that didn't
+  # change (e.g. a Rider-only Kotlin commit), publishing straight off
+  # build-lsp instead of waiting on unit-test-lsp/spec-test-lsp.
   # ---------------------------------------------------------------------------
   lsp:
     name: LSP
     needs: [changes]
     if: needs.changes.outputs.vs == 'true' || needs.changes.outputs.vscode == 'true' || needs.changes.outputs.rider == 'true'
     uses: ./.github/workflows/test-lsp.yml
+    with:
+      skip-tests: ${{ needs.changes.outputs.core_lsp != 'true' }}
 
   # ===========================================================================
   # Visual Studio extension

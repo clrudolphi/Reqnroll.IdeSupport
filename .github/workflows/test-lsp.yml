@@ -15,11 +15,27 @@
 # — self-contained publish for any RID is just a NuGet runtime-pack download,
 # not a host-OS requirement — so it runs on cheaper ubuntu-latest runners,
 # same as build-vscode-extension.yml's old publish-server job.
+#
+# skip-tests: every consumer (VS/VS Code/Rider) needs a server-<rid> artifact
+# from *this* run to bundle — GitHub Actions artifacts aren't reusable across
+# separate workflow runs, so this job always runs when any consumer needs it,
+# even if src/Core and src/LSP are untouched (e.g. a Rider-only Kotlin change).
+# Re-running unit-test-lsp/spec-test-lsp in that case re-validates LSP code
+# that didn't change, for no benefit. ci.yml's `lsp` job passes skip-tests:
+# true when its `core_lsp` paths-filter output is false, skipping straight
+# from build-lsp to publish-lsp-server (build-lsp itself still runs as a
+# cheap fail-fast check before spending time on the 4-way publish matrix).
 # ---------------------------------------------------------------------------
 name: Test LSP
 
 on:
   workflow_call:
+    inputs:
+      skip-tests:
+        description: Skip unit-test-lsp/spec-test-lsp (LSP source unchanged this run).
+        type: boolean
+        required: false
+        default: false
 
 env:
   DOTNET_VERSION: '10.0.x'
@@ -88,6 +104,7 @@ jobs:
   unit-test-lsp:
     name: Unit Tests (LSP)
     needs: [build-lsp]
+    if: ${{ !inputs.skip-tests }}
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -139,6 +156,7 @@ jobs:
   spec-test-lsp:
     name: Spec Tests (LSP)
     needs: [build-lsp]
+    if: ${{ !inputs.skip-tests }}
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -176,14 +194,21 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # Job 4: Publish LSP server — self-contained publish for every supported
-  # RID, uploaded as `server-<rid>` artifacts. Only runs once both LSP test
-  # jobs pass, so consumers never build against an untested server. Runs on
-  # ubuntu-latest: self-contained publish for any RID is a NuGet runtime-pack
-  # download, not a host-OS requirement.
+  # RID, uploaded as `server-<rid>` artifacts. Runs once both LSP test jobs
+  # pass, so consumers never build against an untested server — except when
+  # skip-tests is set (LSP source unchanged this run), in which case those
+  # jobs are skipped rather than failed, and publish proceeds directly off
+  # build-lsp's success. Runs on ubuntu-latest: self-contained publish for
+  # any RID is a NuGet runtime-pack download, not a host-OS requirement.
   # ---------------------------------------------------------------------------
   publish-lsp-server:
     name: Publish LSP Server
-    needs: [unit-test-lsp, spec-test-lsp]
+    needs: [build-lsp, unit-test-lsp, spec-test-lsp]
+    if: |
+      always() &&
+      needs.build-lsp.result == 'success' &&
+      (needs.unit-test-lsp.result == 'success' || needs.unit-test-lsp.result == 'skipped') &&
+      (needs.spec-test-lsp.result == 'success' || needs.spec-test-lsp.result == 'skipped')
     strategy:
       matrix:
         rid: [win-x64, linux-x64, osx-x64, osx-arm64]
