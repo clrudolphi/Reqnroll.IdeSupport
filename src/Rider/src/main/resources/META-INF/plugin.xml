@@ -34,6 +34,13 @@ navigation, backed by the Reqnroll.IdeSupport LSP server.
     <postStartupActivity implementation="com.reqnroll.ide.rider.lsp.project.ReqnrollProjectFilesSync" />
     <postStartupActivity implementation="com.reqnroll.ide.rider.lsp.project.ReqnrollDocumentActivationSync" />
 
+    <!-- No LanguageCommenter for "Reqnroll Feature" (no PSI language, same as the folding/inlay
+         gaps) so IntelliJ's built-in "Comment with Line Comment" is otherwise a no-op on .feature
+         files. ReqnrollCommentToggleInstaller decorates the shared, application-global
+         CommentByLineComment action handler instead — there is no declarative extension point for
+         that, hence a postStartupActivity rather than a plugin.xml <action> override. -->
+    <postStartupActivity implementation="com.reqnroll.ide.rider.commenting.ReqnrollCommentToggleInstaller" />
+
     <!-- Rider's generic LSP client has no rendering-side consumer for textDocument/codeLens or
          textDocument/inlayHint at all (confirmed by decompiling — only capability-name
          bookkeeping exists in com.intellij.platform.lsp.impl.LspDynamicCapabilities). Both

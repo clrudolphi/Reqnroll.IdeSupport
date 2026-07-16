@@ -978,6 +978,17 @@ F13 is **implemented** on `feat/vscode-extension-initial`, matching the design a
 | Request | `doToggleComment` sends `workspace/executeCommand` (`reqnroll.toggleComment`, `[uri, startLine, endLine]`) via `client.sendRequest(ExecuteCommandRequest.type, ...)` and lets the returned `WorkspaceEdit` apply through the standard LSP client machinery; failures surface via `vscode.window.showErrorMessage`. |
 | Menu presence | Also available via editor context menu (`editor/context`, group `1_modification`) and the command palette, both gated on `editorLangId == gherkin`. |
 
+#### Rider — as-built
+
+F13 is **implemented** (issue #159), by decorating the built-in handler rather than intercepting a keybinding:
+
+| Design element | As-built |
+|---|---|
+| Keybinding interception | Not needed — Rider has no native `Commenter` for `.feature` (no PSI language registered), so the built-in `Ctrl+/` shortcut (`IdeActions.ACTION_COMMENT_LINE`) is otherwise inert there already. `ReqnrollCommentToggleInstaller` (a `postStartupActivity`) instead decorates the shared, application-global `CommentByLineComment` `EditorActionHandler` via `EditorActionManager.setActionHandler` — there's no `plugin.xml` extension point for "wrap an existing action handler," and the handler is process-global, not per-project, so the installer guards against re-wrapping on repeated project opens. |
+| Command handler | `ReqnrollCommentToggleHandler` overrides the `protected` `isEnabledForCaret`/`doExecute` extension points (not the `public` `isEnabled`/`execute` entry points those delegate to, which are plain non-`final` convenience wrappers rather than the actual override contract) and delegates to the wrapped original handler for every file that isn't `.feature`. |
+| Selection normalization | `ReqnrollCommentToggleHandler.normalizeSelectionLines` mirrors VS Code's `normalizeSelectionLines` exactly: a selection ending at column 0 of a line past the start line is trimmed back one line. `runForAllCarets()` is forced to `false` so the handler fires once per invocation (against the primary caret) rather than once per multi-caret, since the server command only accepts a single line range. |
+| Request | `ReqnrollRequestSender.toggleComment` sends the *standard* `workspace/executeCommand` (`reqnroll.toggleComment`, `[uri, startLine, endLine]`) directly — no custom `reqnroll/*` method exists for this feature. The resulting `workspace/applyEdit` is applied natively by Rider's platform `Lsp4jClient.applyEdit` (confirmed by decompiling — it's a `final` method on the base class), so no client-side consumer glue is needed for that half, unlike codeLens/inlayHint/folding. |
+
 ---
 
 ### F14 · Find Step Definition Usages
