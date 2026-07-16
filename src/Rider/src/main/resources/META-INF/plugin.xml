@@ -68,6 +68,15 @@ navigation, backed by the Reqnroll.IdeSupport LSP server.
          ReqnrollLspServerDescriptor.lspFormattingSupport), so `|`-triggered table-column
          realignment is driven manually, same reasoning as the codeVision/inlay entries above. -->
     <typedHandler implementation="com.reqnroll.ide.rider.formatting.ReqnrollFeatureOnTypeFormattingHandler" />
+
+    <!-- com.intellij.lang.psiStructureViewFactory (Language-keyed) would be dead-on-arrival for
+         the same ParserDefinition-less reason as the inlay-hints/folding entries above.
+         structureViewBuilder is keyed by FileType instead (confirmed via javap on the actual
+         bundled KeyedFactoryEPBean class — key/implementationClass are the real attributes), so
+         it sidesteps the PSI-language problem entirely. key matches ReqnrollFeatureFileType's
+         registered name. See ReqnrollFeatureStructureViewFactory's doc comment (issue #163). -->
+    <structureViewBuilder key="Reqnroll Feature"
+        implementationClass="com.reqnroll.ide.rider.structureview.ReqnrollFeatureStructureViewFactory" />
   </extensions>
 
   <actions>
