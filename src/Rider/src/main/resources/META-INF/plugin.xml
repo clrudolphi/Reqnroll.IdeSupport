@@ -34,6 +34,16 @@ navigation, backed by the Reqnroll.IdeSupport LSP server.
     <postStartupActivity implementation="com.reqnroll.ide.rider.lsp.project.ReqnrollProjectFilesSync" />
     <postStartupActivity implementation="com.reqnroll.ide.rider.lsp.project.ReqnrollDocumentActivationSync" />
 
+    <!-- The built-in CommentByLineComment action (Ctrl+/) is a MultiCaretCodeInsightAction that
+         hardcodes its own handler and gates on LanguageCommenters.forLanguage finding a Commenter
+         for the file — .feature has neither a PSI language nor a registered Commenter, so it's a
+         no-op there. ReqnrollToggleCommentAction (in the <actions> block below) is bound to the
+         same default keystroke; this promoter suppresses the built-in action from that keystroke's
+         candidate list specifically for .feature files so ours fires instead. See
+         ReqnrollToggleCommentAction's doc comment for why decorating an EditorActionHandler (the
+         first approach tried) doesn't work for this particular built-in action. -->
+    <actionPromoter implementation="com.reqnroll.ide.rider.commenting.ReqnrollCommentTogglePromoter" />
+
     <!-- Rider's generic LSP client has no rendering-side consumer for textDocument/codeLens or
          textDocument/inlayHint at all (confirmed by decompiling — only capability-name
          bookkeeping exists in com.intellij.platform.lsp.impl.LspDynamicCapabilities). Both
@@ -81,6 +91,19 @@ navigation, backed by the Reqnroll.IdeSupport LSP server.
           text="Go to Hooks"
           description="Navigates to the hook bindings applicable at the caret position in a feature file">
         <add-to-group group-id="EditorPopupMenu" anchor="last" />
+      </action>
+
+      <!-- Bound to the platform's own default Ctrl+/ keystroke — ReqnrollCommentTogglePromoter
+           (registered under <extensions> above) suppresses the built-in CommentByLineComment
+           action from that keystroke for .feature files, so this one fires instead. The action's
+           own update() also restricts visibility to .feature files, matching the other actions
+           here, so it's safe to add to the editor context menu unconditionally too. -->
+      <action id="Reqnroll.ToggleComment"
+          class="com.reqnroll.ide.rider.commenting.ReqnrollToggleCommentAction"
+          text="Comment/Uncomment"
+          description="Toggles # comments on the selected line(s) of a feature file">
+        <add-to-group group-id="EditorPopupMenu" anchor="last" />
+        <keyboard-shortcut keymap="$default" first-keystroke="ctrl SLASH" />
       </action>
     </group>
   </actions>

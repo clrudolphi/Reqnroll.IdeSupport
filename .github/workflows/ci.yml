@@ -358,6 +358,16 @@ jobs:
   # Extension build — compiles TypeScript, bundles the server binaries
   # published by the lsp job, and produces the .vsix package. Does not publish
   # to the Marketplace (same rationale as the VS extension above).
+  #
+  # extension.ts's resolveServerPath() looks for server/<rid>/<binary>, not
+  # server/server-<rid>/<binary> — so each RID is downloaded to an explicit
+  # path below rather than via a single `pattern: server-*` download: with
+  # merge-multiple left at its default (false), actions/download-artifact@v4
+  # nests pattern-matched artifacts one level deeper, under a directory named
+  # after the artifact itself (server-<rid>/<files>) rather than the bare
+  # RID. Downloading each one explicitly by name avoids that extra nesting
+  # level (issue #147). Same fix build-rider-plugin uses below for the
+  # equivalent problem.
   # ---------------------------------------------------------------------------
   build-vscode-extension:
     name: Build VSIX (VS Code)
@@ -375,13 +385,29 @@ jobs:
           cache: 'npm'
           cache-dependency-path: ${{ env.VSCODE_DIR }}/package-lock.json
 
-      - name: Download server artifacts
+      - name: Download server (win-x64)
         uses: actions/download-artifact@v4
         with:
-          pattern: server-*
-          path: ${{ env.VSCODE_DIR }}/server/
-          merge-multiple: false
-        # The download creates server/win-x64/, server/linux-x64/, etc.
+          name: server-win-x64
+          path: ${{ env.VSCODE_DIR }}/server/win-x64
+
+      - name: Download server (linux-x64)
+        uses: actions/download-artifact@v4
+        with:
+          name: server-linux-x64
+          path: ${{ env.VSCODE_DIR }}/server/linux-x64
+
+      - name: Download server (osx-x64)
+        uses: actions/download-artifact@v4
+        with:
+          name: server-osx-x64
+          path: ${{ env.VSCODE_DIR }}/server/osx-x64
+
+      - name: Download server (osx-arm64)
+        uses: actions/download-artifact@v4
+        with:
+          name: server-osx-arm64
+          path: ${{ env.VSCODE_DIR }}/server/osx-arm64
 
       - name: Install dependencies
         run: npm ci

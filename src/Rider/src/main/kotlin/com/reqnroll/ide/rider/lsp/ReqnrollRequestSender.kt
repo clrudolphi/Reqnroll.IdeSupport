@@ -11,6 +11,7 @@ import com.reqnroll.ide.rider.lsp.protocol.ReqnrollLanguageServer
 import org.eclipse.lsp4j.CodeLens
 import org.eclipse.lsp4j.CodeLensParams
 import org.eclipse.lsp4j.DocumentOnTypeFormattingParams
+import org.eclipse.lsp4j.ExecuteCommandParams
 import org.eclipse.lsp4j.FormattingOptions
 import org.eclipse.lsp4j.InlayHint
 import org.eclipse.lsp4j.InlayHintParams
@@ -38,6 +39,7 @@ object ReqnrollRequestSender {
     private const val INLAY_HINT_TIMEOUT_MS = 10_000
     private const val ON_TYPE_FORMATTING_TIMEOUT_MS = 10_000
     private const val GO_TO_HOOKS_TIMEOUT_MS = 10_000
+    private const val TOGGLE_COMMENT_TIMEOUT_MS = 10_000
 
     /** Runs `reqnroll/findUnusedStepDefinitions`. Returns null if no Reqnroll LSP server is running, or on failure. */
     fun findUnusedStepDefinitions(project: Project): FindUnusedStepDefinitionsResponse? {
@@ -142,6 +144,30 @@ object ReqnrollRequestSender {
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("goToHooks: request failed", ex)
             null
+        }
+    }
+
+    /**
+     * Runs the *standard* `workspace/executeCommand` request for `reqnroll.toggleComment`
+     * (Comment/Uncomment toggle — see CommentToggleHandler.cs). There is no dedicated,
+     * reqnroll-prefixed custom method for this feature, unlike findStepUsages/goToHooks — the server responds
+     * by sending a `workspace/applyEdit` *request back to the client*, which Rider's platform
+     * `Lsp4jClient.applyEdit` already applies natively (confirmed by decompiling — it's a `final`
+     * method on the base class, not something [ReqnrollLspServerDescriptor.createLsp4jClient]'s
+     * wrapping needs to add a consumer for), so this call's own return value is unused; callers
+     * only care whether the command was successfully dispatched.
+     */
+    fun toggleComment(project: Project, uri: String, startLine: Int, endLine: Int): Boolean {
+        val server = firstRunningServer(project) ?: return false
+        val params = ExecuteCommandParams("reqnroll.toggleComment", listOf(uri, startLine, endLine))
+        return try {
+            server.sendRequestSync(TOGGLE_COMMENT_TIMEOUT_MS) { languageServer ->
+                languageServer.workspaceService.executeCommand(params)
+            }
+            true
+        } catch (ex: Exception) {
+            ReqnrollDebugLogger.warn("toggleComment: request failed", ex)
+            false
         }
     }
 
