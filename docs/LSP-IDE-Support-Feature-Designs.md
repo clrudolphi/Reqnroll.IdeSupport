@@ -107,6 +107,8 @@ The concrete code changes across the LSP server and VS extension — DTOs, the i
 | 🔧 Plugin | Custom IDE plugin code required |
 | ❌ N/A | Feature is not applicable to this IDE |
 
+> **As-built ground truth**: the per-feature tables below were written at design time (several before the Rider plugin existed) and some now disagree with reality — see the [Cross-IDE client implementation & server-conditional-logic matrix](LSP-IDE-Support-Architecture.md#64-cross-ide-client-implementation--server-conditional-logic-matrix) in the Architecture doc for the current as-built/tracked status of every feature across all three IDEs, plus whether the *server* branches on client identity for it. That table wins wherever the two disagree.
+
 **Sequence diagram conventions**
 
 - Participant names shown in **bold** in tables are OmniSharp protocol handler classes (running in the LSP Server process)
