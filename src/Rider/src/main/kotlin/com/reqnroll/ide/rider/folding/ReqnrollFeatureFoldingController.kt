@@ -5,6 +5,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.FoldRegion
 import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
@@ -38,6 +39,15 @@ import org.eclipse.lsp4j.FoldingRange
  * region another provider might add to the same editor, and their expand/collapse state is
  * preserved by (start,end) offset across a debounced-edit rebuild — otherwise every keystroke
  * would silently re-expand everything the user had manually collapsed.
+ *
+ * [refreshOpenFeatureEditors] is called from [com.reqnroll.ide.rider.lsp.ReqnrollInlayHintRefreshInterceptor]
+ * alongside its inlay-hints refresh — folding has no LSP `refresh` request of its own to piggyback
+ * on, but needs the same re-query-once-the-server-is-actually-up trigger: `editorCreated` fires
+ * (and issues the first `textDocument/foldingRange` request) as soon as a `.feature` file is
+ * opened, which on solution/IDE startup happens well before the LSP server process exists —
+ * confirmed live, the first request always came back null. With no further document edits there
+ * was otherwise nothing to retry it, leaving folding permanently empty for files left open since
+ * startup (issue #162 follow-up).
  */
 class ReqnrollFeatureFoldingController : EditorFactoryListener {
     private class Session(
@@ -80,6 +90,16 @@ class ReqnrollFeatureFoldingController : EditorFactoryListener {
         private const val PLACEHOLDER = "..."
         private val SESSION_KEY = Key.create<Session>("Reqnroll.FeatureFolding.Session")
         private val REQNROLL_REGION_KEY = Key.create<Boolean>("Reqnroll.FeatureFolding.Region")
+
+        /** Refreshes folding ranges for every currently open `.feature` editor belonging to [project]. */
+        fun refreshOpenFeatureEditors(project: Project) {
+            for (editor in EditorFactory.getInstance().allEditors) {
+                if (editor.project != project) continue
+                val virtualFile = FileDocumentManager.getInstance().getFile(editor.document) ?: continue
+                if (virtualFile.extension != "feature") continue
+                refresh(project, editor, virtualFile)
+            }
+        }
 
         private fun refresh(project: Project, editor: Editor, virtualFile: VirtualFile) {
             if (project.isDisposed || editor.isDisposed) return
