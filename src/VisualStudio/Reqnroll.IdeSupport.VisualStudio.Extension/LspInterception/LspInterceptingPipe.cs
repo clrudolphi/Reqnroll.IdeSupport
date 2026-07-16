@@ -195,6 +195,18 @@ internal sealed class LspInterceptingPipe : IDisposable
             }
         }
         catch (OperationCanceledException) { /* normal shutdown */ }
+        catch (ObjectDisposedException) when (_disposed)
+        {
+            // Expected shutdown race (issue #165): Dispose() cancels the pumps and disposes
+            // _injectLock without first awaiting an in-flight WriteFrameGuardedAsync call, so
+            // this pump can still be inside _injectLock.WaitAsync when the semaphore gets
+            // disposed out from under it. Benign — this pump loop was already exiting from the
+            // same Dispose() call, and the server reports a graceful exit immediately after.
+            // Logged at Debug rather than Error so shutdown doesn't produce misleading noise.
+            _logger.LogDebug(
+                "LspInterceptingPipe [{Direction}] pump observed a disposed semaphore during shutdown (benign).",
+                direction);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "LspInterceptingPipe [{Direction}] pump faulted.", direction);
