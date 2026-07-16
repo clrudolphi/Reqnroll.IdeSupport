@@ -536,103 +536,106 @@ When the *real* `reqnroll/projectLoaded`/`projectFiles` notifications eventually
 
 ### 6.3 Rider
 
-The Rider plugin is a **hybrid Kotlin/JVM + .NET** project built with a Gradle + MSBuild pipeline. The Kotlin layer handles the Rider frontend (LSP lifecycle, file type registration, and the Go to Definition PSI bridge); the .NET layer provides a ReSharper zone definition required by Rider's dependency injection system.
+> **As-built** — this section reflects `src/Rider`'s actual architecture, which departed from the original design during implementation. The original plan (hybrid Kotlin/.NET, a `psi.implicitReferenceProvider` PSI bridge required for Go to Definition) was **never built**; see `src/Rider/CONTRIBUTING.md` for the current design rationale.
 
-Rider's built-in LSP client (available since Rider 2023.3) handles most capabilities generically. However, the **Go to Definition PSI bridge is definitively required** — Rider's native LSP client cannot navigate from a `.feature` file step into a `.cs` file without custom Kotlin code. This was confirmed by the Thomas Heijtink PoC. See [Q1 — resolved](LSP-IDE-Support-Open-Questions.md).
+The Rider plugin is a **Kotlin-only** IntelliJ Platform plugin — there is no ReSharper/.NET-backend half and no MSBuild step anywhere in its own build. Rider's built-in generic LSP client (`com.intellij.platform.lsp.api`) handles most capabilities directly; the plugin adds Kotlin glue only where that generic client has no rendering-side consumer for a capability (confirmed by decompiling Rider's platform classes — true for codeLens, inlay hints, and on-type formatting) or where a feature needs a bespoke `reqnroll/*` protocol message. See the [Cross-IDE matrix](#64-cross-ide-client-implementation--server-conditional-logic-matrix) in §6.4 for the per-feature breakdown.
+
+Notably, **Go to Definition needs no PSI bridge at all** — contrary to the original design's assumption that one was "definitively required." Setting `lspGoToDefinitionSupport = true` on the LSP server descriptor is sufficient; Go to Step Definition (F5) and the Define/Scaffold Steps code action (F6) both work through Rider's generic LSP client with zero Rider-specific code, confirmed live.
 
 #### Plugin manifest (`plugin.xml`)
 
-Three IntelliJ Platform extension points are registered:
+| Extension point | Implementation | Purpose |
+|---|---|---|
+| `platform.lsp.serverSupportProvider` | `ReqnrollLspServerSupportProvider` | Registers the LSP server descriptor with Rider's generic LSP client |
+| `fileType` | `ReqnrollFeatureFileType` | Registers `.feature` as the "Reqnroll Feature" language |
+| `postStartupActivity` (×3) | `ReqnrollRunnableProjectsListener`, `ReqnrollProjectFilesSync`, `ReqnrollDocumentActivationSync` | Project/file membership and activation sync (F2) |
+| `codeInsight.codeVisionProvider` | `StepUsagesCodeVisionProvider` | "N step usages" lens (F18) |
+| `editorFactoryListener` | `ReqnrollFeatureInlayHintsController` | Step-binding-info inlay hints (F23) |
+| `typedHandler` | `ReqnrollFeatureOnTypeFormattingHandler` | `\|`-triggered data-table column realignment (F12) |
+| `action` (×2) | `FindUnusedStepDefinitionsAction`, `FindStepUsagesAction` | F15 (Tools menu) / F14 (Tools menu + editor context menu) |
 
-| Extension point | Implementation class | Purpose |
-|----------------|---------------------|---------|
-| `platform.lsp.serverSupportProvider` | `ReqnrollLspServerSupportProvider` | LSP server lifecycle management |
-| `psi.implicitReferenceProvider` | `ReqnrollFeatureDefinitionReferenceProvider` | Go to Definition PSI bridge (F5, F17) |
-| `fileType` | `ReqnrollFeatureFileType` | Registers `.feature` file type and language |
+Rider's declared module dependencies are `com.intellij.modules.rider` and `com.intellij.modules.platform` — **not** `com.intellij.modules.lsp`, which isn't a registered module in Rider's distribution (confirmed via `runIde`: requiring it fails with "no such plugin found"). The `com.intellij.platform.lsp.api.*` classes used throughout are part of the core platform artifact and don't sit behind a separate module dependency.
 
-**Plugin dependencies declared:** `com.intellij.modules.lsp` (Rider's built-in LSP client) and `com.intellij.modules.platform`.
-
-**Project membership (`reqnroll/projectFiles`)**: Rider's backend has a full, authoritative MSBuild project model (links, `Remove`, conditions, per-TFM membership) and fires fine-grained project-model-change events, so *producing* the manifest is straightforward. The open risk is **transport**: how freely the plugin can push a custom outbound notification through Rider's built-in LSP client is the same "needs testing" caveat that sits on [Q1/Q2](LSP-IDE-Support-Open-Questions.md). Because `reqnroll/projectFiles` is optional, Rider can adopt it incrementally — if the custom notification proves unreliable, the plugin omits it and those projects fall back to folder-prefix routing without affecting `projectLoaded`.
+Four features have **no entry in `plugin.xml` at all** because they aren't implemented yet: Go to Hooks, Comment Toggle, Rename Step, and the document outline/structure view (folding is also unimplemented) — see reqnroll/Reqnroll.IdeSupport#157–163.
 
 #### Kotlin source components
 
-| Class | Purpose |
-|-------|---------|
-| `ReqnrollFeatureLanguage` | Singleton `Language` with ID `"ReqnrollFeature"` — the language anchor for all PSI and file type registrations |
-| `ReqnrollFeatureFileType` | Singleton `LanguageFileType`; name: "Reqnroll Feature", extension: `.feature`, icon: generic text file |
-| `ReqnrollLspServerSupportProvider` | Implements `LspServerSupportProvider`; called by Rider on file open; calls `serverStarter.ensureServerStarted()` for `.feature` and `.cs` files |
-| `ReqnrollProjectWideLspServerDescriptor` | Configures the LSP server process: executable path, `--stdio` flag, UTF-8 charset, language ID mapping; sets `lspGoToDefinitionSupport = true` |
-| `ReqnrollServerPathResolver` | Resolves server executable path using three strategies (see below) |
-| `ReqnrollFeatureDefinitionReferenceProvider` | PSI bridge for Go to Definition (see below) |
-| `ReqnrollLspLogger` | Debug logging to `{temp-dir}/gherkin-lsp.log` with timestamp prefix |
-| `ReqnrollSemanticTokensColorSettings` | Registers a custom `TextAttributesKey` per `reqnroll.*` legend name (default colors mirroring `DeveroomClassifications`) and maps each via the LSP descriptor's `LspSemanticTokensSupport` — see [F1 · Client-side token-type mapping](LSP-IDE-Support-Feature-Designs.md#f1--gherkin-syntax-highlighting) |
+| File | Purpose |
+|---|---|
+| `ReqnrollLspServerDescriptor` | Central configuration point: launch command line, supported files (`.feature`/`.cs`), `lspGoToDefinitionSupport`, `lspSemanticTokensSupport`, `lspFormattingSupport`, the custom `lsp4jServerClass` (adds `reqnroll/*` methods on top of standard `LanguageServer`), and `clientCapabilities` overrides advertising refresh/dynamic-registration support the platform default doesn't (see §6.4) |
+| `ReqnrollLspServerSupportProvider` | Registers `ReqnrollLspServerDescriptor` with Rider's generic LSP client |
+| `ReqnrollRequestSender` | Sends the custom `reqnroll/findStepUsages`/`reqnroll/findUnusedStepDefinitions` requests, plus the *standard* `textDocument/codeLens`/`inlayHint`/`onTypeFormatting` requests that Rider's generic client has no rendering-side consumer for |
+| `ReqnrollNotificationSender` | Sends `reqnroll/projectLoaded`/`projectUnloaded`/`projectFiles`/`documentActivated` |
+| `ReqnrollCodeLensRefreshInterceptor` / `ReqnrollInlayHintRefreshInterceptor` | Wrap the platform's `LspServerNotificationsHandler` so `workspace/codeLens/refresh`/`workspace/inlayHint/refresh` also refresh the CodeVision lens / inlay hints — the generic handling has no consumer to notify otherwise |
+| `ReqnrollSemanticTokensSupport` | Custom `TextAttributesKey` per `reqnroll.*` legend name, since Rider's default `getTextAttributesKey` only maps the ~23 standard LSP token-type names |
+| `ReqnrollServerPathResolver` | Resolves the bundled server executable path relative to the plugin's own installed location |
+| `StepUsagesCodeVisionProvider` | Calls the standard `textDocument/codeLens` request directly (via `ReqnrollRequestSender`) and renders through IntelliJ's native `CodeVisionProvider` extension point |
+| `ReqnrollFeatureInlayHintsController` | Calls the standard `textDocument/inlayHint` request directly and renders via `Editor.inlayModel` (not a declarative inlay provider — `.feature` has no `ParserDefinition`, which breaks that EP's PSI-language-based dispatch) |
+| `ReqnrollFeatureOnTypeFormattingHandler` | Calls the standard `textDocument/onTypeFormatting` request directly and applies the returned edits manually |
+| `ReqnrollProjectFilesSync` / `ReqnrollRunnableProjectsListener` / `ReqnrollDocumentActivationSync` / `ReqnrollProjectBaseline` / `ReqnrollLspServerReadiness` | Project/file membership and activation sync (F2), sourced from Rider's backend project model |
+| `FindStepUsagesAction` / `FindUnusedStepDefinitionsAction` / `ReqnrollResultPopup` | F14/F15 actions with a shared result-popup renderer |
+| `ReqnrollDebugLogger` | File logging, gated by the `reqnroll.devSandbox` system property (set only when launched via `./gradlew runIde`) |
+
+There is no `psi.implicitReferenceProvider`/PSI-bridge class and no `.NET`/ReSharper assembly anywhere in the plugin — both were part of the abandoned original design.
 
 #### Server path resolution
 
-`ReqnrollServerPathResolver` tries three locations in priority order:
-
-| Priority | Strategy | Path |
-|----------|----------|------|
-| 1 | Environment variable | `REQNROLL_GHERKIN_SERVER_PATH` env var (development override) |
-| 2 | Packaged (production) | `{pluginRoot}/server/Reqnroll.IdeSupport.LSP.Server.exe` |
-| 3 | Development fallback | Relative path from source root to build output |
-
-The server is launched with `--stdio` transport and `--client rider`.
-
-#### Go to Definition PSI bridge
-
-Rider's built-in LSP client receives `textDocument/definition` responses but cannot use them to navigate into `.cs` files, which Rider manages via its own C# language model (ReSharper). The `ReqnrollFeatureDefinitionReferenceProvider` bridges this gap:
-
-1. Registered as a `psi.implicitReferenceProvider` — Rider calls it when processing a definition request on any PSI element
-2. Validates the element is in a `.feature` file and within document bounds
-3. Queries `LspServerManager` to find the running Reqnroll LSP server instance
-4. Sends `textDocument/definition` directly to the LSP server
-5. Converts the `Location[]` / `LocationLink[]` response to Rider `NavigatableSymbol` objects wrapping `VirtualFile` + range
-6. Returns these symbols to Rider, which uses them for its native navigation UI (jump-to-file, breadcrumbs, etc.)
-
-This bridge is required for both **F5 (Go to Step Definition)** and **F17 (Hook Navigation)**.
-
-#### Language ID mapping
-
-`ReqnrollProjectWideLspServerDescriptor` routes files to the correct LSP language ID:
-
-| File type | Language ID sent to server |
-|-----------|--------------------------|
-| `.feature` | `reqnroll.feature` |
-| `.cs` | `csharp` |
-
-#### .NET/ReSharper component
-
-A thin .NET assembly (`Reqnroll.Plugin.Rider.dll`, targeting `net472`) provides a ReSharper **zone definition**:
-
-```csharp
-[ZoneDefinition]
-public interface IReqnrollPluginRiderZone : IZone { }
-```
-
-This participates in Rider's component dependency injection system, enabling future ReSharper-aware components (inspections, quick-fixes inside `.cs` files) to be registered against the Reqnroll zone.
+`ReqnrollServerPathResolver` resolves the bundled `server/<rid>/Reqnroll.IdeSupport.LSP.Server[.exe]` relative to the plugin's own installed directory. The server is launched with `--ide rider --log-level <Verbose|Warning>` — `Verbose` only when the JVM was started via `./gradlew runIde` (detected through the `reqnroll.devSandbox` system property Gradle sets only for that task), `Warning` for a real installed plugin.
 
 #### Build system
 
-The plugin uses a Gradle + MSBuild hybrid:
+Pure Gradle, via the `org.jetbrains.intellij.platform` Gradle plugin (Kotlin/JVM, JDK 21 toolchain) — there is no MSBuild step, and Gradle never invokes `dotnet` in CI. The LSP server is a prebuilt artifact, bundled one of two ways:
 
-| Gradle task | Tool | What it does |
-|------------|------|-------------|
-| `compileDotNet` | MSBuild (via vswhere / `dotnet msbuild`) | Compiles the .NET ReSharper assembly |
-| `prepareSandbox` | Gradle | Copies .NET DLLs and LSP server exe into the IDE sandbox |
-| `buildPlugin` | Gradle | Packages everything into a JetBrains Marketplace `.zip` |
-| `publishPlugin` | Gradle | Pushes to `plugins.jetbrains.com` via Marketplace API |
+| Scenario | Mechanism |
+|---|---|
+| Local dev (`./gradlew runIde`, no `-PlspServerBuildDir`) | The `publishServer` task runs `dotnet publish` for the host OS/arch only |
+| CI (`-PlspServerBuildDir=<dir>`) | `publishServer` is skipped; `prepareSandbox` copies whichever `server-<rid>` subdirectories already exist under `<dir>` — pre-built by the shared `test-lsp.yml` job — so Gradle never shells to `dotnet` at all |
 
-The sandbox preparation step copies:
-- `Reqnroll.Plugin.Rider.dll` / `.pdb` → plugin `dotFiles/` subfolder (consumed by Rider's ReSharper loader)
-- LSP server executable directory → plugin `server/` subfolder
+Since Rider runs on every desktop OS (unlike VS), the packaged plugin bundles **all four RIDs** (`win-x64`, `linux-x64`, `osx-x64`, `osx-arm64`); `ReqnrollServerPathResolver` picks the right one at runtime.
+
+Key Gradle tasks: `buildPlugin` (packages the `.zip`), `verifyPlugin` (JetBrains Plugin Verifier — the Marketplace plugin ID deliberately avoids the substring "rider", which the Verifier rejects), `runIde` (local dev sandbox), `test` (JUnit5/`kotlin.test` unit tests).
 
 #### Packaging and distribution
 
-- Published to the **JetBrains Marketplace** as a `.zip` plugin package
-- Minimum Rider version: **2023.3** (first version with `com.intellij.modules.lsp`)
-- Plugin descriptor declares `requiresRestart: true`
-- SDK version must stay in sync between `gradle.properties` (`ProductVersion`) and `Plugin.props` (`SdkVersion`)
+- Published to the JetBrains Marketplace as a `.zip` plugin package
+- `pluginSinceBuild`/`pluginUntilBuild` = `243`–`251.*` (`gradle.properties`); developed and verified against Rider `2024.3.5` (`platformVersion`)
+- Kotlin 2.0.21, JVM toolchain 21, `org.jetbrains.intellij.platform` Gradle plugin 2.2.1
+
+### 6.4 Cross-IDE client implementation & server-conditional-logic matrix
+
+For every shipped feature, each IDE's **client-side implementation** falls into one of three tiers, and the **server** either behaves identically for every client or branches on `ClientIdeContext.Ide` (the `--ide` flag).
+
+**Client-side tiers**
+
+| Tier | Meaning |
+|------|---------|
+| **OOB** | Works through the IDE's generic/built-in LSP client for the standard method — no interception, no bespoke rendering code. A declarative config knob (e.g. an opt-in property override, a `package.json` contribution) still counts as OOB; no protocol-level or rendering-level custom code is involved. |
+| **Glue** | The request/response is a *standard* LSP method, but the IDE's generic client has no rendering-side consumer for it (confirmed by decompiling Rider's platform for codeLens/inlayHint/onTypeFormatting) or the built-in consumer is unreliable (VS's semantic-token pull), so the client calls the standard method directly and renders the result through the IDE's own native extension points. |
+| **Custom** | Requires a bespoke `reqnroll/*`-prefixed protocol message because no standard LSP method expresses the feature (e.g. "Go to Hooks" vs. "Go to Definition") or because disambiguation/workflow needs go beyond what the standard method returns (e.g. Rename's ambiguous-binding picker). |
+
+**Server-conditional** — `Yes` means `ClientIdeContext.IsVisualStudio` (or equivalent) actually changes server behavior for that feature; `No` means the server runs identically regardless of which IDE connected, even where the *client's* protocol choice (OOB vs. Glue vs. Custom) differs per IDE.
+
+| Feature | VS Code | Visual Studio | Rider | Server-conditional? |
+|---|---|---|---|---|
+| F1 · Syntax Highlighting (semantic tokens) | OOB (`semanticTokenScopes` config) | **Custom** — `reqnroll/semanticTokens` push + `SemanticTokensClassificationInterceptor` + custom classifier, because VS's built-in colorizer only maps the ~23 standard token-type names and its pull is unreliable | Glue — standard pull, but a custom `TextAttributesKey` per legend name + `getTextAttributesKey` override, since Rider's default only maps standard types too | **Yes** — server only pushes `reqnroll/semanticTokens` when `--ide visualstudio` |
+| F2 · Binding/Project Discovery (`projectLoaded`/`projectFiles`/`projectUnloaded`) | Custom — `projectManager.ts` + `msbuildEvaluator.ts` shell out to `dotnet msbuild` | Custom — `VsProjectEventMonitor` via EnvDTE/CPS | Custom — `ReqnrollProjectFilesSync`/`ReqnrollRunnableProjectsListener` via Rider's backend project model | No |
+| F3/F4 · Diagnostics & Parse Errors | OOB (`textDocument/publishDiagnostics`) | OOB | OOB | No |
+| F5 · Go to Step Definition | **Custom** — `reqnroll/goToStepDefinitions` (`stepNavigation.ts`); see open question #126 on why this diverges from the other two | OOB (`textDocument/definition` via `FeatureDefinitionHandler`) | OOB — confirmed working via Rider's generic Go To Definition, no custom code | No |
+| F6 · Define/Scaffold Steps (code action) | OOB (delegates to `editor.action.quickFix`) | OOB (native quick-fix UI; `ScaffoldTrackingInterceptor` is separate glue for a side effect — registering the newly-created file with the project-membership index — not the code action itself) | OOB — confirmed working via Rider's generic Alt+Enter quick-fix, no custom code | No |
+| F7/F8 · Keyword/Step Completion | OOB (`textDocument/completion`) | OOB | OOB | **Yes** — `GherkinCompletionHandler` special-cases VS's "empty `CompletionList` on a trigger char reverts the typed character" behavior |
+| F9 · Document Outline (hierarchical dropdown bar) | OOB (`textDocument/documentSymbol`, native Outline view) | **Custom** — `reqnroll/documentSymbolHierarchical` + `GherkinNavigationBarSymbolService`/`IVsDropdownBarClient`, since VS's classic dropdown bar needs a shape standard `documentSymbol` doesn't provide | ❌ Not implemented — confirmed missing, no fallback (#163) | No |
+| F10 · Code Folding | OOB (`textDocument/foldingRange`) | OOB | ❌ Not implemented — confirmed missing, no fallback (#162) | No |
+| F11 · Document Auto-formatting | OOB | OOB | OOB (config opt-in: `lspFormattingSupport` property override activates the platform's generic `LspFormattingService`) | No |
+| F12 · Table Auto-formatting (on-type) | OOB (`editor.formatOnType` + `textDocument/onTypeFormatting`) | OOB | Glue — `ReqnrollFeatureOnTypeFormattingHandler` (a `typedHandler`) calls the standard request and applies edits manually, since Rider's generic client has no bridge for `textDocument/onTypeFormatting` at all | No |
+| F13 · Comment/Uncomment | Glue — `workspace/executeCommand` (`reqnroll.toggleComment`) bound to Ctrl+/, applied via the client's native `workspace/applyEdit` handling | Glue — same standard `workspace/executeCommand` route, bound via a VSSDK command-filter redirect | ❌ Not implemented — no `Commenter`/action registered at all (#159) | No |
+| F14 · Find Step Usages | Custom — `reqnroll/findStepUsages` + `QuickPick` | Custom — same message + `NavigationPickerDialog` | Custom — same message + `StepUsagesCodeVisionProvider`/`FindStepUsagesAction` | No |
+| F15 · Find Unused Step Definitions | Custom — `reqnroll/findUnusedStepDefinitions` | Custom — same message | Custom — same message + `FindUnusedStepDefinitionsAction` | No |
+| F16 · Step Rename Refactoring | Custom — `renameDisambiguation.ts` (`reqnroll/renameTargets` + `reqnroll/selectRenameTarget`) atop standard `textDocument/rename` | Custom — same messages + `RenameStep/*` | ❌ Not implemented (#160) | **Yes** — `RenamePostApplyCoordinator` branches on `IsVisualStudio` for post-apply handling |
+| F17 · Go to Hooks | Custom — `reqnroll/goToHooks` + `QuickPick` | Custom — same message + `NavigationPickerDialog` | ❌ Not implemented (#158) | No |
+| F18 · Code Lens (step usage counts) | OOB — native `CodeLensProvider` via `vscode-languageclient`; click actions reuse F14's custom message | **Custom** — `StepCodeLensService` talks to `LspInterceptingPipe` directly, bypassing VS's built-in LSP code-lens infrastructure entirely; refresh uses the custom `reqnroll/refreshCodeLens` notification | Glue — standard `textDocument/codeLens` called directly via `ReqnrollRequestSender`, rendered through IntelliJ's native `CodeVisionProvider`, since Rider's generic client has no rendering-side consumer for it either | **Yes** — refresh notification differs: custom `reqnroll/refreshCodeLens` for VS vs. standard `workspace/codeLens/refresh` for everyone else |
+| F23 · Inlay Hints (step binding info) | OOB (`textDocument/inlayHint`, native rendering) | OOB | Glue — `ReqnrollFeatureInlayHintsController` calls the standard request directly and renders via `Editor.inlayModel`, since Rider's generic client has no rendering-side consumer for inlay hints either | No |
+
+> **This table supersedes the per-feature "IDE support matrix" tables in the [Feature Designs](LSP-IDE-Support-Feature-Designs.md) doc wherever they disagree.** Those tables were written at design time (some before the Rider plugin existed) and predicted several Rider cells as `✅ Generic` that turned out, once built, to need `Glue` (F1, F18, F23) or aren't implemented at all yet (F9, F10, F13, F16, F17) — this table reflects the current as-built/tracked reality; the per-feature tables have not all been individually corrected yet.
 
 ---
 
