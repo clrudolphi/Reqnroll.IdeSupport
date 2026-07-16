@@ -8,6 +8,7 @@ import com.reqnroll.ide.rider.lsp.protocol.FindUnusedStepDefinitionsResponse
 import com.reqnroll.ide.rider.lsp.protocol.GoToHooksResponse
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollEmptyParams
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollLanguageServer
+import com.reqnroll.ide.rider.lsp.protocol.RenameTargetsResponse
 import org.eclipse.lsp4j.CodeLens
 import org.eclipse.lsp4j.CodeLensParams
 import org.eclipse.lsp4j.DocumentOnTypeFormattingParams
@@ -19,9 +20,11 @@ import org.eclipse.lsp4j.InlayHint
 import org.eclipse.lsp4j.InlayHintParams
 import org.eclipse.lsp4j.ReferenceContext
 import org.eclipse.lsp4j.ReferenceParams
+import org.eclipse.lsp4j.RenameParams
 import org.eclipse.lsp4j.TextDocumentIdentifier
 import org.eclipse.lsp4j.TextDocumentPositionParams
 import org.eclipse.lsp4j.TextEdit
+import org.eclipse.lsp4j.WorkspaceEdit
 import org.eclipse.lsp4j.Position as Lsp4jPosition
 import org.eclipse.lsp4j.Range as Lsp4jRange
 
@@ -43,6 +46,8 @@ object ReqnrollRequestSender {
     private const val FOLDING_RANGE_TIMEOUT_MS = 10_000
     private const val GO_TO_HOOKS_TIMEOUT_MS = 10_000
     private const val TOGGLE_COMMENT_TIMEOUT_MS = 10_000
+    private const val RENAME_TARGETS_TIMEOUT_MS = 10_000
+    private const val RENAME_TIMEOUT_MS = 10_000
 
     /** Runs `reqnroll/findUnusedStepDefinitions`. Returns null if no Reqnroll LSP server is running, or on failure. */
     fun findUnusedStepDefinitions(project: Project): FindUnusedStepDefinitionsResponse? {
@@ -189,6 +194,40 @@ object ReqnrollRequestSender {
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("toggleComment: request failed", ex)
             false
+        }
+    }
+
+    /** Runs `reqnroll/renameTargets` for the position (uri, line, character). Returns null if no Reqnroll LSP server is running, or on failure. */
+    fun renameTargets(project: Project, uri: String, line: Int, character: Int): RenameTargetsResponse? {
+        val server = firstRunningServer(project) ?: return null
+        val params = TextDocumentPositionParams(TextDocumentIdentifier(uri), Lsp4jPosition(line, character))
+        return try {
+            server.sendRequestSync(RENAME_TARGETS_TIMEOUT_MS) { languageServer ->
+                (languageServer as ReqnrollLanguageServer).renameTargets(params)
+            }
+        } catch (ex: Exception) {
+            ReqnrollDebugLogger.warn("renameTargets: request failed", ex)
+            null
+        }
+    }
+
+    /**
+     * Runs the *standard* `textDocument/rename` request with [newName] at (uri, line, character).
+     * Standard LSP method, so — like [codeLens]/[foldingRange] — no custom `@JsonRequest` method
+     * or cast to `ReqnrollLanguageServer` is needed. Rider has no native rename bridge (confirmed
+     * by decompiling `LspServerDescriptor` — no `lspRenameSupport`-style customization exists),
+     * so callers must apply the returned `WorkspaceEdit` themselves; see `RenameWorkspaceEditApplier`.
+     */
+    fun rename(project: Project, uri: String, line: Int, character: Int, newName: String): WorkspaceEdit? {
+        val server = firstRunningServer(project) ?: return null
+        val params = RenameParams(TextDocumentIdentifier(uri), Lsp4jPosition(line, character), newName)
+        return try {
+            server.sendRequestSync(RENAME_TIMEOUT_MS) { languageServer ->
+                languageServer.textDocumentService.rename(params)
+            }
+        } catch (ex: Exception) {
+            ReqnrollDebugLogger.warn("rename: request failed", ex)
+            null
         }
     }
 

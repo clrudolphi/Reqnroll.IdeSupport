@@ -134,3 +134,26 @@ data class GoToHookLocation(
     val hookOrder: Int = 0,
     val methodName: String = "",
 )
+
+/** Response for `reqnroll/renameTargets` — mirrors RenameTargetsResponse.cs field-for-field. */
+data class RenameTargetsResponse(
+    val targets: List<RenameTargetItem> = emptyList(),
+)
+
+/** One renameable binding attribute at the queried position. */
+data class RenameTargetItem(
+    val label: String = "",
+    val expression: String = "",
+    val attributeIndex: Int = 0,
+    val startLine: Int = 0,
+    val startChar: Int = 0,
+    val endLine: Int = 0,
+    val endChar: Int = 0,
+)
+
+/** Params for `reqnroll/selectRenameTarget` — mirrors SelectRenameTargetParams.cs field-for-field. */
+data class SelectRenameTargetParams(
+    val uri: String = "",
+    val version: Int = 0,
+    val attributeIndex: Int = 0,
+)

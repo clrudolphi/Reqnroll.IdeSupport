@@ -111,6 +111,29 @@ navigation, backed by the Reqnroll.IdeSupport LSP server.
         <add-to-group group-id="EditorPopupMenu" anchor="last" />
         <keyboard-shortcut keymap="$default" first-keystroke="ctrl SLASH" />
       </action>
+
+      <!-- Rename Step (issue #160), .feature side. Safe to claim Shift+F6 outright: no PSI
+           language is registered for Gherkin in this plugin, so nothing else (native or
+           otherwise) is bound to that shortcut for .feature files. -->
+      <action id="Reqnroll.RenameFeatureStep"
+          class="com.reqnroll.ide.rider.actions.RenameFeatureStepAction"
+          text="Rename Step"
+          description="Renames a step's expression across the feature file and its C# binding">
+        <add-to-group group-id="EditorPopupMenu" anchor="last" />
+        <keyboard-shortcut keymap="$default" first-keystroke="shift F6" />
+      </action>
+
+      <!-- Rename Step (issue #160), .cs side. Deliberately no keyboard shortcut: Rider's native
+           Shift+F6 rename already owns that shortcut for ordinary C# symbols, and this action's
+           update() can't cheaply tell "caret is on a step attribute" from "caret is on any other
+           C# identifier" to safely take it over. Context-menu only, distinct text from the
+           native "Rename" entry already in that menu. -->
+      <action id="Reqnroll.RenameCSharpStep"
+          class="com.reqnroll.ide.rider.actions.RenameCSharpStepAction"
+          text="Rename Step (Reqnroll)"
+          description="Renames the step-definition binding's expression across this attribute and the feature file">
+        <add-to-group group-id="EditorPopupMenu" anchor="last" />
+      </action>
     </group>
   </actions>
 </idea-plugin>

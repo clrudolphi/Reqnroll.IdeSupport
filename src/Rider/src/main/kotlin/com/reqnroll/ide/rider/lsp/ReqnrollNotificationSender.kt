@@ -8,6 +8,7 @@ import com.reqnroll.ide.rider.lsp.protocol.ReqnrollLanguageServer
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollProjectFilesParams
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollProjectLoadedParams
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollProjectUnloadedParams
+import com.reqnroll.ide.rider.lsp.protocol.SelectRenameTargetParams
 
 /**
  * Sends the reqnroll-prefixed lifecycle notifications to whichever Reqnroll LSP server(s) are running
@@ -29,6 +30,9 @@ object ReqnrollNotificationSender {
 
     fun sendDocumentActivated(project: Project, params: DocumentActivatedParams) =
         send(project, "documentActivated") { it.documentActivated(params) }
+
+    fun sendSelectRenameTarget(project: Project, params: SelectRenameTargetParams) =
+        send(project, "selectRenameTarget") { it.selectRenameTarget(params) }
 
     private fun send(project: Project, methodName: String, invoke: (ReqnrollLanguageServer) -> Unit) {
         val servers = LspServerManager.getInstance(project)
