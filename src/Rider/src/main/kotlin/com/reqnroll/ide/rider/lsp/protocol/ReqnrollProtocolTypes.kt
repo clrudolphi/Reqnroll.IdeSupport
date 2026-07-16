@@ -119,3 +119,18 @@ data class FindStepUsageItem(
     val scenarioName: String? = null,
     val projectName: String? = null,
 )
+
+/** Response for `reqnroll/goToHooks` — mirrors GoToHooksResponse.cs field-for-field. */
+data class GoToHooksResponse(
+    val hooks: List<GoToHookLocation> = emptyList(),
+)
+
+/** One hook binding applicable at the queried `.feature` file position. */
+data class GoToHookLocation(
+    val uri: String = "",
+    val startLine: Int = 0,
+    val startChar: Int = 0,
+    val hookType: String = "",
+    val hookOrder: Int = 0,
+    val methodName: String = "",
+)

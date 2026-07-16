@@ -5,11 +5,13 @@ import com.intellij.platform.lsp.api.LspServerManager
 import com.reqnroll.ide.rider.logging.ReqnrollDebugLogger
 import com.reqnroll.ide.rider.lsp.protocol.FindStepUsagesResponse
 import com.reqnroll.ide.rider.lsp.protocol.FindUnusedStepDefinitionsResponse
+import com.reqnroll.ide.rider.lsp.protocol.GoToHooksResponse
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollEmptyParams
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollLanguageServer
 import org.eclipse.lsp4j.CodeLens
 import org.eclipse.lsp4j.CodeLensParams
 import org.eclipse.lsp4j.DocumentOnTypeFormattingParams
+import org.eclipse.lsp4j.ExecuteCommandParams
 import org.eclipse.lsp4j.FoldingRange
 import org.eclipse.lsp4j.FoldingRangeRequestParams
 import org.eclipse.lsp4j.FormattingOptions
@@ -18,6 +20,7 @@ import org.eclipse.lsp4j.InlayHintParams
 import org.eclipse.lsp4j.ReferenceContext
 import org.eclipse.lsp4j.ReferenceParams
 import org.eclipse.lsp4j.TextDocumentIdentifier
+import org.eclipse.lsp4j.TextDocumentPositionParams
 import org.eclipse.lsp4j.TextEdit
 import org.eclipse.lsp4j.Position as Lsp4jPosition
 import org.eclipse.lsp4j.Range as Lsp4jRange
@@ -38,6 +41,8 @@ object ReqnrollRequestSender {
     private const val INLAY_HINT_TIMEOUT_MS = 10_000
     private const val ON_TYPE_FORMATTING_TIMEOUT_MS = 10_000
     private const val FOLDING_RANGE_TIMEOUT_MS = 10_000
+    private const val GO_TO_HOOKS_TIMEOUT_MS = 10_000
+    private const val TOGGLE_COMMENT_TIMEOUT_MS = 10_000
 
     /** Runs `reqnroll/findUnusedStepDefinitions`. Returns null if no Reqnroll LSP server is running, or on failure. */
     fun findUnusedStepDefinitions(project: Project): FindUnusedStepDefinitionsResponse? {
@@ -146,6 +151,44 @@ object ReqnrollRequestSender {
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("foldingRange: request failed", ex)
             null
+        }
+    }
+
+    /** Runs `reqnroll/goToHooks` for the position (uri, line, character) in a `.feature` file. Returns null if no Reqnroll LSP server is running, or on failure. */
+    fun goToHooks(project: Project, uri: String, line: Int, character: Int): GoToHooksResponse? {
+        val server = firstRunningServer(project) ?: return null
+        val params = TextDocumentPositionParams(TextDocumentIdentifier(uri), Lsp4jPosition(line, character))
+        return try {
+            server.sendRequestSync(GO_TO_HOOKS_TIMEOUT_MS) { languageServer ->
+                (languageServer as ReqnrollLanguageServer).goToHooks(params)
+            }
+        } catch (ex: Exception) {
+            ReqnrollDebugLogger.warn("goToHooks: request failed", ex)
+            null
+        }
+    }
+
+    /**
+     * Runs the *standard* `workspace/executeCommand` request for `reqnroll.toggleComment`
+     * (Comment/Uncomment toggle — see CommentToggleHandler.cs). There is no dedicated,
+     * reqnroll-prefixed custom method for this feature, unlike findStepUsages/goToHooks — the server responds
+     * by sending a `workspace/applyEdit` *request back to the client*, which Rider's platform
+     * `Lsp4jClient.applyEdit` already applies natively (confirmed by decompiling — it's a `final`
+     * method on the base class, not something [ReqnrollLspServerDescriptor.createLsp4jClient]'s
+     * wrapping needs to add a consumer for), so this call's own return value is unused; callers
+     * only care whether the command was successfully dispatched.
+     */
+    fun toggleComment(project: Project, uri: String, startLine: Int, endLine: Int): Boolean {
+        val server = firstRunningServer(project) ?: return false
+        val params = ExecuteCommandParams("reqnroll.toggleComment", listOf(uri, startLine, endLine))
+        return try {
+            server.sendRequestSync(TOGGLE_COMMENT_TIMEOUT_MS) { languageServer ->
+                languageServer.workspaceService.executeCommand(params)
+            }
+            true
+        } catch (ex: Exception) {
+            ReqnrollDebugLogger.warn("toggleComment: request failed", ex)
+            false
         }
     }
 

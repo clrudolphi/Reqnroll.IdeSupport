@@ -1,6 +1,7 @@
 package com.reqnroll.ide.rider.lsp.protocol
 
 import org.eclipse.lsp4j.ReferenceParams
+import org.eclipse.lsp4j.TextDocumentPositionParams
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest
 import org.eclipse.lsp4j.services.LanguageServer
@@ -45,4 +46,13 @@ interface ReqnrollLanguageServer : LanguageServer {
      */
     @JsonRequest("reqnroll/findStepUsages")
     fun findStepUsages(params: ReferenceParams): CompletableFuture<FindStepUsagesResponse>
+
+    /**
+     * Hook Navigation ("Go to Hooks") — returns the hook bindings applicable at a `.feature`
+     * file position (context level Feature/Scenario/Step, tag/scope-filtered — see
+     * GoToHooksHandler.cs). A separate custom message from `textDocument/definition` because
+     * that message is already used by Go to Step Definition on step lines.
+     */
+    @JsonRequest("reqnroll/goToHooks")
+    fun goToHooks(params: TextDocumentPositionParams): CompletableFuture<GoToHooksResponse>
 }
