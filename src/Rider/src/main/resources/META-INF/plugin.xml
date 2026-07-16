@@ -72,6 +72,16 @@ navigation, backed by the Reqnroll.IdeSupport LSP server.
           description="Finds feature-file steps that use the step-definition binding at the caret">
         <add-to-group group-id="EditorPopupMenu" anchor="last" />
       </action>
+
+      <!-- Mirrors VS's GoToHooksCommand / VS Code's "Go to Hooks" editor context entry — the
+           action's own update() restricts visibility to .feature files, so it's safe to also add
+           it to the editor context menu below without a declarative language condition. -->
+      <action id="Reqnroll.GoToHooks"
+          class="com.reqnroll.ide.rider.actions.GoToHooksAction"
+          text="Go to Hooks"
+          description="Navigates to the hook bindings applicable at the caret position in a feature file">
+        <add-to-group group-id="EditorPopupMenu" anchor="last" />
+      </action>
     </group>
   </actions>
 </idea-plugin>

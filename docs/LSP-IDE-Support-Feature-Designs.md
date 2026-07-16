@@ -1426,6 +1426,16 @@ F17 is **implemented** on `feat/vscode-extension-initial`:
 | Single vs. multiple results | A single hook navigates directly via `openAndReveal`. Multiple hooks show a `vscode.window.showQuickPick` with one entry per hook (`$(symbol-event) HookType`, method name as description, `Order: N` as detail when `hookOrder !== 0`) — the VS Code-idiomatic equivalent of the VS `NavigationPickerDialog` modal described above. |
 | Navigation | `navigateToHook` opens the target `.cs` file and reveals the hook method's location via the shared `openAndReveal` helper (also used by F14 and F15). |
 
+#### Rider — as-built
+
+F17 is **implemented** (issue #158), mirroring the F15/F16 request-sender pattern rather than a PSI bridge handler:
+
+| Design element | As-built |
+|---|---|
+| Request | `ReqnrollLanguageServer.goToHooks` (`ReqnrollLanguageServer.kt`), a `@JsonRequest("reqnroll/goToHooks")` taking the standard LSP4J `TextDocumentPositionParams`. Called via `ReqnrollRequestSender.goToHooks(project, uri, line, character)`, following the `findStepUsages`/`findUnusedStepDefinitions` pattern of `sendRequestSync` from a `Task.Backgroundable`. |
+| Action | `Reqnroll.GoToHooks` (`GoToHooksAction.kt`), enabled only when the caret is in a `.feature` file editor (mirroring `FindStepUsagesAction`'s `.cs`-only gating); registered in the `Reqnroll.ActionGroup` Tools-menu group and in `EditorPopupMenu`. |
+| Single vs. multiple results | `GoToHooksRunner` navigates directly via `ReqnrollResultPopup.navigateToUri` for a single hook; multiple hooks show `ReqnrollResultPopup`'s chooser popup (the same `JBPopupFactory` list used by Find Step Usages / Find Unused Step Definitions), each entry rendered as `[HookType] MethodName (filename:line)`. |
+
 ---
 
 ### F18 · Code Lens (Step Usage Counts)

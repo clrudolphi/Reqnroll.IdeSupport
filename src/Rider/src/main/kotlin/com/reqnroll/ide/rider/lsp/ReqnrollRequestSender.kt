@@ -5,6 +5,7 @@ import com.intellij.platform.lsp.api.LspServerManager
 import com.reqnroll.ide.rider.logging.ReqnrollDebugLogger
 import com.reqnroll.ide.rider.lsp.protocol.FindStepUsagesResponse
 import com.reqnroll.ide.rider.lsp.protocol.FindUnusedStepDefinitionsResponse
+import com.reqnroll.ide.rider.lsp.protocol.GoToHooksResponse
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollEmptyParams
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollLanguageServer
 import org.eclipse.lsp4j.CodeLens
@@ -16,6 +17,7 @@ import org.eclipse.lsp4j.InlayHintParams
 import org.eclipse.lsp4j.ReferenceContext
 import org.eclipse.lsp4j.ReferenceParams
 import org.eclipse.lsp4j.TextDocumentIdentifier
+import org.eclipse.lsp4j.TextDocumentPositionParams
 import org.eclipse.lsp4j.TextEdit
 import org.eclipse.lsp4j.Position as Lsp4jPosition
 import org.eclipse.lsp4j.Range as Lsp4jRange
@@ -35,6 +37,7 @@ object ReqnrollRequestSender {
     private const val CODE_LENS_TIMEOUT_MS = 10_000
     private const val INLAY_HINT_TIMEOUT_MS = 10_000
     private const val ON_TYPE_FORMATTING_TIMEOUT_MS = 10_000
+    private const val GO_TO_HOOKS_TIMEOUT_MS = 10_000
 
     /** Runs `reqnroll/findUnusedStepDefinitions`. Returns null if no Reqnroll LSP server is running, or on failure. */
     fun findUnusedStepDefinitions(project: Project): FindUnusedStepDefinitionsResponse? {
@@ -124,6 +127,20 @@ object ReqnrollRequestSender {
             }?.filterNotNull()
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("onTypeFormatting: request failed", ex)
+            null
+        }
+    }
+
+    /** Runs `reqnroll/goToHooks` for the position (uri, line, character) in a `.feature` file. Returns null if no Reqnroll LSP server is running, or on failure. */
+    fun goToHooks(project: Project, uri: String, line: Int, character: Int): GoToHooksResponse? {
+        val server = firstRunningServer(project) ?: return null
+        val params = TextDocumentPositionParams(TextDocumentIdentifier(uri), Lsp4jPosition(line, character))
+        return try {
+            server.sendRequestSync(GO_TO_HOOKS_TIMEOUT_MS) { languageServer ->
+                (languageServer as ReqnrollLanguageServer).goToHooks(params)
+            }
+        } catch (ex: Exception) {
+            ReqnrollDebugLogger.warn("goToHooks: request failed", ex)
             null
         }
     }
