@@ -758,7 +758,9 @@ Scenarios, Backgrounds, Rules, doc strings, and data tables can be collapsed in 
 
 | VS Code | Visual Studio | Rider |
 |---------|---------------|-------|
-| ✅ Generic | ✅ Generic | ✅ Generic |
+| ✅ Generic | ✅ Generic | 🔧 Plugin |
+
+Written at design time assuming all three IDEs would render folding purely through their generic LSP client. Confirmed true for VS Code and Visual Studio, but **not** for Rider (issue #162): bytecode inspection of the pinned Rider 2024.3.5 `com.intellij.platform.lsp.api.LspServerDescriptor` found no `lspFoldingRangeSupport` opt-in and no `LspFoldingRangeSupport` customization class at all — Rider's generic client has no rendering-side consumer for `textDocument/foldingRange`, the same class of gap as CodeLens/inlay hints/on-type formatting. See the Rider as-built note below.
 
 #### LSP messages
 
@@ -785,6 +787,16 @@ sequenceDiagram
     FFRH-->>IDE: FoldingRange[]
     IDE-->>IDE: Render fold markers in gutter
 ```
+
+#### Rider — as-built
+
+F10 is **implemented** (issue #162), following the same manual-glue pattern as F18/F23 rather than the generic pull the design assumed:
+
+| Design element | As-built |
+|---|---|
+| Request | `ReqnrollRequestSender.foldingRange(project, uri)` calls the *standard* `textDocument/foldingRange` request directly (no custom `@JsonRequest` needed — same as `codeLens`/`inlayHint`). |
+| Rendering | `ReqnrollFeatureFoldingController` (an `EditorFactoryListener`, not a PSI-based `FoldingBuilder` — `.feature` has no registered `ParserDefinition`, same reasoning as `ReqnrollFeatureInlayHintsController`) adds fold regions directly against `Editor.foldingModel`, debounced on document edits. |
+| State preservation | Fold regions are tagged via `FoldRegion`'s `UserDataHolder` so a debounced rebuild only touches Reqnroll-owned regions and restores each region's expand/collapse state by matching (startOffset, endOffset) — otherwise every keystroke would silently re-expand everything the user had manually collapsed. |
 
 ---
 
