@@ -47,6 +47,12 @@ navigation, backed by the Reqnroll.IdeSupport LSP server.
          language-scoped routing). Managed manually via Editor.inlayModel instead. -->
     <editorFactoryListener implementation="com.reqnroll.ide.rider.inlayhints.ReqnrollFeatureInlayHintsController" />
 
+    <!-- No generic-client rendering for textDocument/foldingRange either (confirmed via bytecode
+         inspection of LspServerDescriptor for issue #162: no lspFoldingRangeSupport opt-in and no
+         LspFoldingRangeSupport customization class exist at all, unlike lspGoToDefinitionSupport).
+         Same "manage it manually" approach as the inlay hints controller above. -->
+    <editorFactoryListener implementation="com.reqnroll.ide.rider.folding.ReqnrollFeatureFoldingController" />
+
     <!-- Rider's generic LSP client has no bridge for textDocument/onTypeFormatting at all (unlike
          whole-document formatting's LspFormattingService — see
          ReqnrollLspServerDescriptor.lspFormattingSupport), so `|`-triggered table-column

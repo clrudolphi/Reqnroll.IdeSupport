@@ -10,6 +10,8 @@ import com.reqnroll.ide.rider.lsp.protocol.ReqnrollLanguageServer
 import org.eclipse.lsp4j.CodeLens
 import org.eclipse.lsp4j.CodeLensParams
 import org.eclipse.lsp4j.DocumentOnTypeFormattingParams
+import org.eclipse.lsp4j.FoldingRange
+import org.eclipse.lsp4j.FoldingRangeRequestParams
 import org.eclipse.lsp4j.FormattingOptions
 import org.eclipse.lsp4j.InlayHint
 import org.eclipse.lsp4j.InlayHintParams
@@ -35,6 +37,7 @@ object ReqnrollRequestSender {
     private const val CODE_LENS_TIMEOUT_MS = 10_000
     private const val INLAY_HINT_TIMEOUT_MS = 10_000
     private const val ON_TYPE_FORMATTING_TIMEOUT_MS = 10_000
+    private const val FOLDING_RANGE_TIMEOUT_MS = 10_000
 
     /** Runs `reqnroll/findUnusedStepDefinitions`. Returns null if no Reqnroll LSP server is running, or on failure. */
     fun findUnusedStepDefinitions(project: Project): FindUnusedStepDefinitionsResponse? {
@@ -124,6 +127,24 @@ object ReqnrollRequestSender {
             }?.filterNotNull()
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("onTypeFormatting: request failed", ex)
+            null
+        }
+    }
+
+    /**
+     * Runs the *standard* `textDocument/foldingRange` request (Code Folding for `.feature`
+     * files — see FeatureFoldingRangeHandler.cs). Standard LSP method, so — like [codeLens] and
+     * [inlayHint] — no custom `@JsonRequest` method or cast to `ReqnrollLanguageServer` is needed.
+     */
+    fun foldingRange(project: Project, uri: String): List<FoldingRange>? {
+        val server = firstRunningServer(project) ?: return null
+        val params = FoldingRangeRequestParams(TextDocumentIdentifier(uri))
+        return try {
+            server.sendRequestSync(FOLDING_RANGE_TIMEOUT_MS) { languageServer ->
+                languageServer.textDocumentService.foldingRange(params)
+            }?.filterNotNull()
+        } catch (ex: Exception) {
+            ReqnrollDebugLogger.warn("foldingRange: request failed", ex)
             null
         }
     }
