@@ -6,6 +6,7 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
+import com.reqnroll.ide.rider.logging.ReqnrollDebugLogger
 import com.reqnroll.ide.rider.lsp.ReqnrollRequestSender
 import com.reqnroll.ide.rider.lsp.protocol.GoToHookLocation
 import com.reqnroll.ide.rider.lsp.protocol.GoToHooksResponse
@@ -18,10 +19,12 @@ import com.reqnroll.ide.rider.lsp.protocol.GoToHooksResponse
 object GoToHooksRunner {
     /** Runs the request on a background task and navigates (or shows a chooser) once it completes. */
     fun runAndShow(project: Project, uri: String, line: Int, character: Int) {
+        ReqnrollDebugLogger.info("GoToHooksRunner: invoked for $uri at $line:$character")
         ProgressManager.getInstance().run(object : Task.Backgroundable(
             project, "Reqnroll: Finding Hooks", true) {
             override fun run(indicator: ProgressIndicator) {
                 val response = ReqnrollRequestSender.goToHooks(project, uri, line, character)
+                ReqnrollDebugLogger.info("GoToHooksRunner: ${response?.hooks?.size ?: "null"} hook(s) returned")
                 ApplicationManager.getApplication().invokeLater { showResult(project, response) }
             }
         })
