@@ -74,7 +74,20 @@ class StepUsagesCodeVisionProvider : CodeVisionProvider<Unit> {
 
     override val id: String = ID
     override val name: String = "Reqnroll step usages"
-    override val relativeOrderings: List<CodeVisionRelativeOrdering> = emptyList()
+
+    /**
+     * Rider's built-in C# "N usages / N overrides" lens for the same method is bridged into
+     * [CodeVisionEntry]s from the ReSharper backend rather than registered as an ordinary
+     * [CodeVisionProvider] (confirmed by decompiling `intellij.rider.jar`:
+     * `CodeVisionProtocolHighlighterModelHandler` converts backend-computed entries via
+     * `AdditionalKt.toIdeaModel`), so there is no provider id to order against directly.
+     * Declaring [CodeVisionRelativeOrdering.CodeVisionRelativeOrderingLast] still fixes this
+     * provider's position deterministically at the end of the combined per-line entry list,
+     * instead of racing the backend-sourced entries for the same slot depending on which
+     * finishes its (synchronous LSP round-trip vs. backend) computation first — see #177.
+     */
+    override val relativeOrderings: List<CodeVisionRelativeOrdering> =
+        listOf(CodeVisionRelativeOrdering.CodeVisionRelativeOrderingLast)
     override val defaultAnchor: CodeVisionAnchorKind = CodeVisionAnchorKind.Default
 
     override fun precomputeOnUiThread(editor: Editor) = Unit
