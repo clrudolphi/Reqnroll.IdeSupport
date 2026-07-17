@@ -69,14 +69,14 @@ navigation, backed by the Reqnroll.IdeSupport LSP server.
          realignment is driven manually, same reasoning as the codeVision/inlay entries above. -->
     <typedHandler implementation="com.reqnroll.ide.rider.formatting.ReqnrollFeatureOnTypeFormattingHandler" />
 
-    <!-- com.intellij.lang.psiStructureViewFactory (Language-keyed) would be dead-on-arrival for
-         the same ParserDefinition-less reason as the inlay-hints/folding entries above.
-         structureViewBuilder is keyed by FileType instead (confirmed via javap on the actual
-         bundled KeyedFactoryEPBean class — key/implementationClass are the real attributes), so
-         it sidesteps the PSI-language problem entirely. key matches ReqnrollFeatureFileType's
-         registered name. See ReqnrollFeatureStructureViewFactory's doc comment (issue #163). -->
-    <structureViewBuilder key="Reqnroll Feature"
-        implementationClass="com.reqnroll.ide.rider.structureview.ReqnrollFeatureStructureViewFactory" />
+    <!-- Not com.intellij.structureViewBuilder (FileType-keyed StructureViewBuilderProvider): that
+         EP resolves through a JDK dynamic proxy that throws a ClassCastException casting our
+         provider instance to StructureViewBuilder on Rider 243.24978.27 (confirmed via idea.log
+         and decompiling the platform's own KeyedExtensionFactory — see
+         ReqnrollStructureToolWindowFactory's doc comment, issue #163). A dedicated tool window
+         sidesteps that EP — and its proxy — entirely. -->
+    <toolWindow id="Reqnroll Structure" anchor="right" secondary="true"
+        factoryClass="com.reqnroll.ide.rider.structureview.ReqnrollStructureToolWindowFactory" />
   </extensions>
 
   <actions>

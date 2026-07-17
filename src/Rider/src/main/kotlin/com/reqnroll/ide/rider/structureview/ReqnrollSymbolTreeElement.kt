@@ -15,7 +15,7 @@ import javax.swing.Icon
  * Wraps one server-side `DocumentSymbol` (Feature/Rule/Background/Scenario/Step/Examples — see
  * `FeatureDocumentSymbolHandler.ToDocumentSymbol`) as a Structure View node. Deliberately holds no
  * PSI reference: `.feature` files have no `ParserDefinition` (see
- * `ReqnrollFeatureStructureViewFactory`'s doc comment), so navigation goes through
+ * `ReqnrollFeatureInlayHintsController`'s doc comment), so navigation goes through
  * [OpenFileDescriptor] by offset — the same idiom already used by
  * [com.reqnroll.ide.rider.actions.ReqnrollResultPopup.navigateToUri] — rather than a `PsiElement`.
  */
