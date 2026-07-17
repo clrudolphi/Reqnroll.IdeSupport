@@ -6,9 +6,11 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.lsp.api.Lsp4jClient
 import com.intellij.platform.lsp.api.LspServerNotificationsHandler
 import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor
+import com.intellij.platform.lsp.api.customization.LspDiagnosticsSupport
 import com.intellij.platform.lsp.api.customization.LspFormattingSupport
 import com.intellij.platform.lsp.api.customization.LspSemanticTokensSupport
 import com.reqnroll.ide.rider.logging.ReqnrollDebugLogger
+import com.reqnroll.ide.rider.lsp.diagnostics.ReqnrollLspDiagnosticsSupport
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollLanguageServer
 import com.reqnroll.ide.rider.lsp.semantictokens.ReqnrollSemanticTokensSupport
 import org.eclipse.lsp4j.ClientCapabilities
@@ -43,6 +45,15 @@ class ReqnrollLspServerDescriptor(project: Project) :
     // names — same class of problem VS's built-in colorizer has. See
     // com/reqnroll/ide/rider/lsp/semantictokens/ReqnrollSemanticTokensSupport.kt.
     override val lspSemanticTokensSupport: LspSemanticTokensSupport = ReqnrollSemanticTokensSupport()
+
+    // Diagnostic messages (e.g. the ambiguous-step "Ambiguous steps:\n<candidate1>\n<candidate2>..."
+    // text built by MatchResult.CreateMultiMatch) are plain LSP strings — no markdown/HTML per spec.
+    // Confirmed by decompiling LspDiagnosticsSupport.getTooltip: the platform default forwards
+    // Diagnostic.message verbatim into AnnotationBuilder.tooltip(String), which Rider's hover popup
+    // renders as HTML, collapsing bare '\n' the same as any other whitespace run — so multi-candidate
+    // messages rendered with the platform default all merge onto one row instead of one candidate per
+    // line. See com/reqnroll/ide/rider/lsp/diagnostics/ReqnrollLspDiagnosticsSupport.kt. (#176)
+    override val lspDiagnosticsSupport: LspDiagnosticsSupport = ReqnrollLspDiagnosticsSupport()
 
     // Enables the platform's built-in LspFormattingService (an AsyncDocumentFormattingService) for
     // whole-document Reformat Code. Confirmed by decompiling LspFormattingService.canFormat that
