@@ -1,5 +1,8 @@
 package com.reqnroll.ide.rider.lsp
 
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.application.WriteIntentReadAction
 import com.intellij.openapi.project.Project
 import com.intellij.platform.lsp.api.LspServerNotificationsHandler
 import com.reqnroll.ide.rider.breadcrumbs.ReqnrollFeatureBreadcrumbsCollector
@@ -26,6 +29,16 @@ import java.util.concurrent.CompletableFuture
  * rather than getting their own interceptor — see [ReqnrollFeatureFoldingController]'s,
  * [ReqnrollFeatureBreadcrumbsCollector]'s, and [ReqnrollStructurePanel]'s class docs for why each
  * needs one at all.
+ *
+ * [refreshInlayHints] is invoked directly by `Lsp4jClient.refreshInlayHints` on whatever thread
+ * the underlying `workspace/inlayHint/refresh` LSP message arrived on — confirmed live to be a
+ * background "LSP Listener" thread, not the EDT (the same class of bug fixed for CodeVision in
+ * [ReqnrollCodeLensRefreshInterceptor], issue #166). [ReqnrollStructurePanel.refreshActivePanel]
+ * both mutates Swing components directly and reads PSI
+ * ([ReqnrollFeatureStructureViewBuilder][com.reqnroll.ide.rider.structureview.ReqnrollFeatureStructureViewBuilder]),
+ * so — unlike #166's fix, which only needed EDT dispatch — this also needs an explicit
+ * [WriteIntentReadAction] for the PSI read to be legal even once on the EDT (confirmed live: a
+ * plain `invokeLater` alone still threw "Read access is allowed from inside read-action only").
  */
 class ReqnrollInlayHintRefreshInterceptor(
     private val project: Project,
@@ -35,7 +48,13 @@ class ReqnrollInlayHintRefreshInterceptor(
         ReqnrollFeatureInlayHintsController.refreshOpenFeatureEditors(project)
         ReqnrollFeatureFoldingController.refreshOpenFeatureEditors(project)
         ReqnrollFeatureBreadcrumbsCollector.refreshOpenFeatureEditors(project)
-        ReqnrollStructurePanel.refreshActivePanel(project)
+        ApplicationManager.getApplication().invokeLater(
+            {
+                if (!project.isDisposed)
+                    WriteIntentReadAction.run { ReqnrollStructurePanel.refreshActivePanel(project) }
+            },
+            ModalityState.any(),
+        )
         return handler.refreshInlayHints()
     }
 }

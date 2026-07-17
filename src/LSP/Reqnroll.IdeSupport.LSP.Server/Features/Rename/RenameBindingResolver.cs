@@ -104,18 +104,55 @@ internal sealed class RenameBindingResolver
     }
 
     /// <summary>
-    /// Finds all bindings implemented at or near (within 5 lines — tolerates line drift from a
-    /// stale build) the given 1-based line in <paramref name="path"/>, via the registry's own
-    /// step-definition list rather than the match cache (used for .cs-side lookups, where there
-    /// is no feature-step match set to query).
+    /// Finds all bindings whose attributes are declared on the same C# method as the given
+    /// 1-based <paramref name="line"/> in <paramref name="path"/> — the genuine "multi-attribute"
+    /// case ([Given]/[When]/[Then] stacked on one method). Via the registry's own step-definition
+    /// list rather than the match cache (used for .cs-side lookups, where there is no
+    /// feature-step match set to query).
     /// </summary>
+    /// <remarks>
+    /// A naive "within N lines of any binding" window incorrectly merges two *different*,
+    /// closely-spaced methods into one false-ambiguous picker (#170 regression: two step methods
+    /// 6 lines apart, cursor on the second one's attribute, both fell within a 5-line window of
+    /// the first). Instead this mirrors <see cref="ProjectBindingRegistry"/>'s own
+    /// <c>CoversQuery</c> exact-match logic: first find the single binding the cursor actually
+    /// covers (its own attribute line, or the method-identifier line, for syntax-discovered
+    /// bindings that carry <see cref="ProjectStepDefinitionBinding.AttributeSourceLine"/>; a
+    /// heuristic window only for connector-discovered bindings that lack it), then return every
+    /// binding sharing that exact method-identifier line — which is precisely the set of
+    /// attributes stacked on that one method, no matter how close another, different method
+    /// happens to sit in the file.
+    /// </remarks>
     public static List<ProjectStepDefinitionBinding> FindBindingsAtCSharpMethod(
-        ProjectBindingRegistry registry, string path, int line) =>
-        registry.StepDefinitions
+        ProjectBindingRegistry registry, string path, int line)
+    {
+        var candidates = registry.StepDefinitions
             .Where(b => b.Implementation.SourceLocation != null &&
-                        string.Equals(b.Implementation.SourceLocation.SourceFile, path, StringComparison.OrdinalIgnoreCase) &&
-                        Math.Abs(b.Implementation.SourceLocation.SourceFileLine - line) <= 5)
+                        string.Equals(b.Implementation.SourceLocation.SourceFile, path, StringComparison.OrdinalIgnoreCase))
             .ToList();
+
+        var anchor = candidates.FirstOrDefault(b => CoversLine(b, line));
+        if (anchor == null)
+            return new List<ProjectStepDefinitionBinding>();
+
+        var anchorMethodLine = anchor.Implementation.SourceLocation!.SourceFileLine;
+        return candidates
+            .Where(b => b.Implementation.SourceLocation!.SourceFileLine == anchorMethodLine)
+            .ToList();
+    }
+
+    // Mirrors ProjectBindingRegistry.CoversQuery (kept in sync manually — see its own comment):
+    // exact attribute/method-line match for syntax-discovered bindings, a heuristic window only
+    // as a fallback for connector-discovered bindings that lack AttributeSourceLine.
+    private static bool CoversLine(ProjectStepDefinitionBinding binding, int line)
+    {
+        var sourceFileLine = binding.Implementation.SourceLocation!.SourceFileLine;
+        if (binding.AttributeSourceLine.HasValue)
+            return line == binding.AttributeSourceLine.Value || line == sourceFileLine;
+
+        const int attributeLeeway = 5;
+        return Math.Abs(sourceFileLine - line) <= attributeLeeway;
+    }
 
     /// <summary>
     /// Resolves the binding to rename for <c>textDocument/rename</c>: honors a pending

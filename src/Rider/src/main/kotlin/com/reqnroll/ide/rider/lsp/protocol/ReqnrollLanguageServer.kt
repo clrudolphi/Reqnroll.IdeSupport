@@ -55,4 +55,21 @@ interface ReqnrollLanguageServer : LanguageServer {
      */
     @JsonRequest("reqnroll/goToHooks")
     fun goToHooks(params: TextDocumentPositionParams): CompletableFuture<GoToHooksResponse>
+
+    /**
+     * Step Rename disambiguation (issue #160) — returns every candidate binding attribute
+     * renameable at a `.feature` or `.cs` file position (see RenameTargetsHandler.cs). Standard
+     * `textDocument/prepareRename`/`textDocument/rename` handle the mechanical edit; this custom
+     * request is only for picking which binding to rename when the position is ambiguous.
+     */
+    @JsonRequest("reqnroll/renameTargets")
+    fun renameTargets(params: TextDocumentPositionParams): CompletableFuture<RenameTargetsResponse>
+
+    /**
+     * Records which candidate binding a `reqnroll/renameTargets` disambiguation picked, for the
+     * `textDocument/rename` call that follows to pick up (see StepRenameHandler.HandleRenameAsync's
+     * session-first resolution order via RenameBindingResolver.ResolveBindingForRename).
+     */
+    @JsonNotification("reqnroll/selectRenameTarget")
+    fun selectRenameTarget(params: SelectRenameTargetParams)
 }
