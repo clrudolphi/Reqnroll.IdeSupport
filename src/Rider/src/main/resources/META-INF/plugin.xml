@@ -77,6 +77,13 @@ navigation, backed by the Reqnroll.IdeSupport LSP server.
          sidesteps that EP — and its proxy — entirely. -->
     <toolWindow id="Reqnroll Structure" anchor="right" secondary="true"
         factoryClass="com.reqnroll.ide.rider.structureview.ReqnrollStructureToolWindowFactory" />
+
+    <!-- Not com.intellij.ui.breadcrumbs.BreadcrumbsProvider (Language-keyed): same ParserDefinition
+         gap as everywhere else in this plugin. fileBreadcrumbsCollector is VirtualFile/Document/
+         offset-scoped instead — no PSI required (issue #161). See
+         ReqnrollFeatureBreadcrumbsCollector's doc comment for why requiresProvider() must be
+         overridden to false. -->
+    <fileBreadcrumbsCollector implementation="com.reqnroll.ide.rider.breadcrumbs.ReqnrollFeatureBreadcrumbsCollector" />
   </extensions>
 
   <actions>
