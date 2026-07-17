@@ -12,6 +12,8 @@ import com.reqnroll.ide.rider.lsp.protocol.ReqnrollLanguageServer
 import org.eclipse.lsp4j.CodeLens
 import org.eclipse.lsp4j.CodeLensParams
 import org.eclipse.lsp4j.DocumentOnTypeFormattingParams
+import org.eclipse.lsp4j.DocumentSymbol
+import org.eclipse.lsp4j.DocumentSymbolParams
 import org.eclipse.lsp4j.ExecuteCommandParams
 import org.eclipse.lsp4j.FoldingRange
 import org.eclipse.lsp4j.FoldingRangeRequestParams
@@ -44,6 +46,7 @@ object ReqnrollRequestSender {
     private const val FOLDING_RANGE_TIMEOUT_MS = 10_000
     private const val GO_TO_HOOKS_TIMEOUT_MS = 10_000
     private const val TOGGLE_COMMENT_TIMEOUT_MS = 10_000
+    private const val DOCUMENT_SYMBOL_TIMEOUT_MS = 10_000
 
     /** Runs `reqnroll/findUnusedStepDefinitions`. Returns null if no Reqnroll LSP server is running, or on failure. */
     fun findUnusedStepDefinitions(project: Project): FindUnusedStepDefinitionsResponse? {
@@ -206,6 +209,29 @@ object ReqnrollRequestSender {
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("toggleComment: request failed", ex)
             false
+        }
+    }
+
+    /**
+     * Runs the *standard* `textDocument/documentSymbol` request (Feature/Rule/Scenario/Step
+     * outline for `.feature` files — see FeatureDocumentSymbolHandler.cs). Standard LSP method,
+     * so — like [codeLens]/[foldingRange] — no custom `@JsonRequest` method or cast to
+     * `ReqnrollLanguageServer` is needed. The server always sends the nested `DocumentSymbol`
+     * shape (not flat `SymbolInformation`) to Rider, since Rider's generic LSP client declares
+     * `hierarchicalDocumentSymbolSupport` by platform default (matching VS Code) — so only the
+     * `Either.right` (`DocumentSymbol`) side is ever populated in practice; entries that somehow
+     * come back as `SymbolInformation` are dropped rather than crashing.
+     */
+    fun documentSymbol(project: Project, uri: String): List<DocumentSymbol>? {
+        val server = firstRunningServer(project) ?: return null
+        val params = DocumentSymbolParams(TextDocumentIdentifier(uri))
+        return try {
+            server.sendRequestSync(DOCUMENT_SYMBOL_TIMEOUT_MS) { languageServer ->
+                languageServer.textDocumentService.documentSymbol(params)
+            }?.mapNotNull { it.right }
+        } catch (ex: Exception) {
+            ReqnrollDebugLogger.warn("documentSymbol: request failed", ex)
+            null
         }
     }
 
