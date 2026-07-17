@@ -119,7 +119,68 @@ public class SemanticTokenServiceTests
         _bufferService.Received(1).TryGet(FeatureUri, out Arg.Any<DocumentBuffer?>());
     }
 
+    // ── Multi-line DataTable tag ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetSemanticTokensAsync_emits_a_DataTable_token_for_every_row_of_a_multiline_table()
+    {
+        // Mirrors DeveroomTagParser's real output shape for a multi-row table: one DataTable
+        // block tag spanning the whole table (header row through the last row), with
+        // DataTableHeader cell tags nested only on the header row -- data rows have no
+        // per-cell tags of their own (see DeveroomTagParser.TagRowCells, only ever called for
+        // the header row), so each data row must surface as its own whole-line DataTable
+        // token via Encode's multi-line "middle/last line" handling, not be silently dropped.
+        var text =
+            "Feature: F\n" +
+            "Scenario: S\n" +
+            "  Given a step\n" +
+            "    | col1 | col2 |\n" +  // line 3 -- header
+            "    | a    | b    |\n" +  // line 4 -- data row
+            "    | c    | d    |\n";   // line 5 -- data row
+        var snapshot = new TestGherkinSnapshot(text);
+
+        int tableStart = text.IndexOf("| col1", StringComparison.Ordinal);
+        int tableEnd = text.IndexOf("| d    |", StringComparison.Ordinal) + "| d    |".Length;
+        var tableTag = new DeveroomTag(DeveroomTagTypes.DataTable, new GherkinRange(snapshot, tableStart, tableEnd - tableStart));
+
+        int header1Start = text.IndexOf("col1", StringComparison.Ordinal);
+        var header1 = new DeveroomTag(DeveroomTagTypes.DataTableHeader,
+            new GherkinRange(snapshot, header1Start, "col1".Length));
+        int header2Start = text.IndexOf("col2", StringComparison.Ordinal);
+        var header2 = new DeveroomTag(DeveroomTagTypes.DataTableHeader,
+            new GherkinRange(snapshot, header2Start, "col2".Length));
+
+        var buf = new DocumentBuffer(FeatureUri, 5, text) with { Tags = new[] { tableTag, header1, header2 } };
+        SetupBuffer(buf);
+
+        var sut = CreateSut();
+        var result = await sut.GetSemanticTokensAsync(FeatureUri, 5);
+        var tokens = Decode(result!.Data.ToArray());
+
+        ReqnrollSemanticTokens.TryGetToken(tableTag, out var dataTableType, out _);
+        ReqnrollSemanticTokens.TryGetToken(header1, out var headerType, out _);
+
+        tokens.Should().Contain(t => t.Line == 3 && t.Char == 6 && t.Length == 4 && t.Type == headerType, "\"col1\" gets its own DataTableHeader token");
+        tokens.Should().Contain(t => t.Line == 3 && t.Char == 13 && t.Length == 4 && t.Type == headerType, "\"col2\" gets its own DataTableHeader token");
+        tokens.Should().Contain(t => t.Line == 4 && t.Type == dataTableType && t.Length == 19, "a data row must not be silently dropped");
+        tokens.Should().Contain(t => t.Line == 5 && t.Type == dataTableType && t.Length == 19, "the last data row must not be silently dropped either");
+    }
+
     // ── Helper ────────────────────────────────────────────────────────────────
+
+    private static List<(int Line, int Char, int Length, int Type)> Decode(int[] data)
+    {
+        var result = new List<(int, int, int, int)>();
+        int line = 0, ch = 0;
+        for (int i = 0; i < data.Length; i += 5)
+        {
+            if (data[i] != 0) { line += data[i]; ch = data[i + 1]; }
+            else { ch += data[i + 1]; }
+            result.Add((line, ch, data[i + 2], data[i + 3]));
+        }
+        return result;
+    }
+
 
     /// <summary>Minimal IGherkinTextSnapshot backed by a plain string.</summary>
     private sealed class TestGherkinSnapshot : Reqnroll.IdeSupport.LSP.Core.Documents.IGherkinTextSnapshot
