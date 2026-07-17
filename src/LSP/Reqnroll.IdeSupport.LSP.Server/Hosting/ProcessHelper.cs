@@ -62,7 +62,7 @@ public static class ProcessHelper
             psi.StandardErrorEncoding = encoding;
         }
 
-        var process = new Process
+        using var process = new Process
         {
             StartInfo = psi,
             EnableRaisingEvents = true
