@@ -33,7 +33,7 @@ internal static class LegacyAppConfigLoader
     {
         var configFileContent = File.ReadAllText(configFileDetails.FullName);
 
-        var configDocument = new XmlDocument();
+        var configDocument = new XmlDocument { XmlResolver = null };
         configDocument.LoadXml(configFileContent);
         var specFlowNode = configDocument.SelectSingleNode("/configuration/specFlow");
         if (specFlowNode == null)
