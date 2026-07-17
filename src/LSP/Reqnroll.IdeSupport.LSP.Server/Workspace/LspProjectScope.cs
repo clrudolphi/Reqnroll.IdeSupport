@@ -49,15 +49,24 @@ public sealed class LspProjectScope : IDisposable
     {
         var key = NormaliseKey(info.ProjectFile);
 
-        if (_projects.TryGetValue(key, out var existing))
+        // Use GetOrAdd to prevent the non-atomic check-then-create race where two concurrent
+        // calls both see TryGetValue return false, construct separate LspReqnrollProject
+        // instances, and the losing one's ConnectorBindingRegistryProvider (with its
+        // CancellationTokenSource and background Task.Run) is never disposed/cancelled.
+        LspReqnrollProject? created = null;
+        var project = _projects.GetOrAdd(key, _ =>
         {
-            var changed = existing.Update(info);
-            return (existing, false, changed);
+            created = new LspReqnrollProject(info, _ideScope);
+            return created;
+        });
+
+        if (created == null)
+        {
+            var changed = project.Update(info);
+            return (project, false, changed);
         }
 
-        var created = new LspReqnrollProject(info, _ideScope);
-        _projects[key] = created;
-        return (created, true, true);
+        return (project, true, true);
     }
 
     /// <summary>
