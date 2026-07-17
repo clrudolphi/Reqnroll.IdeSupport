@@ -12,6 +12,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBUI
 import java.awt.CardLayout
+import java.util.concurrent.ConcurrentHashMap
 import javax.swing.JPanel
 import javax.swing.SwingConstants
 
@@ -22,6 +23,16 @@ import javax.swing.SwingConstants
  * tool window the way IntelliJ's built-in "Structure" tool window gets for languages with a
  * `ParserDefinition`, since this tool window is entirely our own (see
  * [ReqnrollStructureToolWindowFactory]'s doc comment for why).
+ *
+ * [refreshActivePanel] exists for the same reason
+ * [com.reqnroll.ide.rider.folding.ReqnrollFeatureFoldingController.refreshOpenFeatureEditors]
+ * does: if the tool window is shown (e.g. restored from a previous session, with a `.feature` file
+ * already the active tab) before the LSP server is up, the very first [refresh] gets nothing back
+ * and there's otherwise no trigger to retry it — confirmed live (issue #163 follow-up), the panel
+ * stayed empty until the user switched tabs away and back, which just happens to force a fresh
+ * [refresh] via [selectionChanged][FileEditorManagerListener.selectionChanged]. Wired into
+ * [com.reqnroll.ide.rider.lsp.ReqnrollInlayHintRefreshInterceptor] alongside its other
+ * once-the-server-is-actually-up refreshes.
  */
 class ReqnrollStructurePanel(private val project: Project) : Disposable {
     private val placeholder = JBLabel("Open a .feature file to view its structure", SwingConstants.CENTER).apply {
@@ -45,11 +56,13 @@ class ReqnrollStructurePanel(private val project: Project) : Disposable {
             },
         )
 
+        activePanels[project] = this
         val selectedEditor = FileEditorManager.getInstance(project).selectedEditor
         refresh(selectedEditor?.file, selectedEditor)
     }
 
     override fun dispose() {
+        activePanels.remove(project, this)
         clearStructureView()
     }
 
@@ -81,5 +94,13 @@ class ReqnrollStructurePanel(private val project: Project) : Disposable {
     companion object {
         private const val PLACEHOLDER_CARD = "placeholder"
         private const val STRUCTURE_CARD = "structure"
+        private val activePanels = ConcurrentHashMap<Project, ReqnrollStructurePanel>()
+
+        /** Re-triggers the currently active `.feature` file's Structure View fetch, if the tool window is currently shown for [project]. No-op otherwise. */
+        fun refreshActivePanel(project: Project) {
+            val panel = activePanels[project] ?: return
+            val selectedEditor = FileEditorManager.getInstance(project).selectedEditor
+            panel.refresh(selectedEditor?.file, selectedEditor)
+        }
     }
 }
