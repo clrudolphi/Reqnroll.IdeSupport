@@ -1,5 +1,6 @@
 package com.reqnroll.ide.rider.lsp
 
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.platform.lsp.api.LspServerManager
 import com.reqnroll.ide.rider.logging.ReqnrollDebugLogger
@@ -51,6 +52,8 @@ object ReqnrollRequestSender {
             server.sendRequestSync(FIND_UNUSED_TIMEOUT_MS) { languageServer ->
                 (languageServer as ReqnrollLanguageServer).findUnusedStepDefinitions(ReqnrollEmptyParams())
             }
+        } catch (ex: ProcessCanceledException) {
+            throw ex
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("findUnusedStepDefinitions: request failed", ex)
             null
@@ -69,6 +72,8 @@ object ReqnrollRequestSender {
             server.sendRequestSync(FIND_USAGES_TIMEOUT_MS) { languageServer ->
                 (languageServer as ReqnrollLanguageServer).findStepUsages(params)
             }
+        } catch (ex: ProcessCanceledException) {
+            throw ex
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("findStepUsages: request failed", ex)
             null
@@ -88,6 +93,8 @@ object ReqnrollRequestSender {
             server.sendRequestSync(CODE_LENS_TIMEOUT_MS) { languageServer ->
                 languageServer.textDocumentService.codeLens(params)
             }?.filterNotNull()
+        } catch (ex: ProcessCanceledException) {
+            throw ex
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("codeLens: request failed", ex)
             null
@@ -103,6 +110,8 @@ object ReqnrollRequestSender {
             server.sendRequestSync(INLAY_HINT_TIMEOUT_MS) { languageServer ->
                 languageServer.textDocumentService.inlayHint(params)
             }
+        } catch (ex: ProcessCanceledException) {
+            throw ex
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("inlayHint: request failed", ex)
             null
@@ -130,6 +139,8 @@ object ReqnrollRequestSender {
             server.sendRequestSync(ON_TYPE_FORMATTING_TIMEOUT_MS) { languageServer ->
                 languageServer.textDocumentService.onTypeFormatting(params)
             }?.filterNotNull()
+        } catch (ex: ProcessCanceledException) {
+            throw ex
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("onTypeFormatting: request failed", ex)
             null
@@ -148,6 +159,8 @@ object ReqnrollRequestSender {
             server.sendRequestSync(FOLDING_RANGE_TIMEOUT_MS) { languageServer ->
                 languageServer.textDocumentService.foldingRange(params)
             }?.filterNotNull()
+        } catch (ex: ProcessCanceledException) {
+            throw ex
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("foldingRange: request failed", ex)
             null
@@ -162,6 +175,8 @@ object ReqnrollRequestSender {
             server.sendRequestSync(GO_TO_HOOKS_TIMEOUT_MS) { languageServer ->
                 (languageServer as ReqnrollLanguageServer).goToHooks(params)
             }
+        } catch (ex: ProcessCanceledException) {
+            throw ex
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("goToHooks: request failed", ex)
             null
@@ -186,6 +201,8 @@ object ReqnrollRequestSender {
                 languageServer.workspaceService.executeCommand(params)
             }
             true
+        } catch (ex: ProcessCanceledException) {
+            throw ex
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("toggleComment: request failed", ex)
             false
