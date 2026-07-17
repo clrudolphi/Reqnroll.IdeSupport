@@ -134,11 +134,13 @@ public class StepRenameHandlerTests
         int           line,
         int           column = 9,
         ProjectBindingImplementation? sharedImpl = null,
-        string        method = "Steps.M()")
+        string        method = "Steps.M()",
+        int?          attributeSourceLine = null)
     {
         var impl = sharedImpl ?? new ProjectBindingImplementation(
             method, null, new SourceLocation(CsPath, line, column));
-        return new ProjectStepDefinitionBinding(type, regex, null, impl, specifiedExpression);
+        return new ProjectStepDefinitionBinding(type, regex, null, impl, specifiedExpression,
+            attributeSourceLine: attributeSourceLine);
     }
 
     private static RenameParams RenameAt(int line, int character, string newName) =>
@@ -189,6 +191,58 @@ public class StepRenameHandlerTests
         edits.Should().ContainSingle();
         edits[0].NewText.Should().Be("\"the renamed number is {int}\"");
         edits[0].Range.Start.Line.Should().Be(6, "the attribute literal lives on 0-based line 6");
+    }
+
+    // ── Regression (issue #170's sibling bug, found while fixing the rename-targets picker):
+    //    CSharpAttributeLiteralResolver used to pick the "nearest candidate method" purely by
+    //    Math.Abs(line distance) to the registry's (possibly stale) recorded method line, with no
+    //    way to distinguish two different same-type step methods declared close together. A
+    //    binding's AttributeSourceLine — the AST-derived exact attribute line already used
+    //    elsewhere (ProjectBindingRegistry.CoversQuery, RenameBindingResolver) — must now be
+    //    matched exactly first, so the correct attribute is edited even when the recorded method
+    //    line has drifted and would otherwise point the "nearest" search at the wrong method. ──
+
+    [Fact]
+    public async Task Rename_uses_exact_attribute_line_not_nearest_method_when_two_same_type_methods_are_close()
+    {
+        const string csText =
+            "using Reqnroll;\n" +                                     // line 1
+            "namespace N\n" +                                         // 2
+            "{\n" +                                                   // 3
+            "    [Binding]\n" +                                       // 4
+            "    public class Steps\n" +                              // 5
+            "    {\n" +                                               // 6
+            "        [Given(\"the first number is {int}\")]\n" +      // 7 (0-based line 6)
+            "        public void GivenTheFirstNumberIs(int p0) { }\n" + // 8
+            "\n" +                                                    // 9
+            "        [Given(\"the second num is {int}\")]\n" +        // 10 (0-based line 9)
+            "        public void GivenTheSecondNumIs(int p0) { }\n" + // 11
+            "    }\n" +
+            "}\n";
+        SetupBuffer(csText);
+
+        // Recorded method line (9) is stale — closer to the FIRST method's real line (8) than to
+        // the SECOND method's real line (11) — but AttributeSourceLine (10) still points at the
+        // correct, current attribute for "the second num" binding.
+        var binding = MakeBinding(
+            ScenarioBlock.Given,
+            new Regex("^the second num is (.*)$"),
+            specifiedExpression: "the second num is {int}",
+            line: 9, column: 9,
+            attributeSourceLine: 10);
+        _registryLookup.GetRegistryForUri(Arg.Any<DocumentUri>())
+                       .Returns(ProjectBindingRegistry.FromBindings(new[] { binding }));
+
+        var result = await CreateSut().HandleRenameAsync(
+            RenameAt(line: 9, character: 8, newName: "the renamed num is {int}"),
+            CancellationToken.None);
+
+        result.Should().NotBeNull();
+        var edits = result!.Changes![CsUri].ToList();
+        edits.Should().ContainSingle();
+        edits[0].NewText.Should().Be("\"the renamed num is {int}\"");
+        edits[0].Range.Start.Line.Should().Be(9,
+            "the SECOND method's attribute literal, not the nearer-by-line first method's");
     }
 
     // ── Issue #82: the server self-refreshes the C# binding registry for the edited .cs file

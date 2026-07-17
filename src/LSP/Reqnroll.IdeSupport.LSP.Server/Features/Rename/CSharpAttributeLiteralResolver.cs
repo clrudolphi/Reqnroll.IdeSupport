@@ -99,9 +99,20 @@ internal sealed class CSharpAttributeLiteralResolver
     /// SOURCE LOCATION, not by matching the registry's expression text. The registry
     /// expression is a discovery-time projection (a Cucumber expression is rendered to a regex
     /// during discovery, and it reflects the last compiled build rather than the live buffer),
-    /// so it cannot be relied on to equal the raw attribute string literal. Line drift from a
-    /// stale build is tolerated by choosing the nearest candidate method.
+    /// so it cannot be relied on to equal the raw attribute string literal.
     /// </summary>
+    /// <remarks>
+    /// When <paramref name="binding"/> carries <see cref="ProjectStepDefinitionBinding.AttributeSourceLine"/>
+    /// (syntax-discovered bindings — the AST-derived exact attribute line, using the identical
+    /// formula <see cref="Reqnroll.IdeSupport.LSP.Core.Parsing.CSharp.StepDefinitionFileParser"/>
+    /// used to populate it), that line is matched exactly first — unambiguous even when a method
+    /// carries several same-type attributes, which a "nearest method" search alone cannot
+    /// distinguish (the same bug class fixed for the rename-targets picker in
+    /// <see cref="RenameBindingResolver.FindBindingsAtCSharpMethod"/>, #170). Only when no exact
+    /// match is found (a stale build's recorded line has drifted from the live buffer, or the
+    /// binding is connector-discovered and never carried an attribute line at all) does this fall
+    /// back to the previous "nearest candidate method" tolerance.
+    /// </remarks>
     public async Task<LiteralExpressionSyntax?> FindAttributeLiteralAsync(
         DocumentUri uri,
         ProjectStepDefinitionBinding binding)
@@ -172,9 +183,25 @@ internal sealed class CSharpAttributeLiteralResolver
         var rootNode = await tree.GetRootAsync();
 
         var stepType = binding.StepDefinitionType;
-        var candidates = rootNode
-            .DescendantNodes()
-            .OfType<MethodDeclarationSyntax>()
+        var methods = rootNode.DescendantNodes().OfType<MethodDeclarationSyntax>().ToList();
+
+        // Exact match: an AST-derived attribute line is unambiguous even when a method carries
+        // several same-type attributes — see the remarks above.
+        if (binding.AttributeSourceLine.HasValue)
+        {
+            var exact = methods
+                .SelectMany(m => GetStepAttributesWithLiterals(m, stepType))
+                .FirstOrDefault(x =>
+                    x.Attribute.GetLocation().GetLineSpan().StartLinePosition.Line + 1
+                        == binding.AttributeSourceLine.Value);
+            if (exact.Literal != null)
+                return exact.Literal;
+        }
+
+        // Fall back to the nearest candidate method: connector-discovered bindings never carry
+        // AttributeSourceLine, and a syntax-discovered binding's recorded line can drift a few
+        // lines from the live buffer after edits since the last build.
+        var candidates = methods
             .Select(m => (Method: m,
                           Line: tree.GetLineSpan(m.Identifier.Span).StartLinePosition.Line + 1)) // 1-based
             .Where(x => GetStepAttributeLiterals(x.Method, stepType).Any())
@@ -243,6 +270,17 @@ internal sealed class CSharpAttributeLiteralResolver
     /// <c>Then</c>, or <c>StepDefinition</c> which applies to all step kinds).
     /// </summary>
     private static IEnumerable<LiteralExpressionSyntax> GetStepAttributeLiterals(
+        MethodDeclarationSyntax method, ScenarioBlock stepType) =>
+        GetStepAttributesWithLiterals(method, stepType).Select(x => x.Literal);
+
+    /// <summary>
+    /// Same as <see cref="GetStepAttributeLiterals"/>, but keeps each literal paired with its
+    /// enclosing <see cref="AttributeSyntax"/> so the caller can compute the attribute's own
+    /// source line (needed to match <see cref="ProjectStepDefinitionBinding.AttributeSourceLine"/>
+    /// exactly, which a method-level line alone cannot do when several same-type attributes share
+    /// one method).
+    /// </summary>
+    private static IEnumerable<(AttributeSyntax Attribute, LiteralExpressionSyntax Literal)> GetStepAttributesWithLiterals(
         MethodDeclarationSyntax method, ScenarioBlock stepType)
     {
         foreach (var attr in method.AttributeLists.SelectMany(al => al.Attributes))
@@ -256,7 +294,7 @@ internal sealed class CSharpAttributeLiteralResolver
                 .FirstOrDefault(e => e.RawKind == (int)SyntaxKind.StringLiteralExpression);
 
             if (literal != null)
-                yield return literal;
+                yield return (attr, literal);
         }
     }
 
