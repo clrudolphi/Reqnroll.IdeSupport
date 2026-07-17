@@ -1,5 +1,6 @@
 package com.reqnroll.ide.rider.lsp
 
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.platform.lsp.api.LspServerManager
 import com.reqnroll.ide.rider.logging.ReqnrollDebugLogger
@@ -12,6 +13,8 @@ import com.reqnroll.ide.rider.lsp.protocol.RenameTargetsResponse
 import org.eclipse.lsp4j.CodeLens
 import org.eclipse.lsp4j.CodeLensParams
 import org.eclipse.lsp4j.DocumentOnTypeFormattingParams
+import org.eclipse.lsp4j.DocumentSymbol
+import org.eclipse.lsp4j.DocumentSymbolParams
 import org.eclipse.lsp4j.ExecuteCommandParams
 import org.eclipse.lsp4j.FoldingRange
 import org.eclipse.lsp4j.FoldingRangeRequestParams
@@ -48,6 +51,7 @@ object ReqnrollRequestSender {
     private const val TOGGLE_COMMENT_TIMEOUT_MS = 10_000
     private const val RENAME_TARGETS_TIMEOUT_MS = 10_000
     private const val RENAME_TIMEOUT_MS = 10_000
+    private const val DOCUMENT_SYMBOL_TIMEOUT_MS = 10_000
 
     /** Runs `reqnroll/findUnusedStepDefinitions`. Returns null if no Reqnroll LSP server is running, or on failure. */
     fun findUnusedStepDefinitions(project: Project): FindUnusedStepDefinitionsResponse? {
@@ -56,6 +60,8 @@ object ReqnrollRequestSender {
             server.sendRequestSync(FIND_UNUSED_TIMEOUT_MS) { languageServer ->
                 (languageServer as ReqnrollLanguageServer).findUnusedStepDefinitions(ReqnrollEmptyParams())
             }
+        } catch (ex: ProcessCanceledException) {
+            throw ex
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("findUnusedStepDefinitions: request failed", ex)
             null
@@ -74,6 +80,8 @@ object ReqnrollRequestSender {
             server.sendRequestSync(FIND_USAGES_TIMEOUT_MS) { languageServer ->
                 (languageServer as ReqnrollLanguageServer).findStepUsages(params)
             }
+        } catch (ex: ProcessCanceledException) {
+            throw ex
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("findStepUsages: request failed", ex)
             null
@@ -93,6 +101,8 @@ object ReqnrollRequestSender {
             server.sendRequestSync(CODE_LENS_TIMEOUT_MS) { languageServer ->
                 languageServer.textDocumentService.codeLens(params)
             }?.filterNotNull()
+        } catch (ex: ProcessCanceledException) {
+            throw ex
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("codeLens: request failed", ex)
             null
@@ -108,6 +118,8 @@ object ReqnrollRequestSender {
             server.sendRequestSync(INLAY_HINT_TIMEOUT_MS) { languageServer ->
                 languageServer.textDocumentService.inlayHint(params)
             }
+        } catch (ex: ProcessCanceledException) {
+            throw ex
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("inlayHint: request failed", ex)
             null
@@ -135,6 +147,8 @@ object ReqnrollRequestSender {
             server.sendRequestSync(ON_TYPE_FORMATTING_TIMEOUT_MS) { languageServer ->
                 languageServer.textDocumentService.onTypeFormatting(params)
             }?.filterNotNull()
+        } catch (ex: ProcessCanceledException) {
+            throw ex
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("onTypeFormatting: request failed", ex)
             null
@@ -153,6 +167,8 @@ object ReqnrollRequestSender {
             server.sendRequestSync(FOLDING_RANGE_TIMEOUT_MS) { languageServer ->
                 languageServer.textDocumentService.foldingRange(params)
             }?.filterNotNull()
+        } catch (ex: ProcessCanceledException) {
+            throw ex
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("foldingRange: request failed", ex)
             null
@@ -167,6 +183,8 @@ object ReqnrollRequestSender {
             server.sendRequestSync(GO_TO_HOOKS_TIMEOUT_MS) { languageServer ->
                 (languageServer as ReqnrollLanguageServer).goToHooks(params)
             }
+        } catch (ex: ProcessCanceledException) {
+            throw ex
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("goToHooks: request failed", ex)
             null
@@ -191,6 +209,8 @@ object ReqnrollRequestSender {
                 languageServer.workspaceService.executeCommand(params)
             }
             true
+        } catch (ex: ProcessCanceledException) {
+            throw ex
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("toggleComment: request failed", ex)
             false
@@ -227,6 +247,29 @@ object ReqnrollRequestSender {
             }
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("rename: request failed", ex)
+            null
+        }
+    }
+
+    /**
+     * Runs the *standard* `textDocument/documentSymbol` request (Feature/Rule/Scenario/Step
+     * outline for `.feature` files — see FeatureDocumentSymbolHandler.cs). Standard LSP method,
+     * so — like [codeLens]/[foldingRange] — no custom `@JsonRequest` method or cast to
+     * `ReqnrollLanguageServer` is needed. The server always sends the nested `DocumentSymbol`
+     * shape (not flat `SymbolInformation`) to Rider, since Rider's generic LSP client declares
+     * `hierarchicalDocumentSymbolSupport` by platform default (matching VS Code) — so only the
+     * `Either.right` (`DocumentSymbol`) side is ever populated in practice; entries that somehow
+     * come back as `SymbolInformation` are dropped rather than crashing.
+     */
+    fun documentSymbol(project: Project, uri: String): List<DocumentSymbol>? {
+        val server = firstRunningServer(project) ?: return null
+        val params = DocumentSymbolParams(TextDocumentIdentifier(uri))
+        return try {
+            server.sendRequestSync(DOCUMENT_SYMBOL_TIMEOUT_MS) { languageServer ->
+                languageServer.textDocumentService.documentSymbol(params)
+            }?.mapNotNull { it.right }
+        } catch (ex: Exception) {
+            ReqnrollDebugLogger.warn("documentSymbol: request failed", ex)
             null
         }
     }

@@ -68,6 +68,22 @@ navigation, backed by the Reqnroll.IdeSupport LSP server.
          ReqnrollLspServerDescriptor.lspFormattingSupport), so `|`-triggered table-column
          realignment is driven manually, same reasoning as the codeVision/inlay entries above. -->
     <typedHandler implementation="com.reqnroll.ide.rider.formatting.ReqnrollFeatureOnTypeFormattingHandler" />
+
+    <!-- Not com.intellij.structureViewBuilder (FileType-keyed StructureViewBuilderProvider): that
+         EP resolves through a JDK dynamic proxy that throws a ClassCastException casting our
+         provider instance to StructureViewBuilder on Rider 243.24978.27 (confirmed via idea.log
+         and decompiling the platform's own KeyedExtensionFactory — see
+         ReqnrollStructureToolWindowFactory's doc comment, issue #163). A dedicated tool window
+         sidesteps that EP — and its proxy — entirely. -->
+    <toolWindow id="Reqnroll Structure" anchor="right" secondary="true"
+        factoryClass="com.reqnroll.ide.rider.structureview.ReqnrollStructureToolWindowFactory" />
+
+    <!-- Not com.intellij.ui.breadcrumbs.BreadcrumbsProvider (Language-keyed): same ParserDefinition
+         gap as everywhere else in this plugin. fileBreadcrumbsCollector is VirtualFile/Document/
+         offset-scoped instead — no PSI required (issue #161). See
+         ReqnrollFeatureBreadcrumbsCollector's doc comment for why requiresProvider() must be
+         overridden to false. -->
+    <fileBreadcrumbsCollector implementation="com.reqnroll.ide.rider.breadcrumbs.ReqnrollFeatureBreadcrumbsCollector" />
   </extensions>
 
   <actions>
