@@ -111,7 +111,17 @@ public sealed class ConnectorDiscoveryService : IConnectorDiscoveryService
         var importer = new BindingImporter(result.SourceFiles, result.TypeNames, _logger);
 
         var stepDefinitions = (result.StepDefinitions ?? [])
-            .Select(sd => importer.ImportStepDefinition(sd))
+            .Select(sd => {
+                // For connector-discovered bindings, backfill the attribute source line
+                // from the source file using Roslyn syntax parsing. This enables exact
+                // AST-based matching in FindBindingAtLocation instead of the heuristic
+                // line window that was the only option when AttributeSourceLine was null.
+                var sourceFile = ResolveSourceFile(sd, result);
+                var attrLine = sourceFile != null
+                    ? BindingImporter.TryGetAttributeSourceLine(sourceFile, sd.Method)
+                    : null;
+                return importer.ImportStepDefinition(sd, attrLine);
+            })
             .Where(sd => sd is not null)
             .ToList();
 
@@ -143,6 +153,22 @@ public sealed class ConnectorDiscoveryService : IConnectorDiscoveryService
         {
             return assemblyPath;
         }
+    }
+
+    /// Resolves the absolute source file path from a step definition's source location reference
+    /// (which uses the connector's "#index" format to reference a shared source-file table).
+    private static string? ResolveSourceFile(StepDefinition sd, DiscoveryResult result)
+    {
+        var sourceLocationRaw = sd.SourceLocation;
+        if (string.IsNullOrWhiteSpace(sourceLocationRaw)) return null;
+
+        var sourceRef = sourceLocationRaw.Split('|')[0];
+        if (sourceRef.StartsWith("#") && result.SourceFiles != null &&
+            result.SourceFiles.TryGetValue(sourceRef.Substring(1), out var resolvedPath))
+            return resolvedPath;
+
+        // Already an absolute path — use it directly if the file exists.
+        return File.Exists(sourceRef) ? sourceRef : null;
     }
 
     private static string FindConfigFilePath(IProjectScope scope)

@@ -6,8 +6,12 @@ using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 using Reqnroll.IdeSupport.LSP.Core.TagExpressions;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Bindings;
 
@@ -40,8 +44,56 @@ public class BindingImporter
         _logger = logger;
     }
 
+    /// <summary>Tries to backfill the `attributeSourceLine` for a connector-discovered step definition
+    /// by parsing its source file with Roslyn and looking for the binding attribute above the method.
+    /// Returns null when the source file cannot be read or the method name is not found.</summary>
+    public static int? TryGetAttributeSourceLine(string sourceFilePath, string methodName)
+    {
+        try
+        {
+            if (!File.Exists(sourceFilePath))
+                return null;
+
+            var sourceText = File.ReadAllText(sourceFilePath);
+            var syntaxTree = CSharpSyntaxTree.ParseText(sourceText, new CSharpParseOptions(kind: SourceCodeKind.Regular));
+            var root = syntaxTree.GetRoot();
+
+            var methods = root.DescendantNodes().OfType<MethodDeclarationSyntax>();
+            foreach (var method in methods)
+            {
+                if (method.Identifier.Text != methodName)
+                    continue;
+
+                // Look for binding attributes ([Given], [When], [Then], [StepDefinition])
+                foreach (var attributeList in method.AttributeLists)
+                {
+                    foreach (var attribute in attributeList.Attributes)
+                    {
+                        var attrName = attribute.Name.ToString();
+                        if (attrName is "Given" or "When" or "Then" or "StepDefinition"
+                            or "GivenAttribute" or "WhenAttribute" or "ThenAttribute" or "StepDefinitionAttribute")
+                        {
+                            var lineSpan = attribute.GetLocation().GetLineSpan();
+                            return lineSpan.StartLinePosition.Line + 1;
+                        }
+                    }
+                }
+
+                // Method found but no binding attribute — stop here to avoid matching
+                // an unrelated method with the same name in a later class.
+                return null;
+            }
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
     /// <summary>Converts a wire-format step definition DTO into a <see cref="ProjectStepDefinitionBinding"/>, or null if it's invalid.</summary>
-    public ProjectStepDefinitionBinding ImportStepDefinition(StepDefinition stepDefinition)
+    public ProjectStepDefinitionBinding ImportStepDefinition(StepDefinition stepDefinition,
+        int? attributeSourceLine = null)
     {
         try
         {
@@ -61,7 +113,8 @@ public class BindingImporter
             }
 
             return new ProjectStepDefinitionBinding(stepDefinitionType, regex, scope, implementation,
-                stepDefinition.Expression, GetBindingError(stepDefinition.Error, scope, "step definition"));
+                stepDefinition.Expression, GetBindingError(stepDefinition.Error, scope, "step definition"),
+                attributeSourceLine);
         }
         catch (Exception ex)
         {
