@@ -115,11 +115,10 @@ public abstract class VsSimulatedItemAddWizardBase<TWizard> : VsTemplateWizardBa
 
     private IIdeScope GetIdeScope()
     {
-        // Access the original IIdeScope through the VsWizardContext. In production
-        // this is always a VsWizardContext; the cast is safe.
-        var field = _wizardContext.GetType()
-            .GetField("_ideScope",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        return field?.GetValue(_wizardContext) as IIdeScope;
+        // Access through the public IdeScope property rather than private-field
+        // reflection, which silently breaks if the VsWizardContext field is renamed.
+        if (_wizardContext is VsWizardContext vsCtx)
+            return vsCtx.IdeScope;
+        return null;
     }
 }
