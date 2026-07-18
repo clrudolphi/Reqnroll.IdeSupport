@@ -7,9 +7,10 @@ import kotlin.test.assertTrue
 
 class ReqnrollServerPathResolverTest {
     @Test
-    fun `rid selects win-x64 for any Windows os_name regardless of arch`() {
+    fun `rid selects win-arm64 for Windows on aarch64, win-x64 otherwise`() {
         assertEquals("win-x64", ReqnrollServerPathResolver.rid("Windows 11", "amd64"))
-        assertEquals("win-x64", ReqnrollServerPathResolver.rid("Windows 11", "aarch64"))
+        assertEquals("win-arm64", ReqnrollServerPathResolver.rid("Windows 11", "aarch64"))
+        assertEquals("win-arm64", ReqnrollServerPathResolver.rid("Windows 11", "arm64"))
     }
 
     @Test

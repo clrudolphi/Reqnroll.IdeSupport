@@ -36,7 +36,9 @@ function resolveServerPath(context: vscode.ExtensionContext): string {
   if (isProduction) {
     const rid =
       process.platform === 'win32'
-        ? 'win-x64'
+        ? process.arch === 'arm64'
+          ? 'win-arm64'
+          : 'win-x64'
         : process.platform === 'darwin'
           ? process.arch === 'arm64'
             ? 'osx-arm64'
@@ -61,6 +63,21 @@ function resolveServerPath(context: vscode.ExtensionContext): string {
     );
   }
 
+  const devRid =
+    process.platform === 'win32'
+      ? process.arch === 'arm64'
+        ? 'win-arm64'
+        : 'win-x64'
+      : process.platform === 'darwin'
+        ? process.arch === 'arm64'
+          ? 'osx-arm64'
+          : 'osx-x64'
+        : 'linux-x64';
+  const devBinaryName =
+    process.platform === 'win32'
+      ? 'Reqnroll.IdeSupport.LSP.Server.exe'
+      : 'Reqnroll.IdeSupport.LSP.Server';
+
   return path.join(
     context.extensionPath,
     '..',
@@ -71,9 +88,9 @@ function resolveServerPath(context: vscode.ExtensionContext): string {
     'bin',
     'Release',
     'net10.0',
-    'win-x64',
+    devRid,
     'publish',
-    'Reqnroll.IdeSupport.LSP.Server.exe',
+    devBinaryName,
   );
 }
 
