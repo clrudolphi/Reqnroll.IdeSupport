@@ -1,9 +1,13 @@
 package com.reqnroll.ide.rider.structureview
 
+import com.intellij.ide.structureView.FileEditorPositionListener
+import com.intellij.ide.structureView.ModelListener
 import com.intellij.ide.structureView.StructureViewModel
 import com.intellij.ide.structureView.StructureViewTreeElement
 import com.intellij.ide.structureView.TreeBasedStructureViewBuilder
-import com.intellij.ide.util.treeView.smartTree.ModelListener
+import com.intellij.ide.util.treeView.smartTree.Filter
+import com.intellij.ide.util.treeView.smartTree.Grouper
+import com.intellij.ide.util.treeView.smartTree.Sorter
 import com.intellij.ide.util.treeView.smartTree.TreeElement
 import com.intellij.navigation.ItemPresentation
 import com.intellij.openapi.editor.Editor
@@ -49,10 +53,16 @@ class ReqnrollFeatureStructureViewBuilder(
             override fun canNavigate(): Boolean = false
             override fun canNavigateToSource(): Boolean = false
         }
-        override fun isRootNodeShown(): Boolean = false
+        override fun getGroupers(): Array<Grouper> = emptyArray()
+        override fun getSorters(): Array<Sorter> = emptyArray()
+        override fun getFilters(): Array<Filter> = emptyArray()
+        override fun getCurrentEditorElement(): Any? = null
+        override fun addEditorPositionListener(listener: FileEditorPositionListener) {}
+        override fun removeEditorPositionListener(listener: FileEditorPositionListener) {}
         override fun addModelListener(listener: ModelListener) {}
         override fun removeModelListener(listener: ModelListener) {}
         override fun dispose() {}
+        override fun shouldEnterElement(element: Any?): Boolean = false
     }
 
     override fun isRootNodeShown(): Boolean = false
