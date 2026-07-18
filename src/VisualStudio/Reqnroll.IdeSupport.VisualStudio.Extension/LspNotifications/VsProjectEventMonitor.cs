@@ -177,8 +177,9 @@ internal sealed class VsProjectEventMonitor : IDisposable, IVsTrackProjectDocume
     /// </summary>
     public Task SendDocumentActivatedAsync(string filePath, CancellationToken ct)
     {
-        var featureUri = "file:///" + filePath.Replace('\\', '/');
-        var paramsJson = $"{{\"uri\":\"{featureUri}\"}}";
+        var featureUri = new Uri(filePath).AbsoluteUri;
+        var paramsObj = new { uri = featureUri };
+        var paramsJson = JsonConvert.SerializeObject(paramsObj, Formatting.None);
 
         _logger.LogInformation(
             "VsProjectEventMonitor: sending documentActivated for {FileName}", Path.GetFileName(filePath));
