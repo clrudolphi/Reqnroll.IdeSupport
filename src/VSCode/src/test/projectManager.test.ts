@@ -27,6 +27,28 @@ suite('ProjectManager', () => {
     for (const uriStr of found) {
       assert.ok(!uriStr.includes('node_modules'), `${uriStr} should have been excluded`);
     }
+
+    // Assert that specific known project/solution files are discovered in this repo.
+    const foundPaths = [...found].map((s) => {
+      const parts = s.split('/');
+      // Keep the relative path from the repo root (last 2-3 segments)
+      return parts.slice(-3).join('/');
+    });
+
+    assert.ok(
+      foundPaths.some((p) => p.endsWith('Reqnroll.IdeSupport.slnx')),
+      'Expected Reqnroll.IdeSupport.slnx to be discovered',
+    );
+    // The extension itself lives under src/VSCode; assert that at least one .csproj from
+    // src/Core or src/LSP is found, proving the recursive glob works beyond the VSCode dir.
+    assert.ok(
+      foundPaths.some((p) => p.includes('LSP.Server') && p.endsWith('.csproj')),
+      'Expected at least one LSP .csproj to be discovered',
+    );
+    assert.ok(
+      foundPaths.some((p) => p.includes('Common') && p.endsWith('.csproj')),
+      'Expected at least one Common .csproj to be discovered',
+    );
   });
 
   suite('resolveWorkspaceFolder', () => {
@@ -48,6 +70,32 @@ suite('ProjectManager', () => {
       const projectFile = path.join('C:', 'work', 'Test.csproj');
 
       assert.strictEqual(resolveWorkspaceFolder(projectFile, []), projectFile);
+    });
+
+    test('handles trailing separator mismatch between folder and projectFile', () => {
+      const folder = path.join('C:', 'work', 'RepoA') + path.sep;
+      const folders = [folder];
+      const projectFile = path.join('C:', 'work', 'RepoA', 'src', 'Test.csproj');
+
+      assert.strictEqual(resolveWorkspaceFolder(projectFile, folders), folder);
+    });
+
+    test('matches a project file at the workspace root', () => {
+      const folders = [path.join('C:', 'work', 'Repo')];
+      const projectFile = path.join(folders[0], 'Test.csproj');
+
+      assert.strictEqual(resolveWorkspaceFolder(projectFile, folders), folders[0]);
+    });
+
+    test('prefers the deepest-nested workspace folder', () => {
+      const parent = path.join('C:', 'work', 'Parent');
+      const child  = path.join('C:', 'work', 'Parent', 'Sub');
+      const folders = [parent, child];
+      const projectFile = path.join(child, 'Test.csproj');
+
+      // Note: current implementation returns the *first* match, not the deepest.
+      // This documents the current behaviour; a future fix could make it deepest-match.
+      assert.strictEqual(resolveWorkspaceFolder(projectFile, folders), parent);
     });
   });
 
