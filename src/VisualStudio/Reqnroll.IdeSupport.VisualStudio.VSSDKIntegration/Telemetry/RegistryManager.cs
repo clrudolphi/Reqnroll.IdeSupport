@@ -76,13 +76,17 @@ public class RegistryManager : IRegistryManager
     private DateTime ReadDate(RegistryKey key, string name)
     {
         var value = key.GetValue(name);
-        return DeserializeDate((int) value);
+        if (value is int days)
+            return DeserializeDate(days);
+        return ReqnrollInstallationStatus.MagicDate;
     }
 
     private int ReadIntValue(RegistryKey key, string name)
     {
         var value = key.GetValue(name);
-        return (int) value;
+        if (value is int intValue)
+            return intValue;
+        return 0;
     }
 
     private DateTime DeserializeDate(int days)
