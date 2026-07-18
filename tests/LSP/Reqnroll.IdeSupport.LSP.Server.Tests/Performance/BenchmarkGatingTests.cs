@@ -5,6 +5,7 @@ using Reqnroll.IdeSupport.LSP.Server.Benchmarks.Latency;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Performance;
 
+[Collection(\"non-parallel\")]
 public class BenchmarkGatingTests
 {
     private static LatencySummary Summary(double p95, double p50) =>

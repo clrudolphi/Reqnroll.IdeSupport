@@ -1,4 +1,5 @@
-﻿using MediatR;
+﻿using System.Diagnostics;
+using MediatR;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
@@ -65,8 +66,8 @@ public class BindingRegistryChangedHandlerTests : IDisposable
     {
         _project.Dispose();
         // LspIdeScope is not IDisposable; no cleanup needed.
-        try { if (Directory.Exists(_projectFolder))  Directory.Delete(_projectFolder,  recursive: true); } catch { }
-        try { if (Directory.Exists(_externalFolder)) Directory.Delete(_externalFolder, recursive: true); } catch { }
+        try { if (Directory.Exists(_projectFolder))  Directory.Delete(_projectFolder,  recursive: true); } catch (Exception ex) { Debug.WriteLine($"BindingRegistryChangedHandlerTests: failed to clean up {_projectFolder}: {ex.Message}"); }
+        try { if (Directory.Exists(_externalFolder)) Directory.Delete(_externalFolder, recursive: true); } catch (Exception ex) { Debug.WriteLine($"BindingRegistryChangedHandlerTests: failed to clean up {_externalFolder}: {ex.Message}"); }
     }
 
     private BindingRegistryChangedHandler CreateSut()
