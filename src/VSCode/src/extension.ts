@@ -233,9 +233,14 @@ export function activate(context: vscode.ExtensionContext): void {
   // The fileEvents watcher above is passed to vscode-languageclient for sync purposes, but
   // vscode-languageclient does not take ownership of (or .dispose()) the watcher object. Push
   // it to context.subscriptions so its OS-level file-watch handle is released on deactivation.
-  context.subscriptions.push(
-    clientOptions.synchronize!.fileEvents!,
-  );
+  const watchers = clientOptions.synchronize!.fileEvents;
+  if (watchers) {
+    if (Array.isArray(watchers)) {
+      for (const w of watchers) context.subscriptions.push(w);
+    } else {
+      context.subscriptions.push(watchers);
+    }
+  }
 
   client = new LanguageClient('reqnroll', 'Reqnroll Language Server', serverOptions, clientOptions);
 
