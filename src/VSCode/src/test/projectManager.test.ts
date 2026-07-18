@@ -89,7 +89,7 @@ suite('ProjectManager', () => {
 
     test('prefers the deepest-nested workspace folder', () => {
       const parent = path.join('C:', 'work', 'Parent');
-      const child  = path.join('C:', 'work', 'Parent', 'Sub');
+      const child = path.join('C:', 'work', 'Parent', 'Sub');
       const folders = [parent, child];
       const projectFile = path.join(child, 'Test.csproj');
 
