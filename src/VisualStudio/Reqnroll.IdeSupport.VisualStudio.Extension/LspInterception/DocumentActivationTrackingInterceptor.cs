@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -43,6 +44,17 @@ internal sealed class DocumentActivationTrackingInterceptor : ILspMessageInterce
     private readonly Func<LspInterceptingPipe?>                      _getPipe;
     private readonly ILogger<DocumentActivationTrackingInterceptor>  _logger;
 
+    // Issue #187: LspInterceptingPipe.SendNotificationToServerAsync re-runs the full
+    // send-interceptor pipeline on a synthetic copy of whatever it just wrote, purely so the
+    // injected message shows up in the inspector log. That means the didOpen we re-forward
+    // below calls back into this very InterceptAsync while the first call is still awaiting it —
+    // re-entrantly, on the same path. Without a guard, that second call would run
+    // _state.OnDidOpen(path) again and (since phase is now Activated) incorrectly reset it back
+    // to Opened. This set tracks paths we're currently in the middle of self-re-forwarding, so
+    // the re-entrant call can recognize itself and skip the state-machine call.
+    private readonly HashSet<string> _selfForwardedPaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object          _selfForwardedLock  = new();
+
     /// <summary>Creates the interceptor over the shared activation-state tracker and a deferred pipe accessor.</summary>
     public DocumentActivationTrackingInterceptor(
         DocumentActivationState       state,
@@ -77,6 +89,19 @@ internal sealed class DocumentActivationTrackingInterceptor : ILspMessageInterce
         if (UriToFeatureFilePath(message) is not { } path)
             return LspInterceptorResult.PassThrough;
 
+        // Re-entrant call from our own re-forwarded didOpen below (see _selfForwardedPaths'
+        // doc comment) — the state machine already saw this didOpen once; don't run it again.
+        lock (_selfForwardedLock)
+        {
+            if (_selfForwardedPaths.Contains(path))
+            {
+                _logger.LogTrace(
+                    "DocumentActivationTrackingInterceptor: didOpen for {FileName} — re-entrant self-forwarded copy, passthrough.",
+                    Path.GetFileName(path));
+                return LspInterceptorResult.PassThrough;
+            }
+        }
+
         var action = _state.OnDidOpen(path);
         if (action != DocumentActivationAction.SendNow)
         {
@@ -99,14 +124,24 @@ internal sealed class DocumentActivationTrackingInterceptor : ILspMessageInterce
         // so the server sees the buffer before it's asked to recompute against it. Consuming
         // here stops the pump's own passthrough write for this message.
         var paramsJson = message.Body["params"]?.ToString();
-        await pipe.SendNotificationToServerAsync("textDocument/didOpen", paramsJson, cancellationToken)
-                  .ConfigureAwait(false);
+        var docUri     = message.Body["params"]?["textDocument"]?["uri"]?.Value<string>();
+
+        lock (_selfForwardedLock) { _selfForwardedPaths.Add(path); }
+        try
+        {
+            await pipe.SendNotificationToServerAsync("textDocument/didOpen", paramsJson, cancellationToken)
+                      .ConfigureAwait(false);
+        }
+        finally
+        {
+            lock (_selfForwardedLock) { _selfForwardedPaths.Remove(path); }
+        }
 
         _logger.LogInformation(
             "DocumentActivationTrackingInterceptor: activation preceded didOpen for {FileName}; sending reqnroll/documentActivated now.",
             Path.GetFileName(path));
 
-        var activatedParamsJson = $"{{\"uri\":{Newtonsoft.Json.JsonConvert.ToString(message.Body["params"]?["textDocument"]?["uri"]?.Value<string>())}}}";
+        var activatedParamsJson = $"{{\"uri\":{Newtonsoft.Json.JsonConvert.ToString(docUri)}}}";
         await pipe.SendNotificationToServerAsync("reqnroll/documentActivated", activatedParamsJson, cancellationToken)
                   .ConfigureAwait(false);
 

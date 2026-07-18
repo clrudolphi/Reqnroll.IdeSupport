@@ -1,4 +1,5 @@
 using System;
+using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
@@ -94,5 +95,55 @@ public class DocumentActivationTrackingInterceptorTests
         // passthrough rather than throwing — same contract ScaffoldTrackingInterceptor has for
         // its own "monitor unavailable" case.
         (await act.Should().NotThrowAsync()).Which.Should().Be(LspInterceptorResult.PassThrough);
+    }
+
+    /// <summary>Minimal <see cref="IDuplexPipe"/> over a pair of in-memory <see cref="Pipe"/> ends.</summary>
+    private sealed class TestDuplexPipe : IDuplexPipe
+    {
+        public TestDuplexPipe(PipeReader input, PipeWriter output)
+        {
+            Input  = input;
+            Output = output;
+        }
+
+        public PipeReader Input  { get; }
+        public PipeWriter Output { get; }
+    }
+
+    [Fact]
+    public async Task Activation_pending_didOpen_does_not_corrupt_state_via_the_pipes_own_reentrant_logging_call()
+    {
+        // Issue #187: LspInterceptingPipe.SendNotificationToServerAsync (used below to re-forward
+        // didOpen) re-runs the full send-interceptor pipeline on a synthetic copy of what it just
+        // wrote, purely so the injected message shows up in the inspector log — which calls this
+        // very interceptor's InterceptAsync a second time, re-entrantly, on the same didOpen.
+        // Without the _selfForwardedPaths guard, that second call would run OnDidOpen again and
+        // (since phase is already Activated) incorrectly reset it back to Opened.
+        const string uri  = "file:///c:/w/Calculator.feature";
+        const string path = @"c:\w\Calculator.feature";
+
+        var state = new DocumentActivationState();
+        state.OnWindowActivated(path); // activation races ahead of didOpen -> ActivationPending
+
+        LspInterceptingPipe? pipe = null;
+        var sut = new DocumentActivationTrackingInterceptor(
+            state, getPipe: () => pipe, logger: NullLogger<DocumentActivationTrackingInterceptor>.Instance);
+
+        var serverSidePipe = new Pipe();
+        var serverDuplex   = new TestDuplexPipe(serverSidePipe.Reader, serverSidePipe.Writer);
+        pipe = new LspInterceptingPipe(
+            serverDuplex,
+            sendInterceptors: new ILspMessageInterceptor[] { sut },
+            receiveInterceptors: Array.Empty<ILspMessageInterceptor>(),
+            logger: NullLogger<LspInterceptingPipe>.Instance);
+
+        var result = await sut.InterceptAsync(Send(DidOpen(uri)), CancellationToken.None);
+
+        result.Should().Be(LspInterceptorResult.Consume);
+
+        // If the reentrant call had wrongly reset phase from Activated back to Opened, this
+        // would return SendNow instead of None (see DocumentActivationState.OnWindowActivated's
+        // Activated case).
+        state.OnWindowActivated(path).Should().Be(DocumentActivationAction.None);
     }
 }
