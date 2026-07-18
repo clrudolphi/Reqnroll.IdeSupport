@@ -12,10 +12,7 @@ import './tableHighlightService.test';
  * for a Reqnroll-specific command that the extension registers only after
  * `client.start()` completes successfully. Avoids fragile hardcoded sleeps.
  */
-async function waitForClientRunning(
-  timeoutMs = 10_000,
-  pollIntervalMs = 200,
-): Promise<void> {
+async function waitForClientRunning(timeoutMs = 10_000, pollIntervalMs = 200): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
