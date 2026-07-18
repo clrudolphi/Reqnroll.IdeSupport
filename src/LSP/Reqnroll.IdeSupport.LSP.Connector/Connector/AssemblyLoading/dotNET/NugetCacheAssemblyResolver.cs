@@ -41,7 +41,7 @@ public class NugetCacheAssemblyResolver : ICompilationAssemblyResolver
         }
 
         // Finally, check if the assembly exists directly under lib (old .NET Framework style packages)
-        if (Directory.Exists(Path.Combine(directory, assemblyFileName)))
+        if (File.Exists(Path.Combine(directory, assemblyFileName)))
         {
             assemblies.Add(Path.Combine(directory, assemblyFileName));
             return true;
