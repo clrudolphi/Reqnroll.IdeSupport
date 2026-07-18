@@ -33,20 +33,22 @@ let statusBar: StatusBarManager | undefined;
 function resolveServerPath(context: vscode.ExtensionContext): string {
   const isProduction = context.extensionMode === vscode.ExtensionMode.Production;
 
+  // Shared platform/RID detection — applies to both production and development.
+  const rid =
+    process.platform === 'win32'
+      ? 'win-x64'
+      : process.platform === 'darwin'
+        ? process.arch === 'arm64'
+          ? 'osx-arm64'
+          : 'osx-x64'
+        : 'linux-x64';
+  const binaryName =
+    process.platform === 'win32'
+      ? 'Reqnroll.IdeSupport.LSP.Server.exe'
+      : 'Reqnroll.IdeSupport.LSP.Server';
+
   if (isProduction) {
-    const rid =
-      process.platform === 'win32'
-        ? 'win-x64'
-        : process.platform === 'darwin'
-          ? process.arch === 'arm64'
-            ? 'osx-arm64'
-            : 'osx-x64'
-          : 'linux-x64';
     const serverDir = path.join(context.extensionPath, 'server', rid);
-    const binaryName =
-      process.platform === 'win32'
-        ? 'Reqnroll.IdeSupport.LSP.Server.exe'
-        : 'Reqnroll.IdeSupport.LSP.Server';
     const candidate = path.join(serverDir, binaryName);
     if (fs.existsSync(candidate)) {
       return candidate;
@@ -61,6 +63,7 @@ function resolveServerPath(context: vscode.ExtensionContext): string {
     );
   }
 
+  // Development mode: point to the build output for the current platform.
   return path.join(
     context.extensionPath,
     '..',
@@ -71,9 +74,9 @@ function resolveServerPath(context: vscode.ExtensionContext): string {
     'bin',
     'Release',
     'net10.0',
-    'win-x64',
+    rid,
     'publish',
-    'Reqnroll.IdeSupport.LSP.Server.exe',
+    binaryName,
   );
 }
 
