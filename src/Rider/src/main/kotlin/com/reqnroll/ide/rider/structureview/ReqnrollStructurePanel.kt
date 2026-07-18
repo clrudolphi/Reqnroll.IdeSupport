@@ -1,7 +1,9 @@
 package com.reqnroll.ide.rider.structureview
 
+import com.intellij.ide.AppLifecycleListener
 import com.intellij.ide.structureView.StructureView
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.FileEditorManagerEvent
@@ -11,6 +13,7 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBUI
+import com.reqnroll.ide.rider.logging.ReqnrollDebugLogger
 import java.awt.CardLayout
 import java.util.concurrent.ConcurrentHashMap
 import javax.swing.JPanel
@@ -33,6 +36,20 @@ import javax.swing.SwingConstants
  * [refresh] via [selectionChanged][FileEditorManagerListener.selectionChanged]. Wired into
  * [com.reqnroll.ide.rider.lsp.ReqnrollInlayHintRefreshInterceptor] alongside its other
  * once-the-server-is-actually-up refreshes.
+ *
+ * The [AppLifecycleListener.TOPIC] subscription in [init] exists for a Disposer leak confirmed
+ * live on full application exit (not on a plain "Close Solution", which already tears this panel
+ * down cleanly via the normal `toolWindow.disposable` → this → [activeStructureView] chain):
+ * `StructureViewComponent`'s constructor creates an internal `Alarm` that uses the
+ * still-under-construction component as a parent for `Disposer.register`, which — per
+ * `ObjectTree.getParentNode`, confirmed by decompiling it — auto-attaches any never-before-seen
+ * object to `ROOT_DISPOSABLE` at that instant. Our own registration under `this` afterward
+ * (in [refresh]) correctly re-parents it off `ROOT_DISPOSABLE`, and [clearStructureView] disposes
+ * it correctly too — but on a full app quit, `ApplicationImpl.destructApplication()` calls
+ * `disposeContainer()` (whose `Disposer.assertIsEmpty()` is what logs the leak) without first
+ * running a normal per-project close, so this panel's own disposal chain never fires in time.
+ * `appWillBeClosed` is confirmed (by decompiling `ApplicationImpl`) to fire *before*
+ * `disposeContainer()` in that sequence, so forcing disposal there closes the gap.
  */
 class ReqnrollStructurePanel(private val project: Project) : Disposable {
     private val placeholder = JBLabel("Open a .feature file to view its structure", SwingConstants.CENTER).apply {
@@ -47,11 +64,23 @@ class ReqnrollStructurePanel(private val project: Project) : Disposable {
     private var activeStructureView: StructureView? = null
 
     init {
+        ReqnrollDebugLogger.info("ReqnrollStructurePanel: created (this=${System.identityHashCode(this)})")
+
         project.messageBus.connect(this).subscribe(
             FileEditorManagerListener.FILE_EDITOR_MANAGER,
             object : FileEditorManagerListener {
                 override fun selectionChanged(event: FileEditorManagerEvent) {
                     refresh(event.newFile, event.newEditor)
+                }
+            },
+        )
+
+        ApplicationManager.getApplication().messageBus.connect(this).subscribe(
+            AppLifecycleListener.TOPIC,
+            object : AppLifecycleListener {
+                override fun appWillBeClosed(isRestart: Boolean) {
+                    ReqnrollDebugLogger.info("ReqnrollStructurePanel: appWillBeClosed fired (this=${System.identityHashCode(this@ReqnrollStructurePanel)})")
+                    clearStructureView()
                 }
             },
         )
@@ -62,6 +91,7 @@ class ReqnrollStructurePanel(private val project: Project) : Disposable {
     }
 
     override fun dispose() {
+        ReqnrollDebugLogger.info("ReqnrollStructurePanel: dispose() called (this=${System.identityHashCode(this)})")
         activePanels.remove(project, this)
         clearStructureView()
     }
@@ -79,6 +109,8 @@ class ReqnrollStructurePanel(private val project: Project) : Disposable {
         val structureView = ReqnrollFeatureStructureViewBuilder(project, virtualFile).createStructureView(fileEditor, project)
         activeStructureView = structureView
         Disposer.register(this, structureView)
+        ReqnrollDebugLogger.info(
+            "ReqnrollStructurePanel: created StructureView (this=${System.identityHashCode(this)}, view=${System.identityHashCode(structureView)}) for $virtualFile")
 
         cards.add(structureView.component, STRUCTURE_CARD)
         (cards.layout as CardLayout).show(cards, STRUCTURE_CARD)
@@ -88,6 +120,8 @@ class ReqnrollStructurePanel(private val project: Project) : Disposable {
         val structureView = activeStructureView ?: return
         activeStructureView = null
         cards.remove(structureView.component)
+        ReqnrollDebugLogger.info(
+            "ReqnrollStructurePanel: disposing StructureView (this=${System.identityHashCode(this)}, view=${System.identityHashCode(structureView)})")
         Disposer.dispose(structureView)
     }
 
