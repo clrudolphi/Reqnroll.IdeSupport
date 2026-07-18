@@ -14,6 +14,7 @@ import com.reqnroll.ide.rider.lsp.protocol.ProjectFilesKind
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollProjectFilesParams
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollProjectLoadedParams
 import java.io.File
+import kotlin.concurrent.thread
 
 /**
  * Builds and (re-)sends the `reqnroll/projectLoaded` + `reqnroll/projectFiles` baseline for every
@@ -41,13 +42,22 @@ import java.io.File
  *    — mirrors VS's own `LspProjectPreloadPusher` doc comment).
  */
 object ReqnrollProjectBaseline {
-    /** Sends a fresh `projectLoaded` + `projectFiles` baseline for every project currently in the runnable-projects snapshot. */
+    /** Sends a fresh `projectLoaded` + `projectFiles` baseline for every project currently in the runnable-projects snapshot.
+     * Sends `projectLoaded` synchronously (fast, no I/O) but offloads `sendProjectFilesBaseline`
+     * (which does a full filesystem walk) to a background thread so the caller's thread —
+     * typically the EDT — is not blocked on disk I/O. */
     fun pushForAllRunnableProjects(project: Project) {
         val runnableProjects = project.solution.runnableProjectsModel.projects.valueOrNull.orEmpty()
         runnableProjects.forEach { runnableProject ->
             ReqnrollDebugLogger.info("pushForAllRunnableProjects: projectLoaded ${runnableProject.projectFilePath}")
             ReqnrollNotificationSender.sendProjectLoaded(project, buildProjectLoadedParams(project, runnableProject))
-            sendProjectFilesBaseline(project, runnableProject.projectFilePath)
+        }
+        // sendProjectFilesBaseline does a synchronous walkTopDown — run on a background
+        // thread so the EDT is not blocked.
+        thread(name = "reqnroll-baseline-walk") {
+            runnableProjects.forEach { runnableProject ->
+                ReqnrollProjectBaseline.sendProjectFilesBaseline(project, runnableProject.projectFilePath)
+            }
         }
     }
 
