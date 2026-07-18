@@ -1,3 +1,7 @@
+# @wip — This file is part of the legacy VisualStudio.Specs project, which is not
+# wired up in CI (fails on build). The scenarios here are covered by equivalent
+# tests in the LSP server test projects. This file should be deleted once the
+# remaining scenarios are verified to have coverage elsewhere.
 @wip
 Feature: Find step definition usages command
 
