@@ -225,6 +225,8 @@ object ReqnrollRequestSender {
             server.sendRequestSync(RENAME_TARGETS_TIMEOUT_MS) { languageServer ->
                 (languageServer as ReqnrollLanguageServer).renameTargets(params)
             }
+        } catch (ex: ProcessCanceledException) {
+            throw ex
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("renameTargets: request failed", ex)
             null
@@ -245,6 +247,8 @@ object ReqnrollRequestSender {
             server.sendRequestSync(RENAME_TIMEOUT_MS) { languageServer ->
                 languageServer.textDocumentService.rename(params)
             }
+        } catch (ex: ProcessCanceledException) {
+            throw ex
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("rename: request failed", ex)
             null
@@ -252,7 +256,7 @@ object ReqnrollRequestSender {
     }
 
     /**
-     * Runs the *standard* `textDocument/documentSymbol` request (Feature/Rule/Scenario/Step
+     * Runs the *standard* `textDocument/documentSymbol` request (Feature/Rule/Scenario/Step)
      * outline for `.feature` files — see FeatureDocumentSymbolHandler.cs). Standard LSP method,
      * so — like [codeLens]/[foldingRange] — no custom `@JsonRequest` method or cast to
      * `ReqnrollLanguageServer` is needed. The server always sends the nested `DocumentSymbol`
@@ -268,6 +272,8 @@ object ReqnrollRequestSender {
             server.sendRequestSync(DOCUMENT_SYMBOL_TIMEOUT_MS) { languageServer ->
                 languageServer.textDocumentService.documentSymbol(params)
             }?.mapNotNull { it.right }
+        } catch (ex: ProcessCanceledException) {
+            throw ex
         } catch (ex: Exception) {
             ReqnrollDebugLogger.warn("documentSymbol: request failed", ex)
             null
