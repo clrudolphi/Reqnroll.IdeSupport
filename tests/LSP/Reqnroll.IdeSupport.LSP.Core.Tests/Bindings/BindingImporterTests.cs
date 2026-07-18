@@ -334,4 +334,302 @@ public class BindingImporterTests
             HookOrder = hookOrder,
             Error = error
         };
+
+    [Fact]
+    public void ImportStepDefinition_sets_attribute_source_line_when_provided()
+    {
+        var sut = CreateSut();
+        var result = sut.ImportStepDefinition(CreateStepDefinition(), attributeSourceLine: 42);
+
+        result.AttributeSourceLine.Should().Be(42);
+    }
+
+    [Fact]
+    public void ImportStepDefinition_leaves_attribute_source_line_null_when_not_provided()
+    {
+        var sut = CreateSut();
+        var result = sut.ImportStepDefinition(CreateStepDefinition());
+
+        result.AttributeSourceLine.Should().BeNull();
+    }
+
+    [Fact]
+    public void ResolveSourceFilePath_returns_null_for_empty_location()
+    {
+        var sut = CreateSut();
+
+        sut.ResolveSourceFilePath(null).Should().BeNull();
+        sut.ResolveSourceFilePath("").Should().BeNull();
+    }
+
+    [Fact]
+    public void ResolveSourceFilePath_resolves_index_reference_when_file_exists()
+    {
+        var path = System.IO.Path.GetTempFileName();
+        try
+        {
+            _sourceFiles.Add("1", path);
+            var sut = CreateSut();
+
+            var result = sut.ResolveSourceFilePath("#1|2|5");
+
+            result.Should().Be(path);
+        }
+        finally
+        {
+            System.IO.File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void ResolveSourceFilePath_returns_null_for_unresolvable_index_reference()
+    {
+        var sut = CreateSut();
+
+        var result = sut.ResolveSourceFilePath("#1|2|5");
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public void ResolveSourceFilePath_returns_null_when_index_referenced_file_does_not_exist_on_this_machine()
+    {
+        // Reflection/PDB-based discovery records the absolute source path from the machine that
+        // built the assembly. For an external or dynamically loaded plugin assembly (built on CI,
+        // or on another dev machine) that path commonly does not exist locally; this must not be
+        // treated as a resolvable path just because the #index table lookup itself succeeded.
+        _sourceFiles.Add("1", @"C:\build-agent\plugin-repo\Steps.cs");
+        var sut = CreateSut();
+
+        var result = sut.ResolveSourceFilePath("#1|2|5");
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public void ResolveSourceFilePath_returns_literal_path_when_file_exists()
+    {
+        var path = System.IO.Path.GetTempFileName();
+        try
+        {
+            var sut = CreateSut();
+            var result = sut.ResolveSourceFilePath($"{path}|2|5");
+
+            result.Should().Be(path);
+        }
+        finally
+        {
+            System.IO.File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void ResolveSourceFilePath_returns_null_when_literal_path_does_not_exist()
+    {
+        var sut = CreateSut();
+
+        var result = sut.ResolveSourceFilePath("MyClass.cs|2|5");
+
+        result.Should().BeNull();
+    }
+}
+
+public class BindingImporterTryGetAttributeSourceLineTests : IDisposable
+{
+    private readonly string _tempDir = System.IO.Path.Combine(
+        System.IO.Path.GetTempPath(), "BindingImporterTests_" + Guid.NewGuid());
+
+    public BindingImporterTryGetAttributeSourceLineTests() => System.IO.Directory.CreateDirectory(_tempDir);
+
+    public void Dispose()
+    {
+        if (System.IO.Directory.Exists(_tempDir))
+            System.IO.Directory.Delete(_tempDir, recursive: true);
+    }
+
+    private string WriteSource(string content)
+    {
+        var path = System.IO.Path.Combine(_tempDir, Guid.NewGuid() + ".cs");
+        System.IO.File.WriteAllText(path, content);
+        return path;
+    }
+
+    [Fact]
+    public void Returns_null_when_source_file_does_not_exist()
+    {
+        var missingPath = System.IO.Path.Combine(_tempDir, "does-not-exist.cs");
+
+        var result = BindingImporter.TryGetAttributeSourceLine(missingPath, "MyStep", ScenarioBlock.Given);
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public void Returns_null_when_method_is_not_found()
+    {
+        var path = WriteSource("""
+            public class Steps
+            {
+                [Given("a step")]
+                public void MyStep() { }
+            }
+            """);
+
+        var result = BindingImporter.TryGetAttributeSourceLine(path, "NoSuchMethod", ScenarioBlock.Given);
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public void Returns_line_of_binding_attribute_above_the_method()
+    {
+        var path = WriteSource("""
+            public class Steps
+            {
+                // line 3 is blank padding to make the asserted line non-trivial
+                [Given("a step")]
+                public void MyStep() { }
+            }
+            """);
+
+        var result = BindingImporter.TryGetAttributeSourceLine(path, "MyStep", ScenarioBlock.Given);
+
+        // The [Given] attribute is on line 4 (1-based) of the source above.
+        result.Should().Be(4);
+    }
+
+    [Fact]
+    public void Returns_null_when_method_exists_but_has_no_binding_attribute()
+    {
+        var path = WriteSource("""
+            public class Steps
+            {
+                public void MyStep() { }
+            }
+            """);
+
+        var result = BindingImporter.TryGetAttributeSourceLine(path, "MyStep", ScenarioBlock.Given);
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public void Resolves_the_correct_line_for_each_attribute_when_method_carries_multiple_binding_attributes()
+    {
+        // A single method with both [Given] and [When] is imported as two separate wire
+        // StepDefinition DTOs (one per Type) that share the same Method name; each must resolve
+        // to *its own* attribute's line rather than collapsing onto whichever is scanned first.
+        var path = WriteSource("""
+            public class Steps
+            {
+                [Given("given text")]
+                [When("when text")]
+                public void MyStep() { }
+            }
+            """);
+
+        BindingImporter.TryGetAttributeSourceLine(path, "MyStep", ScenarioBlock.Given).Should().Be(3);
+        BindingImporter.TryGetAttributeSourceLine(path, "MyStep", ScenarioBlock.When).Should().Be(4);
+    }
+
+    [Fact]
+    public void A_StepDefinition_attribute_matches_any_scenario_block()
+    {
+        // [StepDefinition] registers for Given, When and Then alike.
+        var path = WriteSource("""
+            public class Steps
+            {
+                [StepDefinition("a step")]
+                public void MyStep() { }
+            }
+            """);
+
+        BindingImporter.TryGetAttributeSourceLine(path, "MyStep", ScenarioBlock.Given).Should().Be(3);
+        BindingImporter.TryGetAttributeSourceLine(path, "MyStep", ScenarioBlock.When).Should().Be(3);
+        BindingImporter.TryGetAttributeSourceLine(path, "MyStep", ScenarioBlock.Then).Should().Be(3);
+    }
+
+    [Fact]
+    public void Continues_past_an_earlier_same_named_method_that_lacks_a_binding_attribute()
+    {
+        // If a file has two methods with the same name (e.g. a helper and the real step method),
+        // encountering the non-bound one first must not stop the scan from finding the real one.
+        var path = WriteSource("""
+            public class Helpers
+            {
+                public void MyStep() { }
+            }
+
+            public class Steps
+            {
+                [Given("a step")]
+                public void MyStep() { }
+            }
+            """);
+
+        var result = BindingImporter.TryGetAttributeSourceLine(path, "MyStep", ScenarioBlock.Given);
+
+        result.Should().Be(8);
+    }
+
+    [Fact]
+    public void Matches_a_namespace_qualified_attribute()
+    {
+        // GetAttributeName (shared with StepDefinitionFileParser) strips namespace qualification
+        // and the "Attribute" suffix generically, so a fully-qualified attribute is matched too.
+        var path = WriteSource("""
+            public class Steps
+            {
+                [Reqnroll.Given("a step")]
+                public void MyStep() { }
+            }
+            """);
+
+        var result = BindingImporter.TryGetAttributeSourceLine(path, "MyStep", ScenarioBlock.Given);
+
+        result.Should().Be(3);
+    }
+
+    [Fact]
+    public void Unknown_scenario_block_matches_any_binding_attribute()
+    {
+        var path = WriteSource("""
+            public class Steps
+            {
+                [When("a step")]
+                public void MyStep() { }
+            }
+            """);
+
+        var result = BindingImporter.TryGetAttributeSourceLine(path, "MyStep", ScenarioBlock.Unknown);
+
+        result.Should().Be(3);
+    }
+
+    [Fact]
+    public void TryParseSourceFile_then_TryGetAttributeSourceLine_overload_produces_the_same_result()
+    {
+        var path = WriteSource("""
+            public class Steps
+            {
+                [Given("a step")]
+                public void MyStep() { }
+            }
+            """);
+
+        var root = BindingImporter.TryParseSourceFile(path);
+        var result = BindingImporter.TryGetAttributeSourceLine(root, "MyStep", ScenarioBlock.Given);
+
+        result.Should().Be(3);
+    }
+
+    [Fact]
+    public void TryParseSourceFile_returns_null_when_file_does_not_exist()
+    {
+        var missingPath = System.IO.Path.Combine(_tempDir, "does-not-exist.cs");
+
+        var result = BindingImporter.TryParseSourceFile(missingPath);
+
+        result.Should().BeNull();
+    }
 }

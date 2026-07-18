@@ -1,7 +1,9 @@
-﻿using Reqnroll.IdeSupport.Common.Logging;
+﻿using Microsoft.CodeAnalysis;
+using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.LSP.Connector.Models;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
+using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Discovery;
 
@@ -110,8 +112,19 @@ public sealed class ConnectorDiscoveryService : IConnectorDiscoveryService
     {
         var importer = new BindingImporter(result.SourceFiles, result.TypeNames, _logger);
 
+        // Parsed once per unique source file (not per step definition) and reused below, since a
+        // single binding class typically contributes many step definitions from the same file.
+        var parsedFiles = new Dictionary<string, SyntaxNode>();
+
         var stepDefinitions = (result.StepDefinitions ?? [])
-            .Select(sd => importer.ImportStepDefinition(sd))
+            .Select(sd => {
+                // For connector-discovered bindings, backfill the attribute source line
+                // from the source file using Roslyn syntax parsing. This enables exact
+                // AST-based matching in FindBindingAtLocation instead of the heuristic
+                // line window that was the only option when AttributeSourceLine was null.
+                var attrLine = TryGetAttributeSourceLine(importer, sd, parsedFiles);
+                return importer.ImportStepDefinition(sd, attrLine);
+            })
             .Where(sd => sd is not null)
             .ToList();
 
@@ -143,6 +156,29 @@ public sealed class ConnectorDiscoveryService : IConnectorDiscoveryService
         {
             return assemblyPath;
         }
+    }
+
+    /// Backfills the exact attribute source line for a connector-discovered step definition,
+    /// parsing each referenced source file at most once per <see cref="BuildRegistry"/> call
+    /// (<paramref name="parsedFiles"/> caches the syntax root across step definitions sharing a file).
+    private static int? TryGetAttributeSourceLine(BindingImporter importer, StepDefinition sd,
+        Dictionary<string, SyntaxNode> parsedFiles)
+    {
+        var sourceFile = importer.ResolveSourceFilePath(sd.SourceLocation);
+        if (sourceFile == null)
+            return null;
+
+        if (!parsedFiles.TryGetValue(sourceFile, out var root))
+        {
+            root = BindingImporter.TryParseSourceFile(sourceFile);
+            parsedFiles[sourceFile] = root;
+        }
+
+        if (root == null)
+            return null;
+
+        var scenarioBlock = Enum.TryParse<ScenarioBlock>(sd.Type, out var parsed) ? parsed : ScenarioBlock.Unknown;
+        return BindingImporter.TryGetAttributeSourceLine(root, sd.Method, scenarioBlock);
     }
 
     private static string FindConfigFilePath(IProjectScope scope)

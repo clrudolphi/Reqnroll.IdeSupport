@@ -39,7 +39,9 @@ public class StepDefinitionFileParser
 
     // Step-definition attribute (canonical name, without the "Attribute" suffix) -> the
     // scenario blocks it registers. [StepDefinition] registers for Given, When and Then.
-    private static readonly IReadOnlyDictionary<string, ScenarioBlock[]> StepDefinitionAttributes =
+    // Shared with BindingImporter.TryGetAttributeSourceLine, which backfills the equivalent
+    // line information for connector-discovered (as opposed to syntax-discovered) bindings.
+    internal static readonly IReadOnlyDictionary<string, ScenarioBlock[]> StepDefinitionAttributes =
         new Dictionary<string, ScenarioBlock[]>(StringComparer.Ordinal)
         {
             ["Given"] = new[] { ScenarioBlock.Given },
@@ -185,8 +187,9 @@ public class StepDefinitionFileParser
     /// <summary>
     /// Returns the attribute's simple name with any namespace qualification and the
     /// conventional <c>Attribute</c> suffix removed (e.g. <c>Reqnroll.GivenAttribute</c> -&gt; <c>Given</c>).
+    /// Shared with <see cref="Bindings.BindingImporter.TryGetAttributeSourceLine"/>.
     /// </summary>
-    private static string GetAttributeName(AttributeSyntax attribute)
+    internal static string GetAttributeName(AttributeSyntax attribute)
     {
         var name = attribute.Name;
         while (name is QualifiedNameSyntax qualified)
