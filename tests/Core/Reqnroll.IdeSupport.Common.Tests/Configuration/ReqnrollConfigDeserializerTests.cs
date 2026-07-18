@@ -1,5 +1,3 @@
-#nullable disable
-
 using AwesomeAssertions;
 using Xunit;
 
@@ -111,7 +109,7 @@ public class ReqnrollConfigDeserializerTests
     [InlineData("InvalidValue", SnippetExpressionStyle.CucumberExpression)] // Default fallback
     [InlineData("", SnippetExpressionStyle.CucumberExpression)] // Default fallback
     [InlineData(null, SnippetExpressionStyle.CucumberExpression)] // Default fallback
-    public void Should_set_stepDefinitionSkeletonStyle_from_reqnroll_json(string styleValue, SnippetExpressionStyle expectedStyle)
+    public void Should_set_stepDefinitionSkeletonStyle_from_reqnroll_json(string? styleValue, SnippetExpressionStyle expectedStyle)
     {
         // Arrange
         var deserializer = new ReqnrollConfigDeserializer();

@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace Reqnroll.SampleProjectGenerator;
 
 public abstract class ProjectGenerator : IProjectGenerator

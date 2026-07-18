@@ -1,4 +1,3 @@
-#nullable disable
 using CommandLine;
 
 namespace Reqnroll.SampleProjectGenerator;

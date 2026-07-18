@@ -1,4 +1,3 @@
-#nullable disable
 using System.Xml.Linq;
 using Newtonsoft.Json.Linq;
 using Formatting = Newtonsoft.Json.Formatting;

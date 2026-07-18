@@ -1,5 +1,3 @@
-#nullable disable
-
 using System.Xml.Linq;
 
 namespace Reqnroll.SampleProjectGenerator;

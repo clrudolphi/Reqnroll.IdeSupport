@@ -1,4 +1,3 @@
-#nullable disable
 namespace Reqnroll.SampleProjectGenerator;
 
 public class ReqnrollAssetGenerator
