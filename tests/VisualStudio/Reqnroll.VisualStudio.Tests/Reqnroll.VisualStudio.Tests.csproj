@@ -10,16 +10,6 @@
   <ItemGroup Label="Deferred - depends on unported types">
     <!-- Editor commands, services, tagger not yet ported -->
     <Compile Remove="Editor\**" />
-    <!-- Discovery service, invoker, registry cache not yet ported -->
-    <Compile Remove="Discovery\DiscoveryTests.cs" />
-    <Compile Remove="Discovery\ProjectBindingRegistryCacheTests.cs" />
-    <Compile Remove="Discovery\ReprocessStepDefinitionFileTests.cs" />
-    <Compile Remove="Discovery\ProjectBindingRegistryTestsBase.cs" />
-    <Compile Remove="Discovery\StubGherkinDocument.cs" />
-    <Compile Remove="Discovery\ProjectBindingRegistryAmbiguousTests.cs" />
-    <Compile Remove="Discovery\ProjectBindingRegistryMatchTests.cs" />
-    <Compile Remove="Discovery\ProjectBindingRegistryMultiMatchTests.cs" />
-    <Compile Remove="Discovery\ProjectBindingRegistryUndefinedTests.cs" />
     <!-- SnippetService not yet ported -->
     <Compile Remove="Snippets\SnippetServiceTests.cs" />
   </ItemGroup>
