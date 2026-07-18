@@ -1,7 +1,7 @@
 #nullable disable
 namespace Reqnroll.IdeSupport.LSP.Core.Tests.Bindings;
 
-[UseReporter /*(typeof(VisualStudioReporter))*/]
+[UseReporter]
 [UseApprovalSubdirectory("../ApprovalTestData")]
 public class ReprocessStepDefinitionFileTests
 {
