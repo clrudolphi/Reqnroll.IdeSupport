@@ -47,7 +47,7 @@ object ReqnrollServerPathResolver {
         val os = osName.lowercase()
         val arch = osArch.lowercase()
         return when {
-            os.contains("win") -> "win-x64"
+            os.contains("win") -> if (arch.contains("aarch64") || arch.contains("arm64")) "win-arm64" else "win-x64"
             os.contains("mac") -> if (arch.contains("aarch64") || arch.contains("arm")) "osx-arm64" else "osx-x64"
             else -> "linux-x64"
         }
