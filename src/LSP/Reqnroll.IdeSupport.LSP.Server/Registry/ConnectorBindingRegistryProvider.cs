@@ -37,6 +37,11 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
     private string _lastHash = string.Empty;
     private bool _isFirstRun = true;
 
+    // Serialises the read-modify-write on _current so two concurrent ApplyRoslynFileUpdateAsync
+    // calls (e.g. didChange edits on different files) don't silently drop each other's changes,
+    // and coordinates with RunDiscoveryAsync's _current write on the connector-run path.
+    private readonly SemaphoreSlim _currentLock = new(1, 1);
+
     // In-flight run guard.
     private readonly object _cts_lock = new();
     private CancellationTokenSource? _cts;
@@ -134,9 +139,19 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
     /// </remarks>
     public async Task ApplyRoslynFileUpdateAsync(CSharpStepDefinitionFile file)
     {
-        var previous = _current;
-        var updated = await previous.ReplaceBindings(file).ConfigureAwait(false);
-        _current = updated;
+        await _currentLock.WaitAsync().ConfigureAwait(false);
+        ProjectBindingRegistry updated;
+        ProjectBindingRegistry previous;
+        try
+        {
+            previous = _current;
+            updated = await previous.ReplaceBindings(file).ConfigureAwait(false);
+            _current = updated;
+        }
+        finally
+        {
+            _currentLock.Release();
+        }
 
         // Skip the notification entirely when no binding's matched expression actually changed
         // (e.g. a method-body or comment edit). Publishing here drives feature-file reparsing
@@ -162,6 +177,7 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
         }
         cts?.Cancel();
         cts?.Dispose();
+        _currentLock.Dispose();
     }
 
     // ── Discovery loop ────────────────────────────────────────────────────────
@@ -197,7 +213,16 @@ public sealed class ConnectorBindingRegistryProvider : IBindingRegistryProvider,
             }
 
             _lastHash = newHash;
-            _current  = newRegistry;
+
+            await _currentLock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                _current = newRegistry;
+            }
+            finally
+            {
+                _currentLock.Release();
+            }
 
             // Telemetry: connector discovery event (membership index / telemetry design §2.2).
             var triggerContext = _isFirstRun ? "projectLoad" : "build";
