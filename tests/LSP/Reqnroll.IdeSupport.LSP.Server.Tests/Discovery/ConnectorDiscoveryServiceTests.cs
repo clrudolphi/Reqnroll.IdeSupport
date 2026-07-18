@@ -3,6 +3,7 @@ using Reqnroll.IdeSupport.Common.Logging;
 using Reqnroll.IdeSupport.Common.ProjectSystem;
 using Reqnroll.IdeSupport.LSP.Connector.Models;
 using Reqnroll.IdeSupport.LSP.Core.Bindings;
+using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 using Reqnroll.IdeSupport.LSP.Server.Discovery;
 using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
@@ -224,5 +225,200 @@ public class ConnectorDiscoveryServiceTests : IDisposable
         var (registry, _) = service.RunDiscovery(
             MakeScope(_assemblyPath), ProjectBindingRegistry.Invalid, string.Empty, CancellationToken.None);
         return registry;
+    }
+
+    // ── AttributeSourceLine backfill (#182 / #237) ─────────────────────────────
+
+    private string WriteStepsFile(string content)
+    {
+        var path = Path.Combine(_projectFolder, "Steps.cs");
+        File.WriteAllText(path, content);
+        return path;
+    }
+
+    [Fact]
+    public void RunDiscovery_backfills_attribute_source_line_from_source_file()
+    {
+        var stepsFile = WriteStepsFile("""
+            public class Steps
+            {
+                [Given("the first number is (.*)")]
+                public void SetFirstNumber(int number) { }
+            }
+            """);
+        GivenConnectorReturns(new DiscoveryResult
+        {
+            StepDefinitions =
+            [
+                new StepDefinition
+                {
+                    Type           = "Given",
+                    Regex          = "^the first number is (.*)$",
+                    Method         = "SetFirstNumber",
+                    ParamTypes     = "i",
+                    SourceLocation = $"{stepsFile}|3|5"
+                }
+            ],
+            Hooks = []
+        });
+        var scope = MakeScope(_assemblyPath);
+
+        var (registry, _) = CreateSut().RunDiscovery(
+            scope, ProjectBindingRegistry.Invalid, lastHash: string.Empty, CancellationToken.None);
+
+        registry.StepDefinitions.Should().ContainSingle()
+            .Which.AttributeSourceLine.Should().Be(3);
+    }
+
+    [Fact]
+    public void RunDiscovery_resolves_source_file_via_index_reference()
+    {
+        var stepsFile = WriteStepsFile("""
+            public class Steps
+            {
+                [Given("the first number is (.*)")]
+                public void SetFirstNumber(int number) { }
+            }
+            """);
+        GivenConnectorReturns(new DiscoveryResult
+        {
+            StepDefinitions =
+            [
+                new StepDefinition
+                {
+                    Type           = "Given",
+                    Regex          = "^the first number is (.*)$",
+                    Method         = "SetFirstNumber",
+                    ParamTypes     = "i",
+                    SourceLocation = "#1|3|5"
+                }
+            ],
+            SourceFiles = new Dictionary<string, string> { ["1"] = stepsFile },
+            Hooks = []
+        });
+        var scope = MakeScope(_assemblyPath);
+
+        var (registry, _) = CreateSut().RunDiscovery(
+            scope, ProjectBindingRegistry.Invalid, lastHash: string.Empty, CancellationToken.None);
+
+        registry.StepDefinitions.Should().ContainSingle()
+            .Which.AttributeSourceLine.Should().Be(3);
+    }
+
+    [Fact]
+    public void RunDiscovery_leaves_attribute_source_line_null_when_source_file_is_missing()
+    {
+        GivenConnectorReturns(new DiscoveryResult
+        {
+            StepDefinitions =
+            [
+                new StepDefinition
+                {
+                    Type           = "Given",
+                    Regex          = "^the first number is (.*)$",
+                    Method         = "SetFirstNumber",
+                    ParamTypes     = "i",
+                    SourceLocation = Path.Combine(_projectFolder, "does-not-exist.cs") + "|3|5"
+                }
+            ],
+            Hooks = []
+        });
+        var scope = MakeScope(_assemblyPath);
+
+        var (registry, _) = CreateSut().RunDiscovery(
+            scope, ProjectBindingRegistry.Invalid, lastHash: string.Empty, CancellationToken.None);
+
+        registry.StepDefinitions.Should().ContainSingle()
+            .Which.AttributeSourceLine.Should().BeNull();
+    }
+
+    [Fact]
+    public void RunDiscovery_resolves_the_correct_line_for_each_attribute_on_a_shared_method()
+    {
+        var stepsFile = WriteStepsFile("""
+            public class Steps
+            {
+                [Given("given text")]
+                [When("when text")]
+                public void MyStep() { }
+            }
+            """);
+        GivenConnectorReturns(new DiscoveryResult
+        {
+            StepDefinitions =
+            [
+                new StepDefinition { Type = "Given", Regex = "given text", Method = "MyStep", SourceLocation = $"{stepsFile}|3" },
+                new StepDefinition { Type = "When", Regex = "when text", Method = "MyStep", SourceLocation = $"{stepsFile}|4" }
+            ],
+            Hooks = []
+        });
+        var scope = MakeScope(_assemblyPath);
+
+        var (registry, _) = CreateSut().RunDiscovery(
+            scope, ProjectBindingRegistry.Invalid, lastHash: string.Empty, CancellationToken.None);
+
+        registry.StepDefinitions.Should().HaveCount(2);
+        registry.StepDefinitions.Single(sd => sd.StepDefinitionType == ScenarioBlock.Given)
+            .AttributeSourceLine.Should().Be(3);
+        registry.StepDefinitions.Single(sd => sd.StepDefinitionType == ScenarioBlock.When)
+            .AttributeSourceLine.Should().Be(4);
+    }
+
+    [Fact]
+    public void RunDiscovery_leaves_attribute_source_line_null_for_external_plugin_binding_with_no_local_source()
+    {
+        // Simulates a step definition contributed by a dynamically loaded / external Reqnroll
+        // plugin assembly: the connector still resolves a PDB source location (via the #index
+        // table), but that path is from the machine that built the plugin and does not exist on
+        // this machine. Discovery as a whole must still succeed, just without the exact line.
+        GivenConnectorReturns(new DiscoveryResult
+        {
+            StepDefinitions =
+            [
+                new StepDefinition
+                {
+                    Type           = "Given",
+                    Regex          = "^the plugin step$",
+                    Method         = "PluginStep",
+                    SourceLocation = "#1|10|5"
+                }
+            ],
+            SourceFiles = new Dictionary<string, string> { ["1"] = @"C:\build-agent\plugin-repo\Steps.cs" },
+            Hooks = []
+        });
+        var scope = MakeScope(_assemblyPath);
+
+        var (registry, _) = CreateSut().RunDiscovery(
+            scope, ProjectBindingRegistry.Invalid, lastHash: string.Empty, CancellationToken.None);
+
+        registry.StepDefinitions.Should().ContainSingle()
+            .Which.AttributeSourceLine.Should().BeNull();
+    }
+
+    [Fact]
+    public void RunDiscovery_leaves_attribute_source_line_null_when_source_location_is_missing()
+    {
+        GivenConnectorReturns(new DiscoveryResult
+        {
+            StepDefinitions =
+            [
+                new StepDefinition
+                {
+                    Type           = "Given",
+                    Regex          = "^the first number is (.*)$",
+                    Method         = "SetFirstNumber",
+                    ParamTypes     = "i",
+                    SourceLocation = null
+                }
+            ],
+            Hooks = []
+        });
+        var scope = MakeScope(_assemblyPath);
+
+        var (registry, _) = CreateSut().RunDiscovery(
+            scope, ProjectBindingRegistry.Invalid, lastHash: string.Empty, CancellationToken.None);
+
+        registry.StepDefinitions.Should().ContainSingle()
+            .Which.AttributeSourceLine.Should().BeNull();
     }
 }
