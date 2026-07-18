@@ -115,7 +115,7 @@ public sealed class StepCodeLensHandler
                     Title     = count == 1 ? "1 step usage" : $"{count} step usages",
                     Name      = count > 0 ? "reqnroll.findStepUsages" : "reqnroll.noStepUsages",
                     Arguments = count > 0
-                        ? new JArray(uri.ToString(), line, 0)
+                        ? new JArray(uri.ToString(), line, col)
                         : null
                 }
             });
