@@ -307,12 +307,8 @@ export class ProjectManager {
     const watcher = vscode.workspace.createFileSystemWatcher(
       new vscode.RelativePattern(outputDir, '*.dll'),
     );
-    watcher.onDidCreate((uri) =>
-      this.notifyOutputAssemblyChanged(uri, FileChangeType.Created),
-    );
-    watcher.onDidChange((uri) =>
-      this.notifyOutputAssemblyChanged(uri, FileChangeType.Changed),
-    );
+    watcher.onDidCreate((uri) => this.notifyOutputAssemblyChanged(uri, FileChangeType.Created));
+    watcher.onDidChange((uri) => this.notifyOutputAssemblyChanged(uri, FileChangeType.Changed));
 
     this._outputWatchers.set(projectFile, watcher);
   }
