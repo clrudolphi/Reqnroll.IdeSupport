@@ -95,10 +95,15 @@ internal sealed class DocumentActivationTrackingInterceptor : ILspMessageInterce
             return LspInterceptorResult.PassThrough;
         }
 
+        // Capture all message data before any async call — re-entrancy safe.
+        // If a second didOpen for the same or different file calls back into this
+        // interceptor while the first's SendNotificationToServerAsync is awaiting,
+        // we must not re-read message.Body after yielding the thread.
+        var paramsJson = message.Body["params"]?.ToString();
+
         // Re-forward didOpen ourselves, then send documentActivated — both awaited in order —
         // so the server sees the buffer before it's asked to recompute against it. Consuming
         // here stops the pump's own passthrough write for this message.
-        var paramsJson = message.Body["params"]?.ToString();
         await pipe.SendNotificationToServerAsync("textDocument/didOpen", paramsJson, cancellationToken)
                   .ConfigureAwait(false);
 
@@ -106,7 +111,10 @@ internal sealed class DocumentActivationTrackingInterceptor : ILspMessageInterce
             "DocumentActivationTrackingInterceptor: activation preceded didOpen for {FileName}; sending reqnroll/documentActivated now.",
             Path.GetFileName(path));
 
-        var activatedParamsJson = $"{{\"uri\":{Newtonsoft.Json.JsonConvert.ToString(message.Body["params"]?["textDocument"]?["uri"]?.Value<string>())}}}";
+        // Compute the activation payload from the already-captured data, not from a second
+        // read of message.Body (which may have been recycled if the pump re-entered us).
+        var docUri = message.Body["params"]?["textDocument"]?["uri"]?.Value<string>();
+        var activatedParamsJson = $"{{\"uri\":{Newtonsoft.Json.JsonConvert.ToString(docUri)}}}";
         await pipe.SendNotificationToServerAsync("reqnroll/documentActivated", activatedParamsJson, cancellationToken)
                   .ConfigureAwait(false);
 
