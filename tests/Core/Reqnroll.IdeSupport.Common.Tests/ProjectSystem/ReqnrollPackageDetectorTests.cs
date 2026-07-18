@@ -1,5 +1,3 @@
-#nullable disable
-
 using Reqnroll.IdeSupport.Common.Tests.TestHelpers;
 
 namespace Reqnroll.IdeSupport.Common.Tests.ProjectSystem;
@@ -31,7 +29,7 @@ public class ReqnrollPackageDetectorTests
     private static NuGetPackageReference CreateReqnrollMsTestPackageRef() =>
         new("Reqnroll.MsTest", new NuGetVersion("2.4.1", "2.4.1"), ReqnrollMsTestPackagePath);
 
-    private NuGetPackageReference CreateSpecSyncPackageRef(string path = SpecSyncPackagePath) =>
+    private NuGetPackageReference CreateSpecSyncPackageRef(string? path = SpecSyncPackagePath) =>
         new("SpecSync.AzureDevOps.Reqnroll.2-4", new NuGetVersion("2.0.0", "2.0.0"), path);
 
     private ReqnrollPackageDetector CreateSut() => new(_mockFileSystem);

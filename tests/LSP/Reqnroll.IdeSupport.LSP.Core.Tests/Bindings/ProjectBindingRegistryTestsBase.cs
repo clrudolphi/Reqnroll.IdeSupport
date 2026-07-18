@@ -1,5 +1,4 @@
-﻿#nullable disable
-using Gherkin;
+﻿using Gherkin;
 using GherkinLocation = Gherkin.Ast.Location;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Tests.Bindings;
@@ -17,12 +16,12 @@ public abstract class ProjectBindingRegistryTestsBase
     }
 
     protected Step CreateStep(StepKeyword stepKeyword = StepKeyword.Given, string text = "my step",
-        StepArgument stepArgument = null) => new DeveroomGherkinStep(new GherkinLocation(0, 0), stepKeyword + " ", StepKeywordType.Context, text, stepArgument,
+        StepArgument? stepArgument = null) => new DeveroomGherkinStep(new GherkinLocation(0, 0), stepKeyword + " ", StepKeywordType.Context, text, stepArgument!,
         stepKeyword, (ScenarioBlock) stepKeyword);
 
     protected ProjectStepDefinitionBinding CreateStepDefinitionBinding(string regex,
-        ScenarioBlock scenarioBlock = ScenarioBlock.Given, BindingScope scope = null, string[] parameterTypes = null,
-        string methodName = null)
+        ScenarioBlock scenarioBlock = ScenarioBlock.Given, BindingScope? scope = null, string[]? parameterTypes = null,
+        string? methodName = null)
     {
         methodName = methodName ?? "MyMethod" + Guid.NewGuid().ToString("N");
         if (!Implementations.TryGetValue(methodName, out var implementation))
@@ -48,9 +47,9 @@ public abstract class ProjectBindingRegistryTestsBase
 
     protected BindingScope CreateTagScope(string tagName) => new() {Tag = ReqnrollTagExpressionParser.CreateTagLiteral(tagName)};
 
-    private DeveroomTag CreateFeatureStructure(string[] featureTags, string[] scenarioTags,
-        string[] scenarioOutlineTags = null, string[] soHeaders = null, string[][] soCells = null,
-        bool includeScenario = true, bool includeOutline = true, string[] outlineExamplesTags = null)
+    private DeveroomTag CreateFeatureStructure(string[]? featureTags, string[]? scenarioTags,
+        string[]? scenarioOutlineTags = null, string[]? soHeaders = null, string[][]? soCells = null,
+        bool includeScenario = true, bool includeOutline = true, string[]? outlineExamplesTags = null)
     {
         featureTags = featureTags ?? new string[0];
         scenarioTags = scenarioTags ?? new string[0];
@@ -66,7 +65,7 @@ public abstract class ProjectBindingRegistryTestsBase
                 "Scenario", "my scenario", null, new Step[0]));
         if (includeOutline)
             scenarioDefinitions.Add(new ScenarioOutline(scenarioOutlineTags.Select(t => new Tag(new GherkinLocation(0, 0), t)).ToArray(),
-                new GherkinLocation(0, 0), "Scenario Outline", "my scenario outline", null, new Step[0], new[]
+                new GherkinLocation(0, 0), "Scenario Outline", "my scenario outline", null!, new Step[0], new[]
                 {
                     new Examples(outlineExamplesTags.Select(t => new Tag(new GherkinLocation(0, 0), t)).ToArray(), new GherkinLocation(0, 0), "Examples",
                         "my examples",
@@ -98,42 +97,42 @@ public abstract class ProjectBindingRegistryTestsBase
         return featureTag;
     }
 
-    protected IGherkinDocumentContext CreateScenarioContext(string[] featureTags, params string[] scenarioTags)
+    protected IGherkinDocumentContext CreateScenarioContext(string[]? featureTags, params string[] scenarioTags)
     {
         var featureTag = CreateFeatureStructure(featureTags, scenarioTags);
         return featureTag.ChildTags.First(t => t.Data is Scenario);
     }
 
-    protected IGherkinDocumentContext CreateScenarioOutlineContext(string[] featureTags, string[] scenarioOutlineTags,
-        string soHeader, string[] soCells, string[] outlineExamplesTags = null)
+    protected IGherkinDocumentContext CreateScenarioOutlineContext(string[]? featureTags, string[]? scenarioOutlineTags,
+        string soHeader, string[] soCells, string[]? outlineExamplesTags = null)
     {
         var featureTag = CreateFeatureStructure(featureTags, null, scenarioOutlineTags, new[] {soHeader},
             soCells.Select(r => new[] {r}).ToArray(), outlineExamplesTags: outlineExamplesTags);
         return featureTag.ChildTags.First(t => t.Data is ScenarioOutline);
     }
 
-    protected IGherkinDocumentContext CreateScenarioOutlineContext(string[] featureTags = null,
-        string[] scenarioOutlineTags = null, string[] soHeaders = null, string[][] soCells = null)
+    protected IGherkinDocumentContext CreateScenarioOutlineContext(string[]? featureTags = null,
+        string[]? scenarioOutlineTags = null, string[]? soHeaders = null, string[][]? soCells = null)
     {
         var featureTag = CreateFeatureStructure(featureTags, null, scenarioOutlineTags, soHeaders, soCells);
         return featureTag.ChildTags.First(t => t.Data is ScenarioOutline);
     }
 
-    protected IGherkinDocumentContext CreateBackgroundContext(string[] featureTags = null, string[] scenarioTags = null,
-        string[] scenarioOutlineTags = null, string[] outlineExamplesTags = null)
+    protected IGherkinDocumentContext CreateBackgroundContext(string[]? featureTags = null, string[]? scenarioTags = null,
+        string[]? scenarioOutlineTags = null, string[]? outlineExamplesTags = null)
     {
         var featureTag = CreateFeatureStructure(featureTags, scenarioTags, scenarioOutlineTags,
             outlineExamplesTags: outlineExamplesTags);
         return featureTag.ChildTags.First(t => t.Data is Background);
     }
 
-    protected IGherkinDocumentContext CreateEmptyFileBackgroundContext(string[] featureTags)
+    protected IGherkinDocumentContext CreateEmptyFileBackgroundContext(string[]? featureTags)
     {
         var featureTag = CreateFeatureStructure(featureTags, null, includeScenario: false, includeOutline: false);
         return featureTag.ChildTags.First(t => t.Data is Background);
     }
 
-    protected string[] GetParameterTypes(params string[] typeNames)
+    protected string[]? GetParameterTypes(params string[]? typeNames)
     {
         if (typeNames == null || typeNames.Length == 0)
             return null;
@@ -146,9 +145,9 @@ public abstract class ProjectBindingRegistryTestsBase
         switch (typeName)
         {
             case "string":
-                return typeof(string).FullName;
+                return typeof(string).FullName!;
             case "int":
-                return typeof(int).FullName;
+                return typeof(int).FullName!;
             case "DataTable":
                 return "Reqnroll.Table";
             default:
