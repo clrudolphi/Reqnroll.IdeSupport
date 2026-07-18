@@ -1,4 +1,3 @@
-#nullable disable
 // Deferred: discovery-based steps depend on IDiscoveryService/GetDiscoveryService() and IProjectBindingRegistryCache
 // which have not yet been ported. The project-generation Given-steps compile fine.
 namespace Reqnroll.VisualStudio.Specs.StepDefinitions;

@@ -1,5 +1,3 @@
-#nullable disable
-
 using System.Collections.ObjectModel;
 using Microsoft.VisualStudio.Language.Intellisense;
 

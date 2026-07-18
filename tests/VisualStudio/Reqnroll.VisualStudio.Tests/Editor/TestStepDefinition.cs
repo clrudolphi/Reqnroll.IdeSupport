@@ -1,4 +1,3 @@
-#nullable disable
 namespace Reqnroll.VisualStudio.Tests.Editor;
 
 public class TestStepDefinition : StepDefinition

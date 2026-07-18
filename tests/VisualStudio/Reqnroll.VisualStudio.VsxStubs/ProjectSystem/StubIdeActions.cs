@@ -1,5 +1,3 @@
-﻿#nullable disable
-
 namespace Reqnroll.VisualStudio.VsxStubs.ProjectSystem;
 
 public class StubIdeActions : IIdeActions
