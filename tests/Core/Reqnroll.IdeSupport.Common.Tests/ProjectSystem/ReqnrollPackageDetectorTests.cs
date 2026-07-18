@@ -6,15 +6,15 @@ namespace Reqnroll.IdeSupport.Common.Tests.ProjectSystem;
 
 public class ReqnrollPackageDetectorTests
 {
-    private const string ReqnrollPackagePath = @"C:\Users\me\.nuget\packages\reqnroll\2.4.1";
-    private const string SpecFlow240PackagePath = @"C:\Users\me\.nuget\packages\reqnroll\2.4.0";
-    private const string ReqnrollMsTestPackagePath = @"C:\Users\me\.nuget\packages\reqnroll.mstest\2.4.1";
-    private const string SpecSyncPackagePath = @"C:\Users\me\.nuget\packages\specsync.azuredevops.reqnroll.2-4\2.0.0";
+    private const string ReqnrollPackagePath = @"X:\nuget-cache\reqnroll\2.4.1";
+    private const string SpecFlow240PackagePath = @"X:\nuget-cache\reqnroll\2.4.0";
+    private const string ReqnrollMsTestPackagePath = @"X:\nuget-cache\reqnroll.mstest\2.4.1";
+    private const string SpecSyncPackagePath = @"X:\nuget-cache\specsync.azuredevops.reqnroll.2-4\2.0.0";
 
     private const string SpecSyncPackagePathSolutionPackages =
-        @"C:\MyProject\packages\SpecSync.AzureDevOps.Reqnroll.2-4.2.0.0";
+        @"X:\project\packages\SpecSync.AzureDevOps.Reqnroll.2-4.2.0.0";
 
-    private const string SpecFlow240PackagePathSolutionPackages = @"C:\MyProject\packages\Reqnroll.2.4.0";
+    private const string SpecFlow240PackagePathSolutionPackages = @"X:\project\packages\Reqnroll.2.4.0";
     private readonly MockFileSystemForTests _mockFileSystem = new();
 
     public ReqnrollPackageDetectorTests()
