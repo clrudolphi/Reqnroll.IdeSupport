@@ -232,6 +232,14 @@ export class ProjectManager {
     const { props } = await this.sendProjectLoaded(projectFile);
     if (!props) return; // msbuild unavailable — index stays Pending, same as v1 fallback
     await this.sendProjectFilesBaseline(projectFile, props.targetFrameworkMoniker, props.files);
+
+    // v5: arm the output-assembly watcher if this resend is what first discovered
+    // outputAssemblyPath (e.g. initial registration ran before `dotnet restore`). Guarded so a
+    // project resent more than once (this path isn't one-shot like registerProject) doesn't leak
+    // a duplicate watcher.
+    if (props.outputAssemblyPath && !this._outputWatchers.has(projectFile)) {
+      this.watchProjectOutputPath(projectFile, props.outputAssemblyPath);
+    }
   }
 
   /**
