@@ -1,4 +1,3 @@
-﻿#nullable disable
 using Gherkin;
 using Reqnroll.IdeSupport.LSP.Core.Completions;
 using GherkinLocation = Gherkin.Ast.Location;
@@ -33,12 +32,12 @@ public class CompletionContextResolverTests
     // Step placed on line 2 (0-based).  Gherkin Location.Line is 1-based, so Line=3.
     private static readonly DeveroomGherkinStep StepLine2 =
         new(new GherkinLocation(3, 5), "Given ", StepKeywordType.Context,
-            "some text", null, StepKeyword.Given, ScenarioBlock.Given);
+            "some text", null!, StepKeyword.Given, ScenarioBlock.Given);
 
     // Step placed on line 3 (0-based) — used for "different line" tests.
     private static readonly DeveroomGherkinStep StepLine3 =
         new(new GherkinLocation(4, 5), "When ", StepKeywordType.Action,
-            "I do it", null, StepKeyword.When, ScenarioBlock.When);
+            "I do it", null!, StepKeyword.When, ScenarioBlock.When);
 
     private readonly IDeveroomTagParser _tagParser  = Substitute.For<IDeveroomTagParser>();
     private readonly ITelemetryService _monitoring = Substitute.For<ITelemetryService>();
@@ -138,7 +137,7 @@ public class CompletionContextResolverTests
         _tagParser.Parse(snapshot, Arg.Any<ProjectBindingRegistry>())
             .Returns(new[] { StepTag(StepLine2, snapshot) });
 
-        var ctx = (StepCompletionContext)_sut.Resolve(snapshot, 2, 10, ProjectBindingRegistry.Invalid, "en");
+        var ctx = (StepCompletionContext)_sut.Resolve(snapshot, 2, 10, ProjectBindingRegistry.Invalid, "en")!;
 
         ctx.TypedAfterKeyword.Should().BeEmpty();
     }
@@ -151,7 +150,7 @@ public class CompletionContextResolverTests
             .Returns(new[] { StepTag(StepLine2, snapshot) });
 
         // "    Given some text" — col 10 starts "some text"; col 14 is after "some"
-        var ctx = (StepCompletionContext)_sut.Resolve(snapshot, 2, 14, ProjectBindingRegistry.Invalid, "en");
+        var ctx = (StepCompletionContext)_sut.Resolve(snapshot, 2, 14, ProjectBindingRegistry.Invalid, "en")!;
 
         ctx.TypedAfterKeyword.Should().Be("some");
     }
@@ -165,7 +164,7 @@ public class CompletionContextResolverTests
         _tagParser.Parse(snapshot, Arg.Any<ProjectBindingRegistry>())
             .Returns(new[] { StepTag(StepLine2, snapshot) });
 
-        var ctx = (StepCompletionContext)_sut.Resolve(snapshot, 2, 10, ProjectBindingRegistry.Invalid, "en");
+        var ctx = (StepCompletionContext)_sut.Resolve(snapshot, 2, 10, ProjectBindingRegistry.Invalid, "en")!;
 
         // Location.Column=5 (1-based indent=4), keyword="Given " (length=6): 4+6=10
         ctx.StepTextStartColumn.Should().Be(10);
@@ -180,7 +179,7 @@ public class CompletionContextResolverTests
         _tagParser.Parse(snapshot, Arg.Any<ProjectBindingRegistry>())
             .Returns(new[] { StepTag(StepLine3, snapshot) });
 
-        var ctx = (StepCompletionContext)_sut.Resolve(snapshot, 3, 9, ProjectBindingRegistry.Invalid, "en");
+        var ctx = (StepCompletionContext)_sut.Resolve(snapshot, 3, 9, ProjectBindingRegistry.Invalid, "en")!;
 
         ctx.StepTextStartColumn.Should().Be(9);
     }
@@ -193,7 +192,7 @@ public class CompletionContextResolverTests
         var snapshot = Snapshot(DocText);
         _tagParser.Parse(snapshot, Arg.Any<ProjectBindingRegistry>()).Returns(Array.Empty<DeveroomTag>());
 
-        var ctx = (KeywordCompletionContext)_sut.Resolve(snapshot, 0, 0, ProjectBindingRegistry.Invalid, "de");
+        var ctx = (KeywordCompletionContext)_sut.Resolve(snapshot, 0, 0, ProjectBindingRegistry.Invalid, "de")!;
 
         ctx.Dialect.Should().NotBeNull();
         ctx.Dialect.Language.Should().Be("de");
@@ -204,7 +203,7 @@ public class CompletionContextResolverTests
     {
         var deDialect = new GherkinDialectProvider("de").DefaultDialect;
         var deDoc     = new DeveroomGherkinDocument(
-            null, Enumerable.Empty<global::Gherkin.Ast.Comment>(), "",
+            null!, Enumerable.Empty<global::Gherkin.Ast.Comment>(), "",
             deDialect, new List<int>());
 
         var snapshot = Snapshot(DocText);
@@ -212,7 +211,7 @@ public class CompletionContextResolverTests
             .Returns(new[] { DocTag(deDoc, snapshot) });
 
         // Fallback says "en" but the parsed doc says "de" — parsed wins.
-        var ctx = (KeywordCompletionContext)_sut.Resolve(snapshot, 0, 0, ProjectBindingRegistry.Invalid, "en");
+        var ctx = (KeywordCompletionContext)_sut.Resolve(snapshot, 0, 0, ProjectBindingRegistry.Invalid, "en")!;
 
         ctx.Dialect.Language.Should().Be("de");
     }
@@ -226,7 +225,7 @@ public class CompletionContextResolverTests
         _tagParser.Parse(snapshot, Arg.Any<ProjectBindingRegistry>())
             .Returns(new[] { StepTag(StepLine2, snapshot), StepTag(StepLine3, snapshot) });
 
-        var ctx = (StepCompletionContext)_sut.Resolve(snapshot, 2, 10, ProjectBindingRegistry.Invalid, "en");
+        var ctx = (StepCompletionContext)_sut.Resolve(snapshot, 2, 10, ProjectBindingRegistry.Invalid, "en")!;
 
         ctx.Step.Should().BeSameAs(StepLine2);
     }

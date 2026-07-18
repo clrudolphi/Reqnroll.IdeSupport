@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace Reqnroll.IdeSupport.LSP.Core.Tests.Bindings;
 
 public class ProjectBindingRegistryFindBindingAtLocationTests
@@ -106,7 +104,7 @@ public class ProjectBindingRegistryFindBindingAtLocationTests
     public void No_binding_with_a_source_location_returns_null()
     {
         var binding = new ProjectStepDefinitionBinding(ScenarioBlock.Given, new Regex("^my step$"), null,
-            new ProjectBindingImplementation("MyStep", null, null));
+            new ProjectBindingImplementation("MyStep", null, null!));
         var registry = RegistryWith(binding);
 
         registry.FindBindingAtLocation(new SourceLocation("Steps.cs", 10, 5))

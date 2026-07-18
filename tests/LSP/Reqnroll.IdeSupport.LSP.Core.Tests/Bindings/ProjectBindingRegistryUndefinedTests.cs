@@ -1,4 +1,3 @@
-#nullable disable
 namespace Reqnroll.IdeSupport.LSP.Core.Tests.Bindings;
 /*
 
