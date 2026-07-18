@@ -1,15 +1,14 @@
-#nullable disable
 namespace Reqnroll.IdeSupport.LSP.Core.Tests;
 
 public class TestStepDefinition : StepDefinition
 {
     public static TestStepDefinition Void = new() {IsVoid = true};
     private SyntaxToken _testExpression;
-    private SourceLocation _testSourceLocation;
+    private SourceLocation? _testSourceLocation;
 
     public bool IsVoid { get; private set; }
 
-    public string AttributeName { get; set; }
+    public string? AttributeName { get; set; }
 
     public SyntaxToken TestExpression
     {
@@ -25,7 +24,7 @@ public class TestStepDefinition : StepDefinition
 
     public SourceLocation TestSourceLocation
     {
-        get => _testSourceLocation;
+        get => _testSourceLocation!;
         set
         {
             _testSourceLocation = value;

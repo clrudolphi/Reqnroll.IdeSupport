@@ -1,4 +1,3 @@
-#nullable disable
 using Reqnroll.IdeSupport.LSP.Core.Completions;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Tests.Completions;
@@ -9,7 +8,7 @@ public class StepDefinitionSamplerTests
         => new(ScenarioBlock.Given,
                new Regex("^" + regex + "$"),
                null,
-               new ProjectBindingImplementation("M1", parameterTypes, null));
+               new ProjectBindingImplementation("M1", parameterTypes, null!));
 
     private readonly StepDefinitionSampler _sut = new();
 

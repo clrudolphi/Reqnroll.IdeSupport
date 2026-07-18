@@ -1,7 +1,3 @@
-﻿#nullable disable
-
-#nullable disable
-
 namespace Reqnroll.IdeSupport.LSP.Core.Tests.Bindings;
 
 public class BindingImporterTests
@@ -11,9 +7,9 @@ public class BindingImporterTests
 
     private BindingImporter CreateSut() => new(_sourceFiles, _typeNames, new IdeSupportNullLogger());
 
-    private StepDefinition CreateStepDefinition(string regex = null, string type = null, string sourceLocation = null,
-        StepScope scope = null, string paramTypes = null, string method = null, string expression = null,
-        string error = null) =>
+    private StepDefinition CreateStepDefinition(string? regex = null, string? type = null, string? sourceLocation = null,
+        StepScope? scope = null, string? paramTypes = null, string? method = null, string? expression = null,
+        string? error = null) =>
         new()
         {
             Method = method ?? "M1",
@@ -323,8 +319,8 @@ public class BindingImporterTests
         result.Scope.Error.Should().Contain("Invalid tag expression");
     }
 
-    private Hook CreateHook(string type = null, string sourceLocation = null,
-        StepScope scope = null, string method = null, int? hookOrder = null, string error = null) =>
+    private Hook CreateHook(string? type = null, string? sourceLocation = null,
+        StepScope? scope = null, string? method = null, int? hookOrder = null, string? error = null) =>
         new()
         {
             Method = method ?? "M1",

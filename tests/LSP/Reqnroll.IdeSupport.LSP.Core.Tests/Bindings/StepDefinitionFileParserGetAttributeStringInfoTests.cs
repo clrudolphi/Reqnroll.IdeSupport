@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace Reqnroll.IdeSupport.LSP.Core.Tests.Bindings;
 
 /// <summary>
@@ -89,7 +87,7 @@ namespace TestProject
         var parser = new StepDefinitionFileParser();
 
         var info = await parser.GetAttributeStringInfo(
-            file, methodLine: 9, methodColumn: 17, attributeIndex: 0, expression: null);
+            file, methodLine: 9, methodColumn: 17, attributeIndex: 0, expression: null!);
 
         // No LiteralExpressionSyntax exists in the attribute argument — only an identifier.
         info.Should().BeNull();
@@ -105,7 +103,7 @@ namespace TestProject
         // Method identifier on line 11 (body adds 3 attribute lines above the method).
         // Only 3 attributes exist; index 5 is out of range.
         var info = await parser.GetAttributeStringInfo(
-            file, methodLine: 11, methodColumn: 17, attributeIndex: 5, expression: null);
+            file, methodLine: 11, methodColumn: 17, attributeIndex: 5, expression: null!);
 
         info.Should().BeNull();
     }

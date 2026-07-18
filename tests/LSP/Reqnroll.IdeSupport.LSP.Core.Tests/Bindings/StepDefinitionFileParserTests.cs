@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace Reqnroll.IdeSupport.LSP.Core.Tests.Bindings;
 
 /// <summary>
@@ -108,7 +106,7 @@ namespace TestProject
             @"[When(""pressed"")]
               public void Method() => System.Console.WriteLine(""x"");");
 
-        var binding = stepDefinitions.Should().ContainSingle().Subject;
+        var binding = stepDefinitions.Should().ContainSingle().Subject!;
         binding.Expression.Should().Be("pressed");
         binding.Implementation.SourceLocation.Should().NotBeNull();
     }
@@ -153,7 +151,7 @@ namespace TestProject
             @"[When]
               public void Method() { }");
 
-        var binding = stepDefinitions.Should().ContainSingle().Subject;
+        var binding = stepDefinitions.Should().ContainSingle().Subject!;
         binding.StepDefinitionType.Should().Be(ScenarioBlock.When);
         binding.Regex.Should().BeNull();
         binding.IsValid.Should().BeFalse("a binding without an expression cannot match any step");
@@ -181,7 +179,7 @@ namespace TestProject
             $@"[{keyword}(""{expression}"")]
                public void Method() {{ }}");
 
-        var binding = stepDefinitions.Should().ContainSingle().Subject;
+        var binding = stepDefinitions.Should().ContainSingle().Subject!;
         binding.IsValid.Should().BeTrue();
         binding.Regex.ToString().Should().Contain(expectedGroupPattern);
         binding.Regex.IsMatch(stepText).Should().BeTrue(
@@ -200,7 +198,7 @@ namespace TestProject
             @"[When(""the two numbers {Verb} added"")]
               public void Method(string verb) { }");
 
-        var binding = stepDefinitions.Should().ContainSingle().Subject;
+        var binding = stepDefinitions.Should().ContainSingle().Subject!;
         binding.IsValid.Should().BeTrue();
         binding.Regex.ToString().Should().Contain(@"(.*)");
         binding.Regex.IsMatch("the two numbers 'are' added").Should().BeTrue();
@@ -218,7 +216,7 @@ namespace TestProject
               {
               }");
 
-        var location = stepDefinitions.Should().ContainSingle().Subject.Implementation.SourceLocation;
+        var location = stepDefinitions.Should().ContainSingle().Subject!.Implementation.SourceLocation!;
         location.SourceFile.Should().Be(FilePath);
         location.HasEndPosition.Should().BeTrue();
         location.SourceFileLine.Should().Be(location.SourceFileEndLine!.Value);
@@ -236,7 +234,7 @@ namespace TestProject
         var stepDefinitions = await ParseStepDefinitions(
             "[Given(\"x\")]\npublic void TargetMethod() { }");
 
-        var location = stepDefinitions.Should().ContainSingle().Subject.Implementation.SourceLocation;
+        var location = stepDefinitions.Should().ContainSingle().Subject!.Implementation.SourceLocation!;
         location.SourceFileLine.Should().Be(9);      // method signature line, not attribute (line 8)
         location.SourceFileColumn.Should().Be(13);   // "public void " = 12 chars → identifier at col 13
         location.SourceFileEndLine.Should().Be(9);
@@ -253,9 +251,9 @@ namespace TestProject
         var stepDefinitions = await ParseStepDefinitions(
             "[Given(\"x\")]\npublic void TargetMethod() { }");
 
-        var binding = stepDefinitions.Should().ContainSingle().Subject;
+        var binding = stepDefinitions.Should().ContainSingle().Subject!;
         binding.AttributeSourceLine.Should().Be(8);
-        binding.Implementation.SourceLocation.SourceFileLine.Should().Be(9);
+        binding.Implementation.SourceLocation!.SourceFileLine.Should().Be(9);
     }
 
     [Fact]
@@ -264,8 +262,8 @@ namespace TestProject
         var stepDefinitions = await ParseStepDefinitions(
             @"[Given(""x"")] public void Method() { }");
 
-        var binding = stepDefinitions.Should().ContainSingle().Subject;
-        binding.AttributeSourceLine.Should().Be(binding.Implementation.SourceLocation.SourceFileLine);
+        var binding = stepDefinitions.Should().ContainSingle().Subject!;
+        binding.AttributeSourceLine.Should().Be(binding.Implementation.SourceLocation!.SourceFileLine);
     }
 
     [Fact]
@@ -276,8 +274,8 @@ namespace TestProject
         var stepDefinitions = await ParseStepDefinitions(
             "[Given(\"a\")]\n[When(\"a\")]\npublic void Method() { }");
 
-        var given = stepDefinitions.Should().ContainSingle(b => b.StepDefinitionType == ScenarioBlock.Given).Subject;
-        var when = stepDefinitions.Should().ContainSingle(b => b.StepDefinitionType == ScenarioBlock.When).Subject;
+        var given = stepDefinitions.Should().ContainSingle(b => b.StepDefinitionType == ScenarioBlock.Given).Subject!;
+        var when = stepDefinitions.Should().ContainSingle(b => b.StepDefinitionType == ScenarioBlock.When).Subject!;
 
         given.AttributeSourceLine.Should().Be(8);
         when.AttributeSourceLine.Should().Be(9);
@@ -291,11 +289,11 @@ namespace TestProject
               [Given(""scoped"")]
               public void Method() { }");
 
-        var scope = stepDefinitions.Should().ContainSingle().Subject.Scope;
+        var scope = stepDefinitions.Should().ContainSingle().Subject!.Scope;
         scope.Should().NotBeNull();
         scope.Tag.Should().NotBeNull();
-        scope.Tag.Evaluate(new[] { "@web" }).Should().BeTrue();
-        scope.Tag.Evaluate(new[] { "@other" }).Should().BeFalse();
+        scope.Tag!.Evaluate(new[] { "@web" }).Should().BeTrue();
+        scope.Tag!.Evaluate(new[] { "@other" }).Should().BeFalse();
     }
 
     [Fact]
@@ -317,10 +315,10 @@ namespace TestProject
         var file = FileDetails.FromPath(FilePath).WithCSharpContent(content);
         var bindings = await new StepDefinitionFileParser().ParseBindings(file);
 
-        var scope = bindings.StepDefinitions.Should().ContainSingle().Subject.Scope;
-        scope.Tag.Evaluate(new[] { "@ui", "@smoke" }).Should().BeTrue();
-        scope.Tag.Evaluate(new[] { "@ui" }).Should().BeFalse();
-        scope.Tag.Evaluate(new[] { "@smoke" }).Should().BeFalse();
+        var scope = bindings.StepDefinitions.Should().ContainSingle().Subject!.Scope;
+        scope.Tag!.Evaluate(new[] { "@ui", "@smoke" }).Should().BeTrue();
+        scope.Tag!.Evaluate(new[] { "@ui" }).Should().BeFalse();
+        scope.Tag!.Evaluate(new[] { "@smoke" }).Should().BeFalse();
     }
 
     [Fact]
@@ -378,11 +376,11 @@ namespace TestProject
             @"[BeforeScenario(""web"", ""smoke"")]
               public void Setup() { }");
 
-        var scope = bindings.Hooks.Should().ContainSingle().Subject.Scope;
+        var scope = bindings.Hooks.Should().ContainSingle().Subject!.Scope;
         scope.Should().NotBeNull();
-        scope.Tag.Evaluate(new[] { "@web" }).Should().BeTrue();
-        scope.Tag.Evaluate(new[] { "@smoke" }).Should().BeTrue();
-        scope.Tag.Evaluate(new[] { "@other" }).Should().BeFalse();
+        scope.Tag!.Evaluate(new[] { "@web" }).Should().BeTrue();
+        scope.Tag!.Evaluate(new[] { "@smoke" }).Should().BeTrue();
+        scope.Tag!.Evaluate(new[] { "@other" }).Should().BeFalse();
     }
 
     [Fact]
@@ -489,15 +487,15 @@ namespace TestProject
 
         // The changed file's bindings are rediscovered from source...
         updated.StepDefinitions
-            .Should().ContainSingle(b => b.Implementation.SourceLocation.SourceFile == FilePath)
+            .Should().ContainSingle(b => b.Implementation.SourceLocation!.SourceFile == FilePath)
             .Which.Regex.ToString().Should().Be("^new expression$");
         updated.Hooks
-            .Should().ContainSingle(h => h.Implementation.SourceLocation.SourceFile == FilePath)
+            .Should().ContainSingle(h => h.Implementation.SourceLocation!.SourceFile == FilePath)
             .Which.HookType.Should().Be(HookType.BeforeScenario);
 
         // ...while bindings owned by other files are left untouched.
-        updated.StepDefinitions.Should().ContainSingle(b => b.Implementation.SourceLocation.SourceFile == otherFilePath);
-        updated.Hooks.Should().ContainSingle(h => h.Implementation.SourceLocation.SourceFile == otherFilePath);
+        updated.StepDefinitions.Should().ContainSingle(b => b.Implementation.SourceLocation!.SourceFile == otherFilePath);
+        updated.Hooks.Should().ContainSingle(h => h.Implementation.SourceLocation!.SourceFile == otherFilePath);
     }
 
     [Fact]

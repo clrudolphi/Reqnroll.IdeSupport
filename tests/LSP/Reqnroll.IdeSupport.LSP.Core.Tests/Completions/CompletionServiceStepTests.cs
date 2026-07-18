@@ -1,4 +1,3 @@
-﻿#nullable disable
 using Gherkin;
 using Reqnroll.IdeSupport.LSP.Core.Completions;
 using Reqnroll.IdeSupport.LSP.Core.Completions.Matching;
@@ -16,7 +15,7 @@ public class CompletionServiceStepTests
                block == ScenarioBlock.Given ? "Given " : block == ScenarioBlock.When ? "When " : "Then ",
                StepKeywordType.Context,
                "step text",
-               null,
+               null!,
                StepKeyword.Given,
                block);
 
@@ -24,7 +23,7 @@ public class CompletionServiceStepTests
         ScenarioBlock block,
         string        pattern,
         string        method     = "MyStep",
-        string[]      paramTypes = null,
+        string[]?     paramTypes = null,
         bool          valid      = true)
     {
         var regex = valid ? new Regex("^" + pattern + "$") : null!;
