@@ -4,50 +4,14 @@ using GherkinLocation = Gherkin.Ast.Location;
 
 namespace Reqnroll.IdeSupport.LSP.Core.Tests.Bindings;
 
+/// <summary>
+/// Thin wrapper around the shared <see cref="ProjectBindingRegistryTestsBase"/>
+/// from <c>Reqnroll.IdeSupport.LSP.TestStubs</c>, adding feature-structure building methods
+/// that require <c>InternalsVisibleTo</c> access to <c>DeveroomTag.AddChild</c>.
+/// </summary>
 public abstract class ProjectBindingRegistryTestsBase
+    : global::Reqnroll.IdeSupport.LSP.TestStubs.ProjectBindingRegistryTestsBase
 {
-    protected readonly List<ProjectStepDefinitionBinding> _stepDefinitionBindings = new();
-    protected readonly List<ProjectHookBinding> _hookBindings = new();
-    protected readonly Dictionary<string, ProjectBindingImplementation> Implementations = new();
-
-    protected ProjectBindingRegistry CreateSut()
-    {
-        var projectBindingRegistry = new ProjectBindingRegistry(_stepDefinitionBindings.ToArray(), _hookBindings.ToArray(), 123456);
-        return projectBindingRegistry;
-    }
-
-    protected Step CreateStep(StepKeyword stepKeyword = StepKeyword.Given, string text = "my step",
-        StepArgument stepArgument = null) => new DeveroomGherkinStep(new GherkinLocation(0, 0), stepKeyword + " ", StepKeywordType.Context, text, stepArgument,
-        stepKeyword, (ScenarioBlock) stepKeyword);
-
-    protected ProjectStepDefinitionBinding CreateStepDefinitionBinding(string regex,
-        ScenarioBlock scenarioBlock = ScenarioBlock.Given, BindingScope scope = null, string[] parameterTypes = null,
-        string methodName = null)
-    {
-        methodName = methodName ?? "MyMethod" + Guid.NewGuid().ToString("N");
-        if (!Implementations.TryGetValue(methodName, out var implementation))
-        {
-            implementation =
-                new ProjectBindingImplementation(methodName, parameterTypes,
-                    new SourceLocation("MyClass.cs", 2, 5));
-            Implementations.Add(methodName, implementation);
-        }
-
-        return new ProjectStepDefinitionBinding(scenarioBlock, new Regex("^" + regex + "$"), scope, implementation);
-    }
-
-    protected StepArgument CreateDocString() => new DocString(new GherkinLocation(0, 0), null, "some text");
-
-    protected static DataTable CreateDataTable()
-    {
-        return new DataTable(new List<TableRow>
-        {
-            new TableRow(new GherkinLocation(0, 0), new[] {new TableCell(new GherkinLocation(0, 0), "cell1")})
-        });
-    }
-
-    protected BindingScope CreateTagScope(string tagName) => new() {Tag = ReqnrollTagExpressionParser.CreateTagLiteral(tagName)};
-
     private DeveroomTag CreateFeatureStructure(string[] featureTags, string[] scenarioTags,
         string[] scenarioOutlineTags = null, string[] soHeaders = null, string[][] soCells = null,
         bool includeScenario = true, bool includeOutline = true, string[] outlineExamplesTags = null)
@@ -56,8 +20,8 @@ public abstract class ProjectBindingRegistryTestsBase
         scenarioTags = scenarioTags ?? new string[0];
         scenarioOutlineTags = scenarioOutlineTags ?? new string[0];
         outlineExamplesTags = outlineExamplesTags ?? new string[0];
-        soHeaders = soHeaders ?? new[] {"param1", "param2"};
-        soCells = soCells ?? new[] {new[] {"r1c1", "r1c2"}, new[] {"r2c1", "r2c2"}};
+        soHeaders = soHeaders ?? new[] { "param1", "param2" };
+        soCells = soCells ?? new[] { new[] { "r1c1", "r1c2" }, new[] { "r2c1", "r2c2" } };
 
         var scenarioDefinitions = new List<StepsContainer>();
         scenarioDefinitions.Add(new Background(new GherkinLocation(0, 0), "Background", "my background", null, new Step[0]));
@@ -107,8 +71,8 @@ public abstract class ProjectBindingRegistryTestsBase
     protected IGherkinDocumentContext CreateScenarioOutlineContext(string[] featureTags, string[] scenarioOutlineTags,
         string soHeader, string[] soCells, string[] outlineExamplesTags = null)
     {
-        var featureTag = CreateFeatureStructure(featureTags, null, scenarioOutlineTags, new[] {soHeader},
-            soCells.Select(r => new[] {r}).ToArray(), outlineExamplesTags: outlineExamplesTags);
+        var featureTag = CreateFeatureStructure(featureTags, null, scenarioOutlineTags, new[] { soHeader },
+            soCells.Select(r => new[] { r }).ToArray(), outlineExamplesTags: outlineExamplesTags);
         return featureTag.ChildTags.First(t => t.Data is ScenarioOutline);
     }
 
@@ -131,28 +95,5 @@ public abstract class ProjectBindingRegistryTestsBase
     {
         var featureTag = CreateFeatureStructure(featureTags, null, includeScenario: false, includeOutline: false);
         return featureTag.ChildTags.First(t => t.Data is Background);
-    }
-
-    protected string[] GetParameterTypes(params string[] typeNames)
-    {
-        if (typeNames == null || typeNames.Length == 0)
-            return null;
-
-        return typeNames.Select(GetParameterType).ToArray();
-    }
-
-    protected string GetParameterType(string typeName)
-    {
-        switch (typeName)
-        {
-            case "string":
-                return typeof(string).FullName;
-            case "int":
-                return typeof(int).FullName;
-            case "DataTable":
-                return "Reqnroll.Table";
-            default:
-                return typeName;
-        }
     }
 }
