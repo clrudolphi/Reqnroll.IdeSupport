@@ -141,7 +141,8 @@ public sealed class FindStepUsagesHandler
             Keyword     = match.Keyword,
             ScenarioName = match.ScenarioName,
             ProjectName = match.ProjectName,
-            FeatureName = match.FeatureName ?? ExtractFeatureName(match),
+            FeatureName = match.FeatureName,
+            RuleName    = match.RuleName,
         };
 
         // Extract the step text directly from the snapshot stored in the match cache.
@@ -163,41 +164,6 @@ public sealed class FindStepUsagesHandler
         }
 
         return item;
-    }
-
-    private static string? ExtractFeatureName(StepBindingMatch match)
-    {
-        try
-        {
-            var snapshotText = match.Range.Snapshot.GetText();
-            // Scan the snapshot for the Feature: line — it's always the first structural keyword.
-            // Format: "Feature: <title>" with optional language tag lines before it (# language: ...).
-            foreach (var line in snapshotText.Split('\n'))
-            {
-                var trimmed = line.Trim();
-                if (trimmed.Length == 0 || trimmed.StartsWith('#'))
-                    continue;
-
-                // Reached a non-comment, non-empty line — this should be the Feature: line.
-                // Match "Feature: " or the current locale equivalent using a case-insensitive check.
-                var colonIndex = trimmed.IndexOf(':');
-                if (colonIndex > 0 && colonIndex < trimmed.Length - 1)
-                {
-                    var title = trimmed.Substring(colonIndex + 1).Trim();
-                    return title.Length > 0 ? title : null;
-                }
-
-                // If the first keyword line isn't a Feature: line (e.g. Rule:, Scenario: without Feature),
-                // stop looking — we can't reliably determine the feature name.
-                return null;
-            }
-
-            return null;
-        }
-        catch (Exception)
-        {
-            return null;
-        }
     }
 
     private static bool IsCSharp(DocumentUri uri) =>

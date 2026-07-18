@@ -99,4 +99,12 @@ public sealed class FindStepUsageItem
     /// </summary>
     [JsonProperty("featureName")]
     public string? FeatureName { get; set; }
+
+    /// <summary>
+    /// The name of the enclosing <c>Rule:</c> block, when the scenario is nested under one
+    /// (e.g. <c>"Discounts apply to members only"</c>). <see langword="null"/> when the scenario
+    /// is not inside a Rule block.
+    /// </summary>
+    [JsonProperty("ruleName")]
+    public string? RuleName { get; set; }
 }

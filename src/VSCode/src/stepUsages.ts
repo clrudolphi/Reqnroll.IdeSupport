@@ -19,6 +19,7 @@ interface FindStepUsageItem {
   scenarioName?: string;
   projectName?: string;
   featureName?: string;
+  ruleName?: string;
 }
 
 interface FindUnusedStepDefinitionsResponse {
@@ -82,7 +83,8 @@ export async function doFindStepUsages(
     const label = stepText
       ? `$(file-code) ${[keyword, stepText].filter(Boolean).join(' ')}`
       : `$(file-code) ${vscode.Uri.parse(loc.uri).path.split('/').pop() ?? loc.uri}`;
-    const feature = loc.featureName ? `(${loc.featureName})` : '';
+    const featureAndRule = [loc.featureName, loc.ruleName].filter(Boolean).join(' / ');
+    const feature = featureAndRule ? `(${featureAndRule})` : '';
     const scenario = loc.scenarioName ?? '';
     const description = [feature, scenario].filter(Boolean).join(' ');
     return { label, description, detail: loc.projectName, loc };

@@ -49,13 +49,15 @@ public class FindStepUsagesHandlerTests
         int         length,
         string?     keyword      = null,
         string?     scenarioName = null,
-        string?     projectName  = null)
+        string?     projectName  = null,
+        string?     featureName  = null,
+        string?     ruleName     = null)
     {
         var snapshot = new LspTextSnapshot(featureUri.ToString(), 1,
             "Feature: F\nScenario: S\n    Given a step\n");
         var range = GherkinRange.FromPoint(snapshot, startOffset, length);
         return new StepBindingMatch(featureUri.ToString(), range, MatchResult.NoMatch,
-                                    keyword, scenarioName, projectName);
+                                    keyword, scenarioName, projectName, featureName, ruleName);
     }
 
     // ── Non-.cs URI ───────────────────────────────────────────────────────────
@@ -210,7 +212,9 @@ public class FindStepUsagesHandlerTests
                          MakeMatch(FeatureUri, 33, 6,
                                    keyword:      "Given",
                                    scenarioName: "Add numbers",
-                                   projectName:  "MyProject")
+                                   projectName:  "MyProject",
+                                   featureName:  "Calculator",
+                                   ruleName:     "Discounts apply to members only")
                      });
 
         var result = await CreateSut().HandleAsync(
@@ -220,6 +224,20 @@ public class FindStepUsagesHandlerTests
         loc.Keyword.Should().Be("Given");
         loc.ScenarioName.Should().Be("Add numbers");
         loc.ProjectName.Should().Be("MyProject");
+        loc.FeatureName.Should().Be("Calculator");
+        loc.RuleName.Should().Be("Discounts apply to members only");
+    }
+
+    [Fact]
+    public async Task Handle_rule_name_is_null_when_scenario_is_not_under_a_rule()
+    {
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(new[] { MakeMatch(FeatureUri, 33, 6) });
+
+        var result = await CreateSut().HandleAsync(
+            RequestAt(CsUri, 9, 0), CancellationToken.None);
+
+        result!.Locations.Single().RuleName.Should().BeNull();
     }
 
     // ── Position conversion ───────────────────────────────────────────────────

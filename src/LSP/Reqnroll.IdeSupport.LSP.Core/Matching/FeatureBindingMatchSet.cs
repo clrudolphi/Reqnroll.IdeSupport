@@ -113,13 +113,25 @@ public sealed class FeatureBindingMatchSet
                 var scenarioName      = (scenarioDefTag?.Data as IHasDescription)?.Name;
                 if (string.IsNullOrEmpty(scenarioName)) scenarioName = null;
 
-                // Walk up to the feature block to extract the feature title at parse time.
-                var featureTag        = scenarioDefTag?.ParentTag;
+                // Walk up looking for an enclosing Rule block, then continue to the feature block
+                // to extract the feature title at parse time. Scenarios nested under a Rule: block
+                // have an extra RuleBlock tag between the ScenarioDefinitionBlock and the
+                // FeatureBlock, so keep climbing past it (and any other intermediate tags) until we
+                // reach the FeatureBlock rather than assuming exactly one level up.
+                var ruleTag = scenarioDefTag?.ParentTag;
+                while (ruleTag != null && ruleTag.Type is not (DeveroomTagTypes.RuleBlock or DeveroomTagTypes.FeatureBlock))
+                    ruleTag = ruleTag.ParentTag;
+                var ruleName = ruleTag?.Type == DeveroomTagTypes.RuleBlock ? (ruleTag.Data as IHasDescription)?.Name : null;
+                if (string.IsNullOrEmpty(ruleName)) ruleName = null;
+
+                var featureTag = ruleTag;
+                while (featureTag != null && featureTag.Type != DeveroomTagTypes.FeatureBlock)
+                    featureTag = featureTag.ParentTag;
                 var featureName       = (featureTag?.Data as Feature)?.Name;
                 if (string.IsNullOrEmpty(featureName)) featureName = null;
 
                 byStart[tag.Range.Start] = new StepBindingMatch(
-                    documentId, tag.Range, match, keyword, scenarioName, projectName, featureName);
+                    documentId, tag.Range, match, keyword, scenarioName, projectName, featureName, ruleName);
             }
         }
 
