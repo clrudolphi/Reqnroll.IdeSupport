@@ -1,4 +1,3 @@
-#nullable disable
 using Reqnroll.IdeSupport.VisualStudio.SDKIntegration.Telemetry;
 namespace Reqnroll.VisualStudio.Tests.Telemetry;
 

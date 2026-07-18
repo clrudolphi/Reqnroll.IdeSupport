@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace Reqnroll.VisualStudio.Tests.Editor.Services;
 
 public class StepDefinitionUsageFinderTests

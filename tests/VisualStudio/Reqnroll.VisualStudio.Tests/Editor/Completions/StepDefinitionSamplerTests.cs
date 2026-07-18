@@ -1,4 +1,3 @@
-#nullable disable
 using Reqnroll.VisualStudio.Editor.Completions;
 
 namespace Reqnroll.VisualStudio.Tests.Editor.Completions;

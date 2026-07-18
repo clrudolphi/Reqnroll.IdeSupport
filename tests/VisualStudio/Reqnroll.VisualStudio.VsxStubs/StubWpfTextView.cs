@@ -1,4 +1,3 @@
-#nullable disable
 namespace Reqnroll.VisualStudio.VsxStubs;
 
 public class StubWpfTextView : IWpfTextView

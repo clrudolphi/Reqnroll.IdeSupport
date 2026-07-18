@@ -1,4 +1,3 @@
-#nullable disable
 using Match = System.Text.RegularExpressions.Match;
 
 namespace Reqnroll.VisualStudio.VsxStubs;
