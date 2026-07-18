@@ -91,4 +91,12 @@ public sealed class FindStepUsageItem
     /// </summary>
     [JsonProperty("projectName")]
     public string? ProjectName { get; set; }
+
+    /// <summary>
+    /// The name of the feature that contains this step, as declared by the <c>Feature:</c> line
+    /// in the <c>.feature</c> file (e.g. <c>"Calculator"</c>).
+    /// <see langword="null"/> when the feature title could not be determined.
+    /// </summary>
+    [JsonProperty("featureName")]
+    public string? FeatureName { get; set; }
 }

@@ -18,6 +18,7 @@ interface FindStepUsageItem {
   keyword?: string;
   scenarioName?: string;
   projectName?: string;
+  featureName?: string;
 }
 
 interface FindUnusedStepDefinitionsResponse {
@@ -81,7 +82,10 @@ export async function doFindStepUsages(
     const label = stepText
       ? `$(file-code) ${[keyword, stepText].filter(Boolean).join(' ')}`
       : `$(file-code) ${vscode.Uri.parse(loc.uri).path.split('/').pop() ?? loc.uri}`;
-    return { label, description: loc.scenarioName, detail: loc.projectName, loc };
+    const feature = loc.featureName ? `(${loc.featureName})` : '';
+    const scenario = loc.scenarioName ?? '';
+    const description = [feature, scenario].filter(Boolean).join(' ');
+    return { label, description, detail: loc.projectName, loc };
   });
 
   const picked = await vscode.window.showQuickPick(items, {

@@ -113,8 +113,13 @@ public sealed class FeatureBindingMatchSet
                 var scenarioName      = (scenarioDefTag?.Data as IHasDescription)?.Name;
                 if (string.IsNullOrEmpty(scenarioName)) scenarioName = null;
 
+                // Walk up to the feature block to extract the feature title at parse time.
+                var featureTag        = scenarioDefTag?.ParentTag;
+                var featureName       = (featureTag?.Data as Feature)?.Name;
+                if (string.IsNullOrEmpty(featureName)) featureName = null;
+
                 byStart[tag.Range.Start] = new StepBindingMatch(
-                    documentId, tag.Range, match, keyword, scenarioName, projectName);
+                    documentId, tag.Range, match, keyword, scenarioName, projectName, featureName);
             }
         }
 
