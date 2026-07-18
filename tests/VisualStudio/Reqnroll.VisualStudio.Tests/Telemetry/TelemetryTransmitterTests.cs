@@ -1,4 +1,5 @@
-﻿#nullable disable
+﻿// #nullable disable — suppress nullable warnings; see issue #207
+#nullable disable
 using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.Channel;
 using Microsoft.ApplicationInsights.DataContracts;

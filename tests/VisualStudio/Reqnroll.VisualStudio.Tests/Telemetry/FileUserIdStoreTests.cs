@@ -1,3 +1,4 @@
+// #nullable disable — suppress nullable warnings; see issue #207
 #nullable disable
 using Reqnroll.IdeSupport.VisualStudio.SDKIntegration.Telemetry;
 namespace Reqnroll.VisualStudio.Tests.Telemetry;

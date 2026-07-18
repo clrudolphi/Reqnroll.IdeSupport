@@ -1,3 +1,4 @@
+// #nullable disable — suppress nullable warnings; see issue #207
 #nullable disable
 // Deferred: ProjectSystemSteps depends on editor-command infrastructure (DeveroomEditorCommandBase,
 // IDeveroomTaggerProvider, DeveroomTag, MockableDiscoveryService, StubBufferTagAggregatorFactoryService, etc.)

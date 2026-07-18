@@ -1,4 +1,5 @@
-﻿#nullable disable
+﻿// #nullable disable — suppress nullable warnings; see issue #207
+#nullable disable
 using Gherkin;
 using GherkinLocation = Gherkin.Ast.Location;
 

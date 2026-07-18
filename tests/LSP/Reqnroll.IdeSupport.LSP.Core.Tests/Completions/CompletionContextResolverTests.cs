@@ -1,4 +1,5 @@
-﻿#nullable disable
+﻿// #nullable disable — suppress nullable warnings; see issue #207
+#nullable disable
 using Gherkin;
 using Reqnroll.IdeSupport.LSP.Core.Completions;
 using GherkinLocation = Gherkin.Ast.Location;

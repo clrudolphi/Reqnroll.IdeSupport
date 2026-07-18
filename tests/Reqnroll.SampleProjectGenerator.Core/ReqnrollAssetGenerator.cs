@@ -1,3 +1,4 @@
+// #nullable disable — suppress nullable warnings; see issue #207
 #nullable disable
 namespace Reqnroll.SampleProjectGenerator;
 
