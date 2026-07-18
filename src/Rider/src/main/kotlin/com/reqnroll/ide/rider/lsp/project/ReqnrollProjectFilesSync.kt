@@ -21,6 +21,7 @@ import com.reqnroll.ide.rider.lsp.protocol.ProjectFilesKind
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollProjectFilesParams
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.concurrent.thread
 
 /**
  * Feeds `reqnroll/projectFiles` — Phase 3 of
@@ -75,8 +76,12 @@ class ReqnrollProjectFilesSync : ProjectActivity {
                 // advise() fires immediately at project open, before the server is typically even
                 // started — see ReqnrollLspServerReadiness for why this must be deferred.
                 ReqnrollLspServerReadiness.runWhenRunning(project) {
-                    projects.forEach { runnableProject ->
-                        ReqnrollProjectBaseline.sendProjectFilesBaseline(project, runnableProject.projectFilePath)
+                    // sendProjectFilesBaseline does a synchronous filesystem walk —
+                    // run on a background thread to avoid blocking the UI dispatcher.
+                    thread(name = "reqnroll-baseline-walk") {
+                        projects.forEach { runnableProject ->
+                            ReqnrollProjectBaseline.sendProjectFilesBaseline(project, runnableProject.projectFilePath)
+                        }
                     }
                 }
             }
