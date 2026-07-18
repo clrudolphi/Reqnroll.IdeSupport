@@ -141,6 +141,8 @@ public sealed class FindStepUsagesHandler
             Keyword     = match.Keyword,
             ScenarioName = match.ScenarioName,
             ProjectName = match.ProjectName,
+            FeatureName = match.FeatureName,
+            RuleName    = match.RuleName,
         };
 
         // Extract the step text directly from the snapshot stored in the match cache.

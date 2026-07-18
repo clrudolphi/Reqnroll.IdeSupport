@@ -91,4 +91,20 @@ public sealed class FindStepUsageItem
     /// </summary>
     [JsonProperty("projectName")]
     public string? ProjectName { get; set; }
+
+    /// <summary>
+    /// The name of the feature that contains this step, as declared by the <c>Feature:</c> line
+    /// in the <c>.feature</c> file (e.g. <c>"Calculator"</c>).
+    /// <see langword="null"/> when the feature title could not be determined.
+    /// </summary>
+    [JsonProperty("featureName")]
+    public string? FeatureName { get; set; }
+
+    /// <summary>
+    /// The name of the enclosing <c>Rule:</c> block, when the scenario is nested under one
+    /// (e.g. <c>"Discounts apply to members only"</c>). <see langword="null"/> when the scenario
+    /// is not inside a Rule block.
+    /// </summary>
+    [JsonProperty("ruleName")]
+    public string? RuleName { get; set; }
 }

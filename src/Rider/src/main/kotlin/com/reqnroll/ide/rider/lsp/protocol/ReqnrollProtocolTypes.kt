@@ -118,6 +118,8 @@ data class FindStepUsageItem(
     val keyword: String? = null,
     val scenarioName: String? = null,
     val projectName: String? = null,
+    val featureName: String? = null,
+    val ruleName: String? = null,
 )
 
 /** Response for `reqnroll/goToHooks` — mirrors GoToHooksResponse.cs field-for-field. */

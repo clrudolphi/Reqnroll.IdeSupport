@@ -87,6 +87,43 @@ public class BindingMatchServiceTests
     }
 
     [Fact]
+    public void FromTags_captures_feature_name_for_a_scenario_directly_under_the_feature()
+    {
+        var set = BuildSet(DefinedFeature, RegistryWith(GivenBinding("my step")));
+
+        set.Steps[0].FeatureName.Should().Be("F");
+    }
+
+    [Fact]
+    public void FromTags_captures_feature_name_for_a_scenario_nested_under_a_rule()
+    {
+        // A scenario under a Rule: block has an extra RuleBlock tag between the
+        // ScenarioDefinitionBlock and the FeatureBlock, so the feature name is two levels up
+        // from the scenario rather than one (issue #238).
+        const string feature = "Feature: F\nRule: R\nScenario: S\n    Given my step\n";
+        var set = BuildSet(feature, RegistryWith(GivenBinding("my step")));
+
+        set.Steps[0].FeatureName.Should().Be("F");
+    }
+
+    [Fact]
+    public void FromTags_captures_rule_name_for_a_scenario_nested_under_a_rule()
+    {
+        const string feature = "Feature: F\nRule: R\nScenario: S\n    Given my step\n";
+        var set = BuildSet(feature, RegistryWith(GivenBinding("my step")));
+
+        set.Steps[0].RuleName.Should().Be("R");
+    }
+
+    [Fact]
+    public void FromTags_leaves_rule_name_null_for_a_scenario_not_under_a_rule()
+    {
+        var set = BuildSet(DefinedFeature, RegistryWith(GivenBinding("my step")));
+
+        set.Steps[0].RuleName.Should().BeNull();
+    }
+
+    [Fact]
     public void FindAt_returns_the_step_whose_span_contains_the_offset()
     {
         var set  = BuildSet(DefinedFeature, RegistryWith(GivenBinding("my step")));

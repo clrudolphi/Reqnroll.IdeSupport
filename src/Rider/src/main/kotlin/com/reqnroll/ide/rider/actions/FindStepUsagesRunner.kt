@@ -64,8 +64,10 @@ object FindStepUsagesRunner {
     internal fun renderLabel(item: FindStepUsageItem): String {
         val keyword = item.keyword?.let { "$it " } ?: ""
         val text = item.stepText ?: item.uri.substringAfterLast('/')
+        val featureAndRule = listOfNotNull(item.featureName, item.ruleName).joinToString(" / ")
+        val feature = featureAndRule.takeIf { it.isNotEmpty() }?.let { " ($it)" } ?: ""
         val scenario = item.scenarioName?.let { " — $it" } ?: ""
         val project = item.projectName?.let { " [$it]" } ?: ""
-        return "$keyword$text$scenario$project"
+        return "$keyword$text$feature$scenario$project"
     }
 }

@@ -31,7 +31,9 @@ public sealed class StepBindingMatch
         MatchResult  result,
         string?      keyword      = null,
         string?      scenarioName = null,
-        string?      projectName  = null)
+        string?      projectName  = null,
+        string?      featureName  = null,
+        string?      ruleName     = null)
     {
         FeatureDocumentId = featureDocumentId ?? throw new ArgumentNullException(nameof(featureDocumentId));
         Range      = range  ?? throw new ArgumentNullException(nameof(range));
@@ -39,6 +41,8 @@ public sealed class StepBindingMatch
         Keyword      = keyword;
         ScenarioName = scenarioName;
         ProjectName  = projectName;
+        FeatureName  = featureName;
+        RuleName     = ruleName;
     }
 
     /// <summary>
@@ -96,6 +100,21 @@ public sealed class StepBindingMatch
     /// <see langword="null"/> when the owner was unknown at cache-build time.
     /// </summary>
     public string? ProjectName { get; }
+
+    /// <summary>
+    /// The name of the feature that contains this step, as declared by the <c>Feature:</c> line
+    /// in the <c>.feature</c> file (e.g. <c>"Calculator"</c>).
+    /// <see langword="null"/> when the feature title could not be determined at cache-build time.
+    /// </summary>
+    public string? FeatureName { get; }
+
+    /// <summary>
+    /// The name of the <c>Rule:</c> block that contains the scenario, when the step is nested
+    /// under one (e.g. <c>"Discounts apply to members only"</c>).
+    /// <see langword="null"/> when the scenario is not inside a Rule block or AST context was
+    /// unavailable.
+    /// </summary>
+    public string? RuleName { get; }
 
     /// <summary>
     /// The source locations of every binding this step resolves to — one for a unique match,
