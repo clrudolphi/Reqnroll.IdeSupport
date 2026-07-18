@@ -79,6 +79,10 @@ public class VsWizardContext : IWizardContext
     public void ShowProblem(string message) =>
         _ideScope.Actions.ShowProblem(message);
 
+    /// <summary>The VS IDE scope that owns this wizard run. Exposed as a public property
+    /// rather than accessed via private-field reflection (which breaks on field renames).</summary>
+    public OriginalIdeScope IdeScope => _ideScope;
+
     private static WizardProjectSettings MapProjectSettings(OriginalProjectSettings s) => new()
     {
         IsReqnrollProject = s.IsReqnrollProject,
