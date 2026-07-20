@@ -417,6 +417,15 @@ jobs:
         run: npm run compile
         working-directory: ${{ env.VSCODE_DIR }}
 
+      - name: Run extension tests
+        # xvfb-run gives the Extension Development Host (a real Electron/VS Code window) a
+        # display to render into on this headless Linux runner; ubuntu-latest ships Xvfb
+        # preinstalled for exactly this kind of GUI test. Only runs here (not in tsc-only)
+        # because it needs the server binaries downloaded above to actually start the LSP
+        # client — see issue #205/#249 and the workspace-root fix in runTest.ts for #252.
+        run: xvfb-run -a npm test
+        working-directory: ${{ env.VSCODE_DIR }}
+
       - name: Lint
         run: npm run lint
         working-directory: ${{ env.VSCODE_DIR }}
