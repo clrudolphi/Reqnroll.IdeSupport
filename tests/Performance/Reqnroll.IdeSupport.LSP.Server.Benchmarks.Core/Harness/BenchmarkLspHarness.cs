@@ -50,6 +50,7 @@ public sealed class BenchmarkLspHarness : IAsyncDisposable
     private readonly object _refreshLock = new();
     private long? _lastSemanticTokensRefreshTimestamp;
     private long? _lastInlayHintRefreshTimestamp;
+    private long? _lastCodeLensRefreshTimestamp;
 
     public ILanguageClient Client =>
         _client ?? throw new InvalidOperationException("Harness not started.");
@@ -148,6 +149,14 @@ public sealed class BenchmarkLspHarness : IAsyncDisposable
             options.OnRequest(LspMethodNames.WorkspaceInlayHintRefresh, (CancellationToken _) =>
             {
                 lock (_refreshLock) _lastInlayHintRefreshTimestamp = Stopwatch.GetTimestamp();
+                return Task.CompletedTask;
+            });
+            // Unlike the two above, workspace/codeLens/refresh is not capability-gated — the server
+            // sends it unconditionally (see BindingRegistryChangedHandler.RequestCodeLensRefreshAsync),
+            // so no ClientCapabilities.Workspace.CodeLens advertisement is needed for this to fire.
+            options.OnRequest(LspMethodNames.WorkspaceCodeLensRefresh, (CancellationToken _) =>
+            {
+                lock (_refreshLock) _lastCodeLensRefreshTimestamp = Stopwatch.GetTimestamp();
                 return Task.CompletedTask;
             });
         }).ConfigureAwait(false);
@@ -413,6 +422,12 @@ public sealed class BenchmarkLspHarness : IAsyncDisposable
 
     public Task<double?> WaitForInlayHintRefreshAsync(long sinceTimestamp, int timeoutMs = 3000) =>
         WaitForRefreshAsync(() => _lastInlayHintRefreshTimestamp, sinceTimestamp, timeoutMs);
+
+    // Not capability-gated (see the OnRequest registration above), but otherwise debounced (500ms)
+    // the same way — triggered by BindingRegistryChangedHandler's incremental-Roslyn-patch path,
+    // not by a plain .feature edit, so callers must edit a .cs binding file to exercise this one.
+    public Task<double?> WaitForCodeLensRefreshAsync(long sinceTimestamp, int timeoutMs = 3000) =>
+        WaitForRefreshAsync(() => _lastCodeLensRefreshTimestamp, sinceTimestamp, timeoutMs);
 
     private async Task<double?> WaitForRefreshAsync(Func<long?> readTimestamp, long sinceTimestamp, int timeoutMs)
     {

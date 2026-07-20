@@ -164,6 +164,25 @@ public sealed class InteractiveScenarios
             await _harness.RequestRenameTargetsAsync(f.Uri, line, character).ConfigureAwait(false);
         }).ConfigureAwait(false);
 
+    // ── Document structure (F9/F10) ─────────────────────────────────────────────
+    // Both fire on every keystroke burst alongside semantic tokens/completion (see
+    // SessionScenario), but previously had no isolated P95 measurement in this suite — only
+    // touched incidentally under the session suite's contention (issue #256).
+
+    public async Task<LatencySummary> DocumentSymbolAsync()
+        => await RunAsync(PerfTargets.DocumentSymbol.Operation, async i =>
+        {
+            var f = _features[i % _features.Count];
+            await _harness.RequestDocumentSymbolAsync(f.Uri).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+    public async Task<LatencySummary> FoldingRangeAsync()
+        => await RunAsync(PerfTargets.FoldingRange.Operation, async i =>
+        {
+            var f = _features[i % _features.Count];
+            await _harness.RequestFoldingRangeAsync(f.Uri).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
     // ── References / go-to (F5/F17) ─────────────────────────────────────────────
 
     public async Task<LatencySummary> FindStepUsagesAsync()

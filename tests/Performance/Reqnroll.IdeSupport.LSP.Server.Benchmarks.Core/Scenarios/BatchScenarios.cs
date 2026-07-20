@@ -243,6 +243,39 @@ public static class BatchScenarios
     }
 
     /// <summary>
+    /// Server-initiated <c>workspace/codeLens/refresh</c> push (issue #256 — the other two refresh
+    /// pushes above were benchmarked, this one wasn't). Unlike them, it isn't triggered by a plain
+    /// <c>.feature</c> edit: <c>BindingRegistryChangedHandler</c> only requests it after an
+    /// incremental Roslyn patch that changes a binding's matched expression (see
+    /// <see cref="RoslynReDiscoveryAsync"/>'s identical edit shape), so this opens a synthetic
+    /// <c>.cs</c> binding file with a non-matching pattern, then edits it to match one of the
+    /// corpus's deliberately-unbound steps, and times from that edit to the refresh push.
+    /// </summary>
+    public static async Task<LatencySummary> CodeLensRefreshAsync(
+        BenchmarkLspHarness harness, string corpusRoot, string featureText, int repetitions = 3)
+    {
+        var recorder = new LatencyRecorder(PerfTargets.CodeLensRefresh.Operation);
+        var csUri = DocumentUri.FromFileSystemPath(
+            Path.Combine(corpusRoot, "Bindings", "BenchmarkCodeLensRefresh.cs"));
+        var undefinedSteps = FindUndefinedStepPositions(featureText);
+
+        for (var rep = 0; rep < Math.Min(repetitions, undefinedSteps.Count); rep++)
+        {
+            var (_, _, stepText) = undefinedSteps[rep];
+            harness.OpenCSharp(csUri, 1, BindingSource("NonMatchingCodeLens" + rep, "no match at all " + rep));
+            await Task.Delay(200).ConfigureAwait(false); // let the no-op open settle before timing the edit
+
+            var start = Stopwatch.GetTimestamp();
+            harness.ChangeCSharp(csUri, 2, BindingSource("MatchingCodeLens" + rep, Regex.Escape(stepText)));
+
+            var ms = await harness.WaitForCodeLensRefreshAsync(start).ConfigureAwait(false);
+            if (ms is not null) recorder.Add(ms.Value);
+        }
+
+        return recorder.Summarize();
+    }
+
+    /// <summary>
     /// Roslyn single-file re-discovery: open a synthetic <c>.cs</c> binding document (not part of
     /// the corpus tree) with a pattern that doesn't match anything, then edit it in place to match
     /// one of the corpus's deliberately-unbound steps ("undefined step F-S occurs" — see
