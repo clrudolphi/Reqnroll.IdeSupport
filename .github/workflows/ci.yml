@@ -409,12 +409,34 @@ jobs:
           name: server-osx-arm64
           path: ${{ env.VSCODE_DIR }}/server/osx-arm64
 
+      - name: Restore executable bit on downloaded server/connector binaries
+        # actions/upload-artifact + download-artifact round-trip through a zip that doesn't
+        # reliably preserve the Unix executable bit (issue #252 investigation) — every
+        # extensionless native apphost (the LSP server itself, and each per-TFM
+        # reqnroll-ide-connector) comes back non-executable, so `npm test`'s client.start()
+        # would silently fail to spawn it (swallowed by extension.ts's .catch(), no console
+        # output — just a timeout waiting for State.Running). Same binaries a packaged VSIX
+        # ships to real Mac/Linux users, so this isn't just a test-fixture problem.
+        run: |
+          find "${{ env.VSCODE_DIR }}/server/linux-x64" "${{ env.VSCODE_DIR }}/server/osx-x64" "${{ env.VSCODE_DIR }}/server/osx-arm64" \
+            \( -name 'Reqnroll.IdeSupport.LSP.Server' -o -name 'reqnroll-ide-connector' \) \
+            -type f -exec chmod +x {} +
+
       - name: Install dependencies
         run: npm ci
         working-directory: ${{ env.VSCODE_DIR }}
 
       - name: Compile TypeScript
         run: npm run compile
+        working-directory: ${{ env.VSCODE_DIR }}
+
+      - name: Run extension tests
+        # xvfb-run gives the Extension Development Host (a real Electron/VS Code window) a
+        # display to render into on this headless Linux runner; ubuntu-latest ships Xvfb
+        # preinstalled for exactly this kind of GUI test. Only runs here (not in tsc-only)
+        # because it needs the server binaries downloaded above to actually start the LSP
+        # client — see issue #205/#249 and the workspace-root fix in runTest.ts for #252.
+        run: xvfb-run -a npm test
         working-directory: ${{ env.VSCODE_DIR }}
 
       - name: Lint
