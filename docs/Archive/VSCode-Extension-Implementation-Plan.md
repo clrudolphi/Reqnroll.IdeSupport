@@ -9,7 +9,7 @@
 > recorded in project memory, not reflected in the table below — the table is otherwise accurate.
 > **Branch:** `feat/vscode-extension-initial`
 > **Original date:** 2026-06-30
-> **Source:** [Porting-to-VSCode-Rider-Analysis](Porting-to-VSCode-Rider-Analysis.md), [LSP-IDE-Support-Architecture](LSP-IDE-Support-Architecture.md)
+> **Source:** [Porting-to-VSCode-Rider-Analysis](Archive/Porting-to-VSCode-Rider-Analysis.md) (archived), [LSP-IDE-Support-Architecture](LSP-IDE-Support-Architecture.md)
 
 ---
 
@@ -160,7 +160,7 @@ After VS Code stabilizes, the analysis recommends tackling Rider with these task
 | R7 | Gutter run icons | ~200–400 lines |
 | R8 | Failing-step gutter marks | ~200–300 lines |
 
-See the [Porting-analysis](Porting-to-VSCode-Rider-Analysis.md) §7.2 for the full Rider plan.
+See the [Porting-analysis](Archive/Porting-to-VSCode-Rider-Analysis.md) §7.2 (archived) for the full Rider plan as originally scoped; Rider implementation has since shipped — see [Rider-Project-Document-Sync-Implementation-Plan.md](Rider-Project-Document-Sync-Implementation-Plan.md) and the Architecture §6.4 matrix for current status.
 
 ---
 

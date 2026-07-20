@@ -1,13 +1,22 @@
 # Porting Reqnroll.IdeSupport.LSP to VS Code and Rider — Feasibility Analysis
 
-> **Status:** Internal analysis draft — **VS Code section superseded** (2026-07-02) by
-> [VSCode-Extension-Implementation-Plan.md](VSCode-Extension-Implementation-Plan.md), which now
-> reflects the built extension. The **Rider section (feasibility, R1–R8 task breakdown) is still
-> the active reference** — no Rider implementation work has started yet.
+> **ARCHIVED (2026-07-20).** Both sections are superseded: VS Code by
+> [VSCode-Extension-Implementation-Plan.md](../VSCode-Extension-Implementation-Plan.md) since
+> 2026-07-02, and Rider — despite the claim below that "no Rider implementation work has started
+> yet" — by extensive shipped work (issues #157–#166: rename refactoring, document
+> outline/structure view, go-to-hooks, code folding, comment toggle, code lens, all closed
+> 2026-07-16–2026-07-18; see [Rider-Project-Document-Sync-Implementation-Plan.md](../Rider-Project-Document-Sync-Implementation-Plan.md)
+> and the Architecture §6.4 matrix for current status). Kept for historical context only —
+> **do not treat any claim below as current.**
+>
+> **Original status:** Internal analysis draft — VS Code section superseded (2026-07-02) by
+> VSCode-Extension-Implementation-Plan.md, which now reflects the built extension. The Rider
+> section (feasibility, R1–R8 task breakdown) was believed still the active reference — no Rider
+> implementation work had started yet.
 > **Date:** 2026-06-29  
 > **Audience:** Core team  
 > **Author:** Hermes Agent  
-> **Related:** [LSP-IDE-Support-Architecture](LSP-IDE-Support-Architecture.md), [LSP-IDE-Support-Feature-Designs](LSP-IDE-Support-Feature-Designs.md)
+> **Related:** [LSP-IDE-Support-Architecture](../LSP-IDE-Support-Architecture.md), [LSP-IDE-Support-Feature-Designs](../LSP-IDE-Support-Feature-Designs.md)
 
 ---
 
@@ -92,7 +101,7 @@ Skipped in this analysis per the user's framing — the VS client is already bui
 
 ## 3. Reqnroll.IdeSupport.LSP Feature Inventory
 
-The server already implements or has design documents for the full feature set planned in the Architecture document. The mapping to the [Feature Design doc](LSP-IDE-Support-Feature-Designs.md) follows:
+The server already implements or has design documents for the full feature set planned in the Architecture document. The mapping to the [Feature Design doc](../LSP-IDE-Support-Feature-Designs.md) follows:
 
 | ID | Feature | Status (Server) | VS Code | Rider | Notes |
 |----|---------|----------------|---------|-------|-------|
@@ -218,7 +227,7 @@ This section catalogues every feature that requires client-side code because the
 
 ### R1 · Rider Custom Notification Transport (Medium)
 
-> **Resolved (design-level) — see [Rider-Project-Document-Sync-Implementation-Plan.md](Rider-Project-Document-Sync-Implementation-Plan.md).**
+> **Resolved (design-level) — see [Rider-Project-Document-Sync-Implementation-Plan.md](../Rider-Project-Document-Sync-Implementation-Plan.md).**
 > `LspServer`/`LspServerManager` confirmed to have no generic `sendNotification`, but JetBrains'
 > own docs confirm a supported typed path: override `LspServerDescriptor.lsp4jServerClass` with a
 > custom LSP4J interface annotated with `@JsonNotification`. The linked plan scopes the actual

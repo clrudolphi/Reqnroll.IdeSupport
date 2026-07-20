@@ -20,11 +20,18 @@
 > `DocumentActivationState` state machine verbatim, driven by `FileEditorManagerListener` instead
 > of raw LSP-pipe interception (which doesn't exist on Rider). All four `reqnroll/*` lifecycle
 > notifications now have working client-side glue, verified via `compileKotlin`/`buildPlugin`/
-> `verifyPlugin`/`test` inside the devcontainer. **Not yet verified end-to-end against a live
+> `verifyPlugin`/`test` inside the devcontainer.
+> **Update (2026-07-20):** the "not yet verified end-to-end" caveat below is superseded — live
+> `runIde` verification did happen in the interim, as a byproduct of the broader Rider
+> feature-parity push (issues #157–#166: rename, document outline/structure view, go-to-hooks,
+> code folding, comment toggle, code lens), all closed 2026-07-16–2026-07-18. Several of those
+> fixes (e.g. the EDT-thread-violation bugs) are only reproducible against a live server
+> connection, so the lifecycle sync this plan describes has been exercised end-to-end since.
+> Original note follows: **Not yet verified end-to-end against a live
 > server connection** — no `runIde` session driven this round; see §6.
 > **Audience:** Core team contributors picking up Rider glue work after the skeleton (`src/Rider`).
 > **Supersedes:** Risk **R1 · Rider Custom Notification Transport** in
-> [Porting-to-VSCode-Rider-Analysis.md](Porting-to-VSCode-Rider-Analysis.md) — that risk asked
+> [Porting-to-VSCode-Rider-Analysis.md](Archive/Porting-to-VSCode-Rider-Analysis.md) (archived — its Rider section predates all Rider implementation work) — that risk asked
 > "investigate whether Rider's `LspServer` API supports `sendNotification`"; this plan answers it
 > (short answer: no generic method, but a supported typed-interface path exists — §3.1) and scopes
 > the actual work.
@@ -336,7 +343,7 @@ Extends the existing TODO list in `src/Rider/CONTRIBUTING.md`:
 
 ## References
 
-- [Porting-to-VSCode-Rider-Analysis.md](Porting-to-VSCode-Rider-Analysis.md) §5.3, §6 R1 (superseded by this plan)
+- [Porting-to-VSCode-Rider-Analysis.md](Archive/Porting-to-VSCode-Rider-Analysis.md) §5.3, §6 R1 (archived — superseded by this plan)
 - [VSCode-Extension-Implementation-Plan.md](VSCode-Extension-Implementation-Plan.md) — Rider (Phase 2) task table, R5
 - `src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Extension/LspNotifications/VsProjectEventMonitor.cs`,
   `VsProjectPayloadBuilder.cs`, `LspProjectPreloadPusher.cs`
