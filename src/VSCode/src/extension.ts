@@ -78,7 +78,7 @@ function resolveServerPath(context: vscode.ExtensionContext): string {
       ? 'Reqnroll.IdeSupport.LSP.Server.exe'
       : 'Reqnroll.IdeSupport.LSP.Server';
 
-  return path.join(
+  const localBuildOutput = path.join(
     context.extensionPath,
     '..',
     '..',
@@ -92,6 +92,15 @@ function resolveServerPath(context: vscode.ExtensionContext): string {
     'publish',
     devBinaryName,
   );
+  if (fs.existsSync(localBuildOutput)) {
+    return localBuildOutput;
+  }
+
+  // Falls back to the same server/<rid>/ layout the isProduction branch above checks — CI's
+  // build-vscode-extension job downloads the published server there (see ci.yml) but never runs
+  // a local `dotnet publish` of LSP.Server, so the Extension Development Host used by `npm test`
+  // (extensionMode is never Production there) would otherwise never find a server binary at all.
+  return path.join(context.extensionPath, 'server', devRid, devBinaryName);
 }
 
 /** Public surface exposed via the extension's `exports` (see `vscode.Extension.exports`), for tests. */
