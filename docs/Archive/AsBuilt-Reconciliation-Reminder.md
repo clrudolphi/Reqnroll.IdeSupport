@@ -1,6 +1,18 @@
 # ⚠️ As-Built Reconciliation — Fold Back Into the Design Docs
 
-> **Status:** Open action — do **not** delete until every box below is checked.
+> **ARCHIVED (2026-07-20).** Tracking issues #134–#137 are all closed, but a 2026-07-20 review
+> found one piece of the underlying doc work was **not** actually finished when #134 was closed:
+> the `LSP-IDE-Support-Architecture.md` component inventory still listed only the old monolithic
+> `StepRenameHandler`, missing the decomposition from #139/#140 (`WorkspaceEditBuilder`,
+> `CSharpAttributeLiteralResolver`, `RenameBindingResolver`, `NewNameReconciler`,
+> `RenamePostApplyCoordinator`, `RenameTargetsHandler`). That gap was fixed directly in the same
+> 2026-07-20 pass rather than through this file's checklist. (The "OmniSharp tops out at LSP 3.17"
+> fact from #136, by contrast, checks out fine — it's already in Architecture.md §10.2.) Kept for
+> historical context on how the rename-annotations and inlay-hints reconciliation actually played
+> out; **the checklist below no longer reflects outstanding work** — treat
+> `LSP-IDE-Support-Architecture.md` itself as the source of truth.
+>
+> **Original status:** Open action — do **not** delete until every box below is checked.
 > **Why this exists:** The three protocol-upgrade plans below are standalone *implementation* plans. The canonical design lives in the four `docs/LSP-IDE-Support-*` documents. When the work lands, the as-built reality must be folded back into the canonical set so the design docs do not rot — and so the next contributor (or the next AI session) reads truth, not intent.
 >
 > **Trigger:** Open this file when all three features have shipped (or any one ships independently). This is a post-implementation chore, not a pre-implementation one.
@@ -13,8 +25,8 @@
 
 | Plan | Protocol origin | Status |
 |---|---|---|
-| [Rename-ChangeAnnotations-Implementation-Plan.md](Rename-ChangeAnnotations-Implementation-Plan.md) | LSP 3.16 `ChangeAnnotation` / `AnnotatedTextEdit` | **Implemented (2026-07-11, #70/#133)** — Phases A–C done; VS manual undo-granularity verification (RA-1) still open. Canonical-doc reconciliation tracked in [#134](https://github.com/reqnroll/Reqnroll.IdeSupport/issues/134). |
-| [InlayHints-Implementation-Plan.md](InlayHints-Implementation-Plan.md) | LSP 3.17 `textDocument/inlayHint` | **Implemented (shipped: #43 "F23", follow-ups #57, #77)** — the plan doc's own status header is stale ("Draft for review"); the feature is fully wired up (`GherkinInlayHintService`, `FeatureInlayHintHandler`, `InlayHintRefreshHandler`). Canonical-doc reconciliation tracked in [#135](https://github.com/reqnroll/Reqnroll.IdeSupport/issues/135). |
+| [Rename-ChangeAnnotations-Implementation-Plan.md](../Rename-ChangeAnnotations-Implementation-Plan.md) | LSP 3.16 `ChangeAnnotation` / `AnnotatedTextEdit` | **Implemented (2026-07-11, #70/#133)** — Phases A–C done; VS manual undo-granularity verification (RA-1) still open. Canonical-doc reconciliation tracked in [#134](https://github.com/reqnroll/Reqnroll.IdeSupport/issues/134). |
+| [InlayHints-Implementation-Plan.md](../InlayHints-Implementation-Plan.md) | LSP 3.17 `textDocument/inlayHint` | **Implemented (shipped: #43 "F23", follow-ups #57, #77)** — the plan doc's own status header is stale ("Draft for review"); the feature is fully wired up (`GherkinInlayHintService`, `FeatureInlayHintHandler`, `InlayHintRefreshHandler`). Canonical-doc reconciliation tracked in [#135](https://github.com/reqnroll/Reqnroll.IdeSupport/issues/135). |
 | ~~PullDiagnostics-Implementation-Plan.md~~ | LSP 3.17 `textDocument/diagnostic` | **Abandoned (2026-06-25), moved to `docs/Archive/`** — OmniSharp 0.19.9 can't serve it (write-side JSON converters are unimplemented stubs). No as-built reconciliation applies; the abandonment decision itself is recorded in `docs/LSP-IDE-Support-Open-Questions.md` Q19. |
 
 Supporting analysis: the OmniSharp library tops out at **LSP 3.17** (`OmniSharp.Extensions.LanguageServer 0.19.9`), so the two still-viable plans are "free" (modelled in the library); anything 3.18+ would be hand-rolled. This fact is already recorded as a Claude memory ([[omnisharp-lsp-version-ceiling]]) but still needs writing into the architecture doc itself — tracked in [#136](https://github.com/reqnroll/Reqnroll.IdeSupport/issues/136).
