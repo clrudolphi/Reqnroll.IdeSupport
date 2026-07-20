@@ -1209,7 +1209,7 @@ sequenceDiagram
 
     alt Cursor on non-binding location or multi-attribute method
         SRenH-->>IDE: null (rename not available)
-        IDE-->>User: F2 gesture unavailable; user navigates to specific attribute
+        IDE-->>User: F2 gesture unavailable, user navigates to specific attribute
     else Single binding resolved
         SRenH-->>IDE: Range of renameable text (attribute string / step text)
         User->>IDE: Types new expression, confirms
@@ -1449,7 +1449,7 @@ sequenceDiagram
         IDE->>SCLH: textDocument/codeLens (.cs file)
         SCLH->>BM: For each binding in file, get usage count from match cache
         BM-->>SCLH: UsageCount per binding
-        SCLH-->>IDE: CodeLens[] (one per attribute; range = method-decl line)
+        SCLH-->>IDE: CodeLens[] (one per attribute, range = method-decl line)
         IDE-->>IDE: Render lens above each binding attribute
     else Visual Studio
         Note over IDE,SCP: VS.Extensibility ICodeLensProvider — one callback per C# method
@@ -1459,7 +1459,7 @@ sequenceDiagram
         SCP->>SCLH: textDocument/codeLens (.cs file)
         SCLH->>BM: For each binding in file, get usage count from match cache
         BM-->>SCLH: UsageCount per binding
-        SCLH-->>SCP: CodeLens[] (one per attribute; range = method-decl line)
+        SCLH-->>SCP: CodeLens[] (one per attribute, range = method-decl line)
         SCP->>SCP: Filter: RangeLine ∈ [currentStartLine, nextMethodStartLine)\nsum usage counts across all attributes on this method
         SCP-->>IDE: CodeLensLabel ("N step usage(s)")
         IDE-->>IDE: Render lens above first attribute of method
