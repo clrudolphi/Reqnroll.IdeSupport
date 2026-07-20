@@ -102,7 +102,7 @@ export class ProjectManager {
   private readonly _client: LanguageClient;
   private readonly _watcher: vscode.FileSystemWatcher;
   private readonly _fileWatcher: vscode.FileSystemWatcher;
-  private readonly _outputWatcher: vscode.FileSystemWatcher;
+  private readonly _outputWatchers = new Map<string, vscode.FileSystemWatcher>();
   private readonly _knownProjects = new Set<string>();
   private readonly _resendTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private _disposables: vscode.Disposable[] = [];
@@ -123,19 +123,6 @@ export class ProjectManager {
     this._fileWatcher.onDidCreate((uri) => this.scheduleResend(uri));
     this._fileWatcher.onDidDelete((uri) => this.scheduleResend(uri));
 
-    // Forward output-assembly build events to the server as a standard
-    // workspace/didChangeWatchedFiles notification (see v5 above) — a fallback in case the
-    // server's own dynamically-registered watcher for this same glob doesn't fire reliably.
-    // findOwningProjectFile narrows to a known project (or no-ops for paths outside any known
-    // project), so the extra watch surface beyond one project's own OutputAssemblyPath is harmless.
-    this._outputWatcher = vscode.workspace.createFileSystemWatcher('**/bin/**/*.dll');
-    this._outputWatcher.onDidCreate((uri) =>
-      this.notifyOutputAssemblyChanged(uri, FileChangeType.Created),
-    );
-    this._outputWatcher.onDidChange((uri) =>
-      this.notifyOutputAssemblyChanged(uri, FileChangeType.Changed),
-    );
-
     // Re-run discovery when a workspace folder is added (e.g. a multi-root workspace gains a
     // folder with its own .csproj/.feature files), and drop projects under a removed folder.
     this._disposables.push(
@@ -152,7 +139,8 @@ export class ProjectManager {
   dispose(): void {
     this._watcher.dispose();
     this._fileWatcher.dispose();
-    this._outputWatcher.dispose();
+    for (const watcher of this._outputWatchers.values()) watcher.dispose();
+    this._outputWatchers.clear();
     for (const timer of this._resendTimers.values()) clearTimeout(timer);
     this._resendTimers.clear();
     for (const d of this._disposables) d.dispose();
@@ -244,6 +232,14 @@ export class ProjectManager {
     const { props } = await this.sendProjectLoaded(projectFile);
     if (!props) return; // msbuild unavailable — index stays Pending, same as v1 fallback
     await this.sendProjectFilesBaseline(projectFile, props.targetFrameworkMoniker, props.files);
+
+    // v5: arm the output-assembly watcher if this resend is what first discovered
+    // outputAssemblyPath (e.g. initial registration ran before `dotnet restore`). Guarded so a
+    // project resent more than once (this path isn't one-shot like registerProject) doesn't leak
+    // a duplicate watcher.
+    if (props.outputAssemblyPath && !this._outputWatchers.has(projectFile)) {
+      this.watchProjectOutputPath(projectFile, props.outputAssemblyPath);
+    }
   }
 
   /**
@@ -300,7 +296,29 @@ export class ProjectManager {
         result.props.targetFrameworkMoniker,
         result.props.files,
       );
+
+      // v5: Forward output-assembly build events to the server as a standard
+      // workspace/didChangeWatchedFiles notification. Instead of a workspace-wide
+      // **/bin/**/*.dll glob that fires on every project's bin/ output (including
+      // unrelated dependency DLLs), watch only this project's output directory.
+      if (result.props.outputAssemblyPath) {
+        this.watchProjectOutputPath(projectFile, result.props.outputAssemblyPath);
+      }
     }
+  }
+
+  private watchProjectOutputPath(projectFile: string, outputAssemblyPath: string): void {
+    const outputDir = path.dirname(outputAssemblyPath);
+
+    // Use a RelativePattern scoped to the project's output directory instead of a
+    // workspace-wide **/bin/**/*.dll glob that fires on every project's DLL output.
+    const watcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(outputDir, '*.dll'),
+    );
+    watcher.onDidCreate((uri) => this.notifyOutputAssemblyChanged(uri, FileChangeType.Created));
+    watcher.onDidChange((uri) => this.notifyOutputAssemblyChanged(uri, FileChangeType.Changed));
+
+    this._outputWatchers.set(projectFile, watcher);
   }
 
   /**
@@ -379,6 +397,13 @@ export class ProjectManager {
   private async unregisterProject(uri: vscode.Uri): Promise<void> {
     const projectFile = uri.fsPath;
     if (!this._knownProjects.has(projectFile)) return;
+
+    // Dispose the scoped output-assembly watcher for this project
+    const watcher = this._outputWatchers.get(projectFile);
+    if (watcher) {
+      watcher.dispose();
+      this._outputWatchers.delete(projectFile);
+    }
 
     const params = { projectFile };
 
