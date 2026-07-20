@@ -6,6 +6,7 @@ using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Performance;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Registry;
+using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Features.References;
@@ -39,6 +40,7 @@ public sealed class FindStepUsagesHandler
     private readonly ILspWorkspaceScopeManager    _scopeManager;
     private readonly IProjectBindingRegistryLookup _registryLookup;
     private readonly IIdeSupportLogger               _logger;
+    private readonly ILspTelemetryService?         _telemetryService;
     private readonly IOperationDurationRecorder    _recorder;
 
     /// <summary>Initializes a new instance of the <see cref="FindStepUsagesHandler"/> class.</summary>
@@ -47,12 +49,14 @@ public sealed class FindStepUsagesHandler
         ILspWorkspaceScopeManager     scopeManager,
         IProjectBindingRegistryLookup registryLookup,
         IIdeSupportLogger               logger,
+        ILspTelemetryService?         telemetryService = null,
         IOperationDurationRecorder?   recorder = null)
     {
         _matchService   = matchService;
         _scopeManager   = scopeManager;
         _registryLookup = registryLookup;
         _logger         = logger;
+        _telemetryService = telemetryService;
         _recorder       = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
@@ -109,6 +113,11 @@ public sealed class FindStepUsagesHandler
 
             _logger.LogVerbose(
                 $"FindStepUsagesHandler: binding at {filePath}:{line} has 0 usages");
+            _telemetryService?.SendEvent("FindStepDefinitionUsages command executed", new()
+            {
+                ["UsagesCount"] = 0,
+                ["IsCancelled"] = cancellationToken.IsCancellationRequested,
+            });
             return Task.FromResult<FindStepUsagesResponse>(
                 new FindStepUsagesResponse { IsBinding = true });
         }
@@ -119,6 +128,13 @@ public sealed class FindStepUsagesHandler
         var items = usages
             .Select(match => ToItem(match))
             .ToList();
+
+        // Telemetry
+        _telemetryService?.SendEvent("FindStepDefinitionUsages command executed", new()
+        {
+            ["UsagesCount"] = usages.Count,
+            ["IsCancelled"] = cancellationToken.IsCancellationRequested,
+        });
 
         return Task.FromResult<FindStepUsagesResponse>(
             new FindStepUsagesResponse { IsBinding = true, Locations = items });

@@ -11,6 +11,7 @@ using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
 using Reqnroll.IdeSupport.LSP.Server.Performance;
 using Reqnroll.IdeSupport.LSP.Server.Protocol;
 using Reqnroll.IdeSupport.LSP.Server.Protocol.Documents;
+using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -29,6 +30,7 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
     private readonly ILspWorkspaceScopeManager     _scopeManager;
     private readonly IDocumentBufferService        _bufferService;
     private readonly IIdeSupportLogger               _logger;
+    private readonly ILspTelemetryService?         _telemetryService;
     private readonly IOperationDurationRecorder    _recorder;
 
     /// <summary>Initializes a new instance of the <see cref="FeatureCodeActionHandler"/> class.</summary>
@@ -38,6 +40,7 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
         ILspWorkspaceScopeManager scopeManager,
         IDocumentBufferService    bufferService,
         IIdeSupportLogger            logger,
+        ILspTelemetryService?     telemetryService = null,
         IOperationDurationRecorder? recorder = null)
     {
         _matchService    = matchService;
@@ -45,6 +48,7 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
         _scopeManager    = scopeManager;
         _bufferService   = bufferService;
         _logger          = logger;
+        _telemetryService = telemetryService;
         _recorder        = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
@@ -176,6 +180,21 @@ public sealed class FeatureCodeActionHandler : ICodeActionHandler
         }
 
         _logger.LogVerbose($"FeatureCodeActionHandler: {actions.Count} action(s) for {uri}");
+
+        // Telemetry: records that a "Define step(s)" action was *offered*, not that the user
+        // accepted it — the CodeAction's WorkspaceEdit is applied entirely client-side
+        // (workspace/applyEdit), so unlike CommentToggleHandler's workspace/executeCommand round
+        // trip, the server has no signal for whether the lightbulb was actually clicked. Undefined
+        // step count is the closest available proxy for "how much work this would have saved."
+        if (actions.Count > 0)
+        {
+            _telemetryService?.SendEvent("DefineSteps command offered", new()
+            {
+                ["UndefinedStepCount"] = allUndefined.Count,
+                ["ActionsOffered"] = actions.Count,
+            });
+        }
+
         return Task.FromResult<CommandOrCodeActionContainer?>(
             new CommandOrCodeActionContainer(actions));
     }
