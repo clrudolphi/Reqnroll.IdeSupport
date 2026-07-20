@@ -94,12 +94,19 @@ function resolveServerPath(context: vscode.ExtensionContext): string {
   );
 }
 
+/** Public surface exposed via the extension's `exports` (see `vscode.Extension.exports`), for tests. */
+export interface ReqnrollExtensionApi {
+  getClient(): LanguageClient | undefined;
+}
+
 /**
  * Extension entry point: resolves and launches the Reqnroll LSP server, wires up the
  * language client (middleware, status bar, telemetry, manual `.cs` document sync), and
  * registers all Reqnroll commands.
  */
-export function activate(context: vscode.ExtensionContext): void {
+export function activate(context: vscode.ExtensionContext): ReqnrollExtensionApi {
+  const api: ReqnrollExtensionApi = { getClient: () => client };
+
   const notReady = (label: string) => () => {
     void vscode.window.showInformationMessage(
       `Reqnroll: ${label} will be available once the LSP server is ready.`,
@@ -215,7 +222,7 @@ export function activate(context: vscode.ExtensionContext): void {
           );
         }
       });
-    return;
+    return api;
   }
 
   // ── LSP client ─────────────────────────────────────────────────────────────
@@ -284,6 +291,8 @@ export function activate(context: vscode.ExtensionContext): void {
       const msg = err instanceof Error ? err.message : String(err);
       void vscode.window.showErrorMessage(`Reqnroll LSP server failed to start: ${msg}`);
     });
+
+  return api;
 }
 
 /** Extension teardown: disposes the project manager and stops the language client. */
