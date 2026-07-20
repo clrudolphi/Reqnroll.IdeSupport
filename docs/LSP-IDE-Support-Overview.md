@@ -47,7 +47,7 @@ Much of this document is derived from findings from the [`Reqnroll.Plugin.Visual
 - Test-driven development with clear per-phase verification gates, including **measured**
   performance against defined latency targets, not just functional correctness — see
   [Architecture §9 Performance Verification](LSP-IDE-Support-Architecture.md#performance-verification)
-  for the adopted approach and its as-built benchmarking harness
+  for the adopted approach and its benchmarking harness
 - Release as a "Preview" extension alongside the existing extension during transition
 
 ### Non-Goals
@@ -86,9 +86,11 @@ graph TB
             FmtSvc["Formatting\nService"]
             BindingMatch["Binding Match\nService"]
             SymbolSvc["Symbol / Outline\nService"]
+            InlayHintSvc["Gherkin Inlay Hint\nService (F23)"]
 
             RoslynDiscovery --> BindingRegistry
             BindingMatch --> BindingRegistry
+            InlayHintSvc --> BindingMatch
         end
 
         Handlers --> GherkinParser
@@ -99,6 +101,7 @@ graph TB
         Handlers --> FmtSvc
         Handlers --> BindingMatch
         Handlers --> SymbolSvc
+        Handlers --> InlayHintSvc
     end
 
     subgraph Connector["Binding Connector  (out-of-process)"]
@@ -153,8 +156,8 @@ Each uses a distinct marketplace identifier, coexisting with the existing `Reqnr
 - The new extension has been in Preview use by the core team for at least one release cycle
 
 **Cross-client capability story — Rename change annotations and Inlay Hints**: both features are implemented, but their user-visible richness differs by client rather than being uniformly "done":
-- **Rename change annotations** (extends F16): VS Code and Rider negotiate the LSP 3.16 `changeAnnotationSupport` capability and get a grouped, labelled rename preview. Visual Studio does not advertise `changeAnnotationSupport` and negotiates down to the legacy `Changes`-shaped edit — renames apply silently, exactly as before this feature existed, with no regression. See [Feature Designs — Rename change annotations as-built](LSP-IDE-Support-Feature-Designs.md#rename-change-annotations---as-built).
-- **Inlay Hints (F23)**: `textDocument/inlayHint` is a standard pull feature all three clients support, per the plan's Phase-0 capability verification. Visual Studio additionally requires the user to enable inline hints display in the editor (Tools → Options → Text Editor); the extension does not force this setting on. See [Feature Designs — F23 as-built](LSP-IDE-Support-Feature-Designs.md#f23--inlay-hints-step-binding-info).
+- **Rename change annotations** (extends F16): VS Code and Rider negotiate the LSP 3.16 `changeAnnotationSupport` capability and get a grouped, labelled rename preview. Visual Studio does not advertise `changeAnnotationSupport` and negotiates down to the legacy `Changes`-shaped edit — renames apply silently, exactly as before this feature existed, with no regression. See [Feature Designs — Rename change annotations](LSP-IDE-Support-Feature-Designs.md#rename-change-annotations---as-built).
+- **Inlay Hints (F23)**: `textDocument/inlayHint` is a standard pull feature all three clients support. Visual Studio additionally requires the user to enable inline hints display in the editor (Tools → Options → Text Editor); the extension does not force this setting on. See [Feature Designs — F23 Inlay Hints](LSP-IDE-Support-Feature-Designs.md#f23--inlay-hints-step-binding-info).
 
 **Deprecation of the existing extension**: After promotion, `Reqnroll.VisualStudio` is marked deprecated in the Visual Studio Marketplace. A marketplace description update and a welcome notification in the existing extension direct users to install the new one. The existing extension continues to receive critical bug fixes for one additional release cycle, then enters maintenance-only mode.
 
