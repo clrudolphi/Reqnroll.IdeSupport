@@ -13,6 +13,7 @@ import com.reqnroll.ide.rider.logging.ReqnrollDebugLogger
 import com.reqnroll.ide.rider.lsp.diagnostics.ReqnrollLspDiagnosticsSupport
 import com.reqnroll.ide.rider.lsp.protocol.ReqnrollLanguageServer
 import com.reqnroll.ide.rider.lsp.semantictokens.ReqnrollSemanticTokensSupport
+import com.reqnroll.ide.rider.telemetry.ReqnrollTelemetryEventInterceptor
 import org.eclipse.lsp4j.ClientCapabilities
 import org.eclipse.lsp4j.CodeLensWorkspaceCapabilities
 import org.eclipse.lsp4j.FormattingCapabilities
@@ -83,15 +84,19 @@ class ReqnrollLspServerDescriptor(project: Project) :
 
     /**
      * Wraps the platform's own handler so `workspace/inlayHint/refresh` also refreshes `.feature`
-     * inlay hints (see [ReqnrollInlayHintRefreshInterceptor]) and `workspace/codeLens/refresh`
-     * also refreshes the step-usages CodeVision lens (see [ReqnrollCodeLensRefreshInterceptor]) —
-     * nested so both wrap the same underlying platform handler via Kotlin interface delegation.
+     * inlay hints (see [ReqnrollInlayHintRefreshInterceptor]), `workspace/codeLens/refresh` also
+     * refreshes the step-usages CodeVision lens (see [ReqnrollCodeLensRefreshInterceptor]), and
+     * `telemetry/event` is forwarded to Application Insights (see
+     * [ReqnrollTelemetryEventInterceptor]) — nested so all three wrap the same underlying platform
+     * handler via Kotlin interface delegation.
      */
     override fun createLsp4jClient(serverNotificationsHandler: LspServerNotificationsHandler): Lsp4jClient =
         Lsp4jClient(
-            ReqnrollCodeLensRefreshInterceptor(
-                project,
-                ReqnrollInlayHintRefreshInterceptor(project, serverNotificationsHandler),
+            ReqnrollTelemetryEventInterceptor(
+                ReqnrollCodeLensRefreshInterceptor(
+                    project,
+                    ReqnrollInlayHintRefreshInterceptor(project, serverNotificationsHandler),
+                ),
             ),
         )
 

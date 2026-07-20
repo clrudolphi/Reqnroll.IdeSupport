@@ -71,7 +71,6 @@ public static class ServiceCollectionExtensions
             // "protocol" file gated by the independent --protocol-log-level. Any new code that wants
             // ILogger<T> gets the correctly-configured one for free from that existing pipeline.
             .AddSingleton<IIdeScope, LspIdeScope>()
-            .AddSingleton<ITelemetryService>(sp => NullTelemetryService.Instance)
             // Telemetry: emit telemetry/event notifications, optionally mirrored to a local JSONL
             // debug log (REQNROLL_TELEMETRY_DEBUG_LOG). The decorator wraps the real emitter; when
             // the debug log is unconfigured the sink is a no-op and it simply forwards.
@@ -80,6 +79,13 @@ public static class ServiceCollectionExtensions
             .AddSingleton<ILspTelemetryService>(sp => new FileLoggingLspTelemetryService(
                 sp.GetRequiredService<LspTelemetryService>(),
                 sp.GetRequiredService<ITelemetryDebugLog>()))
+            // ITelemetryService is the LSP.Core-facing contract (shared with the VS/.NET host).
+            // MonitorError forwards to ILspTelemetryService as an "Error" telemetry/event; every
+            // other member is a no-op (VS/host-UI-only concerns the server has no equivalent of) —
+            // see LspErrorTelemetryService's class doc. Previously registered as NullTelemetryService,
+            // which silently dropped LSP.Core exceptions (e.g. Gherkin parse errors) — issue #255.
+            .AddSingleton<ITelemetryService>(sp => new LspErrorTelemetryService(
+                sp.GetRequiredService<ILspTelemetryService>()))
             .AddSingleton<IDeveroomConfigurationProvider, ProjectSystemDeveroomConfigurationProvider>()
             .AddSingleton<IEditorConfigOptionsProvider>(sp =>
                 new FileSystemEditorConfigOptionsProvider(sp.GetRequiredService<IIdeScope>().FileSystem))
