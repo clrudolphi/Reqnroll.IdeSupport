@@ -383,7 +383,7 @@ The Protocol Handler is responsible for the initial synchronous state write; Med
 | Class | LSP messages handled |
 |-------|---------------------|
 | `TextDocumentSyncHandler` | `textDocument/didOpen`, `didChange`, `didClose` — a single handler covers **both** `.feature` and `.cs` documents, routed internally by file extension, rather than one handler per file type (this avoids OmniSharp's ambiguity when two `TextDocumentSyncHandlerBase` implementations claim overlapping documents) |
-| `WorkspaceFilesHandler` | `workspace/didChangeWatchedFiles` |
+| `WatchedFilesHandler` | `workspace/didChangeWatchedFiles` |
 | `SemanticTokensHandler` | `textDocument/semanticTokens/full`, `/delta` |
 | `FeatureDefinitionHandler` | `textDocument/definition` (from `.feature` cursors) |
 | `FeatureCodeActionHandler` | `textDocument/codeAction` |

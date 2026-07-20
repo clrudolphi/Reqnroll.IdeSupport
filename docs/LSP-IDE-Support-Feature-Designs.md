@@ -51,7 +51,7 @@ This section documents the root cause analysis and design resolution for the lin
 The `Minimal/ExternalReferences` corpus links one `.feature` file and two binding `.cs` files from the `Minimal` project into the `ExternalReferences` project. Running the LSP extension against it surfaced three concrete symptoms in the logs:
 
 1. **The connector reports the linked file's *physical* path, identically for every linking project.** `ExternalReferences`'s discovery returns step definitions whose `sourceFiles[0]` is `…\Minimal\Minimal\StepDefinitions\CalculatorStepDefinitions.cs` — the file's home in `Minimal`, not anything under `ExternalReferences\`. `Minimal`'s discovery reports the same path. This is inherent to reflection/PDB sequence points (they record the compile-time source path, which for a linked item is its original location). The connector output therefore gives **no signal** that one registry obtained the binding via a link.
-2. **The workspace-startup glob never sees the linked feature file from its linking project.** The full-replacement scan reported "scanning **1** closed feature file under …\Minimal" but "scanning **0** closed feature file(s) under …\ExternalReferences", and "no open feature files to reparse under …\ExternalReferences" — because the feature file is physically under `Minimal\Minimal\Features\`. This is the "Known limitation" noted in the F14 as-built table.
+2. **The workspace-startup glob never sees the linked feature file from its linking project.** The full-replacement scan reported "scanning **1** closed feature file under …\Minimal" but "scanning **0** closed feature file(s) under …\ExternalReferences", and "no open feature files to reparse under …\ExternalReferences" — because the feature file is physically under `Minimal\Minimal\Features\`. This is the "Known limitation" noted in [F14's implementation notes](#f14--find-step-definition-usages).
 3. **`didOpen`/`didChange` carry only the on-disk URI**, with no project discriminator. This is inherent to LSP — a `TextDocumentItem` has no project field, and the IDE will not tell the server which project's *view* of a shared file is open.
 
 ### Root Cause
@@ -107,7 +107,7 @@ The concrete code changes across the LSP server and VS extension — DTOs, the i
 | 🔧 Plugin | Custom IDE plugin code required |
 | ❌ N/A | Feature is not applicable to this IDE |
 
-> **As-built ground truth**: the per-feature tables below were written at design time (several before the Rider plugin existed) and some now disagree with reality — see the [Cross-IDE client implementation & server-conditional-logic matrix](LSP-IDE-Support-Architecture.md#64-cross-ide-client-implementation--server-conditional-logic-matrix) in the Architecture doc for the current as-built/tracked status of every feature across all three IDEs, plus whether the *server* branches on client identity for it. That table wins wherever the two disagree.
+> **Current status**: for the authoritative, up-to-date per-IDE implementation status of every feature — including whether the *server* branches on client identity for it — see the [Cross-IDE client implementation & server-conditional-logic matrix](LSP-IDE-Support-Architecture.md#64-cross-ide-client-implementation--server-conditional-logic-matrix) in the Architecture doc. That table wins wherever the two disagree.
 
 **Sequence diagram conventions**
 
@@ -204,36 +204,34 @@ sequenceDiagram
     participant IDE
 
     box LightBlue LSP Server
-        participant FSH as FeatureSyncHandler
+        participant TDS as TextDocumentSyncHandler
         participant DTP as DeveroomTagParser
         participant DB as Document Buffer
         participant BMS as Binding Match Service
-        participant FSTH as FeatureSemanticTokensHandler
+        participant STH as SemanticTokensHandler
         participant STS as Semantic Token Service
     end
 
     User->>IDE: Opens / edits .feature file
-    IDE->>FSH: textDocument/didOpen (or didChange)
-    FSH->>DTP: Parse document + match steps against registry
-    DTP-->>FSH: DeveroomTag[] (structural + parse error + match tags)
-    FSH->>DB: Store (URI, version, DeveroomTag[])
-    FSH->>BMS: Store FeatureBindingMatchSet (derived from tags)
+    IDE->>TDS: textDocument/didOpen (or didChange)
+    TDS->>DTP: Parse document + match steps against registry (GherkinDocumentTaggerService)
+    DTP-->>TDS: DeveroomTag[] (structural + parse error + match tags, one AST walk)
+    TDS->>DB: Store (URI, version, DeveroomTag[])
+    TDS->>BMS: Store FeatureBindingMatchSet (derived from tags)
 
-    Note over IDE,FSTH: Client requests token coloring
-    IDE->>FSTH: textDocument/semanticTokens/full
-    FSTH->>DB: Retrieve DeveroomTag[] by URI
-    DB-->>FSTH: DeveroomTag[]
-    FSTH->>STS: Compute tokens from DeveroomTag[]
-    STS-->>FSTH: SemanticTokens[]
-    FSTH-->>IDE: SemanticTokens response
+    Note over IDE,STH: Client requests token coloring
+    IDE->>STH: textDocument/semanticTokens/full
+    STH->>DB: Retrieve DeveroomTag[] by URI
+    DB-->>STH: DeveroomTag[]
+    STH->>STS: Compute tokens from DeveroomTag[]
+    STS-->>STH: SemanticTokens[]
+    STH-->>IDE: SemanticTokens response
     IDE-->>User: Colored keywords, tags, parameters
 ```
 
-> **Note**: Although `textDocument/didChange` may carry only the incremental text delta, the Gherkin parser always re-parses the **entire file**. Gherkin AST nodes carry absolute line/column locations; inserting or deleting a line shifts the position of every subsequent node, making partial re-parse impractical.
+`DeveroomTagParser` (`GherkinDocumentTaggerService`) wraps `DeveroomGherkinParser` (the Gherkin parse step) and in one AST walk produces a `DeveroomTag[]` tree encoding every downstream-needed piece of classification info together: structural spans (keywords, tags, descriptions, comments, doc strings, data tables), parse error spans, and — once a binding registry is available — step match results (`DefinedStep`, `UndefinedStep`, `StepParameter`, `ScenarioOutlinePlaceholder`, hook references). The Document Buffer stores this tag tree rather than a raw AST, and `SemanticTokenService` reads it directly. A `FeatureBindingMatchSet` is derived from the tags in the same pass and stored in the `BindingMatchService`, where Go to Definition, diagnostics, and find-usages features read it. This combined-pass design avoids joining AST structural info with match results at render time, and mirrors the approach `Reqnroll.VisualStudio` used.
 
-> **As-built note**: the sync handler does not call a raw `GherkinParser` directly. Instead it invokes `DeveroomTagParser` (`GherkinDocumentTaggerService`), which wraps `DeveroomGherkinParser` (the Gherkin parse step) and in the **same AST walk** produces a `DeveroomTag[]` tree encoding all downstream-needed classification info: structural spans (keywords, tags, descriptions, comments, doc strings, data tables), parse error spans, and — when a binding registry is available — step match results (`DefinedStep`, `UndefinedStep`, `StepParameter`, `ScenarioOutlinePlaceholder`, hook references). The Document Buffer stores this tag tree rather than a raw AST; the `SemanticTokenService` reads the tag tree directly. A `FeatureBindingMatchSet` is derived from the tags and stored in the `BindingMatchService` for use by Go to Definition, diagnostics, and find-usages features.
->
-> This combined-pass design avoids joining AST structural info with match results at render time, and mirrors the approach from the existing `Reqnroll.VisualStudio` extension.
+Although `textDocument/didChange` may carry only the incremental text delta, the Gherkin parser always re-parses the **entire file**. Gherkin AST nodes carry absolute line/column locations; inserting or deleting a line shifts the position of every subsequent node, making partial re-parse impractical.
 
 ---
 
@@ -273,22 +271,22 @@ sequenceDiagram
     participant IDE
 
     box LightBlue LSP Server
-        participant CSS as CsSyncHandler
-        participant WFH as WorkspaceFilesHandler
-        participant RD as Roslyn Discovery
-        participant BR as Binding Registry
+        participant TDS as TextDocumentSyncHandler
+        participant CDS as ICSharpBindingDiscoveryService
+        participant WFH as WatchedFilesHandler
+        participant BR as ConnectorBindingRegistryProvider
         participant Connector as Reflection Connector
     end
 
-    IDE->>CSS: initialized (workspace folders)
-    CSS->>RD: Scan .cs files in project
-    RD-->>BR: Initial binding set (source-derived)
+    IDE->>TDS: initialized (workspace folders)
+    TDS->>CDS: Scan .cs files in project (StepDefinitionFileParser)
+    CDS-->>BR: Initial binding set (source-derived)
 
     Note over IDE,BR: User saves a .cs step file
-    IDE->>CSS: textDocument/didChange (.cs file)
-    CSS-->>RD: [internal] CsFileChangedNotification
-    Note over CSS,RD: Look up owning project(s) in the membership index
-    RD-->>BR: Replace bindings for that file in EACH owning project's registry
+    IDE->>TDS: textDocument/didChange (.cs file)
+    TDS->>CDS: Parse changed file (StepDefinitionFileParser)
+    Note over CDS,BR: Look up owning project(s) in the membership index
+    CDS->>BR: ApplyRoslynFileUpdateAsync — replace bindings for that file in EACH owning project's registry
     BR-->>BR: [internal] BindingRegistryChangedNotification (per project)
 
     Note over IDE,BR: Build detected (assembly changed)
@@ -296,21 +294,12 @@ sequenceDiagram
     WFH->>Connector: Launch / notify connector process (IPC)
     Connector->>Connector: Reflection scan of assembly
     Connector-->>WFH: BindingDiscoveryResult
-    WFH->>BR: Replace full registry
+    WFH->>BR: TriggerRefresh() — replace full registry
     BR-->>BR: [internal] BindingRegistryChangedNotification
     BR-->>IDE: textDocument/publishDiagnostics (all open feature files)
 ```
 
-#### Implementation status
-
-The Roslyn (source-level) path is **implemented**. The diagram above uses idealized component names; the as-built mapping is:
-
-| Design element | As-built |
-|---|---|
-| `CsSyncHandler` receives `.cs` `didOpen`/`didChange` | `TextDocumentSyncHandler` (one sync handler for `.feature` + `.cs`, routed by extension) |
-| Roslyn Discovery — scan / parse a `.cs` file | `StepDefinitionFileParser` (syntactic; discovers step definitions **and** hooks, with scopes) invoked via `ProjectBindingRegistry.ReplaceBindings(file)` |
-| "Replace bindings for that file" | `ICSharpBindingDiscoveryService` → `ConnectorBindingRegistryProvider.ApplyRoslynFileUpdateAsync` (per-file replace layered on the current registry) |
-| `BindingRegistryChangedNotification` | raised by the provider's `BindingRegistryChanged` event via `BindingRegistryProviderRouter`; consumed by `BindingRegistryChangedHandler`, which re-parses open feature files and refreshes semantic tokens |
+The Roslyn (source-level) path is **implemented**. `TextDocumentSyncHandler` is the single sync handler for both `.feature` and `.cs` documents, routed internally by extension; on a `.cs` `didOpen`/`didChange` it calls `ICSharpBindingDiscoveryService` directly, which parses the file syntactically via `StepDefinitionFileParser` (discovering step definitions **and** hooks, with scopes) and applies the result through `ConnectorBindingRegistryProvider.ApplyRoslynFileUpdateAsync` — a per-file replace layered on the current registry. That provider raises a `BindingRegistryChanged` event, relayed via `BindingRegistryProviderRouter` as the `BindingRegistryChangedNotification` shown above; `BindingRegistryChangedHandler` consumes it, re-parsing open feature files and refreshing semantic tokens.
 
 **Merge / precedence**: the Roslyn patch is layered on top of the connector's current registry and intentionally does **not** advance the connector's last-good assembly hash. A real build (different assembly hash) therefore fully replaces the registry with the authoritative reflection result; with no rebuild, the connector run is a hash-match no-op and the source-level patch persists. This realizes the merge strategy described in [Architecture §7](LSP-IDE-Support-Architecture.md#7-binding-connector).
 
@@ -370,31 +359,33 @@ sequenceDiagram
     participant IDE
 
     box LightBlue LSP Server
-        participant FSH as FeatureSyncHandler
+        participant TDS as TextDocumentSyncHandler
         participant DTP as DeveroomTagParser
         participant BR as Binding Registry
         participant DB as Document Buffer
         participant BMS as Binding Match Service
-        participant DA as Diagnostics Aggregator
+        participant DPH as DiagnosticsPublishHandler
+        participant DA as DiagnosticsAggregator
     end
 
     User->>IDE: Edits .feature file
-    IDE->>FSH: textDocument/didChange
-    FSH->>DTP: Parse document + match steps against registry
+    IDE->>TDS: textDocument/didChange
+    TDS->>DTP: Parse document + match steps in one AST walk
     DTP->>BR: Look up current bindings (per project)
     BR-->>DTP: ProjectBindingRegistry
-    DTP-->>FSH: DeveroomTag[] (structural + parse error + match tags)
-    FSH->>DB: Store updated DeveroomTag[]
-    FSH->>BMS: Store FeatureBindingMatchSet (derived from tags)
-    FSH-->>DA: [internal] MatchCacheChangedNotification
-    DA->>DB: Retrieve ParserError tags for this URI
-    DA->>BMS: Retrieve binding mismatches for this URI
-    DA->>DA: Merge into combined Diagnostic[]
-    DA-->>IDE: textDocument/publishDiagnostics (parse errors + unmatched steps)
+    DTP-->>TDS: DeveroomTag[] (structural + parse error + match tags together)
+    TDS->>DB: Store updated DeveroomTag[]
+    TDS->>BMS: Store FeatureBindingMatchSet (derived from tags)
+    TDS-->>DPH: [internal] MatchCacheChangedNotification
+    DPH->>DB: Retrieve ParserError tags for this URI
+    DPH->>BMS: Retrieve binding mismatches for this URI
+    DPH->>DA: Merge into combined Diagnostic[]
+    DA-->>DPH: GherkinDiagnostic[]
+    DPH-->>IDE: textDocument/publishDiagnostics (parse errors + unmatched steps)
     IDE-->>User: Error squiggles (red, parse errors) + warning squiggles (yellow, unmatched steps)
 ```
 
-> **As-built note**: parsing and binding matching are **not separate pipeline stages**. `DeveroomTagParser` performs both in a single AST walk (see [F1 · as-built note](#f1--gherkin-syntax-highlighting)). Parse errors emerge as `DeveroomTag` items of type `ParserError` — not a separate `ParseErrors[]` — so the `DiagnosticsAggregator` retrieves them from the tag tree alongside `UndefinedStep` and `BindingError` tags. `MatchCacheChangedNotification` is published directly by the sync handler after storing the new tags and match set, skipping the intermediate `ASTChangedNotification` / `BindingMatchInternalHandler` stages.
+Parsing and binding matching are **not separate pipeline stages**: `DeveroomTagParser` performs both in a single AST walk (see [F1](#f1--gherkin-syntax-highlighting)), so there is no intermediate hop between a document change and a diagnostics push. Parse errors emerge as `DeveroomTag` items of type `ParserError` — not a separate `ParseErrors[]` array — so `DiagnosticsAggregator` (`LSP.Core/Diagnostics/`, protocol-agnostic) retrieves them from the tag tree alongside `UndefinedStep` and `BindingError` tags and converts them into `GherkinDiagnostic` records. `DiagnosticsPublishHandler` (`LSP.Server/Handlers/InternalHandlers/`) is the `MatchCacheChangedNotification` consumer shown above: it calls the aggregator, converts each `GherkinDiagnostic.Range` to an LSP `Position`, and pushes via `ILanguageServerFacade.SendNotification("textDocument/publishDiagnostics", ...)`. The `textDocument/didClose` empty-diagnostics push is handled inline in `TextDocumentSyncHandler.Handle(DidCloseTextDocumentParams)` rather than via a separate notification, since no fan-out is required there.
 
 #### Sequence diagram — binding registry change (C# file saved or build completed)
 
@@ -410,28 +401,30 @@ sequenceDiagram
         participant DTP as DeveroomTagParser
         participant DB as Document Buffer
         participant BMS as Binding Match Service
-        participant DA as Diagnostics Aggregator
+        participant DPH as DiagnosticsPublishHandler
+        participant DA as DiagnosticsAggregator
     end
 
     Note over IDE,BR: C# file saved or build detected (see F2)
     BR-->>BMH: [internal] BindingRegistryChangedNotification
     loop For each open .feature file
-        BMH->>DTP: Re-parse + re-match (updated registry)
+        BMH->>DTP: Re-parse + re-match (updated registry, from snapshot text)
         DTP-->>BMH: DeveroomTag[] (updated match tags)
         BMH->>DB: Store updated DeveroomTag[]
         BMH->>BMS: Store updated FeatureBindingMatchSet
-        BMH-->>DA: [internal] MatchCacheChangedNotification (featureURI)
-        DA->>DB: Retrieve ParserError tags for featureURI
-        DA->>BMS: Retrieve binding mismatches for featureURI
-        DA->>DA: Merge into combined Diagnostic[]
-        DA-->>IDE: textDocument/publishDiagnostics (featureURI)
+        BMH-->>DPH: [internal] MatchCacheChangedNotification (featureURI)
+        DPH->>DB: Retrieve ParserError tags for featureURI
+        DPH->>BMS: Retrieve binding mismatches for featureURI
+        DPH->>DA: Merge into combined Diagnostic[]
+        DA-->>DPH: GherkinDiagnostic[]
+        DPH-->>IDE: textDocument/publishDiagnostics (featureURI)
     end
     IDE-->>IDE: Feature file squiggles updated
 ```
 
-> **As-built note**: when the registry changes, `BindingRegistryChangedHandler` re-invokes `DeveroomTagParser` for each open feature file. Because `DeveroomTagParser` takes the snapshot text (not a cached AST) as input, the Gherkin text is re-parsed on every registry-change re-tag — a minor inefficiency versus a pure re-match on a cached AST. This is accepted because Gherkin parsing is fast and caching the intermediate `DeveroomGherkinDocument` separately from the tag tree would add complexity without a compelling user-visible benefit.
+When the registry changes, `BindingRegistryChangedHandler` re-invokes `DeveroomTagParser` for each open feature file, taking the snapshot text (not a cached AST) as input — so the Gherkin text is re-parsed on every registry-change re-tag, a minor cost accepted because Gherkin parsing is fast and caching the intermediate `DeveroomGherkinDocument` separately from the tag tree would add complexity without a compelling user-visible benefit.
 
-> **As-built note — implementation classes**: the "DA" participant in the sequence diagrams above covers two cooperating classes. `DiagnosticsAggregator` (`LSP.Core/Diagnostics/`) is a protocol-agnostic service that converts `ParserError` tags and `FeatureBindingMatchSet.Undefined` steps into `GherkinDiagnostic` records (no OmniSharp dependency). `DiagnosticsPublishHandler` (`LSP.Server/Handlers/InternalHandlers/`) is the `INotificationHandler<MatchCacheChangedNotification>` that retrieves tags and the match set, calls the aggregator, converts `GherkinDiagnostic.Range` to LSP `Position` values (same `ResolvePosition` algorithm as `SemanticTokenService`), and pushes via `ILanguageServerFacade.SendNotification("textDocument/publishDiagnostics", PublishDiagnosticsParams)` — the same pattern used by `SemanticTokensPushHandler`. `DiagnosticsPublishHandler` is auto-discovered by the `AddMediatR(typeof(Program))` scan; no explicit DI registration is needed. The `textDocument/didClose` empty-diagnostics push is handled inline in `TextDocumentSyncHandler.Handle(DidCloseTextDocumentParams)` rather than via a separate notification, since no fan-out is required.
+`DiagnosticsAggregator` (`LSP.Core/Diagnostics/`) is a protocol-agnostic service with no OmniSharp dependency; `DiagnosticsPublishHandler` (`LSP.Server/Handlers/InternalHandlers/`) is the `INotificationHandler<MatchCacheChangedNotification>` that retrieves tags and the match set, calls the aggregator, converts each `GherkinDiagnostic.Range` to an LSP `Position` (the same `ResolvePosition` algorithm `SemanticTokenService` uses), and pushes via `ILanguageServerFacade.SendNotification("textDocument/publishDiagnostics", PublishDiagnosticsParams)` — the same pattern `SemanticTokensPushHandler` uses. `DiagnosticsPublishHandler` is auto-discovered by the `AddMediatR(typeof(Program))` scan; no explicit DI registration is needed.
 
 ---
 
@@ -530,7 +523,7 @@ When one or more steps have no matching binding, a code action "Define missing s
 | Client → Server | `codeAction/resolve` (optional) | Resolve edit lazily |
 | Server → Client | `workspace/applyEdit` | Apply generated step file content |
 
-> **Note**: When the client applies a `WorkspaceEdit` that creates or modifies a `.cs` file, the resulting `textDocument/didChange` triggers `CsSyncHandler`, which initiates Roslyn re-discovery and keeps the Binding Registry current.
+> **Note**: When the client applies a `WorkspaceEdit` that creates or modifies a `.cs` file, the resulting `textDocument/didChange` reaches `TextDocumentSyncHandler`, which calls `ICSharpBindingDiscoveryService` directly (see [F2](#f2--binding-discovery)) and keeps the Binding Registry current.
 
 #### Sequence diagram
 
@@ -542,9 +535,9 @@ sequenceDiagram
     box LightBlue LSP Server
         participant FCAH as FeatureCodeActionHandler
         participant BM as Binding Match Service
-        participant SS as Step Scaffold Service
-        participant CSS as CsSyncHandler
-        participant RD as Roslyn Discovery
+        participant SS as StepScaffoldService
+        participant TDS as TextDocumentSyncHandler
+        participant CDS as ICSharpBindingDiscoveryService
     end
 
     User->>IDE: Click lightbulb on unmatched step
@@ -558,8 +551,8 @@ sequenceDiagram
     IDE->>FCAH: codeAction/resolve or direct apply
     FCAH-->>IDE: workspace/applyEdit
     IDE-->>User: Step definition file created/updated
-    IDE->>CSS: textDocument/didChange (.cs file created/modified)
-    CSS-->>RD: [internal] CsFileChangedNotification
+    IDE->>TDS: textDocument/didChange (.cs file created/modified)
+    TDS->>CDS: Parse changed file, patch the Binding Registry
 ```
 
 ---
@@ -568,7 +561,7 @@ sequenceDiagram
 
 **Phase 3** — **Implemented** (branch `f7_and_f8_completions`)
 
-#### As-built notes
+#### Implementation notes
 
 - **Handler**: `GherkinCompletionHandler` (`LSP.Server/Handlers/ProtocolHandlers/`) implements `ICompletionHandler` and is registered via OmniSharp dynamic registration (`AddHandler<GherkinCompletionHandler>()`, document selector `**/*.feature`).
 - **Core logic**: `CompletionService.GetKeywordCompletions(TokenType[], GherkinDialect)` and `GetDefaultKeywordCompletions(GherkinDialect)` in `LSP.Core/Editor/Completions/`.
@@ -627,7 +620,7 @@ sequenceDiagram
 
 **Phase 4** — **Implemented** (branch `f7_and_f8_completions`)
 
-#### As-built notes
+#### Implementation notes
 
 - **Handler**: same `GherkinCompletionHandler` as F7. Step completion is dispatched when the cursor is on a step line (`DeveroomTagTypes.StepBlock` tag) and `cursorOffset >= stepTextStart` (past the keyword).
 - **Step text start**: `snapshotLine.Start + (step.Location.Column - 1) + step.Keyword.Length` (1-based Gherkin location, keyword includes trailing space).
@@ -724,25 +717,20 @@ sequenceDiagram
     box LightBlue LSP Server
         participant FDSH as FeatureDocumentSymbolHandler
         participant DB as Document Buffer
-        participant SS as Symbol Service
+        participant SS as GherkinDocumentSymbolService
     end
 
     IDE->>FDSH: textDocument/documentSymbol
-    FDSH->>DB: Retrieve AST by URI
-    DB-->>FDSH: Gherkin AST
-    FDSH->>SS: Build symbol hierarchy from AST
-    SS-->>FDSH: DocumentSymbol[] (nested)
+    FDSH->>DB: Retrieve DeveroomTag tree by URI
+    DB-->>FDSH: DeveroomTag[]
+    FDSH->>SS: Build symbol hierarchy from tag tree
+    SS-->>FDSH: GherkinDocumentSymbol[] (nested, protocol-agnostic)
+    FDSH->>FDSH: Convert to OmniSharp DocumentSymbol[]
     FDSH-->>IDE: DocumentSymbol[] response
     IDE-->>IDE: Render outline panel
 ```
 
-#### As-built notes
-
-- `GherkinDocumentSymbolService` (LSP.Core) walks the `DeveroomTag` tree and returns a `GherkinDocumentSymbol` hierarchy (protocol-agnostic model).
-- `FeatureDocumentSymbolHandler` (LSP.Server) converts to OmniSharp `DocumentSymbol[]` and registers via `AddHandler<>`.
-- Symbol kind mapping: Feature→Module, Background→Constructor, Rule→Namespace, Scenario/ScenarioOutline→Method, Step→Field, Examples→Array.
-- `DocumentSymbol.Children` is `init`-only; children must be wrapped in `Container<DocumentSymbol>` and set in the object initializer.
-- VS integration gap documented above; all other LSP-native clients (VS Code, Rider) receive the outline via the generic handler.
+`GherkinDocumentSymbolService` (`LSP.Core`) walks the `DeveroomTag` tree — the same tree F1's semantic tokens read — and returns a `GherkinDocumentSymbol` hierarchy as a protocol-agnostic model. `FeatureDocumentSymbolHandler` (`LSP.Server`) converts that into OmniSharp `DocumentSymbol[]` and registers via `AddHandler<>`. Symbol kind mapping: Feature→Module, Background→Constructor, Rule→Namespace, Scenario/ScenarioOutline→Method, Step→Field, Examples→Array. `DocumentSymbol.Children` is `init`-only, so children are wrapped in `Container<DocumentSymbol>` and set in the object initializer. VS Code and Rider receive the outline via this generic handler; Visual Studio's separate route is covered below.
 
 ---
 
@@ -760,7 +748,7 @@ Scenarios, Backgrounds, Rules, doc strings, and data tables can be collapsed in 
 |---------|---------------|-------|
 | ✅ Generic | ✅ Generic | 🔧 Plugin |
 
-Written at design time assuming all three IDEs would render folding purely through their generic LSP client. Confirmed true for VS Code and Visual Studio, but **not** for Rider (issue #162): bytecode inspection of the pinned Rider 2024.3.5 `com.intellij.platform.lsp.api.LspServerDescriptor` found no `lspFoldingRangeSupport` opt-in and no `LspFoldingRangeSupport` customization class at all — Rider's generic client has no rendering-side consumer for `textDocument/foldingRange`, the same class of gap as CodeLens/inlay hints/on-type formatting. See the Rider as-built note below.
+VS Code and Visual Studio render folding purely through their generic LSP client. Rider does not (issue #162): bytecode inspection of the pinned Rider 2024.3.5 `com.intellij.platform.lsp.api.LspServerDescriptor` found no `lspFoldingRangeSupport` opt-in and no `LspFoldingRangeSupport` customization class at all — Rider's generic client has no rendering-side consumer for `textDocument/foldingRange`, the same class of gap as CodeLens/inlay hints/on-type formatting. See the Rider section below for how the plugin covers it instead.
 
 #### LSP messages
 
@@ -788,15 +776,9 @@ sequenceDiagram
     IDE-->>IDE: Render fold markers in gutter
 ```
 
-#### Rider — as-built
+#### Rider
 
-F10 is **implemented** (issue #162), following the same manual-glue pattern as F18/F23 rather than the generic pull the design assumed:
-
-| Design element | As-built |
-|---|---|
-| Request | `ReqnrollRequestSender.foldingRange(project, uri)` calls the *standard* `textDocument/foldingRange` request directly (no custom `@JsonRequest` needed — same as `codeLens`/`inlayHint`). |
-| Rendering | `ReqnrollFeatureFoldingController` (an `EditorFactoryListener`, not a PSI-based `FoldingBuilder` — `.feature` has no registered `ParserDefinition`, same reasoning as `ReqnrollFeatureInlayHintsController`) adds fold regions directly against `Editor.foldingModel`, debounced on document edits. |
-| State preservation | Fold regions are tagged via `FoldRegion`'s `UserDataHolder` so a debounced rebuild only touches Reqnroll-owned regions and restores each region's expand/collapse state by matching (startOffset, endOffset) — otherwise every keystroke would silently re-expand everything the user had manually collapsed. |
+F10 is **implemented** (issue #162), following the same manual-glue pattern as F18/F23: `ReqnrollRequestSender.foldingRange(project, uri)` calls the *standard* `textDocument/foldingRange` request directly (no custom `@JsonRequest` needed — same as `codeLens`/`inlayHint`), and `ReqnrollFeatureFoldingController` — an `EditorFactoryListener`, not a PSI-based `FoldingBuilder` (`.feature` has no registered `ParserDefinition`, same reasoning as `ReqnrollFeatureInlayHintsController`) — renders the result directly against `Editor.foldingModel`, debounced on document edits. Fold regions are tagged via `FoldRegion`'s `UserDataHolder` so a debounced rebuild only touches Reqnroll-owned regions and restores each region's expand/collapse state by matching `(startOffset, endOffset)` — otherwise every keystroke would silently re-expand everything the user had manually collapsed.
 
 ---
 
@@ -814,7 +796,7 @@ F10 is **implemented** (issue #162), following the same manual-glue pattern as F
 |---------|---------------|-------|
 | ✅ Generic | ✅ Generic | ⚠️ Config |
 
-**Rider note**: Rider has its own formatter framework and may partially handle formatting independently. Behavior should be tested to confirm `textDocument/formatting` takes priority.
+**Rider note**: `textDocument/formatting` takes priority via an opt-in `lspFormattingSupport` property override on the LSP server descriptor, which activates Rider's generic `LspFormattingService` — Rider's own formatter framework does not compete for `.feature` files.
 
 #### LSP messages
 
@@ -851,7 +833,7 @@ sequenceDiagram
     IDE-->>User: Document reformatted
 ```
 
-#### As-built (branch `f11_documentformatting`)
+#### Implementation notes
 
 | Component | Location |
 |-----------|----------|
@@ -861,8 +843,6 @@ sequenceDiagram
 | `GherkinFormattingHandler` | `LSP.Server/Handlers/ProtocolHandlers/GherkinFormattingHandler.cs` |
 | Unit tests | `LSP.Core.Tests/Editor/Services/Formatting/GherkinDocumentFormatterTests.cs` |
 | Spec tests | `LSP.Server.Specs/Features/Editor/DocumentFormatting.feature` |
-
-**Implementation notes:**
 
 - A single `TextEdit` replacing the entire document is returned for `textDocument/formatting` and `textDocument/rangeFormatting`. For range formatting, extra blank lines at the start/end of the range are trimmed.
 - `GherkinDocumentFormatter` re-indents keywords by nesting level (Feature → Scenario → Step) using `\t` characters by default; `GherkinFormatSettings` controls indent char, line endings, and numeric right-alignment in tables.
@@ -917,9 +897,9 @@ sequenceDiagram
     IDE-->>User: Table columns aligned
 ```
 
-#### As-built (branch `f11_documentformatting`)
+#### Implementation notes
 
-Implemented in the same `GherkinFormattingHandler` as F11. Key details:
+Implemented in the same `GherkinFormattingHandler` as F11:
 
 - **Trigger characters**: `|` (first), `\n` (more). `\t` was evaluated but VS 2022 routes Tab to the completion handler rather than `onTypeFormatting`, so it is omitted.
 - **Table detection**: `FindTableLineRange` scans up/down from cursor for lines whose `TrimStart()` begins with `|`. `FindTableAtLine` locates the Gherkin AST node (DataTable or Examples table) at that position for the formatter.
@@ -965,41 +945,28 @@ sequenceDiagram
     participant IDE
 
     box LightBlue LSP Server
-        participant RCH as ReqnrollCommandHandler
-        participant FS as Formatting Service
+        participant CTH as CommentToggleHandler
+        participant CTS as CommentToggleService
     end
 
     User->>IDE: Ctrl+/ on selected lines
     IDE->>IDE: [Plugin] Intercept keybinding for .feature files
-    IDE->>RCH: workspace/executeCommand\n(reqnroll.toggleComment, {uri, range})
-    RCH->>FS: Toggle # on each line in range
-    FS-->>RCH: WorkspaceEdit
-    RCH-->>IDE: workspace/applyEdit
+    IDE->>CTH: workspace/executeCommand\n(reqnroll.toggleComment, {uri, range})
+    CTH->>CTS: Toggle # on each line in range
+    CTS-->>CTH: WorkspaceEdit
+    CTH-->>IDE: workspace/applyEdit
     IDE-->>User: Lines commented / uncommented
 ```
 
-#### VS Code — as-built
+#### VS Code
 
-F13 is **implemented** on `feat/vscode-extension-initial`, matching the design above with no deviation:
+`package.json` `contributes.keybindings` binds `ctrl+/` (`cmd+/` on macOS) to `reqnroll.toggleComment`, scoped by `"when": "editorTextFocus && editorLangId == gherkin"` — VS Code's own comment-toggle keybinding does not fire for `gherkin`-language documents. The command (registered in [`extension.ts`](../src/VSCode/src/extension.ts)) delegates to `doToggleComment` in [`commentToggle.ts`](../src/VSCode/src/commentToggle.ts), which normalizes the selection via `normalizeSelectionLines` ([`selectionUtils.ts`](../src/VSCode/src/selectionUtils.ts)) — trimming a trailing selected line when VS Code reports the selection ending at `(line, 0)`, i.e. the user dragged past the end of the previous line without selecting any character on the next one, so that line is not spuriously toggled — then sends `workspace/executeCommand` (`reqnroll.toggleComment`, `[uri, startLine, endLine]`) via `client.sendRequest(ExecuteCommandRequest.type, ...)` and lets the returned `WorkspaceEdit` apply through the standard LSP client machinery; failures surface via `vscode.window.showErrorMessage`. Also available via editor context menu (`editor/context`, group `1_modification`) and the command palette, both gated on `editorLangId == gherkin`.
 
-| Design element | As-built |
-|---|---|
-| Keybinding interception | `package.json` `contributes.keybindings` binds `ctrl+/` (`cmd+/` on macOS) to `reqnroll.toggleComment`, scoped by `"when": "editorTextFocus && editorLangId == gherkin"` — VS Code's own comment-toggle keybinding does not fire for `gherkin`-language documents. |
-| Command handler | `reqnroll.toggleComment` (registered in [`extension.ts`](../src/VSCode/src/extension.ts)) delegates to `doToggleComment` in [`commentToggle.ts`](../src/VSCode/src/commentToggle.ts). |
-| Selection normalization | `normalizeSelectionLines` ([`selectionUtils.ts`](../src/VSCode/src/selectionUtils.ts)) trims a trailing selected line when VS Code reports the selection ending at `(line, 0)` — i.e. the user dragged past the end of the previous line without selecting any character on the next one — so that line is not spuriously toggled. |
-| Request | `doToggleComment` sends `workspace/executeCommand` (`reqnroll.toggleComment`, `[uri, startLine, endLine]`) via `client.sendRequest(ExecuteCommandRequest.type, ...)` and lets the returned `WorkspaceEdit` apply through the standard LSP client machinery; failures surface via `vscode.window.showErrorMessage`. |
-| Menu presence | Also available via editor context menu (`editor/context`, group `1_modification`) and the command palette, both gated on `editorLangId == gherkin`. |
+#### Rider
 
-#### Rider — as-built
+Rider has no native rendering-side consumer to piggyback on for this feature the way it can for folding or inlay hints: the built-in `CommentByLineComment` action is a `MultiCaretCodeInsightAction` (confirmed by decompiling), not an `EditorAction`, so it never consults `EditorActionManager` — decorating its `EditorActionHandler` via `EditorActionManager.setActionHandler` has no effect. It hardcodes `new CommentByLineCommentHandler()` in its own `getHandler()` and gates `isValidFor` on `LanguageCommenters.forLanguage` finding a registered `Commenter` for the PSI file's language; `.feature` has neither, so the built-in action is simply disabled for it.
 
-F13 is **implemented** (issue #159). The first approach tried — decorating the built-in `CommentByLineComment` action's `EditorActionHandler` via `EditorActionManager.setActionHandler` — turned out not to work at all: decompiling `CommentByLineCommentAction` showed it's a `MultiCaretCodeInsightAction`, not an `EditorAction`, so it never consults `EditorActionManager`. It hardcodes `new CommentByLineCommentHandler()` in its own `getHandler()` and gates `isValidFor` on `LanguageCommenters.forLanguage` finding a registered `Commenter` for the PSI file's language — `.feature` has neither, so the action is simply disabled for it, and a wrapped `EditorActionHandler` is never reached. The as-shipped approach instead adds a competing action bound to the same keystroke:
-
-| Design element | As-built |
-|---|---|
-| Keybinding interception | `ReqnrollToggleCommentAction` (a plain `AnAction`) is bound to the platform's own default `Ctrl+/` keystroke via a `plugin.xml` `<keyboard-shortcut>` on the same action ID space — this makes it a second candidate action for that keystroke alongside the built-in `CommentByLineComment`. `ReqnrollCommentTogglePromoter` (an `ActionPromoter`) then suppresses the built-in action from that keystroke's candidate list specifically when the active file is `.feature` (matched by `ActionManager.getId(action) == IdeActions.ACTION_COMMENT_LINE`), so `ReqnrollToggleCommentAction` fires instead — every other file type is untouched. |
-| Command handler | `ReqnrollToggleCommentAction.actionPerformed` — enabled/visible only when the caret is in a `.feature` file editor (`update()`, mirroring `GoToHooksAction`/`FindStepUsagesAction`'s gating pattern). |
-| Selection normalization | `ReqnrollToggleCommentAction.normalizeSelectionLines` mirrors VS Code's `normalizeSelectionLines` exactly: a selection ending at column 0 of a line past the start line is trimmed back one line. Only the primary caret's selection is used, matching VS/VS Code, which likewise only look at the single active selection. |
-| Request | `ReqnrollRequestSender.toggleComment` sends the *standard* `workspace/executeCommand` (`reqnroll.toggleComment`, `[uri, startLine, endLine]`) directly — no custom `reqnroll/*` method exists for this feature. The resulting `workspace/applyEdit` is applied natively by Rider's platform `Lsp4jClient.applyEdit` (confirmed by decompiling — it's a `final` method on the base class), so no client-side consumer glue is needed for that half, unlike codeLens/inlayHint/folding. |
+The plugin (issue #159) instead adds a competing action bound to the same keystroke: `ReqnrollToggleCommentAction` (a plain `AnAction`) is bound to the platform's own default `Ctrl+/` keystroke via a `plugin.xml` `<keyboard-shortcut>` on the same action ID space, making it a second candidate action for that keystroke alongside the built-in `CommentByLineComment`. `ReqnrollCommentTogglePromoter` (an `ActionPromoter`) suppresses the built-in action from that keystroke's candidate list specifically when the active file is `.feature` (matched by `ActionManager.getId(action) == IdeActions.ACTION_COMMENT_LINE`), so `ReqnrollToggleCommentAction` fires instead — every other file type is untouched. `ReqnrollToggleCommentAction.actionPerformed` is enabled/visible only when the caret is in a `.feature` file editor (`update()`, mirroring `GoToHooksAction`/`FindStepUsagesAction`'s gating pattern), and its `normalizeSelectionLines` mirrors VS Code's implementation exactly: a selection ending at column 0 of a line past the start line is trimmed back one line, and only the primary caret's selection is used, matching VS/VS Code. `ReqnrollRequestSender.toggleComment` sends the *standard* `workspace/executeCommand` (`reqnroll.toggleComment`, `[uri, startLine, endLine]`) directly — no custom `reqnroll/*` method exists for this feature. The resulting `workspace/applyEdit` is applied natively by Rider's platform `Lsp4jClient.applyEdit` (a `final` method on the base class, confirmed by decompiling), so no client-side consumer glue is needed for that half, unlike codeLens/inlayHint/folding.
 
 ---
 
@@ -1029,7 +996,7 @@ Whether IDEs reliably dispatch based on caret position within a file that has mu
 | Client → Server | `textDocument/references` (at attribute position) | Two-state fallback (VS Code, Rider, spec tests): empty = no match or not a binding |
 | Server → Client | `Location[]` / `FindStepUsagesResponse` | Step locations in `.feature` files |
 
-#### Sequence diagram (Visual Studio — as-built)
+#### Sequence diagram (Visual Studio)
 
 ```mermaid
 sequenceDiagram
@@ -1052,19 +1019,19 @@ sequenceDiagram
     FAR-->>User: Find All References window populated with .feature step locations
 ```
 
-#### Implementation status
+#### Implementation notes
 
-F14 is **implemented**. The as-built mapping is:
+F14 is **implemented**. VS does not dispatch `textDocument/references` to secondary LSP servers for `.cs` files — the C# language server intercepts unconditionally regardless of caret position (Q13). The custom VS.Extensibility command `FindStepUsagesCommand` sidesteps that by injecting `reqnroll/findStepUsages` directly over the owned `LspInterceptingPipe`, validated end-to-end on the Experimental Instance (Surfaces 1 and 2, 2026-06-09).
 
-| Design element | As-built |
+| Component | Detail |
 |---|---|
-| `StepReferencesHandler` registered for `textDocument/references` | Registered via `options.OnRequest` (same static-registration pattern as semantic tokens) to avoid OmniSharp dynamic-registration ambiguity with the C# language server on `.cs` files (see Q13). Retained for VS Code / Rider / spec-test compatibility. |
-| `FindStepUsagesHandler` registered for `reqnroll/findStepUsages` | Custom request handler ([FindStepUsagesHandler.cs](../src/LSP/Reqnroll.IdeSupport.LSP.Server/Handlers/ProtocolHandlers/FindStepUsagesHandler.cs)). Delivers the full three-state contract: `{isBinding:false}` = not a binding; `{isBinding:true, locations:[]}` = 0 usages; `{isBinding:true, locations:[...]}` = usages. Response type: `FindStepUsagesResponse` ([Protocol/FindStepUsagesResponse.cs](../src/LSP/Reqnroll.IdeSupport.LSP.Server/Protocol/FindStepUsagesResponse.cs)). Each location includes `stepText` (extracted from in-memory snapshot), `keyword`, `scenarioName`, `projectName`. **Protocol note:** returns `{isBinding:false}` rather than JSON null — OmniSharp's `OnRequest` framework sends an error response for null returns from custom-method handlers, so `IsBinding=false` is the "not a binding" sentinel. |
+| `StepReferencesHandler` — `textDocument/references` | Registered via `options.OnRequest` (same static-registration pattern as semantic tokens) to avoid OmniSharp dynamic-registration ambiguity with the C# language server on `.cs` files (see Q13). Serves VS Code / Rider / spec-test compatibility. |
+| `FindStepUsagesHandler` — `reqnroll/findStepUsages` | Custom request handler ([FindStepUsagesHandler.cs](../src/LSP/Reqnroll.IdeSupport.LSP.Server/Handlers/ProtocolHandlers/FindStepUsagesHandler.cs)). Delivers the full three-state contract: `{isBinding:false}` = not a binding; `{isBinding:true, locations:[]}` = 0 usages; `{isBinding:true, locations:[...]}` = usages. Response type: `FindStepUsagesResponse` ([Protocol/FindStepUsagesResponse.cs](../src/LSP/Reqnroll.IdeSupport.LSP.Server/Protocol/FindStepUsagesResponse.cs)). Each location includes `stepText` (extracted from in-memory snapshot), `keyword`, `scenarioName`, `projectName`. **Protocol note:** returns `{isBinding:false}` rather than JSON null — OmniSharp's `OnRequest` framework sends an error response for null returns from custom-method handlers, so `IsBinding=false` is the "not a binding" sentinel. |
 | Binding location lookup | `IBindingMatchService.FindUsages(SourceLocation)` — iterates all cached `FeatureBindingMatchSet` entries and returns every `StepBindingMatch` whose `BindingLocations` match the supplied file + line (column is ignored; line is 1-based) |
-| Document ID on match results | `StepBindingMatch.FeatureDocumentId` (added for F14) carries the feature file's document URI, eliminating the need for a tuple return from `FindUsages` |
+| Document ID on match results | `StepBindingMatch.FeatureDocumentId` carries the feature file's document URI, eliminating the need for a tuple return from `FindUsages` |
 | LSP position → `SourceLocation` conversion | Handlers convert 0-based LSP line/character to 1-based `SourceLocation(file, line+1, char+1)` |
-| `GherkinRange` → LSP `Range` | `GherkinRangeExtensions.ToLspRange()` (new `LSP.Server`-layer extension); pure offset-to-line geometry lives in `GherkinRange.ResolveOffset` (`LSP.Core`) |
-| Workspace-wide scan on startup | `BindingRegistryChangedNotification.IsFullReplacement` flag (added for F14): `true` when fired by the Connector / reflection path, `false` for Roslyn incremental. A full replacement triggers `BindingRegistryChangedHandler.ScanAllFeatureFilesAsync`, which calls `IGherkinDocumentTaggerService.ScanClosedFileAsync` for every `.feature` file in the project folder not already held in the open-document buffer. **As-built limitation, with chosen resolution**: this folder glob *misses* linked feature files outside the project folder and *wrongly admits* feature files excluded from the `.csproj`. Per the [membership-index design](LSP-IDE-Support-Architecture.md#project-membership-the-path--projects-index), closed-file enumeration moves from the folder glob to the project's `reqnroll/projectFiles` baseline — scan exactly the feature files the project actually includes, links and all, and nothing it excludes. See [Q17](LSP-IDE-Support-Open-Questions.md). |
+| `GherkinRange` → LSP `Range` | `GherkinRangeExtensions.ToLspRange()` (`LSP.Server`-layer extension); pure offset-to-line geometry lives in `GherkinRange.ResolveOffset` (`LSP.Core`) |
+| Workspace-wide scan on startup | `BindingRegistryChangedNotification.IsFullReplacement` flag: `true` when fired by the Connector / reflection path, `false` for Roslyn incremental. A full replacement triggers `BindingRegistryChangedHandler.ScanAllFeatureFilesAsync`, which calls `IGherkinDocumentTaggerService.ScanClosedFileAsync` for every `.feature` file in the project folder not already held in the open-document buffer. **Known limitation, with chosen resolution**: this folder glob *misses* linked feature files outside the project folder and *wrongly admits* feature files excluded from the `.csproj`. Per the [membership-index design](LSP-IDE-Support-Architecture.md#project-membership-the-path--projects-index), closed-file enumeration moves from the folder glob to the project's `reqnroll/projectFiles` baseline — scan exactly the feature files the project actually includes, links and all, and nothing it excludes. See [Q17](LSP-IDE-Support-Open-Questions.md). |
 | Incremental update on Roslyn edit | `IsFullReplacement = false` → only currently open feature files are re-parsed; closed files retain their cached match sets |
 | VS command — Surface 1 (Extensions menu) | `FindStepUsagesCommand` ([FindStepUsages/FindStepUsagesCommand.cs](../src/VisualStudio/Reqnroll.IdeSupport.VisualStudio.Extension/FindStepUsages/FindStepUsagesCommand.cs)) — `[VisualStudioContribution]` VS.Extensibility command; `GetActiveTextViewAsync` → `(fileUri, line0, char0)` → `FindStepUsagesService.FindUsagesAsync` → `FindStepUsagesRenderer.RenderAsync`. |
 | VS command — Surface 2 (C# editor context menu) | Same command, second placement: `CommandPlacement.VsctParent(guidSHLMainMenu, IDG_VS_CODEWIN_NAVIGATETOLOCATION=0x02B1, priority=0x0100)`. Item appears next to "Find All References" in the code-window context menu. No `.vsct`, no VSSDK command table — targets the shell's built-in group directly. Requires experimental-instance reset after first deploy. |
@@ -1073,13 +1040,11 @@ F14 is **implemented**. The as-built mapping is:
 | Results rendering | `FindStepUsagesRenderer` switches to UI thread (`JoinableTaskFactory`), locates `IFindAllReferencesService` via `SVsFindAllReferences`, calls `StartSearch(label)` → `window.Manager.AddSource(FeatureReferencesDataSource)`. `FeatureReferencesDataSource` pushes all `FeatureReferenceTableEntry` items in `Subscribe`. |
 | DI injection | `FindStepUsagesState` singleton registered in `ExtensionEntrypoint.InitializeServices`. `ReqnrollLanguageClient` populates it on server-init / clears on dispose. `FindStepUsagesCommand` injects `(FindStepUsagesState, TraceSource)` only — both guaranteed resolvable from the VS.Extensibility DI container. (Injecting `ReqnrollLanguageClient` directly caused silent construction failure because contribution classes are not resolvable as injection targets.) |
 
-> **As-built note — VS "Find All References" does not integrate automatically.** VS does not dispatch `textDocument/references` to secondary LSP servers for `.cs` files; the C# language server intercepts unconditionally. Q13 is **resolved as "dispatch is unreliable"**. The custom VS.Extensibility command (`FindStepUsagesCommand`) instead injects `reqnroll/findStepUsages` directly over the owned `LspInterceptingPipe`. VS-validated end-to-end on the Experimental Instance (Surfaces 1 and 2, 2026-06-09).
+#### VS Code
 
-#### VS Code — as-built
+F14 ships as a custom command rather than a `textDocument/references` binding — VS Code, like VS, has no reliable way to route `textDocument/references` on a `.cs` file to the Reqnroll server instead of the built-in C# extension, so the client sidesteps the dispatch-ambiguity question entirely (same conclusion as Q13, reached independently on the VS Code side):
 
-F14 is **implemented** on `feat/vscode-extension-initial` as a custom command rather than a `textDocument/references` binding — VS Code, like VS, has no reliable way to route `textDocument/references` on a `.cs` file to the Reqnroll server instead of the built-in C# extension, so the client sidesteps the dispatch-ambiguity question entirely (same conclusion as Q13, reached independently on the VS Code side):
-
-| Design element | As-built |
+| Component | Detail |
 |---|---|
 | Invocation surfaces | Command palette / editor context menu (`reqnroll.findStepUsages`, `when: editorLangId == csharp`), and CodeLens click (see F18) — no reliance on `textDocument/references`. |
 | Request | `doFindStepUsages` ([`stepUsages.ts`](../src/VSCode/src/stepUsages.ts)) sends the custom `reqnroll/findStepUsages` request directly (not `textDocument/references`), with `{textDocument, position, context: {includeDeclaration: false}}`. |
@@ -1124,32 +1089,25 @@ sequenceDiagram
     participant IDE
 
     box LightBlue LSP Server
-        participant RCH as ReqnrollCommandHandler
+        participant FUH as FindUnusedStepDefinitionsHandler
         participant BM as Binding Match Service
         participant BR as Binding Registry
     end
 
     User->>IDE: Invoke "Find Unused Step Definitions"
-    IDE->>RCH: workspace/executeCommand (reqnroll.findUnusedStepDefinitions)
-    RCH->>BR: Get all registered bindings
-    BR-->>RCH: Bindings[]
-    RCH->>BM: For each binding, get usage count from match cache
-    BM-->>RCH: UsageCount per binding
-    RCH->>RCH: Filter to UsageCount == 0
-    RCH-->>IDE: window/showDocument (or custom notification) with unused list
+    IDE->>FUH: workspace/executeCommand (reqnroll.findUnusedStepDefinitions)
+    FUH->>BR: Get all registered bindings
+    BR-->>FUH: Bindings[]
+    FUH->>BM: For each binding, get usage count from match cache
+    BM-->>FUH: UsageCount per binding
+    FUH->>FUH: Filter to UsageCount == 0
+    FUH-->>IDE: window/showDocument (or custom notification) with unused list
     IDE-->>User: Results displayed
 ```
 
-#### VS Code — as-built
+#### VS Code
 
-F15 is **implemented** on `feat/vscode-extension-initial`:
-
-| Design element | As-built |
-|---|---|
-| Command | `reqnroll.findUnusedStepDefinitions` (command palette only — no keybinding or context-menu placement) invokes `doFindUnusedStepDefinitions` ([`stepUsages.ts`](../src/VSCode/src/stepUsages.ts)), which sends `workspace/executeCommand` (`reqnroll.findUnusedStepDefinitions`) wrapped in `vscode.window.withProgress` so a "Scanning for unused step definitions…" notification is shown while the workspace-wide analysis runs. |
-| Results display | Zero unused bindings shows an information message. Otherwise a `vscode.window.showQuickPick` lists each unused binding as `$(warning) ClassName.MethodName`, with the binding expression as description and project name as detail; selecting one opens the `.cs` source file and reveals the method via `openAndReveal`. |
-| Deleted-`.cs`-file bug fix | The server-side bug documented in [VSCode-Extension-Implementation-Plan.md](VSCode-Extension-Implementation-Plan.md) — a deleted `.cs` file's step definitions lingering in the registry and causing the QuickPick's navigation to throw — was fixed by adding `ICSharpBindingDiscoveryService.RemoveFileAsync`, invoked from `WatchedFilesHandler` on `.cs` `FileChangeType.Deleted` events. VS Code's `synchronize.fileEvents: '**/*.{feature,cs}'` watcher (configured in `extension.ts`) already emits these delete events, so no VS Code-side change was needed once the server handled them. |
-| Cross-project semantics | No VS Code-specific handling — the client is a thin pass-through to `workspace/executeCommand`; the membership-index intersection semantics described above are entirely server-side and apply identically regardless of client. |
+`reqnroll.findUnusedStepDefinitions` (command palette only — no keybinding or context-menu placement) invokes `doFindUnusedStepDefinitions` ([`stepUsages.ts`](../src/VSCode/src/stepUsages.ts)), which sends `workspace/executeCommand` (`reqnroll.findUnusedStepDefinitions`) wrapped in `vscode.window.withProgress` so a "Scanning for unused step definitions…" notification is shown while the workspace-wide analysis runs. Zero unused bindings shows an information message; otherwise a `vscode.window.showQuickPick` lists each unused binding as `$(warning) ClassName.MethodName`, with the binding expression as description and project name as detail — selecting one opens the `.cs` source file and reveals the method via `openAndReveal`. A deleted `.cs` file's step definitions used to linger in the registry and cause the QuickPick's navigation to throw; this is fixed by `ICSharpBindingDiscoveryService.RemoveFileAsync`, invoked from `WatchedFilesHandler` on `.cs` `FileChangeType.Deleted` events, using the delete events VS Code's `synchronize.fileEvents: '**/*.{feature,cs}'` watcher (configured in `extension.ts`) already emits. The client is a thin pass-through to `workspace/executeCommand` — the membership-index intersection semantics described above are entirely server-side and apply identically regardless of client.
 
 ---
 
@@ -1337,7 +1295,7 @@ sequenceDiagram
 - **Phase 4 migration path for VS.** The existing `RenameStepCommand` (VSSDK) is retained and acts as a façade: for single-binding positions it delegates to the LSP `textDocument/rename` flow (via the same `LspInterceptingPipe` used by F14's custom command). For multi-attribute positions it shows the existing picker + `RenameStepViewModel` dialog. This dual-path approach lets the LSP rename ship in Phase 4 without regressing the rich VS validation UX, and the VS-specific code can be retired in a later release once the LSP dialog ecosystem catches up.
 - **Linked files.** When the membership index (Q17) reports that a binding `.cs` file belongs to multiple projects, the rename handler unions the feature files from **all** including projects into the WorkspaceEdit. The handler calls `ILspWorkspaceScopeManager.GetProjectsForUri(bindingCsFile)` to get the owning set, then iterates each project's registry to find matching feature steps. This is the same multi-project routing already designed for F14/F15; the rename handler uses the same `GetProjectsForUri` API.
 
-#### VS Code — as-built
+#### VS Code
 
 F16's **single-binding** case is implemented on `master` as a thin pass-through to VS Code's native rename gesture: `reqnroll.renameStep` (bound to F2 for `gherkin`-language documents, `package.json` `contributes.keybindings`) calls `vscode.commands.executeCommand('editor.action.rename')`, which drives the standard `textDocument/prepareRename` / `textDocument/rename` flow already implemented server-side. No VS Code-specific validation or edit-application code exists — `vscode-languageclient` applies the returned `WorkspaceEdit` (spanning the `.cs` attribute and every matching `.feature` step) through its normal rename UI.
 
@@ -1347,21 +1305,21 @@ An open PR ([#27](https://github.com/clrudolphi/Reqnroll.IdeSupport/pull/27), br
 
 #### Rename change annotations — as-built
 
-**Status: Implemented (2026-07-11).** [#70](https://github.com/clrudolphi/Reqnroll.IdeSupport/issues/70) / [#133](https://github.com/clrudolphi/Reqnroll.IdeSupport/pull/133), per [docs/Rename-ChangeAnnotations-Implementation-Plan.md](Rename-ChangeAnnotations-Implementation-Plan.md). `StepRenameHandler.HandleRenameAsync` (`src/LSP/Reqnroll.IdeSupport.LSP.Server/Features/Rename/StepRenameHandler.cs`) now builds its `WorkspaceEdit` through a `WorkspaceEditBuilder`, which negotiates the returned shape per request rather than always emitting the legacy `Changes` map:
+**Status: Implemented (2026-07-11).** [#70](https://github.com/clrudolphi/Reqnroll.IdeSupport/issues/70) / [#133](https://github.com/clrudolphi/Reqnroll.IdeSupport/pull/133). `StepRenameHandler.HandleRenameAsync` (`src/LSP/Reqnroll.IdeSupport.LSP.Server/Features/Rename/StepRenameHandler.cs`) builds its `WorkspaceEdit` through a `WorkspaceEditBuilder`, which negotiates the returned shape per request rather than always emitting the legacy `Changes` map:
 
-- **Negotiation.** Read once per rename from `ILanguageServerFacade.ClientSettings.Capabilities.Workspace.WorkspaceEdit`: the client must advertise both `DocumentChanges == true` and a non-null `ChangeAnnotationSupport`. Both are true for VS Code (`{ "groupsOnLabel": true }`); VS advertises `documentChanges` but never `changeAnnotationSupport`, so it always negotiates down to the plain `Changes` shape — byte-identical to the pre-#70 output.
+- **Negotiation.** Read once per rename from `ILanguageServerFacade.ClientSettings.Capabilities.Workspace.WorkspaceEdit`: the client must advertise both `DocumentChanges == true` and a non-null `ChangeAnnotationSupport`. Both are true for VS Code (`{ "groupsOnLabel": true }`); VS advertises `documentChanges` but never `changeAnnotationSupport`, so it always negotiates down to the plain `Changes` shape.
 - **`WorkspaceEditBuilder`** (`Features/Rename/WorkspaceEditBuilder.cs`) accumulates `(DocumentUri, TextEdit)` pairs and emits either shape from `Build()`. It also exposes `GetEditsByUri()` so the VS-only `workspace/applyEdit` push (below) can reuse the same accumulated edits regardless of the negotiated shape.
-- **`RenameChangeAnnotations`** (`Features/Rename/RenameChangeAnnotations.cs`) holds the two annotation-id constants: `reqnroll.rename.feature` (feature-file step text edits) and `reqnroll.rename.binding` (the C# attribute literal edit) — as planned.
-- **`NeedsConfirmation` deviates from the plan.** The plan defaulted `NeedsConfirmation = false` for both annotations with a cross-project toggle deferred. The as-built handler instead sets the `feature` annotation's `NeedsConfirmation = featureFileCount > 1` unconditionally — any rename touching more than one `.feature` file asks a supporting client to confirm before applying, without a separate opt-in setting. The `binding` annotation stays `NeedsConfirmation = false`.
-- **VS still needs a genuine push.** VS's Rename Step command routes `textDocument/rename` through a custom interception pipe that swallows the handler's return value before VS's built-in LSP client ever sees it (the same constraint documented for [F14](#f14--find-step-definition-usages) and the Comment/Uncomment toggle). `RenamePostApplyCoordinator.PushEditIfVisualStudioAsync` (`Features/Rename/RenamePostApplyCoordinator.cs`) sends the edit via `workspace/applyEdit` for VS only — an unannotated `DocumentChanges` shape, since VS never advertises annotation support — and is a no-op for every other client (which apply the handler's returned `WorkspaceEdit` natively; pushing to them too would double-apply the edit). Only when VS's `ApplyWorkspaceEditResponse.Applied` comes back `true` does the coordinator let server-side cache invalidation proceed; a VS-reported failure (locked file, unsaved conflicting changes) short-circuits the rename before any cache is touched.
+- **`RenameChangeAnnotations`** (`Features/Rename/RenameChangeAnnotations.cs`) holds the two annotation-id constants: `reqnroll.rename.feature` (feature-file step text edits) and `reqnroll.rename.binding` (the C# attribute literal edit).
+- **`NeedsConfirmation`.** The `feature` annotation's `NeedsConfirmation = featureFileCount > 1` unconditionally — any rename touching more than one `.feature` file asks a supporting client to confirm before applying, with no separate opt-in setting. The `binding` annotation stays `NeedsConfirmation = false`.
+- **VS needs a genuine push.** VS's Rename Step command routes `textDocument/rename` through a custom interception pipe that swallows the handler's return value before VS's built-in LSP client ever sees it (the same constraint documented for [F14](#f14--find-step-definition-usages) and the Comment/Uncomment toggle). `RenamePostApplyCoordinator.PushEditIfVisualStudioAsync` (`Features/Rename/RenamePostApplyCoordinator.cs`) sends the edit via `workspace/applyEdit` for VS only — an unannotated `DocumentChanges` shape, since VS never advertises annotation support — and is a no-op for every other client (which apply the handler's returned `WorkspaceEdit` natively; pushing to them too would double-apply the edit). Only when VS's `ApplyWorkspaceEditResponse.Applied` comes back `true` does the coordinator let server-side cache invalidation proceed; a VS-reported failure (locked file, unsaved conflicting changes) short-circuits the rename before any cache is touched.
 - **Closed-file match-cache invalidation.** `RenamePostApplyCoordinator.InvalidateClosedFeatureCaches` explicitly invalidates the match cache for any touched `.feature` file that is not open in the Document Buffer — open files get this for free from the `didChange` their edit triggers, but a closed file never fires one, and invalidating it *before* the open-file race would drop the rebuild entirely (observed live as inlay hints silently vanishing for the whole file post-rename).
 - **RA-1 (undo granularity) still open.** Whether VS applies the pushed multi-file `workspace/applyEdit` as one undo transaction or several has not been verified in a live VS session; see [Q23](LSP-IDE-Support-Open-Questions.md) in the Open Questions register.
 
 ##### Known limitations
 
-- **RA-2 — VS never sees the confirmation preview at all.** The plan anticipated a client that accepts annotated edits but ignores the `needsConfirmation` preview UI. As-built, this doesn't arise for VS: VS never advertises `changeAnnotationSupport`, so it always negotiates the plain `Changes` shape and the annotation catalogue (including `NeedsConfirmation`) is never sent to it. The risk only matters for a hypothetical future client that accepts `documentChanges` + annotations but doesn't render the confirmation UI; none of the three current IDE clients are in that state.
-- **RA-3 — versionless `OptionalVersionedTextDocumentIdentifier` is the only mode shipped.** Rather than a fallback path for clients that reject `Version = null`, the as-built `WorkspaceEditBuilder` always emits `Version = null` regardless of client — there is no code path that resolves and sends a real document version. If a client is ever found to reject versionless edits, this would need a real fix, not a workaround; none has been observed to date.
-- **RA-4 — the cross-project "confirm" toggle shipped unconditionally rather than as a deferred setting.** The plan deferred a "confirm cross-project renames" setting behind `NeedsConfirmation = false` by default. As built, there is no setting: `NeedsConfirmation` is always `featureFileCount > 1` (any multi-`.feature`-file rename, not just cross-project ones) with no way to opt out.
+- **RA-2 — VS never sees the confirmation preview.** VS never advertises `changeAnnotationSupport`, so it always negotiates the plain `Changes` shape and the annotation catalogue (including `NeedsConfirmation`) is never sent to it. This only matters for a hypothetical future client that accepts `documentChanges` + annotations but doesn't render the confirmation UI; none of the three current IDE clients are in that state.
+- **RA-3 — versionless `OptionalVersionedTextDocumentIdentifier` is the only mode shipped.** `WorkspaceEditBuilder` always emits `Version = null` regardless of client — there is no code path that resolves and sends a real document version. If a client is ever found to reject versionless edits, this would need a real fix, not a workaround; none has been observed to date.
+- **RA-4 — no separate cross-project "confirm" setting.** `NeedsConfirmation` is always `featureFileCount > 1` (any multi-`.feature`-file rename, not just cross-project ones), with no way to opt out.
 
 ---
 
@@ -1438,26 +1396,13 @@ sequenceDiagram
     end
 ```
 
-#### VS Code — as-built
+#### VS Code
 
-F17 is **implemented** on `feat/vscode-extension-initial`:
+`reqnroll.goToHooks` is available via editor context menu (`editor/context`, group `navigation@90`, `when: editorLangId == gherkin`) and the command palette, with no default keybinding. `doGoToHooks` ([`hookNavigation.ts`](../src/VSCode/src/hookNavigation.ts)) reads the active editor's cursor position and sends the custom `reqnroll/goToHooks` request with `{textDocument, position}`. A single hook navigates directly via `openAndReveal`; multiple hooks show a `vscode.window.showQuickPick` with one entry per hook (`$(symbol-event) HookType`, method name as description, `Order: N` as detail when `hookOrder !== 0`) — the VS Code-idiomatic equivalent of the VS `NavigationPickerDialog` modal described above. `navigateToHook` opens the target `.cs` file and reveals the hook method's location via the shared `openAndReveal` helper (also used by F14 and F15).
 
-| Design element | As-built |
-|---|---|
-| Command | `reqnroll.goToHooks`, available via editor context menu (`editor/context`, group `navigation@90`, `when: editorLangId == gherkin`) and the command palette; no default keybinding. |
-| Request | `doGoToHooks` ([`hookNavigation.ts`](../src/VSCode/src/hookNavigation.ts)) reads the active editor's cursor position and sends the custom `reqnroll/goToHooks` request with `{textDocument, position}`. |
-| Single vs. multiple results | A single hook navigates directly via `openAndReveal`. Multiple hooks show a `vscode.window.showQuickPick` with one entry per hook (`$(symbol-event) HookType`, method name as description, `Order: N` as detail when `hookOrder !== 0`) — the VS Code-idiomatic equivalent of the VS `NavigationPickerDialog` modal described above. |
-| Navigation | `navigateToHook` opens the target `.cs` file and reveals the hook method's location via the shared `openAndReveal` helper (also used by F14 and F15). |
+#### Rider
 
-#### Rider — as-built
-
-F17 is **implemented** (issue #158), mirroring the F15/F16 request-sender pattern rather than a PSI bridge handler:
-
-| Design element | As-built |
-|---|---|
-| Request | `ReqnrollLanguageServer.goToHooks` (`ReqnrollLanguageServer.kt`), a `@JsonRequest("reqnroll/goToHooks")` taking the standard LSP4J `TextDocumentPositionParams`. Called via `ReqnrollRequestSender.goToHooks(project, uri, line, character)`, following the `findStepUsages`/`findUnusedStepDefinitions` pattern of `sendRequestSync` from a `Task.Backgroundable`. |
-| Action | `Reqnroll.GoToHooks` (`GoToHooksAction.kt`), enabled only when the caret is in a `.feature` file editor (mirroring `FindStepUsagesAction`'s `.cs`-only gating); registered in the `Reqnroll.ActionGroup` Tools-menu group and in `EditorPopupMenu`. |
-| Single vs. multiple results | `GoToHooksRunner` navigates directly via `ReqnrollResultPopup.navigateToUri` for a single hook; multiple hooks show `ReqnrollResultPopup`'s chooser popup (the same `JBPopupFactory` list used by Find Step Usages / Find Unused Step Definitions), each entry rendered as `[HookType] MethodName (filename:line)`. |
+F17 (issue #158) mirrors the F15/F16 request-sender pattern rather than a PSI bridge handler: `ReqnrollLanguageServer.goToHooks` (`ReqnrollLanguageServer.kt`), a `@JsonRequest("reqnroll/goToHooks")` taking the standard LSP4J `TextDocumentPositionParams`, is called via `ReqnrollRequestSender.goToHooks(project, uri, line, character)`, following the `findStepUsages`/`findUnusedStepDefinitions` pattern of `sendRequestSync` from a `Task.Backgroundable`. `Reqnroll.GoToHooks` (`GoToHooksAction.kt`) is enabled only when the caret is in a `.feature` file editor (mirroring `FindStepUsagesAction`'s `.cs`-only gating) and is registered in the `Reqnroll.ActionGroup` Tools-menu group and in `EditorPopupMenu`. `GoToHooksRunner` navigates directly via `ReqnrollResultPopup.navigateToUri` for a single hook; multiple hooks show `ReqnrollResultPopup`'s chooser popup (the same `JBPopupFactory` list used by Find Step Usages / Find Unused Step Definitions), each entry rendered as `[HookType] MethodName (filename:line)`.
 
 ---
 
@@ -1524,16 +1469,9 @@ sequenceDiagram
     end
 ```
 
-#### VS Code — as-built
+#### VS Code
 
-F18 is **implemented** on `feat/vscode-extension-initial`, matching the "✅ Generic" rating: VS Code's `CodeLensProvider` API maps directly onto `textDocument/codeLens` without the method-vs-attribute reconciliation VS.Extensibility's `ICodeLensProvider` requires (see the VS attribute-to-method mapping note above) — VS Code's provider is called once per document, not once per code element, so no per-method line-bucketing logic is needed:
-
-| Design element | As-built |
-|---|---|
-| Registration | `registerStepCodeLens` ([`stepCodeLens.ts`](../src/VSCode/src/stepCodeLens.ts)) calls `vscode.languages.registerCodeLensProvider({ language: 'csharp' }, provider)` directly via the VS Code API — registered after `client.start()` resolves, in `extension.ts` — rather than through `vscode-languageclient`'s built-in CodeLens feature, specifically to avoid clashing with the C# extension's own CodeLens registration on `.cs` files. |
-| Request | `provideCodeLenses` sends the raw `textDocument/codeLens` request (`CodeLensRequest.type`) for the document and maps each returned lens 1:1 to a `vscode.CodeLens`, preserving the server's range (method-declaration line) and command (title/command/arguments). A request failure logs a console warning and returns an empty array rather than surfacing an error to the user. |
-| Refresh on registry change | Because the provider bypasses `vscode-languageclient`'s CodeLens feature, it also loses that feature's built-in listener for the server's `workspace/codeLens/refresh` push. `stepCodeLens.ts` compensates with its own `vscode.EventEmitter<void>` wired to `onDidChangeCodeLenses`, firing on `client.onRequest(CodeLensRefreshRequest.type, ...)` so lenses still refresh promptly after a binding registry change instead of only on incidental events like editor focus change. |
-| `codeLens/resolve` | Not used — the server's `textDocument/codeLens` response already includes the fully resolved `command`, so no separate resolve round-trip is implemented client-side. |
+VS Code's `CodeLensProvider` API maps directly onto `textDocument/codeLens` without the method-vs-attribute reconciliation VS.Extensibility's `ICodeLensProvider` requires (see the VS attribute-to-method mapping note above) — VS Code's provider is called once per document, not once per code element, so no per-method line-bucketing logic is needed. `registerStepCodeLens` ([`stepCodeLens.ts`](../src/VSCode/src/stepCodeLens.ts)) calls `vscode.languages.registerCodeLensProvider({ language: 'csharp' }, provider)` directly via the VS Code API — registered after `client.start()` resolves, in `extension.ts` — rather than through `vscode-languageclient`'s built-in CodeLens feature, specifically to avoid clashing with the C# extension's own CodeLens registration on `.cs` files. `provideCodeLenses` sends the raw `textDocument/codeLens` request (`CodeLensRequest.type`) for the document and maps each returned lens 1:1 to a `vscode.CodeLens`, preserving the server's range (method-declaration line) and command (title/command/arguments); a request failure logs a console warning and returns an empty array rather than surfacing an error to the user. Because the provider bypasses `vscode-languageclient`'s CodeLens feature, it also loses that feature's built-in listener for the server's `workspace/codeLens/refresh` push — `stepCodeLens.ts` compensates with its own `vscode.EventEmitter<void>` wired to `onDidChangeCodeLenses`, firing on `client.onRequest(CodeLensRefreshRequest.type, ...)` so lenses still refresh promptly after a binding registry change instead of only on incidental events like editor focus change. `codeLens/resolve` is not used — the server's `textDocument/codeLens` response already includes the fully resolved `command`, so no separate resolve round-trip is implemented client-side.
 
 ---
 
@@ -1621,23 +1559,18 @@ Each defined step in a `.feature` file shows a dimmed, non-editable inline annot
 | Server → Client | `InlayHint[]` response | One hint per defined/ambiguous/templated step whose anchor intersects the requested range |
 | Server → Client | `workspace/inlayHint/refresh` | Sent after `MatchCacheChangedNotification` (debounced 500ms) so the client re-pulls hints when bindings change |
 
-#### As-built notes
+#### Implementation notes
 
-The implementation ships a materially smaller feature than [the plan](InlayHints-Implementation-Plan.md) scoped, all deliberate simplifications rather than defects:
+`GherkinInlayHintService` (`LSP.Core/InlayHints/`) projects a `FeatureBindingMatchSet` directly into `GherkinInlayHint`s — one per step with a `Defined`/`Ambiguous`/`Templated` result. `FeatureInlayHintHandler` (`LSP.Server/Features/InlayHints/`) resolves the requesting document's primary owner ([Q22](LSP-IDE-Support-Open-Questions.md) primary-owner rule) to key into `IBindingMatchService`, builds hints, then filters to the requested viewport. There is no per-request options object and no resolve support: the handler computes the full label *and* tooltip eagerly in one pass, and `InlayHintProvider.ResolveProvider = false` is declared statically — acceptable because the tooltip text (a method signature string, already resolved in the match set) is cheap to format with no I/O or additional lookups needed at hint-build time.
 
-- **`GherkinInlayHintService`** (`LSP.Core/InlayHints/`) projects a `FeatureBindingMatchSet` directly into `GherkinInlayHint`s — one per step with a `Defined`/`Ambiguous` result and no per-request options object (the plan's `InlayHintOptions`/settings toggles were not built; see below).
-- **`FeatureInlayHintHandler`** (`LSP.Server/Features/InlayHints/`) resolves the requesting document's primary owner ([Q22](LSP-IDE-Support-Open-Questions.md) primary-owner rule) to key into `IBindingMatchService`, builds hints, then filters to the requested viewport.
-- **No resolve support, no deferred tooltips.** The plan's `inlayHint/resolve` split (cheap initial response, tooltip filled lazily) was **not** built — the handler computes the full label *and* tooltip eagerly in one pass, and `InlayHintProvider.ResolveProvider = false` is declared statically. This has been acceptable in practice because the tooltip text (a method signature string, already resolved in the match set) is cheap to format — no I/O or additional lookups are needed at hint-build time.
-- **No parameter-type hints.** The plan's second hint kind (annotating captured-argument spans with `:type`) was not implemented — only the binding-target hint kind (renamed `GherkinInlayHintKind.Binding`/`Ambiguous`, plus an as-built third kind `Templated` the plan didn't anticipate — see below) exists. There is no `reqnroll.inlayHints.showParameterTypes` setting because there is nothing for it to toggle.
-- **No settings surface at all.** Neither `reqnroll.inlayHints.showBindingTarget` nor `showParameterTypes` was built; the feature is unconditionally on (equivalent to the plan's defaults, minus the ability to turn it off).
-- **New `Templated` hint kind, not in the plan.** A Scenario Outline/Background step's single merged `MatchResult` (one entry per template line, not per expanded example row) can itself resolve to more than one *distinct* Defined binding across different rows. The plan didn't anticipate this case; the as-built service reports it as `→ {n} bindings` (`GherkinInlayHintKind.Templated`), distinct from the `Ambiguous` case (one row's text matching multiple bindings).
-- **Static capability declaration, not dynamic registration.** Like [F10 Folding](#f10--code-folding), `inlayHintProvider` is declared statically in the `initialize` response (`Program.ConfigureServer`) rather than negotiated via OmniSharp's dynamic-registration interface — `vscode-languageclient`'s dynamic `client/registerCapability` round trip for `inlayHint`/`foldingRange` races VS Code's restore of previously-open `.feature` tabs on window load, and a tab that renders first never gets a provider re-check for the rest of the session.
-- **Refresh mirrors semantic tokens.** `InlayHintRefreshHandler` (`LSP.Server/Pipeline/`) debounces `MatchCacheChangedNotification` bursts (500ms) into a single `workspace/inlayHint/refresh`, gated on the client having advertised `workspace.inlayHint.refreshSupport` — the same pattern as `SemanticTokensRefreshHandler`.
+`GherkinInlayHintKind` has three values: `Binding` and `Ambiguous` cover a single row's step text resolving to one or several matches; `Templated` covers a Scenario Outline/Background step whose single merged `MatchResult` (one entry per template line, not per expanded example row) itself resolves to more than one *distinct* Defined binding across different rows, reported as `→ {n} bindings` and kept distinct from the `Ambiguous` case. There are no parameter-type hints (annotating captured-argument spans with `:type`) and no settings surface (`reqnroll.inlayHints.showBindingTarget` / `showParameterTypes`) — the feature is unconditionally on.
+
+Like [F10 Folding](#f10--code-folding), `inlayHintProvider` is declared statically in the `initialize` response (`Program.ConfigureServer`) rather than negotiated via OmniSharp's dynamic-registration interface — `vscode-languageclient`'s dynamic `client/registerCapability` round trip for `inlayHint`/`foldingRange` races VS Code's restore of previously-open `.feature` tabs on window load, and a tab that renders first never gets a provider re-check for the rest of the session. Refresh mirrors semantic tokens: `InlayHintRefreshHandler` (`LSP.Server/Pipeline/`) debounces `MatchCacheChangedNotification` bursts (500ms) into a single `workspace/inlayHint/refresh`, gated on the client having advertised `workspace.inlayHint.refreshSupport` — the same pattern as `SemanticTokensRefreshHandler`.
 
 #### Known limitations
 
-- **Parameter-type hints and the settings surface are deferred, not abandoned.** If a future request wants them, `GherkinInlayHintService.Build` would need a second projection pass over each step's regex capture groups (IH-3's parameter-offset-mapping concern below still applies) and `InlayHintOptions` would need to be threaded from config into the handler.
-- **IH-2 (VS built-in Gherkin hint provider conflict) was not hit** — VS has no built-in inline-hint provider for `.feature` files, so there is nothing to conflict with the server's hints.
+- **No parameter-type hints or settings surface.** Adding them would need a second projection pass in `GherkinInlayHintService.Build` over each step's regex capture groups (see IH-3's parameter-offset-mapping concern in the Open Questions register) and `InlayHintOptions` threaded from config into the handler.
+- **No conflict with a VS built-in hint provider** — VS has no built-in inline-hint provider for `.feature` files, so there is nothing to conflict with the server's hints.
 
 ---
 
