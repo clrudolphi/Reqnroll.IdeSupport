@@ -101,6 +101,18 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
     /// A short retry remains as a defensive safety net in case the component model genuinely isn't
     /// registered yet this early in activation, but is not expected to be needed in practice.
     /// </remarks>
+    /// <remarks>
+    /// Must run on the UI thread (issue #266 follow-up): the first-ever resolution of
+    /// <see cref="ITelemetryTransmitter"/> in a session eagerly constructs <c>TelemetryTransmitter</c>,
+    /// whose constructor calls <c>VersionProvider.GetVsVersion()</c> — which throws if not on the
+    /// UI thread. MEF caches a faulted part permanently for the composition container's lifetime,
+    /// so a single off-UI-thread first-touch here silently and permanently breaks telemetry (and
+    /// anything transitively importing it, e.g. <see cref="RunWelcomeServiceAsync"/>'s <c>IIdeScope</c>
+    /// resolution below) for the rest of the session. <see cref="InitializeAsync"/> runs on a
+    /// background thread by default (<see cref="PackageAutoLoadFlags.BackgroundLoad"/>), so an
+    /// explicit switch is required before touching MEF here — confirmed live: without it, this
+    /// exact fault occurred and cascaded into the Welcome dialog never appearing.
+    /// </remarks>
     private async Task ResolveLoggerAndTelemetryAsync(CancellationToken cancellationToken)
     {
         const int maxAttempts = 4; // ~1 second
@@ -108,6 +120,8 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
         {
             try
             {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
                 var componentModel = await GetServiceAsync(typeof(SComponentModel)) as IComponentModel;
                 if (componentModel != null)
                 {
