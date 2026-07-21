@@ -55,15 +55,27 @@ public static class ConsoleReporter
         sb.AppendLine($"{"Operation",-40} {"Target",9} {"Stat",6} {"P50",9} {"P95",9} {"P99",9} {"Max",9}  Verdict");
         sb.AppendLine(new string('-', 110));
 
-        foreach (var r in report.Results)
+        var orderedResults = report.Results
+            .OrderBy(r => r.Target.Operation, StringComparer.Ordinal)
+            .ToList();
+
+        foreach (var r in orderedResults)
         {
             var s = r.Summary;
             var target = r.Target.TargetMs > 0 ? $"{r.Target.TargetMs,7:0}ms" : $"{"—",9}";
             var verdict = !report.AssertThresholds ? "—" : (r.MeetsTarget ? "PASS" : "FAIL");
+            var label = r.Target.IncludesFixedDelay ? r.Target.Operation + " *" : r.Target.Operation;
             sb.AppendLine(
-                $"{Trunc(r.Target.Operation, 40),-40} " +
+                $"{Trunc(label, 40),-40} " +
                 $"{target} {r.MeasuredStatistic,6} " +
                 $"{s.P50Ms,7:0.0}ms {s.P95Ms,7:0.0}ms {s.P99Ms,7:0.0}ms {s.MaxMs,7:0.0}ms  {verdict}");
+        }
+
+        if (orderedResults.Any(r => r.Target.IncludesFixedDelay))
+        {
+            sb.AppendLine();
+            sb.AppendLine("* includes a fixed debounce/coalescing window the pipeline deliberately waits out");
+            sb.AppendLine("  before reacting (typically ~500ms) — not pure processing cost.");
         }
 
         if (report.Skipped is { Count: > 0 })

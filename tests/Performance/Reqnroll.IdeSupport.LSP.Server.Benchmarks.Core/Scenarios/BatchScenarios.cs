@@ -261,6 +261,16 @@ public static class BatchScenarios
 
         for (var rep = 0; rep < Math.Min(repetitions, undefinedSteps.Count); rep++)
         {
+            // Unlike the plain .feature edit behind Semantic/InlayHintRefreshAsync, a single
+            // BindingRegistryChanged notification here races two independent 500ms debounce
+            // timers (BindingRegistryChangedHandler's rescan debouncer and
+            // CodeLensRefreshHandler's own match-cache-notification debounce), both eventually
+            // sending the same workspace/codeLens/refresh. Without draining them first, a
+            // leftover refresh from the prior rep (or from the no-op open below) can land inside
+            // this rep's wait window and read as an implausibly fast sample — same rationale as
+            // RefreshSettleDelay above.
+            await Task.Delay(RefreshSettleDelay).ConfigureAwait(false);
+
             var (_, _, stepText) = undefinedSteps[rep];
             harness.OpenCSharp(csUri, 1, BindingSource("NonMatchingCodeLens" + rep, "no match at all " + rep));
             await Task.Delay(200).ConfigureAwait(false); // let the no-op open settle before timing the edit
