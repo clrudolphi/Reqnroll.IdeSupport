@@ -134,6 +134,13 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
                         return;
                 }
             }
+            catch (OperationCanceledException)
+            {
+                // Package is shutting down / initialization was cancelled — not a resolution
+                // failure. Let it propagate instead of logging a misleading "threw" breadcrumb
+                // and burning the remaining retry budget on a token that's already cancelled.
+                throw;
+            }
             catch (Exception ex)
             {
                 TryLogActivity(isError: false, $"MEF resolution attempt {attempt}/{maxAttempts} threw: {ex}");
