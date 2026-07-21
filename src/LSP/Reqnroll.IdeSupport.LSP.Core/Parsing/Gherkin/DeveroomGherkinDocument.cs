@@ -24,7 +24,7 @@ public class DeveroomGherkinDocument : GherkinDocument
     public GherkinDialect GherkinDialect { get; }
 
     /// <summary>Returns the token types that would have been valid at the given line, or empty if unknown.</summary>
-    public TokenType[] GetExpectedTokens(int line, ITelemetryService telemetryService)
+    public TokenType[] GetExpectedTokens(int line, IErrorTelemetryService telemetryService)
     {
         if (_statesForLines.Count <= line)
             return new TokenType[0];

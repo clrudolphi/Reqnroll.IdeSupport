@@ -27,12 +27,6 @@ public class TelemetryService : ITelemetryService
 
     // OPEN
 
-    /// <summary>Currently a no-op; reserved for project-system load monitoring.</summary>
-    public void MonitorLoadProjectSystem()
-    {
-        //currently we do nothing at this point
-    }
-
     /// <summary>Transmits the "Extension loaded" event.</summary>
     public void MonitorOpenProjectSystem(IIdeScope ideScope)
     {

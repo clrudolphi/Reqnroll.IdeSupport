@@ -138,6 +138,11 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
             _logger.LogInfo("RunWelcomeServiceAsync: IVsUIShell resolved OK.");
 
             var telemetryService = ideScope.TelemetryService;
+            // Restores the legacy "Extension loaded" signal (previously fired from
+            // MonitoringService.MonitorOpenProjectSystem, which also triggered the welcome flow
+            // itself in the old architecture — here that triggering already happens explicitly
+            // below via WelcomeService, so this call is telemetry-only, issue #255/#259).
+            telemetryService.MonitorOpenProjectSystem(ideScope);
             var dialogService = new VsWizardDialogService(vsUiShell, telemetryService);
 
             _logger.LogInfo("RunWelcomeServiceAsync: creating WelcomeService...");

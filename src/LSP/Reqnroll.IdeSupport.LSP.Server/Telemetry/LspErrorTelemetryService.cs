@@ -10,14 +10,24 @@ namespace Reqnroll.IdeSupport.LSP.Server.Telemetry;
 
 /// <summary>
 /// LSP-server-side <see cref="ITelemetryService"/>. Every VS/host-lifecycle member (project
-/// wizards, dialogs, project-system open/load) is a no-op here, same as
-/// <see cref="NullTelemetryService"/> — those only make sense from a host UI, which the server
-/// doesn't have. <see cref="MonitorError"/> is the one exception: it forwards to
+/// wizards, dialogs, project-system open) is a no-op here, same as <see cref="NullTelemetryService"/>
+/// — those only make sense from a host UI, which the server doesn't have.
+/// <see cref="IErrorTelemetryService.MonitorError"/> is the one exception: it forwards to
 /// <see cref="ILspTelemetryService"/> as an "Error" <c>telemetry/event</c>, so exceptions raised
 /// inside LSP.Core (e.g. <c>DeveroomGherkinParser</c>/<c>DeveroomTagParser</c> via
 /// <c>IdeSupportLoggerExtensions.LogException</c>) actually reach telemetry instead of being
 /// silently dropped. Previously the server was wired with <see cref="NullTelemetryService"/> for
 /// every <see cref="ITelemetryService"/> consumer, including these (issue #255).
+/// <para>
+/// This class still implements the full <see cref="ITelemetryService"/> (not just
+/// <see cref="IErrorTelemetryService"/>) purely because <see cref="Workspace.LspIdeScope.TelemetryService"/>
+/// is typed as <see cref="ITelemetryService"/> — that property's type is shared with VS's
+/// <c>IIdeScope.TelemetryService</c>, which genuinely needs the full interface for wizard/dialog
+/// telemetry, so it can't be narrowed without touching VS-side code that has nothing to do with the
+/// LSP server. <c>LSP.Core</c>'s own classes (<c>DeveroomGherkinParser</c>, <c>DeveroomTagParser</c>,
+/// <c>CompletionContextResolver</c>) depend on the narrow <see cref="IErrorTelemetryService"/>
+/// directly instead — DI resolves both interfaces to this same singleton (issue #255/#259).
+/// </para>
 /// </summary>
 public sealed class LspErrorTelemetryService : ITelemetryService
 {
@@ -37,8 +47,6 @@ public sealed class LspErrorTelemetryService : ITelemetryService
         _lspTelemetryService = lspTelemetryService;
     }
 
-    /// <summary>No-op: the LSP server does not track project-system load telemetry.</summary>
-    public void MonitorLoadProjectSystem() { }
     /// <summary>No-op: the LSP server does not track project-system open telemetry.</summary>
     public void MonitorOpenProjectSystem(IIdeScope ideScope) { }
     /// <summary>No-op: the LSP server does not track project-open telemetry.</summary>

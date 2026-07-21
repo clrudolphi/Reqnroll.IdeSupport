@@ -19,12 +19,12 @@ public class DeveroomTagParser : IDeveroomTagParser
     internal static readonly Regex NewLineRe = new(@"\r\n|\n|\r");
     private readonly IDeveroomConfigurationProvider _deveroomConfigurationProvider;
     private readonly IIdeSupportLogger _logger;
-    private readonly ITelemetryService _telemetryService;
+    private readonly IErrorTelemetryService _telemetryService;
 
     /// <summary>Initializes a new instance of the <see cref="DeveroomTagParser"/> class.</summary>
     public DeveroomTagParser(
         IIdeSupportLogger logger,
-        ITelemetryService telemetryService,
+        IErrorTelemetryService telemetryService,
         IDeveroomConfigurationProvider deveroomConfigurationProvider
     )
     {

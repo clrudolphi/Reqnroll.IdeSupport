@@ -62,7 +62,6 @@ public class LspErrorTelemetryServiceTests
     {
         var sut = CreateSut();
 
-        sut.MonitorLoadProjectSystem();
         sut.MonitorOpenProject(null!, null);
         sut.MonitorOpenFeatureFile(null!);
         sut.MonitorExtensionInstalled();

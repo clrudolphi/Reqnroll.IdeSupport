@@ -79,13 +79,18 @@ public static class ServiceCollectionExtensions
             .AddSingleton<ILspTelemetryService>(sp => new FileLoggingLspTelemetryService(
                 sp.GetRequiredService<LspTelemetryService>(),
                 sp.GetRequiredService<ITelemetryDebugLog>()))
-            // ITelemetryService is the LSP.Core-facing contract (shared with the VS/.NET host).
-            // MonitorError forwards to ILspTelemetryService as an "Error" telemetry/event; every
-            // other member is a no-op (VS/host-UI-only concerns the server has no equivalent of) —
-            // see LspErrorTelemetryService's class doc. Previously registered as NullTelemetryService,
-            // which silently dropped LSP.Core exceptions (e.g. Gherkin parse errors) — issue #255.
+            // ITelemetryService is the VS-host-lifecycle contract; LspErrorTelemetryService only
+            // meaningfully implements MonitorError (forwarded to ILspTelemetryService as an "Error"
+            // telemetry/event) — every other member is a no-op (VS/host-UI-only concerns the server
+            // has no equivalent of). Previously registered as NullTelemetryService, which silently
+            // dropped LSP.Core exceptions (e.g. Gherkin parse errors) — issue #255.
             .AddSingleton<ITelemetryService>(sp => new LspErrorTelemetryService(
                 sp.GetRequiredService<ILspTelemetryService>()))
+            // IErrorTelemetryService is the actual LSP.Core-facing contract (DeveroomGherkinParser,
+            // DeveroomTagParser, CompletionContextResolver depend on this narrow interface, not the
+            // full ITelemetryService above) — same singleton, resolved via interface inheritance
+            // (issue #255/#259's ISP split).
+            .AddSingleton<IErrorTelemetryService>(sp => sp.GetRequiredService<ITelemetryService>())
             .AddSingleton<IDeveroomConfigurationProvider, ProjectSystemDeveroomConfigurationProvider>()
             .AddSingleton<IEditorConfigOptionsProvider>(sp =>
                 new FileSystemEditorConfigOptionsProvider(sp.GetRequiredService<IIdeScope>().FileSystem))

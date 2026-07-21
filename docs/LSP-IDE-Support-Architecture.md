@@ -774,14 +774,26 @@ Code but producing zero telemetry for Rider users. This resolved [Q11](LSP-IDE-S
 in favor of option (c); see the archived `docs/Archive/build-plan-telemetry-capture.md` and
 `docs/Archive/plan-refactor-analytics-appinsights.md` for the full design detail.
 
-Separately, the LSP server's own `ITelemetryService` (the LSP.Core-facing contract shared with the
-.NET host, used e.g. by `DeveroomGherkinParser`/`DeveroomTagParser` to report parse exceptions) was
-wired to a permanent no-op (`NullTelemetryService`), so `MonitorError` calls from LSP.Core were
-silently dropped in production regardless of IDE. `LspErrorTelemetryService` (issue #255) forwards
-`MonitorError` to `ILspTelemetryService` as an `Error` `telemetry/event`, redacting filesystem paths
-from the message first (see Security below); every other `ITelemetryService` member remains a
-no-op, since those are VS/host-UI-only concerns (project wizards, dialogs) the server has no
-equivalent of.
+Separately, the LSP server's own `ITelemetryService` was wired to a permanent no-op
+(`NullTelemetryService`), so `MonitorError` calls from LSP.Core were silently dropped in production
+regardless of IDE. `LspErrorTelemetryService` (issue #255) forwards `MonitorError` to
+`ILspTelemetryService` as an `Error` `telemetry/event`, redacting filesystem paths from the message
+first (see Security below).
+
+`ITelemetryService` itself was later split (issue #255/#259) once it became clear only one of its
+~16 members — `MonitorError` — was ever genuinely shared between `LSP.Core` and the VS host; every
+other member is a VS-lifecycle concern (project wizards, welcome/upgrade dialogs) that `LSP.Core`
+has no business depending on, and every LSP-side implementation (`NullTelemetryService`, then
+`LspErrorTelemetryService`) had to stub out all of them just to satisfy the interface. `MonitorError`
+now lives on its own `IErrorTelemetryService`, which `ITelemetryService` extends; `DeveroomGherkinParser`,
+`DeveroomTagParser`, and `CompletionContextResolver` depend on the narrow interface directly, while
+`IIdeScope.TelemetryService` (needed by both VS's wizard flows and, via
+`ProjectScopeDeveroomConfigurationProvider`/`WatchedFilesHandler`, the LSP server) stays typed as
+the full `ITelemetryService` — both interfaces resolve to the same DI singleton on the LSP server. A
+related, previously-unnoticed bug surfaced during this split: `LspIdeScope.TelemetryService` was
+hardcoded to `NullTelemetryService` rather than the DI-registered service, so errors reported
+through that specific access path (e.g. `WatchedFilesHandler`'s config-load exceptions) were
+silently dropped even after the `MonitorError` fix above — now fixed by injecting the real service.
 
 The following monitoring events from the existing `Reqnroll.VisualStudio` extension should be carried forward:
 
@@ -789,9 +801,9 @@ The following monitoring events from the existing `Reqnroll.VisualStudio` extens
 |-------|---------|
 | `ExtensionInstalled` | First activation after installation |
 | `ExtensionUpgraded` | First activation after version change |
-| `ExtensionDaysOfUsage` | Daily active use heartbeat |
+| `ExtensionDaysOfUsage` | Daily active use heartbeat — **implemented**: `WelcomeService` fires it right after incrementing/persisting `status.UsageDays` (issue #255/#259; the underlying day-counting was already live, only the telemetry call was missing) |
 | `OpenProject` | Workspace project loaded (includes feature file count) |
-| `OpenFeatureFile` | `.feature` file opened |
+| `OpenFeatureFile` | `.feature` file opened — **implemented**: wired into `VsProjectEventMonitor`'s document-activation phase machine (fires exactly once per open-lifetime, on the same `SendNow` transition that triggers `reqnroll/documentActivated` — issue #255/#259; the transmission code already existed but had no caller anywhere) |
 | `ReqnrollDiscovery` | Binding discovery completed (success/failure, step count) |
 | `CommandGoToStepDefinition` | F5 invoked |
 | `CommandGoToHook` | F17 invoked |
@@ -805,7 +817,7 @@ The following monitoring events from the existing `Reqnroll.VisualStudio` extens
 | `CommandAddFeatureFile` | New `.feature` item added |
 | `ProjectTemplateWizardCompleted` | F19 wizard completed (framework selected) |
 | `Error` | Unhandled exception (fatal / non-fatal) — **implemented** server-side (`LspErrorTelemetryService`) for LSP.Core exceptions (issue #255); VS-side wizard/dialog exceptions were already transmitted via the pre-existing `TelemetryTransmitter.TransmitExceptionEvent` path |
-| `ParserParse` | Feature file parsed (duration, file size, dialect) — carry-forward from existing extension; confirm whether retained |
+| `ParserParse` | Feature file parsed (duration, file size, dialect) — **retired, not carried forward** (issue #255/#259): VS no longer parses `.feature` files locally, so this event's whole trigger context is gone; the modern equivalent is the LSP server's perf-sampling telemetry (`PerfSample` events for `textDocument/didOpen`/`didChange`, see Performance Verification above), which times parsing uniformly across every IDE instead |
 | `NotificationShown` | User-facing notification displayed (notification ID) |
 | `NotificationDismissed` | User-facing notification dismissed |
 | `LinkClicked` | External link opened from extension UI |

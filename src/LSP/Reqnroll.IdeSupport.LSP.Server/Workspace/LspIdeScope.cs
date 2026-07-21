@@ -13,11 +13,11 @@ namespace Reqnroll.IdeSupport.LSP.Server.Workspace;
 public sealed class LspIdeScope : IIdeScope
 {
     /// <summary>Initializes a new instance of the <see cref="LspIdeScope"/> class.</summary>
-    public LspIdeScope(IIdeSupportLogger logger)
+    public LspIdeScope(IIdeSupportLogger logger, ITelemetryService? telemetryService = null)
     {
         Logger = logger;
         FileSystem = new FileSystemForIDE();
-        TelemetryService = NullTelemetryService.Instance;
+        TelemetryService = telemetryService ?? NullTelemetryService.Instance;
         Actions = new LspIdeActions(logger);
     }
 
@@ -25,7 +25,16 @@ public sealed class LspIdeScope : IIdeScope
     public bool IsSolutionLoaded => true;
     /// <summary>Logger shared by all project scopes and configuration providers.</summary>
     public IIdeSupportLogger Logger { get; }
-    /// <summary>Telemetry sink; always the no-op <see cref="NullTelemetryService"/> for the LSP server.</summary>
+    /// <summary>
+    /// Telemetry sink — the same DI-registered <see cref="LspErrorTelemetryService"/> singleton
+    /// used everywhere else on the LSP server. Previously hardcoded to
+    /// <see cref="NullTelemetryService"/>, which silently dropped errors reported through this
+    /// property (e.g. <c>ProjectScopeDeveroomConfigurationProvider</c>'s config-load exceptions via
+    /// <c>WatchedFilesHandler</c>) even after issue #255's fix — that fix only reached consumers
+    /// that resolve <see cref="Common.Telemetry.IErrorTelemetryService"/>/<see cref="ITelemetryService"/>
+    /// directly via DI, not this separate <see cref="IIdeScope.TelemetryService"/> access path
+    /// (issue #255/#259).
+    /// </summary>
     public ITelemetryService TelemetryService { get; }
     /// <summary>IDE action callbacks (e.g. error/warning display), implemented via logging for the LSP server.</summary>
     public IIdeActions Actions { get; }
