@@ -780,12 +780,12 @@ The following monitoring events from the existing `Reqnroll.VisualStudio` extens
 | `ReqnrollDiscovery` | Binding discovery completed (success/failure, step count) |
 | `CommandGoToStepDefinition` | F5 invoked |
 | `CommandGoToHook` | F17 invoked |
-| `CommandDefineSteps` | F6 invoked (includes action taken, snippet count) |
-| `CommandFindStepDefinitionUsages` | F14 invoked (usage count, cancelled?) |
+| `CommandDefineSteps` | F6 invoked — **implemented** as `"DefineSteps command offered"` (`FeatureCodeActionHandler`), sent when the code action is *offered* (undefined-step count, actions-offered count). Not "action taken": the code action's `WorkspaceEdit` is applied entirely client-side (`workspace/applyEdit`), so — unlike F13's `workspace/executeCommand` round trip — the server has no signal for whether the user actually clicked it. Offered count is the closest available proxy |
+| `CommandFindStepDefinitionUsages` | F14 invoked — **implemented** as `"FindStepDefinitionUsages command executed"` (`FindStepUsagesHandler`), with `UsagesCount` and a best-effort `IsCancelled` (`cancellationToken.IsCancellationRequested` at completion) |
 | `CommandFindUnusedStepDefinitions` | F15 invoked (unused count, files scanned) |
 | `CommandRenameStep` | F16 invoked |
-| `CommandAutoFormatDocument` | F11 invoked |
-| `CommandAutoFormatTable` | F12 invoked |
+| `CommandAutoFormatDocument` | F11 invoked — **implemented** as `"AutoFormatDocument command executed"` (`GherkinFormattingHandler`), with an `IsSelectionFormatting` flag distinguishing whole-document from range formatting |
+| `CommandAutoFormatTable` | F12 invoked — **deliberately not implemented**: on-type table formatting fires on every keystroke inside a table (`|`/tab/newline), not on a discrete user command, so it's scoped out of usage telemetry the same way the continuous editor features (semantic tokens, completion, etc.) are — perf sampling already covers it (`PerfTargets.OnTypeFormatting`) |
 | `CommandCommentUncomment` | F13 invoked |
 | `CommandAddFeatureFile` | New `.feature` item added |
 | `ProjectTemplateWizardCompleted` | F19 wizard completed (framework selected) |
