@@ -19,7 +19,15 @@ public enum PerfTargetKind
 /// label used by the benchmark scenarios and the Layer 4 recorder, so field and synthetic numbers
 /// line up.
 /// </summary>
-public sealed record PerfTarget(string Operation, double TargetMs, PerfTargetKind Kind, string Description);
+/// <param name="IncludesFixedDelay">
+/// True when the measured number is not pure processing cost but includes a fixed
+/// debounce/coalescing window the pipeline deliberately waits out before reacting (e.g. the
+/// 500ms debounce in <c>SemanticTokensRefreshHandler</c>/<c>InlayHintRefreshHandler</c>/
+/// <c>CodeLensRefreshHandler</c>/<c>FeatureRescanDebouncer</c>). Surfaced as a footnote in the
+/// console report so the number isn't mistaken for slow computation.
+/// </param>
+public sealed record PerfTarget(
+    string Operation, double TargetMs, PerfTargetKind Kind, string Description, bool IncludesFixedDelay = false);
 
 /// <summary>
 /// The architecture's Performance Requirements table, as code (see LSP-IDE-Support-Architecture.md).
@@ -40,7 +48,8 @@ public static class PerfTargets
         new("textDocument/definition", 100, PerfTargetKind.InteractiveP95, "Go to definition, cache hit (F5)");
 
     public static readonly PerfTarget PublishDiagnostics =
-        new("textDocument/publishDiagnostics", 500, PerfTargetKind.InteractiveP95, "Diagnostics push from end of debounce");
+        new("textDocument/publishDiagnostics", 500, PerfTargetKind.InteractiveP95, "Diagnostics push from end of debounce",
+            IncludesFixedDelay: true);
 
     public static readonly PerfTarget RoslynReDiscovery =
         new("discovery/roslyn-single-cs", 2000, PerfTargetKind.Batch, "Roslyn binding re-discovery, single .cs file");
@@ -120,19 +129,23 @@ public static class PerfTargets
     // workspace-reaction wall-clock, not a per-request percentile.
     public static readonly PerfTarget WatchedFilesReconfig =
         new("workspace/didChangeWatchedFiles#reqnroll.json", 0, PerfTargetKind.Batch,
-            "reqnroll.json change reaction (WatchedFilesHandler -> ReqnrollConfigChangedHandler -> re-diagnose)");
+            "reqnroll.json change reaction (WatchedFilesHandler -> ReqnrollConfigChangedHandler -> re-diagnose)",
+            IncludesFixedDelay: true);
 
     public static readonly PerfTarget SemanticTokensRefresh =
-        new("workspace/semanticTokens/refresh", 0, PerfTargetKind.Batch, "Server-initiated semantic tokens refresh push");
+        new("workspace/semanticTokens/refresh", 0, PerfTargetKind.Batch, "Server-initiated semantic tokens refresh push",
+            IncludesFixedDelay: true);
 
     public static readonly PerfTarget InlayHintRefresh =
-        new("workspace/inlayHint/refresh", 0, PerfTargetKind.Batch, "Server-initiated inlay hint refresh push");
+        new("workspace/inlayHint/refresh", 0, PerfTargetKind.Batch, "Server-initiated inlay hint refresh push",
+            IncludesFixedDelay: true);
 
     // Issue #256: the sibling refresh pushes above were both benchmarked, but code lens's own push
     // (CodeLensRefreshHandler / workspace/codeLens/refresh) had no coverage — an inconsistency, not
     // a deliberate omission, since it follows the exact same debounced-push shape.
     public static readonly PerfTarget CodeLensRefresh =
-        new("workspace/codeLens/refresh", 0, PerfTargetKind.Batch, "Server-initiated code lens refresh push");
+        new("workspace/codeLens/refresh", 0, PerfTargetKind.Batch, "Server-initiated code lens refresh push",
+            IncludesFixedDelay: true);
 
     /// <summary>All performance targets, in table order.</summary>
     public static readonly IReadOnlyList<PerfTarget> All = new[]
