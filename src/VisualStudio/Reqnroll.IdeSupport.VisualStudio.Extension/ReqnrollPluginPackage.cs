@@ -42,20 +42,24 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
     /// <inheritdoc />
     protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
     {
+        // MEF-independent breadcrumb (issue #263): written via VS's own Activity Log
+        // (Help > About > "View Activity Log" or %AppData%\...\ActivityLog.xml), so
+        // package activation is observable even if the MEF-exported IIdeSupportLogger
+        // below never resolves. Emitted before anything else so it survives whatever
+        // happens next.
+        TryLogActivity(isError: false, "InitializeAsync started (pre-MEF).");
+
         await base.InitializeAsync(cancellationToken, progress);
 
         // Resolve the shared MEF-exported IIdeSupportLogger (issue #84) rather than a private
         // ad-hoc SynchronousFileLogger + a second, unlistened-to TraceSource. Resolved early
-        // (alongside ITelemetryTransmitter below) so it's available for the full package lifecycle;
-        // falls back to a no-op logger only if the component model isn't ready yet.
-        {
-            var sp = await GetServiceAsync(typeof(SComponentModel)) as IServiceProvider;
-            if (sp != null)
-            {
-                _logger = VsUtils.ResolveMefDependency<IIdeSupportLogger>(sp) ?? new IdeSupportNullLogger();
-                _telemetryTransmitter = VsUtils.ResolveMefDependency<ITelemetryTransmitter>(sp);
-            }
-        }
+        // (alongside ITelemetryTransmitter below) so it's available for the full package lifecycle.
+        // Retries briefly since the component model may not be composed yet this early in
+        // activation (issue #263: a single failed attempt previously left _logger permanently
+        // stuck on a silent no-op for the rest of the package's life). If it never becomes
+        // available, falls back to the no-op logger but says so loudly via ActivityLog, which
+        // doesn't depend on MEF and so stays observable even in that failure case.
+        await ResolveLoggerAndTelemetryAsync(cancellationToken);
 
         _logger.LogInfo("ReqnrollPluginPackage: InitializeAsync started.");
         _logger.LogInfo("Waiting for solution load...");
@@ -79,6 +83,69 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
         await RunWelcomeServiceAsync(cancellationToken);
 
         _logger.LogInfo("Package initialisation complete.");
+    }
+
+    /// <summary>
+    /// Resolves <see cref="_logger"/> and <see cref="_telemetryTransmitter"/> from MEF, retrying
+    /// briefly if the component model isn't composed yet (issue #263). Never throws: a
+    /// composition exception from a mid-composition MEF query is swallowed and retried rather
+    /// than aborting <see cref="InitializeAsync"/> entirely.
+    /// </summary>
+    private async Task ResolveLoggerAndTelemetryAsync(CancellationToken cancellationToken)
+    {
+        const int maxAttempts = 8; // ~2 seconds
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                var sp = await GetServiceAsync(typeof(SComponentModel)) as IServiceProvider;
+                if (sp != null)
+                {
+                    if (_logger is IdeSupportNullLogger)
+                        _logger = VsUtils.ResolveMefDependency<IIdeSupportLogger>(sp) ?? _logger;
+
+                    _telemetryTransmitter ??= VsUtils.ResolveMefDependency<ITelemetryTransmitter>(sp);
+
+                    if (!(_logger is IdeSupportNullLogger) && _telemetryTransmitter != null)
+                        return;
+                }
+            }
+            catch (Exception ex)
+            {
+                TryLogActivity(isError: false, $"MEF resolution attempt {attempt}/{maxAttempts} threw: {ex}");
+            }
+
+            await Task.Delay(250, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (_logger is IdeSupportNullLogger)
+        {
+            TryLogActivity(isError: true,
+                "IIdeSupportLogger did not resolve via MEF after retries; falling back to a no-op " +
+                "logger for the rest of this session. This class's LogInfo/LogWarning/LogException " +
+                "calls will not appear in the extension log.");
+        }
+    }
+
+    /// <summary>
+    /// Writes a breadcrumb to VS's built-in Activity Log, independent of MEF/<see cref="_logger"/>,
+    /// so this class's activation and MEF-resolution failures stay observable even when the
+    /// MEF-exported logger itself is unavailable (issue #263). Best-effort: swallows failures
+    /// since this is a diagnostic aid, not something that should abort package initialization.
+    /// </summary>
+    private static void TryLogActivity(bool isError, string message)
+    {
+        try
+        {
+            if (isError)
+                ActivityLog.LogError(nameof(ReqnrollPluginPackage), message);
+            else
+                ActivityLog.LogInformation(nameof(ReqnrollPluginPackage), message);
+        }
+        catch
+        {
+            // Diagnostic-only; never let a logging failure affect package initialization.
+        }
     }
 
     private async Task RunWelcomeServiceAsync(CancellationToken cancellationToken)
