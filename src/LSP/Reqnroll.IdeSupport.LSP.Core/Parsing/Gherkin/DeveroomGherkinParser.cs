@@ -13,11 +13,11 @@ namespace Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 /// </summary>
 public class DeveroomGherkinParser
 {
-    private readonly ITelemetryService _telemetryService;
+    private readonly IErrorTelemetryService _telemetryService;
     private IAstBuilder<DeveroomGherkinDocument> _astBuilder;
 
     /// <summary>Creates a parser using the given Gherkin dialect provider.</summary>
-    public DeveroomGherkinParser(IGherkinDialectProvider dialectProvider, ITelemetryService telemetryService)
+    public DeveroomGherkinParser(IGherkinDialectProvider dialectProvider, IErrorTelemetryService telemetryService)
     {
         _telemetryService = telemetryService;
         DialectProvider = dialectProvider;
@@ -107,11 +107,11 @@ public class DeveroomGherkinParser
 
     private class InternalParser : Parser<DeveroomGherkinDocument>
     {
-        private readonly ITelemetryService _telemetryService;
+        private readonly IErrorTelemetryService _telemetryService;
         private readonly Action<int, int> _recordStateForLine;
 
         public InternalParser(IAstBuilder<DeveroomGherkinDocument> astBuilder, Action<int, int> recordStateForLine,
-            ITelemetryService telemetryService)
+            IErrorTelemetryService telemetryService)
             : base(astBuilder)
         {
             _recordStateForLine = recordStateForLine;
@@ -293,7 +293,7 @@ public class DeveroomGherkinParser
     /// token to discover which token types would have been valid next; used to power
     /// error-recovery/completion suggestions.
     /// </summary>
-    public static TokenType[] GetExpectedTokens(int state, ITelemetryService telemetryService)
+    public static TokenType[] GetExpectedTokens(int state, IErrorTelemetryService telemetryService)
     {
         var parser = new InternalParser(new NullAstBuilder(), null, telemetryService)
         {

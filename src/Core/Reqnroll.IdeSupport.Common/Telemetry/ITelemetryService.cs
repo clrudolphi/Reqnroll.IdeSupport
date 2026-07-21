@@ -1,21 +1,30 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Reqnroll.IdeSupport.Common.ProjectSystem.Settings;
 
 namespace Reqnroll.IdeSupport.Common.Telemetry;
 
-/// <summary>ITelemetryService</summary>
-public interface ITelemetryService
+/// <summary>
+/// VS-host telemetry lifecycle: project wizards, welcome/upgrade dialogs, and other concerns the
+/// LSP server has no equivalent of. Extends <see cref="IErrorTelemetryService"/> (the one member
+/// genuinely shared with <c>LSP.Core</c>) rather than declaring <c>MonitorError</c> itself — see
+/// that interface's doc comment for why the split exists.
+/// </summary>
+public interface ITelemetryService : IErrorTelemetryService
 {
-    /// <summary>Records that the project system has finished loading.</summary>
-    void MonitorLoadProjectSystem();
     /// <summary>Records that a project system was opened.</summary>
     void MonitorOpenProjectSystem(IIdeScope ideScope);
     /// <summary>Records that a project was opened, including its feature file count.</summary>
     void MonitorOpenProject(ProjectSettings settings, int? featureFileCount);
     /// <summary>Records that a feature file was opened.</summary>
     void MonitorOpenFeatureFile(ProjectSettings projectSettings);
-    //void MonitorParserParse(ProjectSettings settings, Dictionary<string, object> additionalProps);
+    // MonitorParserParse(ProjectSettings, Dictionary<string, object>) — retired, not just unwired:
+    // VS no longer parses .feature files locally (all parsing moved server-side, uniformly across
+    // every IDE, into LSP.Core's DeveroomGherkinParser). The modern equivalent of "parse
+    // duration/file size" is the LSP server's perf-sampling telemetry (PerfSample events for
+    // textDocument/didOpen and textDocument/didChange via IOperationDurationRecorder — see
+    // TextDocumentSyncHandler), not a business event on this interface. Restoring this member would
+    // just duplicate that, and re-introduce the same "continuous per-edit event" problem the
+    // CommandAutoFormatTable exclusion (issue #255/#260) deliberately avoids elsewhere.
 
     /// <summary>Records that the extension was freshly installed.</summary>
     void MonitorExtensionInstalled();
@@ -38,10 +47,11 @@ public interface ITelemetryService
     void MonitorCommandAddReqnrollConfigFile(ProjectSettings projectSettings);
     //void MonitorCommandRenameStepExecuted(RenameStepCommandContext ctx);
 
-    //void MonitorReqnrollGeneration(bool isFailed, ProjectSettings projectSettings);
-
-    /// <summary>Records an exception, optionally flagging whether it was fatal.</summary>
-    void MonitorError(Exception exception, bool? isFatal = null);
+    // MonitorReqnrollGeneration(bool isFailed, ProjectSettings) — not just unwired, the feature it
+    // monitors (single-file code-behind generation for .feature files) has no implementation
+    // anywhere in Reqnroll.IdeSupport to hook into; see Reqnroll.IdeSupport.LSP.Connector.Models.GenerationResult,
+    // a data contract with zero call sites. Restoring this member wouldn't close a gap — it would
+    // need the underlying generation feature built first. Left commented out until that exists.
 
     /// <summary>Records that the "add new Reqnroll project" wizard was started.</summary>
     void MonitorProjectTemplateWizardStarted();

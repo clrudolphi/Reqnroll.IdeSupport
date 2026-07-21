@@ -75,6 +75,7 @@ public class WelcomeService : IWelcomeService
                 status.UsageDays++;
                 status.LastUsedDate = today;
                 _registryManager.UpdateStatus(status);
+                telemetryService.MonitorExtensionDaysOfUsage(status.UsageDays);
             }
 
             if (status.InstalledVersion < currentVersion)

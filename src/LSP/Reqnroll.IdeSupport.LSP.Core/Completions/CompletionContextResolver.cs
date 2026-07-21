@@ -18,10 +18,10 @@ namespace Reqnroll.IdeSupport.LSP.Core.Completions;
 public sealed class CompletionContextResolver : ICompletionContextResolver
 {
     private readonly IDeveroomTagParser _tagParser;
-    private readonly ITelemetryService _telemetryService;
+    private readonly IErrorTelemetryService _telemetryService;
 
     /// <summary>Initializes a new instance of the <see cref="CompletionContextResolver"/> class.</summary>
-    public CompletionContextResolver(IDeveroomTagParser tagParser, ITelemetryService telemetryService)
+    public CompletionContextResolver(IDeveroomTagParser tagParser, IErrorTelemetryService telemetryService)
     {
         _tagParser         = tagParser;
         _telemetryService = telemetryService;

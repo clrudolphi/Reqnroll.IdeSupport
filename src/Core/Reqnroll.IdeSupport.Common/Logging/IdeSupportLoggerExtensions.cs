@@ -55,7 +55,7 @@ public static class IdeSupportLoggerExtensions
     }
 
     /// <summary>Reports the exception to telemetry and logs it as an error-level message.</summary>
-    public static void LogException(this IIdeSupportLogger logger, ITelemetryService telemetryService, Exception ex,
+    public static void LogException(this IIdeSupportLogger logger, IErrorTelemetryService telemetryService, Exception ex,
         string message = "Exception", [CallerMemberName] string callerName = "???")
     {
         telemetryService.MonitorError(ex);
@@ -72,7 +72,7 @@ public static class IdeSupportLoggerExtensions
     }
 
     /// <summary>Reports the exception to telemetry (as non-fatal) and logs it as a verbose-level message.</summary>
-    public static void LogVerboseException(this IIdeSupportLogger logger, ITelemetryService telemetryService,
+    public static void LogVerboseException(this IIdeSupportLogger logger, IErrorTelemetryService telemetryService,
         Exception ex, string message = "Exception", [CallerMemberName] string callerName = "???")
     {
         telemetryService.MonitorError(ex, false);
