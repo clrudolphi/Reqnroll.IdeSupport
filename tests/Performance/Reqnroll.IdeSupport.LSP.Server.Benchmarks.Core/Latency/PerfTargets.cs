@@ -128,6 +128,12 @@ public static class PerfTargets
     public static readonly PerfTarget InlayHintRefresh =
         new("workspace/inlayHint/refresh", 0, PerfTargetKind.Batch, "Server-initiated inlay hint refresh push");
 
+    // Issue #256: the sibling refresh pushes above were both benchmarked, but code lens's own push
+    // (CodeLensRefreshHandler / workspace/codeLens/refresh) had no coverage — an inconsistency, not
+    // a deliberate omission, since it follows the exact same debounced-push shape.
+    public static readonly PerfTarget CodeLensRefresh =
+        new("workspace/codeLens/refresh", 0, PerfTargetKind.Batch, "Server-initiated code lens refresh push");
+
     /// <summary>All performance targets, in table order.</summary>
     public static readonly IReadOnlyList<PerfTarget> All = new[]
     {

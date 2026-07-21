@@ -75,6 +75,8 @@ public static class BenchmarkRunner
         {
             (PerfTargets.SemanticTokensFull, await scenarios.SemanticTokensAsync().ConfigureAwait(false)),
             (PerfTargets.SemanticTokensDelta, await scenarios.SemanticTokensDeltaAsync().ConfigureAwait(false)),
+            (PerfTargets.DocumentSymbol, await scenarios.DocumentSymbolAsync().ConfigureAwait(false)),
+            (PerfTargets.FoldingRange, await scenarios.FoldingRangeAsync().ConfigureAwait(false)),
             (PerfTargets.CompletionKeyword, await scenarios.KeywordCompletionAsync().ConfigureAwait(false)),
             (PerfTargets.CompletionStep, await scenarios.StepCompletionAsync().ConfigureAwait(false)),
             (PerfTargets.DefinitionCacheHit, await scenarios.DefinitionAsync().ConfigureAwait(false)),
@@ -112,6 +114,8 @@ public static class BenchmarkRunner
                 await BatchScenarios.SemanticTokensRefreshAsync(harness, features).ConfigureAwait(false)));
             summaries.Add((PerfTargets.InlayHintRefresh,
                 await BatchScenarios.InlayHintRefreshAsync(harness, features).ConfigureAwait(false)));
+            summaries.Add((PerfTargets.CodeLensRefresh,
+                await BatchScenarios.CodeLensRefreshAsync(harness, corpusRoot, features[0].Text).ConfigureAwait(false)));
         }
 
         // Binding-discovery batch scenarios: only measurable once a built corpus bindings assembly
