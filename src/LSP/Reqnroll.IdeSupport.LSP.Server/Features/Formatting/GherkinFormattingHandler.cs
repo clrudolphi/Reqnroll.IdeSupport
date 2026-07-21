@@ -24,6 +24,7 @@ public sealed class GherkinFormattingHandler
     private readonly IEditorConfigOptionsProvider _editorConfigOptionsProvider;
     private readonly IDeveroomConfigurationProvider _configurationProvider;
     private readonly IIdeSupportLogger _logger;
+    private readonly ILspTelemetryService? _telemetryService;
     private readonly IOperationDurationRecorder _recorder;
     private readonly GherkinDocumentFormatter _formatter = new();
 
@@ -42,12 +43,14 @@ public sealed class GherkinFormattingHandler
         IEditorConfigOptionsProvider editorConfigOptionsProvider,
         IDeveroomConfigurationProvider configurationProvider,
         IIdeSupportLogger logger,
+        ILspTelemetryService? telemetryService = null,
         IOperationDurationRecorder? recorder = null)
     {
         _documentBufferService = documentBufferService;
         _editorConfigOptionsProvider = editorConfigOptionsProvider;
         _configurationProvider = configurationProvider;
         _logger = logger;
+        _telemetryService = telemetryService;
         _recorder = recorder ?? NullOperationDurationRecorder.Instance;
     }
 
@@ -59,13 +62,21 @@ public sealed class GherkinFormattingHandler
         => new() { DocumentSelector = FeatureSelector };
 
     /// <summary>Handles a <c>textDocument/formatting</c> request for Gherkin document formatting.</summary>
-    public Task<TextEditContainer?> Handle(DocumentFormattingParams request, CancellationToken ct)
+    public async Task<TextEditContainer?> Handle(DocumentFormattingParams request, CancellationToken ct)
     {
         using var _perf = _recorder.Measure(LspMethodNames.TextDocumentFormatting, request.TextDocument.Uri);
         var filePath = request.TextDocument.Uri.GetFileSystemPath();
         _logger.LogInfo($"Document auto-formatting textDocument/formatting: {request.TextDocument.Uri}");
-        return FormatDocumentAsync(request.TextDocument.Uri, filePath, request.Options,
-            startLine: null, endLine: null);
+        var result = await FormatDocumentAsync(request.TextDocument.Uri, filePath, request.Options,
+            startLine: null, endLine: null).ConfigureAwait(false);
+
+        // Telemetry
+        _telemetryService?.SendEvent("AutoFormatDocument command executed", new()
+        {
+            ["IsSelectionFormatting"] = false,
+        });
+
+        return result;
     }
 
     // ── IDocumentRangeFormattingHandler ──────────────────────────────────────
@@ -81,11 +92,19 @@ public sealed class GherkinFormattingHandler
         using var _perf = _recorder.Measure(LspMethodNames.TextDocumentRangeFormatting, request.TextDocument.Uri);
         var filePath = request.TextDocument.Uri.GetFileSystemPath();
         _logger.LogInfo($"Document auto-formatting textDocument/rangeFormatting: {request.TextDocument.Uri}");
-        return await FormatDocumentAsync(
+        var result = await FormatDocumentAsync(
             request.TextDocument.Uri, filePath, request.Options,
             startLine: (int)request.Range.Start.Line,
             endLine: (int)request.Range.End.Line).ConfigureAwait(false)
             ?? new TextEditContainer();
+
+        // Telemetry
+        _telemetryService?.SendEvent("AutoFormatDocument command executed", new()
+        {
+            ["IsSelectionFormatting"] = true,
+        });
+
+        return result;
     }
 
     // ── IDocumentOnTypeFormattingHandler ─────────────────────────────────────

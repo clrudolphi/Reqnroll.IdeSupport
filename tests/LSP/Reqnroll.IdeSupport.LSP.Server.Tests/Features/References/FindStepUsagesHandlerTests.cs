@@ -7,6 +7,7 @@ using Reqnroll.IdeSupport.LSP.Core.Documents;
 using Reqnroll.IdeSupport.LSP.Core.Matching;
 using Reqnroll.IdeSupport.LSP.Server.Features.References;
 using Reqnroll.IdeSupport.LSP.Server.Registry;
+using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Features.References;
@@ -17,6 +18,7 @@ public class FindStepUsagesHandlerTests
     private readonly ILspWorkspaceScopeManager     _scopeManager   = Substitute.For<ILspWorkspaceScopeManager>();
     private readonly IProjectBindingRegistryLookup _registryLookup = Substitute.For<IProjectBindingRegistryLookup>();
     private readonly IIdeSupportLogger               _logger         = Substitute.For<IIdeSupportLogger>();
+    private readonly ILspTelemetryService          _telemetryService = Substitute.For<ILspTelemetryService>();
 
     private static readonly DocumentUri CsUri      = DocumentUri.FromFileSystemPath("/workspace/Steps.cs");
     private static readonly DocumentUri FeatureUri = DocumentUri.FromFileSystemPath("/workspace/test.feature");
@@ -28,7 +30,7 @@ public class FindStepUsagesHandlerTests
     }
 
     private FindStepUsagesHandler CreateSut() =>
-        new(_matchService, _scopeManager, _registryLookup, _logger);
+        new(_matchService, _scopeManager, _registryLookup, _logger, _telemetryService);
 
     private static ReferenceParams RequestAt(DocumentUri uri, int line, int character) =>
         new()
@@ -319,5 +321,48 @@ public class FindStepUsagesHandlerTests
         _matchService.Received(1).FindUsages(
             Arg.Any<SourceLocation>(),
             Arg.Is<IReadOnlyCollection<ProjectOwner>?>(f => f == null));
+    }
+
+    // ── Telemetry ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Handle_not_a_binding_does_not_send_telemetry()
+    {
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(Array.Empty<StepBindingMatch>());
+        _registryLookup.HasBindingAtLocation(Arg.Any<DocumentUri>(), Arg.Any<SourceLocation>())
+                        .Returns(false);
+
+        await CreateSut().HandleAsync(RequestAt(CsUri, 0, 0), CancellationToken.None);
+
+        _telemetryService.DidNotReceiveWithAnyArgs().SendEvent(default!, default!);
+    }
+
+    [Fact]
+    public async Task Handle_binding_with_no_usages_sends_telemetry_with_zero_count()
+    {
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(Array.Empty<StepBindingMatch>());
+        _registryLookup.HasBindingAtLocation(Arg.Any<DocumentUri>(), Arg.Any<SourceLocation>())
+                        .Returns(true);
+
+        await CreateSut().HandleAsync(RequestAt(CsUri, 9, 0), CancellationToken.None);
+
+        _telemetryService.Received(1).SendEvent(
+            "FindStepDefinitionUsages command executed",
+            Arg.Is<Dictionary<string, object?>>(p => (int)p["UsagesCount"]! == 0));
+    }
+
+    [Fact]
+    public async Task Handle_binding_with_usages_sends_telemetry_with_usage_count()
+    {
+        _matchService.FindUsages(Arg.Any<SourceLocation>(), Arg.Any<IReadOnlyCollection<ProjectOwner>>())
+                     .Returns(new[] { MakeMatch(FeatureUri, 33, 6) });
+
+        await CreateSut().HandleAsync(RequestAt(CsUri, 9, 0), CancellationToken.None);
+
+        _telemetryService.Received(1).SendEvent(
+            "FindStepDefinitionUsages command executed",
+            Arg.Is<Dictionary<string, object?>>(p => (int)p["UsagesCount"]! == 1));
     }
 }

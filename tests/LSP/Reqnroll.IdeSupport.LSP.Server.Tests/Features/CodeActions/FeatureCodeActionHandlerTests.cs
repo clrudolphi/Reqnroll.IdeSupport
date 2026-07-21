@@ -17,6 +17,7 @@ using Reqnroll.IdeSupport.LSP.Core.Parsing.Gherkin;
 using Reqnroll.IdeSupport.LSP.Core.Scaffolding;
 using Reqnroll.IdeSupport.LSP.Server.Features.CodeActions;
 using Reqnroll.IdeSupport.LSP.Server.Features.TextSync;
+using Reqnroll.IdeSupport.LSP.Server.Telemetry;
 using Reqnroll.IdeSupport.LSP.Server.Workspace;
 
 namespace Reqnroll.IdeSupport.LSP.Server.Tests.Features.CodeActions;
@@ -29,6 +30,7 @@ public class FeatureCodeActionHandlerTests
     private readonly IDocumentBufferService      _bufferService = Substitute.For<IDocumentBufferService>();
     private readonly IIdeSupportLogger             _logger        = Substitute.For<IIdeSupportLogger>();
     private readonly IDeveroomConfigurationProvider _configProvider = Substitute.For<IDeveroomConfigurationProvider>();
+    private readonly ILspTelemetryService        _telemetryService = Substitute.For<ILspTelemetryService>();
 
     private const string FeatureText =
         "Feature: F\nScenario: S\n    Given a step\n    When I press add\n";
@@ -49,7 +51,7 @@ public class FeatureCodeActionHandlerTests
     }
 
     private FeatureCodeActionHandler CreateSut() =>
-        new(_matchService, _scaffoldService, _scopeManager, _bufferService, _logger);
+        new(_matchService, _scaffoldService, _scopeManager, _bufferService, _logger, _telemetryService);
 
     private static CodeActionParams RequestAt(DocumentUri uri, int line = 0) =>
         new()
@@ -259,6 +261,29 @@ public class FeatureCodeActionHandlerTests
         {
             Directory.Delete(tempDir, recursive: true);
         }
+    }
+
+    // ── Telemetry ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Sends_telemetry_when_a_define_steps_action_is_offered()
+    {
+        SeedMatchService(UndefinedMatch("I press add", ScenarioBlock.When));
+
+        await CreateSut().Handle(RequestAt(FeatureUri), CancellationToken.None);
+
+        _telemetryService.Received(1).SendEvent(
+            "DefineSteps command offered",
+            Arg.Is<Dictionary<string, object?>>(p =>
+                (int)p["UndefinedStepCount"]! == 1 && (int)p["ActionsOffered"]! == 1));
+    }
+
+    [Fact]
+    public async Task Does_not_send_telemetry_when_no_actions_are_offered()
+    {
+        await CreateSut().Handle(RequestAt(FeatureUri), CancellationToken.None);
+
+        _telemetryService.DidNotReceiveWithAnyArgs().SendEvent(default!, default!);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
