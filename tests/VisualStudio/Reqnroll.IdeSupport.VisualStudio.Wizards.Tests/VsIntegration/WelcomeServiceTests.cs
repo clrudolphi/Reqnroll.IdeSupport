@@ -149,6 +149,38 @@ public class WelcomeServiceTests
             s.UsageDays == 6 && s.LastUsedDate == DateTime.Today));
     }
 
+    [Fact]
+    public void Existing_user_new_day_fires_days_of_usage_telemetry()
+    {
+        _registryManager.GetInstallStatus().Returns(new ReqnrollInstallationStatus
+        {
+            InstalledVersion = new Version(1, 0, 0),
+            InstallDate = DateTime.Today,
+            LastUsedDate = DateTime.Today.AddDays(-1),
+            UsageDays = 5,
+        });
+
+        CreateService().OnIdeScopeActivityStarted(_ideScope);
+
+        _telemetryService.Received(1).MonitorExtensionDaysOfUsage(6);
+    }
+
+    [Fact]
+    public void Existing_user_same_day_does_not_fire_days_of_usage_telemetry()
+    {
+        _registryManager.GetInstallStatus().Returns(new ReqnrollInstallationStatus
+        {
+            InstalledVersion = new Version(1, 0, 0),
+            InstallDate = DateTime.Today,
+            LastUsedDate = DateTime.Today,
+            UsageDays = 5,
+        });
+
+        CreateService().OnIdeScopeActivityStarted(_ideScope);
+
+        _telemetryService.DidNotReceiveWithAnyArgs().MonitorExtensionDaysOfUsage(default);
+    }
+
     // ── ChangeLog selection ──────────────────────────────────────────
 
     [Fact]

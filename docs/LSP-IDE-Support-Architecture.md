@@ -762,11 +762,38 @@ baseline. See `docs/Archive/Performance-Verification-Implementation-Plan.md` for
 
 The server emits the LSP `telemetry/event` notification (server → client); each IDE
 host owns the concrete transmitter — `TelemetryTransmitter` in VS's `VSSDKIntegration` (standard
-`Microsoft.ApplicationInsights` SDK, not a hand-rolled HTTP client), and `telemetry.ts` /
-`TelemetryReporter` in VS Code — both pointed at the same Application Insights resource. This
-resolved [Q11](LSP-IDE-Support-Open-Questions.md) in favor of option (c); see the archived
-`docs/Archive/build-plan-telemetry-capture.md` and `docs/Archive/plan-refactor-analytics-appinsights.md`
-for the full design detail.
+`Microsoft.ApplicationInsights` SDK, not a hand-rolled HTTP client), `telemetry.ts` /
+`TelemetryReporter` in VS Code, and `RiderTelemetryTransmitter` in the Rider plugin (a direct POST
+to the Application Insights ingestion REST endpoint via the JDK's `java.net.http.HttpClient`, since
+pulling in the Java Application Insights SDK wasn't justified for one event type) — all three
+pointed at the same Application Insights resource, each forwarding via a `telemetry/event`
+interceptor registered on that IDE's LSP client (`TelemetryEventInterceptor.cs` for VS,
+`registerTelemetry` in `telemetry.ts` for VS Code, `ReqnrollTelemetryEventInterceptor.kt` for
+Rider). Rider had no such interceptor until issue #255 — every event below was reaching VS and VS
+Code but producing zero telemetry for Rider users. This resolved [Q11](LSP-IDE-Support-Open-Questions.md)
+in favor of option (c); see the archived `docs/Archive/build-plan-telemetry-capture.md` and
+`docs/Archive/plan-refactor-analytics-appinsights.md` for the full design detail.
+
+Separately, the LSP server's own `ITelemetryService` was wired to a permanent no-op
+(`NullTelemetryService`), so `MonitorError` calls from LSP.Core were silently dropped in production
+regardless of IDE. `LspErrorTelemetryService` (issue #255) forwards `MonitorError` to
+`ILspTelemetryService` as an `Error` `telemetry/event`, redacting filesystem paths from the message
+first (see Security below).
+
+`ITelemetryService` itself was later split (issue #255/#259) once it became clear only one of its
+~16 members — `MonitorError` — was ever genuinely shared between `LSP.Core` and the VS host; every
+other member is a VS-lifecycle concern (project wizards, welcome/upgrade dialogs) that `LSP.Core`
+has no business depending on, and every LSP-side implementation (`NullTelemetryService`, then
+`LspErrorTelemetryService`) had to stub out all of them just to satisfy the interface. `MonitorError`
+now lives on its own `IErrorTelemetryService`, which `ITelemetryService` extends; `DeveroomGherkinParser`,
+`DeveroomTagParser`, and `CompletionContextResolver` depend on the narrow interface directly, while
+`IIdeScope.TelemetryService` (needed by both VS's wizard flows and, via
+`ProjectScopeDeveroomConfigurationProvider`/`WatchedFilesHandler`, the LSP server) stays typed as
+the full `ITelemetryService` — both interfaces resolve to the same DI singleton on the LSP server. A
+related, previously-unnoticed bug surfaced during this split: `LspIdeScope.TelemetryService` was
+hardcoded to `NullTelemetryService` rather than the DI-registered service, so errors reported
+through that specific access path (e.g. `WatchedFilesHandler`'s config-load exceptions) were
+silently dropped even after the `MonitorError` fix above — now fixed by injecting the real service.
 
 The following monitoring events from the existing `Reqnroll.VisualStudio` extension should be carried forward:
 
@@ -774,9 +801,9 @@ The following monitoring events from the existing `Reqnroll.VisualStudio` extens
 |-------|---------|
 | `ExtensionInstalled` | First activation after installation |
 | `ExtensionUpgraded` | First activation after version change |
-| `ExtensionDaysOfUsage` | Daily active use heartbeat |
+| `ExtensionDaysOfUsage` | Daily active use heartbeat — **implemented**: `WelcomeService` fires it right after incrementing/persisting `status.UsageDays` (issue #255/#259; the underlying day-counting was already live, only the telemetry call was missing) |
 | `OpenProject` | Workspace project loaded (includes feature file count) |
-| `OpenFeatureFile` | `.feature` file opened |
+| `OpenFeatureFile` | `.feature` file opened — **implemented**: wired into `VsProjectEventMonitor`'s document-activation phase machine (fires exactly once per open-lifetime, on the same `SendNow` transition that triggers `reqnroll/documentActivated` — issue #255/#259; the transmission code already existed but had no caller anywhere) |
 | `ReqnrollDiscovery` | Binding discovery completed (success/failure, step count) |
 | `CommandGoToStepDefinition` | F5 invoked |
 | `CommandGoToHook` | F17 invoked |
@@ -789,8 +816,8 @@ The following monitoring events from the existing `Reqnroll.VisualStudio` extens
 | `CommandCommentUncomment` | F13 invoked |
 | `CommandAddFeatureFile` | New `.feature` item added |
 | `ProjectTemplateWizardCompleted` | F19 wizard completed (framework selected) |
-| `Error` | Unhandled exception (fatal / non-fatal) |
-| `ParserParse` | Feature file parsed (duration, file size, dialect) — carry-forward from existing extension; confirm whether retained |
+| `Error` | Unhandled exception (fatal / non-fatal) — **implemented** server-side (`LspErrorTelemetryService`) for LSP.Core exceptions (issue #255); VS-side wizard/dialog exceptions were already transmitted via the pre-existing `TelemetryTransmitter.TransmitExceptionEvent` path |
+| `ParserParse` | Feature file parsed (duration, file size, dialect) — **retired, not carried forward** (issue #255/#259): VS no longer parses `.feature` files locally, so this event's whole trigger context is gone; the modern equivalent is the LSP server's perf-sampling telemetry (`PerfSample` events for `textDocument/didOpen`/`didChange`, see Performance Verification above), which times parsing uniformly across every IDE instead |
 | `NotificationShown` | User-facing notification displayed (notification ID) |
 | `NotificationDismissed` | User-facing notification dismissed |
 | `LinkClicked` | External link opened from extension UI |
@@ -821,7 +848,7 @@ The following monitoring events from the existing `Reqnroll.VisualStudio` extens
 
 **Telemetry and privacy**
 - The `OpenProject` event must not transmit absolute file paths, project names, or any content that identifies the user's codebase. Only aggregate counts (feature file count, step definition count) are transmitted.
-- The `Error` event must scrub exception messages for file paths and user-identifiable strings before transmission.
+- The `Error` event must scrub exception messages for file paths and user-identifiable strings before transmission — implemented server-side via `LspErrorTelemetryService.RedactPaths` (Windows/UNC/POSIX path patterns replaced with `<path>`) before the message ever leaves the process.
 - Telemetry is opt-out, consistent with the existing `Reqnroll.VisualStudio` extension behavior. The opt-out preference is respected uniformly across all three IDE clients.
 - A public telemetry data inventory (listing every event and its fields) should be published at project launch.
 

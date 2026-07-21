@@ -16,8 +16,6 @@ public sealed class NullTelemetryService : ITelemetryService
 
     private NullTelemetryService() { }
 
-    /// <summary>No-op: the LSP server does not track project-system load telemetry.</summary>
-    public void MonitorLoadProjectSystem() { }
     /// <summary>No-op: the LSP server does not track project-system open telemetry.</summary>
     public void MonitorOpenProjectSystem(IIdeScope ideScope) { }
     /// <summary>No-op: the LSP server does not track project-open telemetry.</summary>
