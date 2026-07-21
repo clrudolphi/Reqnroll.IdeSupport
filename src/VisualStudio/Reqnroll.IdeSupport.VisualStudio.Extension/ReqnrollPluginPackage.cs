@@ -54,11 +54,8 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
         // Resolve the shared MEF-exported IIdeSupportLogger (issue #84) rather than a private
         // ad-hoc SynchronousFileLogger + a second, unlistened-to TraceSource. Resolved early
         // (alongside ITelemetryTransmitter below) so it's available for the full package lifecycle.
-        // Retries briefly since the component model may not be composed yet this early in
-        // activation (issue #263: a single failed attempt previously left _logger permanently
-        // stuck on a silent no-op for the rest of the package's life). If it never becomes
-        // available, falls back to the no-op logger but says so loudly via ActivityLog, which
-        // doesn't depend on MEF and so stays observable even in that failure case.
+        // If it never becomes available, falls back to the no-op logger but says so loudly via
+        // ActivityLog, which doesn't depend on MEF and so stays observable even in that failure case.
         await ResolveLoggerAndTelemetryAsync(cancellationToken);
 
         _logger.LogInfo("ReqnrollPluginPackage: InitializeAsync started.");
@@ -86,25 +83,38 @@ public sealed class ReqnrollPluginPackage : AsyncPackage
     }
 
     /// <summary>
-    /// Resolves <see cref="_logger"/> and <see cref="_telemetryTransmitter"/> from MEF, retrying
-    /// briefly if the component model isn't composed yet (issue #263). Never throws: a
-    /// composition exception from a mid-composition MEF query is swallowed and retried rather
-    /// than aborting <see cref="InitializeAsync"/> entirely.
+    /// Resolves <see cref="_logger"/> and <see cref="_telemetryTransmitter"/> from MEF.
     /// </summary>
+    /// <remarks>
+    /// Root cause of issue #263/#266: <see cref="AsyncPackage.GetServiceAsync(Type)"/> called with
+    /// <see cref="SComponentModel"/> returns the <see cref="IComponentModel"/> service object
+    /// itself — not some other <see cref="IServiceProvider"/> through which <c>SComponentModel</c>
+    /// could be looked up again. The original code cast that result <c>as IServiceProvider</c>,
+    /// which <see cref="IComponentModel"/> does not implement, so the cast silently produced null
+    /// on every call, 100% reproducibly (confirmed live: 8/8 attempts null over 2s in a #266
+    /// diagnostic run) — not the intermittent startup race originally suspected. Casting directly
+    /// to <see cref="IComponentModel"/> and calling <see cref="IComponentModel.GetService{T}"/> is
+    /// the correct pattern (contrast <see cref="VsUtils.ResolveMefDependency{T}"/>, which is for
+    /// the different case of already holding some other <see cref="IServiceProvider"/> — e.g.
+    /// <see cref="ServiceProvider.GlobalProvider"/> in <see cref="RunWelcomeServiceAsync"/> below —
+    /// and querying it for <c>SComponentModel</c>).
+    /// A short retry remains as a defensive safety net in case the component model genuinely isn't
+    /// registered yet this early in activation, but is not expected to be needed in practice.
+    /// </remarks>
     private async Task ResolveLoggerAndTelemetryAsync(CancellationToken cancellationToken)
     {
-        const int maxAttempts = 8; // ~2 seconds
+        const int maxAttempts = 4; // ~1 second
         for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
             try
             {
-                var sp = await GetServiceAsync(typeof(SComponentModel)) as IServiceProvider;
-                if (sp != null)
+                var componentModel = await GetServiceAsync(typeof(SComponentModel)) as IComponentModel;
+                if (componentModel != null)
                 {
                     if (_logger is IdeSupportNullLogger)
-                        _logger = VsUtils.ResolveMefDependency<IIdeSupportLogger>(sp) ?? _logger;
+                        _logger = componentModel.GetService<IIdeSupportLogger>() ?? _logger;
 
-                    _telemetryTransmitter ??= VsUtils.ResolveMefDependency<ITelemetryTransmitter>(sp);
+                    _telemetryTransmitter ??= componentModel.GetService<ITelemetryTransmitter>();
 
                     if (!(_logger is IdeSupportNullLogger) && _telemetryTransmitter != null)
                         return;
