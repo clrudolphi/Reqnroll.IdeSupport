@@ -187,7 +187,7 @@ one side.
 
 ## Multi-IDE considerations
 
-The server serves three IDE clients (VS, VS Code, Rider — Rider not yet built) from one codebase.
+The server serves three IDE clients (VS, VS Code, Rider — all three built, none yet published to their respective marketplaces) from one codebase.
 Before adding IDE-specific behavior in server code:
 
 - Check `ClientIdeContext.IsVisualStudio` (or the equivalent per-IDE flag) and gate the workaround
