@@ -466,7 +466,7 @@ Pressing **Go to Definition** (F12 / Ctrl+Click) on a step in a `.feature` file 
 |---------|---------------|-------|
 | ✅ Generic | ✅ Generic | 🔧 Plugin |
 
-**Rider note**: Cross-language navigation from a `.feature` step into a `.cs` file requires the `ReqnrollFeatureDefinitionReferenceProvider` PSI bridge — Rider's native LSP client cannot perform this navigation without it. This was confirmed by the Thomas Heijtink PoC. See [Architecture §6.3](LSP-IDE-Support-Architecture.md#63-rider) for implementation details.
+**Rider note (as-built)**: No PSI bridge needed. The pre-implementation Thomas Heijtink PoC assumed a `ReqnrollFeatureDefinitionReferenceProvider` PSI bridge would be required, but as built this works through Rider's generic LSP client with zero Rider-specific navigation code — `lspGoToDefinitionSupport = true` on the server descriptor is sufficient, confirmed live. See [Architecture §6.3](LSP-IDE-Support-Architecture.md#63-rider) for implementation details.
 
 #### LSP messages
 
@@ -1172,7 +1172,7 @@ This parse is **fast** (single file, single attribute list walk — typically <5
 
 - **VS Code**: When the cursor is on a multi-attribute binding method, `prepareRename` returns `null` and the standard rename gesture (F2) is unavailable. The user must click into the specific attribute string to rename. An additional keyboard shortcut binding (provided via `package.json`) routes to the custom `reqnroll/renameStep` command when supported.
 - **Visual Studio**: The existing `RenameStepCommand` (VSSDK) is retained for the multi-attribute case and for users who prefer the custom dialog with inline validation (`RenameStepViewModel`). The standard LSP rename handles the single-binding case. The VS command checks whether the cursor is on an unambiguous binding and delegates to the LSP rename flow; otherwise it falls back to the custom dialog with the step-definition picker.
-- **Rider**: The Rider LSP client bridges multi-attribute ambiguity through a PSI-level handler (similar to the F14 Find Usages approach) that intercepts the rename gesture and, when multiple candidates exist, shows the IntelliJ-native "Choose Step Definition" popup.
+- **Rider (as-built)**: Not a PSI-level handler — Rider has no native rename bridge (confirmed by decompiling `LspServerDescriptor`: no `lspRenameSupport`-style customization exists). `RenameStepRunner` holds the shared "disambiguate via `reqnroll/renameTargets`, prompt, then drive `textDocument/rename`" logic behind `RenameFeatureStepAction`/`RenameCSharpStepAction`, mirroring VS's `RenameStepCommand`/VS Code's `renameDisambiguation.ts`; `RenameWorkspaceEditApplier` applies the returned `WorkspaceEdit` locally since Rider's server only proactively pushes `workspace/applyEdit` for Visual Studio. See [Architecture §6.3](LSP-IDE-Support-Architecture.md#63-rider).
 
 #### LSP messages
 
@@ -1344,7 +1344,7 @@ All results are filtered by the tags in scope at the cursor position matched aga
 
 Using `textDocument/definition` for this feature is not viable: F5 already uses that message to navigate to the step binding on step lines, so the server would have no way to distinguish "find step definition" from "find hooks" when the cursor is on a step line. Step-level hooks (`[BeforeStep]`/`[AfterStep]`) would be unreachable. Instead, the plugin sends a dedicated custom request `reqnroll/goToHooks`, which the server handles independently of the standard definition pipeline.
 
-**Rider note**: Unlike F5 (which routes through `ReqnrollFeatureDefinitionReferenceProvider`), hook navigation uses the separate `reqnroll/goToHooks` message and requires its own PSI bridge handler. See [Architecture §6.3](LSP-IDE-Support-Architecture.md#63-rider).
+**Rider note (as-built)**: Unlike F5 (generic LSP Go to Definition, no Rider-specific code needed), hook navigation has no standard IDE gesture to piggyback on, so it uses the separate `reqnroll/goToHooks` custom request via a request-sender pattern — not a PSI bridge. See the `#### Rider` subsection below and [Architecture §6.3](LSP-IDE-Support-Architecture.md#63-rider).
 
 #### Visual Studio — surface and UX details
 
@@ -1423,7 +1423,7 @@ C# step binding methods display an inline annotation above the method's binding 
 
 To bridge the mismatch, `StepCodeLensState` maintains a per-file registry of method start lines. As each `TryCreateCodeLensAsync` fires it registers the reported line. By the time `GetLabelAsync` runs for method N, all methods below it (higher line numbers, processed earlier) are already registered. `GetNextMethodLine` returns the smallest registered line above the current method, providing a reliable upper bound. The filter `RangeLine >= currentStartLine && RangeLine < nextMethodStartLine` then selects exactly the server lenses that belong to this method. For the bottommost visible method (no next entry registered yet) a fixed `AttributeLookahead = 5` constant serves as fallback.
 
-**Rider note**: Code Lens via LSP is supported but requires verification of how project-wide refresh is triggered when the Binding Registry changes.
+**Rider note (as-built)**: Standard `textDocument/codeLens` called directly via `ReqnrollRequestSender`, rendered through IntelliJ's native `CodeVisionProvider`, since Rider's generic client has no rendering-side consumer for it either. Project-wide refresh when the Binding Registry changes uses the *standard* `workspace/codeLens/refresh` notification (unlike VS, which needs the custom `reqnroll/refreshCodeLens` notification because it bypasses VS's built-in LSP code-lens infrastructure entirely). See [Architecture §6.4](LSP-IDE-Support-Architecture.md#64-cross-ide-client-implementation--server-conditional-logic-matrix).
 
 #### LSP messages
 

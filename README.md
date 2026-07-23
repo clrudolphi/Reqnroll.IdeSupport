@@ -4,10 +4,11 @@ LSP-based IDE support for [Reqnroll](https://reqnroll.net/), the open-source Ghe
 framework for .NET. One shared LSP server drives Gherkin syntax highlighting, diagnostics,
 navigation, completions, formatting, and refactoring across multiple IDEs, replacing the legacy
 monolithic [`Reqnroll.VisualStudio`](https://github.com/reqnroll/Reqnroll.Visualstudio) VS
-extension with a design that works the same way in Visual Studio, VS Code, and (planned) Rider.
+extension with a design that works the same way in Visual Studio, VS Code, and Rider.
 
-> **Status:** Preview / active development. The Visual Studio and VS Code extensions are
-> functional and cover most of the planned feature set; see
+> **Status:** Preview / active development. The Visual Studio, VS Code, and Rider clients are all
+> functional and cover most of the planned feature set; none are yet published to their
+> respective marketplaces. See
 > [Open Questions & Risk Register](docs/LSP-IDE-Support-Open-Questions.md) for what's still
 > unresolved and the [Issues](../../issues) tab for tracked defects and to-dos. Not yet promoted
 > as the recommended replacement for the legacy extension — see
