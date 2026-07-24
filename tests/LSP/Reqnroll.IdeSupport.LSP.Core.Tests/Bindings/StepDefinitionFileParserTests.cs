@@ -241,6 +241,122 @@ namespace TestProject
             "no 'Given' prefix is present on the method name, so it shouldn't be stripped when matching as a Given step");
     }
 
+    // The following tests mirror Reqnroll's own runtime coverage for this algorithm
+    // (Tests/Reqnroll.RuntimeTests/Bindings/StepDefinitionRegexCalculatorTests.cs) to verify
+    // this port reproduces the same matching behavior, not just the same happy-path shape.
+
+    [Theory]
+    [InlineData("When_I_do")]
+    [InlineData("WhenIDo")]
+    [InlineData("When_do_something")]
+    [InlineData("WhenDoSomething")]
+    [InlineData("When_do")]
+    public async Task Method_name_binding_is_anchored_and_does_not_match_a_substring(string methodName)
+    {
+        var stepDefinitions = await ParseStepDefinitions(
+            $@"[When]
+               public void {methodName}() {{ }}");
+
+        var binding = stepDefinitions.Should().ContainSingle().Subject!;
+        binding.Regex!.IsMatch("I do something").Should().BeFalse(
+            $"'{methodName}' only covers part of the step text, so the anchored regex should not match");
+    }
+
+    [Theory]
+    [InlineData("When_WHO_does_WHAT_with")]
+    [InlineData("WhenWHODoesWHATWith")]
+    [InlineData("When_P0_does_P1_with")]
+    public async Task Method_name_binding_supports_multiple_parameters(string methodName)
+    {
+        var stepDefinitions = await ParseStepDefinitions(
+            $@"[When]
+               public void {methodName}(string who, string what) {{ }}");
+
+        var binding = stepDefinitions.Should().ContainSingle().Subject!;
+        var match = binding.Regex!.Match("Joe does something with");
+        match.Success.Should().BeTrue();
+        match.Groups["who"].Value.Should().Be("Joe");
+        match.Groups["what"].Value.Should().Be("something");
+    }
+
+    [Fact]
+    public async Task Method_name_binding_ignores_a_parameter_not_reflected_in_the_method_name()
+    {
+        // Mirrors Reqnroll's SupportsExtraArguments (a trailing Table-typed parameter that
+        // never appears in the step text) — any parameter the algorithm can't locate in the
+        // method name is simply left out of the regex rather than breaking the match.
+        var stepDefinitions = await ParseStepDefinitions(
+            @"[When]
+              public void When_WHO_does_something(string who, string table) { }");
+
+        var binding = stepDefinitions.Should().ContainSingle().Subject!;
+        var match = binding.Regex!.Match("Joe does something");
+        match.Success.Should().BeTrue();
+        match.Groups["who"].Value.Should().Be("Joe");
+    }
+
+    [Theory]
+    [InlineData("that:Joe,does;something.?!")]
+    [InlineData("that : Joe , does ; something .?! ")]
+    [InlineData("that -Joe - does -something-")]
+    [InlineData("that' Joe does \"something\"")]
+    public async Task Method_name_binding_word_connector_absorbs_punctuation_between_words(string stepText)
+    {
+        var stepDefinitions = await ParseStepDefinitions(
+            @"[When]
+              public void When_that_WHO_does_something(string who) { }");
+
+        var binding = stepDefinitions.Should().ContainSingle().Subject!;
+        var match = binding.Regex!.Match(stepText);
+        match.Success.Should().BeTrue();
+        match.Groups["who"].Value.Should().Be("Joe");
+    }
+
+    [Theory]
+    [InlineData("!that does not work")]
+    [InlineData(" that does not work")]
+    public async Task Method_name_binding_does_not_allow_leading_whitespace_or_punctuation(string stepText)
+    {
+        var stepDefinitions = await ParseStepDefinitions(
+            @"[When]
+              public void When_that_does_not_work() { }");
+
+        var binding = stepDefinitions.Should().ContainSingle().Subject!;
+        binding.Regex!.IsMatch(stepText).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("this doesn't work", "this_doesnt_work", false)]
+    [InlineData("this doesn't work", "this_doesn_t_work", true)]
+    [InlineData("this does not work", "this_does_not_work", true)]
+    public async Task Method_name_binding_apostrophed_shortenings_need_explicit_underscores(
+        string stepText, string methodName, bool shouldMatch)
+    {
+        // An apostrophe is not a word boundary the algorithm splits on, so "doesnt" (no
+        // apostrophe, no underscore) won't match "doesn't" — only an explicit underscore
+        // ("doesn_t") introduces the boundary needed to match it.
+        var stepDefinitions = await ParseStepDefinitions(
+            $@"[When]
+               public void {methodName}() {{ }}");
+
+        var binding = stepDefinitions.Should().ContainSingle().Subject!;
+        binding.Regex!.IsMatch(stepText).Should().Be(shouldMatch);
+    }
+
+    [Theory]
+    [InlineData("I_do_something")]
+    [InlineData("IDoSomething")]
+    public async Task Method_name_binding_works_when_the_block_keyword_is_entirely_absent(string methodName)
+    {
+        var stepDefinitions = await ParseStepDefinitions(
+            $@"[When]
+               public void {methodName}() {{ }}");
+
+        var binding = stepDefinitions.Should().ContainSingle().Subject!;
+        binding.Regex!.IsMatch("I do something").Should().BeTrue(
+            "stripping the block keyword prefix is opportunistic, not required — the whole method name should still match when the keyword is absent");
+    }
+
     [Fact]
     public async Task Captures_parameter_types()
     {
